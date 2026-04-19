@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' blob: data: https://*.clerk.com https://img.clerk.com",
               "font-src 'self'",
-              "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com",
+              "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com",
               "frame-src 'self' https://*.clerk.accounts.dev",
               "worker-src 'self' blob:",
               "object-src 'none'",
