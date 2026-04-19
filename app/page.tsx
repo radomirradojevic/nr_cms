@@ -1,4 +1,4 @@
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -13,18 +13,6 @@ export default function Home() {
             Link Shortener helps you create clean, branded links and keep track
             of how they perform, all from one simple dashboard.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <SignInButton mode="modal">
-              <Button size="lg" className="cursor-pointer">
-                Sign in
-              </Button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <Button variant="outline" size="lg" className="cursor-pointer">
-                Sign up
-              </Button>
-            </SignUpButton>
-          </div>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
