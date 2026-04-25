@@ -10,7 +10,7 @@
 
 ### Key Breaking Changes
 
-- **Middleware → Proxy**: The file is `proxy.ts`, not `middleware.ts`
+- **Middleware → Proxy**: The file is `proxy.ts`, not `middleware.ts`. **NEVER create or use `middleware.ts`** — it is deprecated in this version of Next.js and will not work. All middleware logic (routing, redirecting etc...) MUST go in `proxy.ts`.
 - **`params`/`searchParams` are Promises**: Must `await` them in pages, layouts, and route handlers
 - **Tailwind CSS v4**: No `tailwind.config.js` — config lives in `globals.css` via `@theme` and CSS imports
 - **ESLint v9 flat config**: Uses `eslint.config.mjs`, not `.eslintrc`
