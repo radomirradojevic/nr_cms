@@ -1,9 +1,42 @@
 import { db } from '@/db';
 import { links } from '@/db/schema';
-import { desc, eq, and } from 'drizzle-orm';
+import { desc, eq, and, count, or, ilike } from 'drizzle-orm';
 
 export async function getLinksByUserId(userId: string) {
   return db.select().from(links).where(eq(links.userId, userId)).orderBy(desc(links.updatedAt));
+}
+
+export async function getLinksByUserIdPaginated(
+  userId: string,
+  page: number,
+  pageSize: number,
+  search?: string
+) {
+  const offset = (page - 1) * pageSize;
+
+  const searchCondition = search
+    ? or(
+        ilike(links.shortCode, `%${search}%`),
+        ilike(links.originalUrl, `%${search}%`)
+      )
+    : undefined;
+
+  const whereClause = searchCondition
+    ? and(eq(links.userId, userId), searchCondition)
+    : eq(links.userId, userId);
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select()
+      .from(links)
+      .where(whereClause)
+      .orderBy(desc(links.updatedAt))
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ total: count() }).from(links).where(whereClause),
+  ]);
+
+  return { links: rows, total };
 }
 
 export type InsertLinkInput = {
