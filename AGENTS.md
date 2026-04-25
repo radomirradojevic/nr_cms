@@ -15,14 +15,6 @@
 - **Tailwind CSS v4**: No `tailwind.config.js` — config lives in `globals.css` via `@theme` and CSS imports
 - **ESLint v9 flat config**: Uses `eslint.config.mjs`, not `.eslintrc`
 
-## Instruction Files
-
-> **⚠️ MANDATORY: You MUST read the relevant instruction file(s) from the `docs/` directory BEFORE generating ANY code. No exceptions. Skipping this step will result in incorrect, non-compliant code. Do NOT rely on assumptions or prior knowledge — always open and read the specific `docs/*.md` file for the feature area you are working on.**
-
-- [`docs/auth.md`](docs/auth.md) — Authentication (Clerk): route protection, modals, redirects
-- [`docs/ui.md`](docs/ui.md) — UI components: shadcn/ui only, no custom components
-
-
 
 ## Quick Reference
 
