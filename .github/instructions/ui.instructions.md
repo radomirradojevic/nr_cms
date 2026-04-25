@@ -1,3 +1,7 @@
+---
+description: This file outlines the UI component usage guidelines for the project, which relies exclusively on shadcn/ui. Read this to understand how to properly use and customize UI components. 
+---
+
 # UI Components — shadcn/ui Only
 
 > All UI in this project is built exclusively with [shadcn/ui](https://ui.shadcn.com). Do NOT create custom components.
