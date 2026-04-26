@@ -2,7 +2,12 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { insertLink, updateLink, deleteLinkById } from "@/data/links";
+import {
+  insertLink,
+  updateLink,
+  deleteLinkById,
+  deleteLinksByIds,
+} from "@/data/links";
 import { revalidatePath } from "next/cache";
 
 const createLinkSchema = z.object({
@@ -127,6 +132,30 @@ export async function deleteLink(input: DeleteLinkInput) {
       };
     }
 
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch {
+    return { error: "Something went wrong. Please try again." };
+  }
+}
+
+const deleteLinksSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1),
+});
+
+export type DeleteLinksInput = {
+  ids: number[];
+};
+
+export async function deleteLinks(input: DeleteLinksInput) {
+  const { userId } = await auth();
+  if (!userId) return { error: "Unauthorized." };
+
+  const parsed = deleteLinksSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid input." };
+
+  try {
+    await deleteLinksByIds(parsed.data.ids, userId);
     revalidatePath("/dashboard");
     return { success: true };
   } catch {

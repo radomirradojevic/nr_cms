@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { links } from "@/db/schema";
-import { desc, eq, and, count, or, ilike } from "drizzle-orm";
+import { desc, eq, and, count, or, ilike, inArray } from "drizzle-orm";
 
 export async function getLinksByUserId(userId: string) {
   return db
@@ -72,6 +72,13 @@ export async function deleteLinkById(id: number, userId: string) {
   return db
     .delete(links)
     .where(and(eq(links.id, id), eq(links.userId, userId)))
+    .returning();
+}
+
+export async function deleteLinksByIds(ids: number[], userId: string) {
+  return db
+    .delete(links)
+    .where(and(inArray(links.id, ids), eq(links.userId, userId)))
     .returning();
 }
 
