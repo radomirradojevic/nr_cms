@@ -5,7 +5,9 @@
 ## Critical Warning
 
 <!-- BEGIN:nextjs-agent-rules -->
+
 **This is NOT the Next.js you know.** This project runs Next.js **16.2.4** with breaking changes from prior versions. APIs, conventions, and file structure differ from your training data. When in doubt, consult `node_modules/next/dist/docs/`.
+
 <!-- END:nextjs-agent-rules -->
 
 ### Key Breaking Changes
@@ -14,7 +16,6 @@
 - **`params`/`searchParams` are Promises**: Must `await` them in pages, layouts, and route handlers
 - **Tailwind CSS v4**: No `tailwind.config.js` — config lives in `globals.css` via `@theme` and CSS imports
 - **ESLint v9 flat config**: Uses `eslint.config.mjs`, not `.eslintrc`
-
 
 ## Quick Reference
 

@@ -38,14 +38,14 @@ description: This file outlines the authentication requirements and implementati
 
 ## Clerk Components Reference
 
-| Component | Purpose |
-|---|---|
-| `<ClerkProvider>` | Wraps the app in `layout.tsx` |
-| `<SignInButton mode="modal">` | Opens sign-in modal |
-| `<SignUpButton mode="modal">` | Opens sign-up modal |
-| `<UserButton />` | Signed-in user avatar/menu |
-| `<Show when="signed-in">` | Conditionally render for signed-in users |
-| `<Show when="signed-out">` | Conditionally render for signed-out users |
+| Component                     | Purpose                                   |
+| ----------------------------- | ----------------------------------------- |
+| `<ClerkProvider>`             | Wraps the app in `layout.tsx`             |
+| `<SignInButton mode="modal">` | Opens sign-in modal                       |
+| `<SignUpButton mode="modal">` | Opens sign-up modal                       |
+| `<UserButton />`              | Signed-in user avatar/menu                |
+| `<Show when="signed-in">`     | Conditionally render for signed-in users  |
+| `<Show when="signed-out">`    | Conditionally render for signed-out users |
 
 ## Implementation Plan
 

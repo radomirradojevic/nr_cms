@@ -32,7 +32,10 @@ const formSchema = z.object({
     .string()
     .min(1, 'Short code is required.')
     .max(50, 'Short code must be 50 characters or fewer.')
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, numbers, hyphens, and underscores are allowed.'),
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      'Only letters, numbers, hyphens, and underscores are allowed.',
+    ),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -83,7 +86,9 @@ export function CreateLinkDialog() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create a new short link</DialogTitle>
-          <DialogDescription>Fill in the fields below to create a new short link.</DialogDescription>
+          <DialogDescription>
+            Fill in the fields below to create a new short link.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -95,7 +100,10 @@ export function CreateLinkDialog() {
                 <FormItem>
                   <FormLabel>Destination URL</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://example.com/very/long/url" {...field} />
+                    <Input
+                      placeholder="https://example.com/very/long/url"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -117,7 +125,9 @@ export function CreateLinkDialog() {
             />
 
             {serverError && (
-              <p className="text-sm font-medium text-destructive">{serverError}</p>
+              <p className="text-sm font-medium text-destructive">
+                {serverError}
+              </p>
             )}
 
             <div className="flex justify-end gap-2 pt-2">

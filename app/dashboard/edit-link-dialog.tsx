@@ -32,7 +32,10 @@ const formSchema = z.object({
     .string()
     .min(1, 'Short code is required.')
     .max(50, 'Short code must be 50 characters or fewer.')
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, numbers, hyphens, and underscores are allowed.'),
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      'Only letters, numbers, hyphens, and underscores are allowed.',
+    ),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -75,7 +78,10 @@ export function EditLinkDialog({ link }: Props) {
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) {
-          form.reset({ originalUrl: link.originalUrl, shortCode: link.shortCode });
+          form.reset({
+            originalUrl: link.originalUrl,
+            shortCode: link.shortCode,
+          });
           setServerError(null);
         }
       }}
@@ -90,7 +96,9 @@ export function EditLinkDialog({ link }: Props) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit short link</DialogTitle>
-          <DialogDescription>Update the destination URL or short code below.</DialogDescription>
+          <DialogDescription>
+            Update the destination URL or short code below.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -102,7 +110,10 @@ export function EditLinkDialog({ link }: Props) {
                 <FormItem>
                   <FormLabel>Destination URL</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://example.com/very/long/url" {...field} />
+                    <Input
+                      placeholder="https://example.com/very/long/url"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

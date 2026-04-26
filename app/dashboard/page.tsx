@@ -1,7 +1,7 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { getLinksByUserIdPaginated } from "@/data/links";
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { getLinksByUserIdPaginated } from '@/data/links';
 import {
   Table,
   TableBody,
@@ -9,19 +9,19 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { CreateLinkDialog } from "@/app/dashboard/create-link-dialog";
-import { EditLinkDialog } from "@/app/dashboard/edit-link-dialog";
-import { DeleteLinkDialog } from "@/app/dashboard/delete-link-dialog";
-import { PageSizeSelector } from "@/app/dashboard/page-size-selector";
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { CreateLinkDialog } from '@/app/dashboard/create-link-dialog';
+import { EditLinkDialog } from '@/app/dashboard/edit-link-dialog';
+import { DeleteLinkDialog } from '@/app/dashboard/delete-link-dialog';
+import { PageSizeSelector } from '@/app/dashboard/page-size-selector';
 
 const ALLOWED_PAGE_SIZES = [10, 20, 30] as const;
 type AllowedPageSize = (typeof ALLOWED_PAGE_SIZES)[number];
 
 function parsePageSize(value: string | undefined): AllowedPageSize {
-  const n = parseInt(value ?? "10", 10);
+  const n = parseInt(value ?? '10', 10);
   return (ALLOWED_PAGE_SIZES as readonly number[]).includes(n)
     ? (n as AllowedPageSize)
     : 10;
@@ -35,24 +35,33 @@ export default async function DashboardPage({
   const { userId } = await auth();
 
   if (!userId) {
-    redirect("/");
+    redirect('/');
   }
 
-  const { page: pageParam, search, pageSize: pageSizeParam } = await searchParams;
-  const query = search?.trim() ?? "";
+  const {
+    page: pageParam,
+    search,
+    pageSize: pageSizeParam,
+  } = await searchParams;
+  const query = search?.trim() ?? '';
   const pageSize = parsePageSize(pageSizeParam);
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const page = Math.max(1, parseInt(pageParam ?? '1', 10) || 1);
 
-  const { links, total } = await getLinksByUserIdPaginated(userId, page, pageSize, query || undefined);
+  const { links, total } = await getLinksByUserIdPaginated(
+    userId,
+    page,
+    pageSize,
+    query || undefined,
+  );
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
 
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
-    if (query) params.set("search", query);
-    if (pageSize !== 10) params.set("pageSize", String(pageSize));
-    params.set("page", String(p));
+    if (query) params.set('search', query);
+    if (pageSize !== 10) params.set('pageSize', String(pageSize));
+    params.set('page', String(p));
     return `?${params.toString()}`;
   };
 
@@ -72,7 +81,7 @@ export default async function DashboardPage({
       </form>
       {total === 0 ? (
         <p className="text-muted-foreground">
-          {query ? "No links match your search." : "You have no links yet."}
+          {query ? 'No links match your search.' : 'You have no links yet.'}
         </p>
       ) : (
         <>
@@ -89,11 +98,18 @@ export default async function DashboardPage({
               {links.map((link) => (
                 <TableRow key={link.id}>
                   <TableCell className="font-mono">
-                    <Link href={`/l/${link.shortCode}`} className="hover:underline" target="_blank" rel="noopener noreferrer">
+                    <Link
+                      href={`/l/${link.shortCode}`}
+                      className="hover:underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       {link.shortCode}
                     </Link>
                   </TableCell>
-                  <TableCell className="max-w-xs truncate">{link.originalUrl}</TableCell>
+                  <TableCell className="max-w-xs truncate">
+                    {link.originalUrl}
+                  </TableCell>
                   <TableCell>{link.createdAt.toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -112,10 +128,20 @@ export default async function DashboardPage({
             <div className="flex items-center gap-4">
               <PageSizeSelector pageSize={pageSize} />
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" asChild disabled={safePage <= 1}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  disabled={safePage <= 1}
+                >
                   <Link href={buildHref(safePage - 1)}>Previous</Link>
                 </Button>
-                <Button variant="outline" size="sm" asChild disabled={safePage >= totalPages}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  disabled={safePage >= totalPages}
+                >
                   <Link href={buildHref(safePage + 1)}>Next</Link>
                 </Button>
               </div>

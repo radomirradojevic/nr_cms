@@ -3,21 +3,25 @@ import { links } from '@/db/schema';
 import { desc, eq, and, count, or, ilike } from 'drizzle-orm';
 
 export async function getLinksByUserId(userId: string) {
-  return db.select().from(links).where(eq(links.userId, userId)).orderBy(desc(links.updatedAt));
+  return db
+    .select()
+    .from(links)
+    .where(eq(links.userId, userId))
+    .orderBy(desc(links.updatedAt));
 }
 
 export async function getLinksByUserIdPaginated(
   userId: string,
   page: number,
   pageSize: number,
-  search?: string
+  search?: string,
 ) {
   const offset = (page - 1) * pageSize;
 
   const searchCondition = search
     ? or(
         ilike(links.shortCode, `%${search}%`),
-        ilike(links.originalUrl, `%${search}%`)
+        ilike(links.originalUrl, `%${search}%`),
       )
     : undefined;
 
@@ -72,6 +76,10 @@ export async function deleteLinkById(id: number, userId: string) {
 }
 
 export async function getLinkByShortCode(shortCode: string) {
-  const result = await db.select().from(links).where(eq(links.shortCode, shortCode)).limit(1);
+  const result = await db
+    .select()
+    .from(links)
+    .where(eq(links.shortCode, shortCode))
+    .limit(1);
   return result[0] ?? null;
 }

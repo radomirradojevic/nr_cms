@@ -11,7 +11,10 @@ const createLinkSchema = z.object({
     .string()
     .min(1, 'Short code is required.')
     .max(50, 'Short code must be 50 characters or fewer.')
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, numbers, hyphens, and underscores are allowed.'),
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      'Only letters, numbers, hyphens, and underscores are allowed.',
+    ),
 });
 
 export type CreateLinkInput = {
@@ -40,7 +43,9 @@ export async function createLink(input: CreateLinkInput) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('unique')) {
-      return { error: 'That short code is already taken. Please choose another.' };
+      return {
+        error: 'That short code is already taken. Please choose another.',
+      };
     }
     return { error: 'Something went wrong. Please try again.' };
   }
@@ -53,7 +58,10 @@ const editLinkSchema = z.object({
     .string()
     .min(1, 'Short code is required.')
     .max(50, 'Short code must be 50 characters or fewer.')
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, numbers, hyphens, and underscores are allowed.'),
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      'Only letters, numbers, hyphens, and underscores are allowed.',
+    ),
 });
 
 export type EditLinkInput = {
@@ -80,7 +88,9 @@ export async function editLink(input: EditLinkInput) {
     });
 
     if (updated.length === 0) {
-      return { error: 'Link not found or you do not have permission to edit it.' };
+      return {
+        error: 'Link not found or you do not have permission to edit it.',
+      };
     }
 
     revalidatePath('/dashboard');
@@ -88,7 +98,9 @@ export async function editLink(input: EditLinkInput) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('unique')) {
-      return { error: 'That short code is already taken. Please choose another.' };
+      return {
+        error: 'That short code is already taken. Please choose another.',
+      };
     }
     return { error: 'Something went wrong. Please try again.' };
   }
@@ -110,7 +122,9 @@ export async function deleteLink(input: DeleteLinkInput) {
     const deleted = await deleteLinkById(input.id, userId);
 
     if (deleted.length === 0) {
-      return { error: 'Link not found or you do not have permission to delete it.' };
+      return {
+        error: 'Link not found or you do not have permission to delete it.',
+      };
     }
 
     revalidatePath('/dashboard');

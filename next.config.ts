@@ -1,14 +1,14 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['172.18.208.1'],
   async headers() {
     return [
       {
-        source: "/(.*)",
+        source: '/(.*)',
         headers: [
           {
-            key: "Content-Security-Policy",
+            key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev",
@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
               "frame-src 'self' https://*.clerk.accounts.dev",
               "worker-src 'self' blob:",
               "object-src 'none'",
-            ].join("; "),
+            ].join('; '),
           },
         ],
       },

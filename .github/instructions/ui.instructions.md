@@ -1,5 +1,5 @@
 ---
-description: This file outlines the UI component usage guidelines for the project, which relies exclusively on shadcn/ui. Read this to understand how to properly use and customize UI components. 
+description: This file outlines the UI component usage guidelines for the project, which relies exclusively on shadcn/ui. Read this to understand how to properly use and customize UI components.
 ---
 
 # UI Components — shadcn/ui Only

@@ -1,5 +1,6 @@
-import { SignInButton } from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
+import { SignInButton } from '@clerk/nextjs';
+import { Button } from '@/components/ui/button';
+import { ContactForm } from '@/components/contact-form';
 
 export default function Home() {
   return (
@@ -42,6 +43,34 @@ export default function Home() {
             </Button>
           </SignInButton>
         </div>
+
+        <section className="rounded-lg border bg-card p-8">
+          <h2 className="text-2xl font-semibold">Contact us</h2>
+          <div className="mt-6 grid gap-10 sm:grid-cols-2">
+            <ul className="space-y-2 text-muted-foreground">
+              <li>📍 123 Main Street, Suite 400, San Francisco, CA 94105</li>
+              <li>
+                📧{' '}
+                <a
+                  href="mailto:hello@linkshortener.io"
+                  className="underline hover:text-foreground"
+                >
+                  hello@linkshortener.io
+                </a>
+              </li>
+              <li>
+                📞{' '}
+                <a
+                  href="tel:+14155550199"
+                  className="underline hover:text-foreground"
+                >
+                  +1 (415) 555-0199
+                </a>
+              </li>
+            </ul>
+            <ContactForm />
+          </div>
+        </section>
       </main>
     </div>
   );

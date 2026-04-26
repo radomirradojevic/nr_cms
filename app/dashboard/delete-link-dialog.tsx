@@ -49,8 +49,8 @@ export function DeleteLinkDialog({ link }: Props) {
           <AlertDialogTitle>Delete short link?</AlertDialogTitle>
           <AlertDialogDescription>
             This will permanently delete the short link{' '}
-            <span className="font-mono font-medium">{link.shortCode}</span>. This action cannot be
-            undone.
+            <span className="font-mono font-medium">{link.shortCode}</span>.
+            This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

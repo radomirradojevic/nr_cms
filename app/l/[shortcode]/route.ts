@@ -3,7 +3,7 @@ import { getLinkByShortCode } from '@/data/links';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ shortcode: string }> }
+  { params }: { params: Promise<{ shortcode: string }> },
 ) {
   const { shortcode } = await params;
   const link = await getLinkByShortCode(shortcode);

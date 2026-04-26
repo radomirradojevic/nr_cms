@@ -15,5 +15,5 @@ export const links = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index('links_user_id_idx').on(table.userId)]
+  (table) => [index('links_user_id_idx').on(table.userId)],
 );
