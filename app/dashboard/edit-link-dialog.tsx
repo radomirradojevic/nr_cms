@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -89,6 +90,7 @@ export function EditLinkDialog({ link }: Props) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit short link</DialogTitle>
+          <DialogDescription>Update the destination URL or short code below.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>

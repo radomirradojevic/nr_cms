@@ -89,7 +89,7 @@ export default async function DashboardPage({
               {links.map((link) => (
                 <TableRow key={link.id}>
                   <TableCell className="font-mono">
-                    <Link href={`/l/${link.shortCode}`} className="hover:underline">
+                    <Link href={`/l/${link.shortCode}`} className="hover:underline" target="_blank" rel="noopener noreferrer">
                       {link.shortCode}
                     </Link>
                   </TableCell>

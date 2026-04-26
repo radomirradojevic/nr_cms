@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -82,6 +83,7 @@ export function CreateLinkDialog() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create a new short link</DialogTitle>
+          <DialogDescription>Fill in the fields below to create a new short link.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
