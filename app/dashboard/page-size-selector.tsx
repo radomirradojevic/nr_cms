@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 
-const PAGE_SIZE_OPTIONS = ['10', '20', '30'] as const;
+const PAGE_SIZE_OPTIONS = ["10", "20", "30"] as const;
 
 export function PageSizeSelector({ pageSize }: { pageSize: number }) {
   const router = useRouter();
@@ -17,8 +17,8 @@ export function PageSizeSelector({ pageSize }: { pageSize: number }) {
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
-    params.set('pageSize', value);
-    params.set('page', '1');
+    params.set("pageSize", value);
+    params.set("page", "1");
     router.push(`?${params.toString()}`);
   }
 

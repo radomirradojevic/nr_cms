@@ -1,19 +1,19 @@
-'use server';
+"use server";
 
-import { auth } from '@clerk/nextjs/server';
-import { z } from 'zod';
-import { insertLink, updateLink, deleteLinkById } from '@/data/links';
-import { revalidatePath } from 'next/cache';
+import { auth } from "@clerk/nextjs/server";
+import { z } from "zod";
+import { insertLink, updateLink, deleteLinkById } from "@/data/links";
+import { revalidatePath } from "next/cache";
 
 const createLinkSchema = z.object({
-  originalUrl: z.string().url('Please enter a valid URL.'),
+  originalUrl: z.string().url("Please enter a valid URL."),
   shortCode: z
     .string()
-    .min(1, 'Short code is required.')
-    .max(50, 'Short code must be 50 characters or fewer.')
+    .min(1, "Short code is required.")
+    .max(50, "Short code must be 50 characters or fewer.")
     .regex(
       /^[a-zA-Z0-9_-]+$/,
-      'Only letters, numbers, hyphens, and underscores are allowed.',
+      "Only letters, numbers, hyphens, and underscores are allowed.",
     ),
 });
 
@@ -24,7 +24,7 @@ export type CreateLinkInput = {
 
 export async function createLink(input: CreateLinkInput) {
   const { userId } = await auth();
-  if (!userId) return { error: 'Unauthorized.' };
+  if (!userId) return { error: "Unauthorized." };
 
   const parsed = createLinkSchema.safeParse(input);
   if (!parsed.success) {
@@ -38,29 +38,29 @@ export async function createLink(input: CreateLinkInput) {
       userId,
     });
 
-    revalidatePath('/dashboard');
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('unique')) {
+    if (message.includes("unique")) {
       return {
-        error: 'That short code is already taken. Please choose another.',
+        error: "That short code is already taken. Please choose another.",
       };
     }
-    return { error: 'Something went wrong. Please try again.' };
+    return { error: "Something went wrong. Please try again." };
   }
 }
 
 const editLinkSchema = z.object({
   id: z.number().int().positive(),
-  originalUrl: z.string().url('Please enter a valid URL.'),
+  originalUrl: z.string().url("Please enter a valid URL."),
   shortCode: z
     .string()
-    .min(1, 'Short code is required.')
-    .max(50, 'Short code must be 50 characters or fewer.')
+    .min(1, "Short code is required.")
+    .max(50, "Short code must be 50 characters or fewer.")
     .regex(
       /^[a-zA-Z0-9_-]+$/,
-      'Only letters, numbers, hyphens, and underscores are allowed.',
+      "Only letters, numbers, hyphens, and underscores are allowed.",
     ),
 });
 
@@ -72,7 +72,7 @@ export type EditLinkInput = {
 
 export async function editLink(input: EditLinkInput) {
   const { userId } = await auth();
-  if (!userId) return { error: 'Unauthorized.' };
+  if (!userId) return { error: "Unauthorized." };
 
   const parsed = editLinkSchema.safeParse(input);
   if (!parsed.success) {
@@ -89,20 +89,20 @@ export async function editLink(input: EditLinkInput) {
 
     if (updated.length === 0) {
       return {
-        error: 'Link not found or you do not have permission to edit it.',
+        error: "Link not found or you do not have permission to edit it.",
       };
     }
 
-    revalidatePath('/dashboard');
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('unique')) {
+    if (message.includes("unique")) {
       return {
-        error: 'That short code is already taken. Please choose another.',
+        error: "That short code is already taken. Please choose another.",
       };
     }
-    return { error: 'Something went wrong. Please try again.' };
+    return { error: "Something went wrong. Please try again." };
   }
 }
 
@@ -112,10 +112,10 @@ export type DeleteLinkInput = {
 
 export async function deleteLink(input: DeleteLinkInput) {
   const { userId } = await auth();
-  if (!userId) return { error: 'Unauthorized.' };
+  if (!userId) return { error: "Unauthorized." };
 
   if (!Number.isInteger(input.id) || input.id <= 0) {
-    return { error: 'Invalid link ID.' };
+    return { error: "Invalid link ID." };
   }
 
   try {
@@ -123,13 +123,13 @@ export async function deleteLink(input: DeleteLinkInput) {
 
     if (deleted.length === 0) {
       return {
-        error: 'Link not found or you do not have permission to delete it.',
+        error: "Link not found or you do not have permission to delete it.",
       };
     }
 
-    revalidatePath('/dashboard');
+    revalidatePath("/dashboard");
     return { success: true };
   } catch {
-    return { error: 'Something went wrong. Please try again.' };
+    return { error: "Something went wrong. Please try again." };
   }
 }

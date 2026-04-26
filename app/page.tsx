@@ -1,6 +1,6 @@
-import { SignInButton } from '@clerk/nextjs';
-import { Button } from '@/components/ui/button';
-import { ContactForm } from '@/components/contact-form';
+import { SignInButton } from "@clerk/nextjs";
+import { Button } from "@/components/ui/button";
+import { ContactForm } from "@/components/contact-form";
 
 export default function Home() {
   return (
@@ -50,7 +50,7 @@ export default function Home() {
             <ul className="space-y-2 text-muted-foreground">
               <li>📍 123 Main Street, Suite 400, San Francisco, CA 94105</li>
               <li>
-                📧{' '}
+                📧{" "}
                 <a
                   href="mailto:hello@linkshortener.io"
                   className="underline hover:text-foreground"
@@ -59,7 +59,7 @@ export default function Home() {
                 </a>
               </li>
               <li>
-                📞{' '}
+                📞{" "}
                 <a
                   href="tel:+14155550199"
                   className="underline hover:text-foreground"

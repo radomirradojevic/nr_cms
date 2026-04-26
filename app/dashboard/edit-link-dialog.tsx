@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Loader2, Pencil } from 'lucide-react';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Loader2, Pencil } from "lucide-react";
 
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -22,19 +22,19 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { editLink } from '@/app/dashboard/actions';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { editLink } from "@/app/dashboard/actions";
 
 const formSchema = z.object({
-  originalUrl: z.string().url('Please enter a valid URL.'),
+  originalUrl: z.string().url("Please enter a valid URL."),
   shortCode: z
     .string()
-    .min(1, 'Short code is required.')
-    .max(50, 'Short code must be 50 characters or fewer.')
+    .min(1, "Short code is required.")
+    .max(50, "Short code must be 50 characters or fewer.")
     .regex(
       /^[a-zA-Z0-9_-]+$/,
-      'Only letters, numbers, hyphens, and underscores are allowed.',
+      "Only letters, numbers, hyphens, and underscores are allowed.",
     ),
 });
 

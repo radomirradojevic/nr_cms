@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
+import { useState } from "react";
+import { Loader2, Trash2 } from "lucide-react";
 
 import {
   AlertDialog,
@@ -13,9 +13,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { deleteLink } from '@/app/dashboard/actions';
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { deleteLink } from "@/app/dashboard/actions";
 
 type Props = {
   link: {
@@ -48,7 +48,7 @@ export function DeleteLinkDialog({ link }: Props) {
         <AlertDialogHeader>
           <AlertDialogTitle>Delete short link?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete the short link{' '}
+            This will permanently delete the short link{" "}
             <span className="font-mono font-medium">{link.shortCode}</span>.
             This action cannot be undone.
           </AlertDialogDescription>
