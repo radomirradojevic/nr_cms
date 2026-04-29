@@ -97,7 +97,12 @@ export function LinksTable({
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Your Links</h1>
+        <h1 className="text-2xl font-bold">
+          Your Links{" "}
+          <span className="text-muted-foreground text-lg font-normal">
+            ({total})
+          </span>
+        </h1>
         <div className="flex items-center gap-2">
           {someSelected && (
             <AlertDialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
