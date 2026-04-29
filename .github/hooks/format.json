@@ -1,10 +1,9 @@
 {
-  "version": 1,
   "hooks": {
-    "postToolUse": [
+    "PostToolUse": [
       {
         "type": "command",
-        "powershell": "npx prettier --write ."
+        "command": "npx prettier --write ."
       }
     ]
   }

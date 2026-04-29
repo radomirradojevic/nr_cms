@@ -58,15 +58,6 @@ export default function Home() {
                   hello@linkshortener.io
                 </a>
               </li>
-              <li>
-                📞{" "}
-                <a
-                  href="tel:+14155550199"
-                  className="underline hover:text-foreground"
-                >
-                  +1 (415) 555-0199
-                </a>
-              </li>
             </ul>
             <ContactForm />
           </div>
