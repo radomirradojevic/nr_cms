@@ -3,7 +3,7 @@
     "PostToolUse": [
       {
         "type": "command",
-        "command": "npx prettier --write ."
+        "command": "powershell -File .github/hooks/format-on-replace.ps1"
       }
     ]
   }
