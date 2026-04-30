@@ -68,12 +68,6 @@ export default function RootLayout({
           <footer className="mt-auto border-t px-6 py-8 text-sm text-muted-foreground">
             <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-col gap-1">
-                <span className="font-semibold text-foreground">
-                  Link Shortener
-                </span>
-                <span>Making the web a little shorter since 2024.</span>
-              </div>
-              <div className="flex flex-col gap-1">
                 <span className="font-semibold text-foreground">Contact</span>
                 <span>123 Main Street, Suite 400</span>
                 <span>San Francisco, CA 94105</span>
