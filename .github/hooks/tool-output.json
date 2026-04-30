@@ -1,9 +1,10 @@
 {
+  "version": 1,
   "hooks": {
-    "PostToolUse": [
+    "postToolUse": [
       {
         "type": "command",
-        "command": "ls"
+        "command": "powershell -File .github/hooks/log-tool-output.ps1"
       }
     ]
   }
