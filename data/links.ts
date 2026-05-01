@@ -4,7 +4,13 @@ import { desc, eq, and, count, or, ilike, inArray } from "drizzle-orm";
 
 export async function getLinksByUserId(userId: string) {
   return db
-    .select()
+    .select({
+      id: links.id,
+      shortCode: links.shortCode,
+      originalUrl: links.originalUrl,
+      createdAt: links.createdAt,
+      updatedAt: links.updatedAt,
+    })
     .from(links)
     .where(eq(links.userId, userId))
     .orderBy(desc(links.updatedAt));
@@ -31,7 +37,13 @@ export async function getLinksByUserIdPaginated(
 
   const [rows, [{ total }]] = await Promise.all([
     db
-      .select()
+      .select({
+        id: links.id,
+        shortCode: links.shortCode,
+        originalUrl: links.originalUrl,
+        createdAt: links.createdAt,
+        updatedAt: links.updatedAt,
+      })
       .from(links)
       .where(whereClause)
       .orderBy(desc(links.updatedAt))

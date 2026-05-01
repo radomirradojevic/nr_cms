@@ -11,7 +11,20 @@ import {
 import { revalidatePath } from "next/cache";
 
 const createLinkSchema = z.object({
-  originalUrl: z.string().url("Please enter a valid URL."),
+  originalUrl: z
+    .string()
+    .url("Please enter a valid URL.")
+    .refine(
+      (url) => {
+        try {
+          const { protocol } = new URL(url);
+          return protocol === "http:" || protocol === "https:";
+        } catch {
+          return false;
+        }
+      },
+      { message: "Only http:// and https:// URLs are allowed." },
+    ),
   shortCode: z
     .string()
     .min(1, "Short code is required.")
@@ -52,13 +65,27 @@ export async function createLink(input: CreateLinkInput) {
         error: "That short code is already taken. Please choose another.",
       };
     }
+    console.error("[createLink] Unexpected error:", err);
     return { error: "Something went wrong. Please try again." };
   }
 }
 
 const editLinkSchema = z.object({
   id: z.number().int().positive(),
-  originalUrl: z.string().url("Please enter a valid URL."),
+  originalUrl: z
+    .string()
+    .url("Please enter a valid URL.")
+    .refine(
+      (url) => {
+        try {
+          const { protocol } = new URL(url);
+          return protocol === "http:" || protocol === "https:";
+        } catch {
+          return false;
+        }
+      },
+      { message: "Only http:// and https:// URLs are allowed." },
+    ),
   shortCode: z
     .string()
     .min(1, "Short code is required.")
@@ -107,6 +134,7 @@ export async function editLink(input: EditLinkInput) {
         error: "That short code is already taken. Please choose another.",
       };
     }
+    console.error("[editLink] Unexpected error:", err);
     return { error: "Something went wrong. Please try again." };
   }
 }
@@ -134,7 +162,8 @@ export async function deleteLink(input: DeleteLinkInput) {
 
     revalidatePath("/dashboard");
     return { success: true };
-  } catch {
+  } catch (err) {
+    console.error("[deleteLink] Unexpected error:", err);
     return { error: "Something went wrong. Please try again." };
   }
 }
@@ -158,7 +187,8 @@ export async function deleteLinks(input: DeleteLinksInput) {
     await deleteLinksByIds(parsed.data.ids, userId);
     revalidatePath("/dashboard");
     return { success: true };
-  } catch {
+  } catch (err) {
+    console.error("[deleteLinks] Unexpected error:", err);
     return { error: "Something went wrong. Please try again." };
   }
 }
