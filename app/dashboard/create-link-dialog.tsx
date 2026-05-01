@@ -40,7 +40,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function CreateLinkDialog() {
+export function CreateLinkDialog({ onSuccess }: { onSuccess?: () => void }) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -63,6 +63,7 @@ export function CreateLinkDialog() {
 
     form.reset();
     setOpen(false);
+    onSuccess?.();
   }
 
   return (

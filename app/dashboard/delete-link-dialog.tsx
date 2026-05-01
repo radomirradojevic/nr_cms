@@ -22,9 +22,10 @@ type Props = {
     id: number;
     shortCode: string;
   };
+  onSuccess?: () => void;
 };
 
-export function DeleteLinkDialog({ link }: Props) {
+export function DeleteLinkDialog({ link, onSuccess }: Props) {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -33,6 +34,7 @@ export function DeleteLinkDialog({ link }: Props) {
     await deleteLink({ id: link.id });
     setLoading(false);
     setOpen(false);
+    onSuccess?.();
   }
 
   return (
