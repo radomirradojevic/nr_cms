@@ -5,6 +5,14 @@ agent: ask
 ---
 
 Perform a security audit on this Next.js project to detect vulnerabilities, misconfigurations, and risks. Focus on OWASP Top 10 issues and any project-specific concerns related to authentication, input validation, and database interactions. Provide detailed findings with severity levels and actionable fixes.
+
+Next, ask  the user which issues they want to fix by either replying "all", or comma separating list of findings (e.g. "Finding 1, Finding 3, Finding 5"). After user replies, run separate sub-agent (#runSubagent) for each selected finding to generate a code fix, then each sub-agent should summarize all fixes in a final report with simple `subAgentSuccess: true` if all fixes were generated successfully, or `subAgentSuccess: false` if any fix failed to generate. The final report should include the generated code fixes for each finding and any additional recommendations for improving security in the codebase.
+
+IMPORTANT: Always wait for user input before proceeding to the fix generation step.
+Also, in Output format described below, replace `<path>` with the actual file path that links to the exact location of the issue and `<line>` with the line number(s) where the issue was found.
+ALWAYS run Sub-agents per one finding, do not batch them together. This allows for more focused and accurate code fixes.
+
+
 ## Scope
 
 Audit against the OWASP Top 10 with emphasis on the risks most relevant to this codebase:
