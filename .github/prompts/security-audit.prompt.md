@@ -1,13 +1,10 @@
 ---
 name: Security Audit
 description: "Audit the codebase for OWASP Top 10 vulnerabilities and project-specific security risks (open redirects, missing auth checks, unvalidated inputs, Drizzle ORM misuse). Use when reviewing Server Actions, route handlers, or the redirect route."
-agent: agent
-argument-hint: "File or area to audit (e.g. 'dashboard/actions.ts', 'redirect route', or leave blank for full audit)"
-tools: [codebase, githubRepo]
+agent: ask
 ---
 
 Perform a security audit on this Next.js project to detect vulnerabilities, misconfigurations, and risks. Focus on OWASP Top 10 issues and any project-specific concerns related to authentication, input validation, and database interactions. Provide detailed findings with severity levels and actionable fixes.
-
 ## Scope
 
 Audit against the OWASP Top 10 with emphasis on the risks most relevant to this codebase:
