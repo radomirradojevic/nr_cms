@@ -30,6 +30,9 @@ import { DeleteLinkDialog } from "@/app/dashboard/delete-link-dialog";
 import { PageSizeSelector } from "@/app/dashboard/page-size-selector";
 import { deleteLinks } from "@/app/dashboard/actions";
 
+const ALLOWED_PAGE_SIZES = [10, 20, 30] as const;
+type AllowedPageSize = (typeof ALLOWED_PAGE_SIZES)[number];
+
 type LinkRow = {
   id: number;
   shortCode: string;
@@ -40,28 +43,28 @@ type LinkRow = {
 type Props = {
   links: LinkRow[];
   total: number;
+  loading: boolean;
   safePage: number;
   totalPages: number;
   query: string;
-  pageSize: number;
+  pageSize: AllowedPageSize;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: AllowedPageSize) => void;
+  onMutated: () => void;
 };
 
 export function LinksTable({
   links,
   total,
+  loading,
   safePage,
   totalPages,
   query,
   pageSize,
+  onPageChange,
+  onPageSizeChange,
+  onMutated,
 }: Props) {
-  function buildHref(p: number) {
-    const params = new URLSearchParams();
-    if (query) params.set("search", query);
-    if (pageSize !== 10) params.set("pageSize", String(pageSize));
-    params.set("page", String(p));
-    return `?${params.toString()}`;
-  }
-
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
@@ -92,6 +95,7 @@ export function LinksTable({
     setSelectedIds(new Set());
     setBulkDeleting(false);
     setBulkDialogOpen(false);
+    onMutated();
   }
 
   return (
@@ -141,11 +145,15 @@ export function LinksTable({
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <CreateLinkDialog />
+          <CreateLinkDialog onSuccess={onMutated} />
         </div>
       </div>
 
-      {total === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : total === 0 ? (
         <p className="text-muted-foreground">
           {query ? "No links match your search." : "You have no links yet."}
         </p>
@@ -198,8 +206,8 @@ export function LinksTable({
                   <TableCell>{link.createdAt.toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <EditLinkDialog link={link} />
-                      <DeleteLinkDialog link={link} />
+                      <EditLinkDialog link={link} onSuccess={onMutated} />
+                      <DeleteLinkDialog link={link} onSuccess={onMutated} />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -211,23 +219,26 @@ export function LinksTable({
               Page {safePage} of {totalPages} &mdash; {total} total links
             </p>
             <div className="flex items-center gap-4">
-              <PageSizeSelector pageSize={pageSize} />
+              <PageSizeSelector
+                pageSize={pageSize}
+                onChange={onPageSizeChange}
+              />
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  asChild
                   disabled={safePage <= 1}
+                  onClick={() => onPageChange(safePage - 1)}
                 >
-                  <Link href={buildHref(safePage - 1)}>Previous</Link>
+                  Previous
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  asChild
                   disabled={safePage >= totalPages}
+                  onClick={() => onPageChange(safePage + 1)}
                 >
-                  <Link href={buildHref(safePage + 1)}>Next</Link>
+                  Next
                 </Button>
               </div>
             </div>

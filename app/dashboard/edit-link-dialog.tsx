@@ -46,9 +46,10 @@ type Props = {
     originalUrl: string;
     shortCode: string;
   };
+  onSuccess?: () => void;
 };
 
-export function EditLinkDialog({ link }: Props) {
+export function EditLinkDialog({ link, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -70,6 +71,7 @@ export function EditLinkDialog({ link }: Props) {
     }
 
     setOpen(false);
+    onSuccess?.();
   }
 
   return (
