@@ -34,5 +34,5 @@ export async function GET(
     return new NextResponse("Not Found", { status: 404 });
   }
 
-  return NextResponse.redirect(link.originalUrl, { status: 301 });
+  return NextResponse.redirect(link.originalUrl, { status: 302 });
 }
