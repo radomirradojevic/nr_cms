@@ -7,6 +7,10 @@ export async function GET(
 ) {
   const { shortcode } = await params;
 
+  if (!shortcode || !/^[a-zA-Z0-9_-]+$/.test(shortcode)) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
+
   let link: Awaited<ReturnType<typeof getLinkByShortCode>>;
   try {
     link = await getLinkByShortCode(shortcode);

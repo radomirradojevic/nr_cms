@@ -96,7 +96,7 @@ export async function deleteLinksByIds(ids: number[], userId: string) {
 
 export async function getLinkByShortCode(shortCode: string) {
   const result = await db
-    .select()
+    .select({ originalUrl: links.originalUrl })
     .from(links)
     .where(eq(links.shortCode, shortCode))
     .limit(1);
