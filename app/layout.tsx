@@ -38,7 +38,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ClerkProvider appearance={{ theme: shadcn }}>
-          <header className="flex items-center justify-between p-4 gap-4 h-16 border-b">
+          <header className="sticky top-0 z-50 bg-background flex items-center justify-between p-4 gap-4 h-16 border-b">
             <span className="text-xl font-bold tracking-tight text-gray-400">
               Link Shortener
             </span>
@@ -65,7 +65,7 @@ export default function RootLayout({
             </div>
           </header>
           {children}
-          <footer className="mt-auto border-t px-6 py-8 text-sm text-muted-foreground">
+          <footer className="sticky bottom-0 z-50 bg-background mt-auto border-t px-6 py-8 text-sm text-muted-foreground">
             <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-col gap-1">
                 <span className="font-semibold text-foreground">Contact</span>
