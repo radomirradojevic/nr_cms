@@ -85,7 +85,6 @@ export default function RootLayout({
                 </a>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="font-semibold text-foreground">Links</span>
                 <a href="/" className="underline hover:text-foreground">
                   Home
                 </a>
