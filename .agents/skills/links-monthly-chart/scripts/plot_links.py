@@ -1,5 +1,5 @@
 """
-plot_links.py — Query the linkshortenerproject DB and produce a bar chart
+plot_links.py — Query the nr_cms DB and produce a bar chart
 showing links created per month for the past 12 months.
 
 Usage (from project root):

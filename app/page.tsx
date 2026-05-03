@@ -146,10 +146,10 @@ export default function Home() {
               <li>
                 📧{" "}
                 <a
-                  href="mailto:hello@linkshortener.io"
+                  href="mailto:radomir.radojevic@gmail.com"
                   className="underline hover:text-foreground"
                 >
-                  hello@linkshortener.io
+                  radomir.radojevic@gmail.com
                 </a>
               </li>
             </ul>

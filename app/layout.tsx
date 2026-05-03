@@ -72,10 +72,10 @@ export default function RootLayout({
                 <span>123 Main Street, Suite 400</span>
                 <span>San Francisco, CA 94105</span>
                 <a
-                  href="mailto:hello@linkshortener.io"
+                  href="mailto:radomir.radojevic@gmail.com"
                   className="underline hover:text-foreground"
                 >
-                  hello@linkshortener.io
+                  radomir.radojevic@gmail.com
                 </a>
                 <a
                   href="tel:+14155550199"
