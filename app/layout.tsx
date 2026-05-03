@@ -4,8 +4,8 @@ import {
   Show,
   SignInButton,
   SignUpButton,
-  UserButton,
 } from "@clerk/nextjs";
+import { UserButtonWithRoles } from "@/components/user-button-with-roles";
 import { shadcn } from "@clerk/themes";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export default function RootLayout({
                 </SignUpButton>
               </Show>
               <Show when="signed-in">
-                <UserButton />
+                <UserButtonWithRoles />
               </Show>
             </div>
           </header>
