@@ -1,3 +1,7 @@
+---
+description: This file outlines the authentication requirements and implementation details for the project using Clerk. Read this to understand how auth works and what rules to follow.
+---
+
 # Authentication — Clerk
 
 > Clerk is the **sole** authentication provider for this project. Do NOT introduce any other auth method, custom auth logic, or third-party auth library.
@@ -34,14 +38,14 @@
 
 ## Clerk Components Reference
 
-| Component | Purpose |
-|---|---|
-| `<ClerkProvider>` | Wraps the app in `layout.tsx` |
-| `<SignInButton mode="modal">` | Opens sign-in modal |
-| `<SignUpButton mode="modal">` | Opens sign-up modal |
-| `<UserButton />` | Signed-in user avatar/menu |
-| `<Show when="signed-in">` | Conditionally render for signed-in users |
-| `<Show when="signed-out">` | Conditionally render for signed-out users |
+| Component                     | Purpose                                   |
+| ----------------------------- | ----------------------------------------- |
+| `<ClerkProvider>`             | Wraps the app in `layout.tsx`             |
+| `<SignInButton mode="modal">` | Opens sign-in modal                       |
+| `<SignUpButton mode="modal">` | Opens sign-up modal                       |
+| `<UserButton />`              | Signed-in user avatar/menu                |
+| `<Show when="signed-in">`     | Conditionally render for signed-in users  |
+| `<Show when="signed-out">`    | Conditionally render for signed-out users |
 
 ## Implementation Plan
 
