@@ -1,6 +1,6 @@
 import { SignInButton } from "@clerk/nextjs";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { ContactForm } from "@/components/contact-form";
 
 export default function Home() {
   return (
@@ -8,34 +8,57 @@ export default function Home() {
       <main className="flex w-full max-w-5xl flex-col gap-16">
         <section className="flex flex-col items-center gap-8 text-center">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Share shorter links that are easier to remember.
+            Content management, distilled to its essence.
           </h1>
+          <div
+            style={{
+              width: 400,
+              height: 400,
+              borderRadius: "50%",
+              boxShadow:
+                "0 0 0 4px #349aee, 0 0 32px 12px #349aee88, 0 0 64px 24px #349aee33",
+            }}
+          >
+            <Image
+              src="/nr/images/logo/big/NR_Logo.png"
+              alt="Night Raven CMS Logo"
+              width={400}
+              height={400}
+              style={{ borderRadius: "50%" }}
+              priority
+            />
+          </div>
           <p className="max-w-2xl text-lg text-muted-foreground">
-            Link Shortener helps you create clean, branded links and keep track
-            of how they perform, all from one simple dashboard.
+            Night Raven CMS is built on the belief that power and simplicity are
+            not opposites. Every feature earns its place — nothing more, nothing
+            less.
           </p>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <article className="rounded-lg border bg-card p-6">
-            <h2 className="text-lg font-semibold">Instant short links</h2>
+            <h2 className="text-lg font-semibold">Minimal by design</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Turn long URLs into short, shareable links in seconds.
+              No bloat, no noise. A focused interface that gets out of your way
+              and lets you manage content with precision.
             </p>
           </article>
           <article className="rounded-lg border bg-card p-6">
-            <h2 className="text-lg font-semibold">Performance insights</h2>
+            <h2 className="text-lg font-semibold">Role-based access</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Monitor engagement and understand how each link performs.
+              Fine-grained permissions ensure every team member sees exactly
+              what they need — and nothing they should not.
             </p>
           </article>
           <article className="rounded-lg border bg-card p-6 sm:col-span-2 lg:col-span-1">
-            <h2 className="text-lg font-semibold">Easy dashboard</h2>
+            <h2 className="text-lg font-semibold">Developer-first</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Manage all your links from one clean and focused interface.
+              Built on modern tooling from the ground up — fast, type-safe, and
+              ready to extend without fighting the framework.
             </p>
           </article>
         </section>
+
         <div className="flex justify-center">
           <SignInButton mode="modal">
             <Button variant="secondary" size="lg" className="cursor-pointer">
@@ -46,115 +69,39 @@ export default function Home() {
 
         <section className="flex flex-col gap-6 text-muted-foreground">
           <h2 className="text-2xl font-semibold text-foreground">
-            Why Link Shortener?
+            Why Night Raven CMS?
           </h2>
           <p>
-            In a world where attention spans are short and first impressions
-            matter, the links you share say a lot about your brand. Long,
-            cluttered URLs can look unprofessional and are difficult to
-            remember.
+            Most content management systems start simple and grow complicated.
+            Menus multiply, settings sprawl, and what was once a clean interface
+            becomes a maze. Night Raven CMS takes the opposite path.
           </p>
           <p>
-            Link Shortener transforms any lengthy web address into a clean,
-            concise link that is easy to share across social media, email, and
-            messaging apps.
+            Every decision in its architecture was made with restraint. If a
+            feature does not earn its weight in genuine usefulness, it does not
+            ship. The result is a system that feels immediately familiar yet
+            surprisingly capable.
           </p>
           <p>
-            Whether you are a marketer running a campaign, a developer sharing
-            API endpoints, or a content creator promoting your latest work, our
-            platform adapts to your workflow.
+            Teams of any size can adopt it without lengthy onboarding. Editors
+            open the dashboard and understand it intuitively. Developers extend
+            it without reading pages of documentation first.
           </p>
           <p>
-            Every shortened link comes with a detailed analytics dashboard so
-            you can track clicks, monitor traffic sources, and understand your
-            audience better than ever before.
+            Access control is woven into the foundation rather than bolted on
+            afterwards. Roles and permissions are expressive enough to model
+            real organisations while remaining easy to reason about.
           </p>
           <p>
-            Our platform is built with speed in mind. Links redirect in
-            milliseconds, ensuring your visitors never experience unnecessary
-            delays.
+            Because the codebase stays lean, performance is not a goal to
+            optimise toward — it is simply the natural state. Pages load fast,
+            actions respond instantly, and the experience never drags.
           </p>
           <p>
-            Security is a top priority. All links are scanned and monitored to
-            prevent abuse, keeping your audience safe from malicious content.
+            Night Raven CMS is proof that thoughtful constraints produce better
+            software. When you remove everything that does not belong, what
+            remains is exactly what you need.
           </p>
-          <p>
-            You can manage all of your links from a single, intuitive dashboard
-            that gives you a clear overview of your entire link portfolio.
-          </p>
-          <p>
-            Bulk link creation lets you shorten hundreds of URLs at once, saving
-            you hours of manual work when running large-scale campaigns.
-          </p>
-          <p>
-            Link expiration controls allow you to set a date and time after
-            which a link automatically becomes inactive, perfect for limited
-            time offers.
-          </p>
-          <p>
-            Custom slugs let you define memorable, human-readable link endings
-            that reinforce your brand identity with every share.
-          </p>
-          <p>
-            Our API allows developers to integrate link shortening directly into
-            their own applications, automating the process end to end.
-          </p>
-          <p>
-            Team collaboration features let you share link collections with
-            colleagues, assign roles, and keep everyone working from the same
-            source of truth.
-          </p>
-          <p>
-            Real-time click notifications keep you informed the moment someone
-            engages with your content, so you can act on momentum quickly.
-          </p>
-          <p>
-            Geographic data in the analytics panel shows you exactly where in
-            the world your audience is coming from, enabling smarter targeting.
-          </p>
-          <p>
-            Device and browser breakdowns help you optimize landing pages for
-            the devices your visitors actually use.
-          </p>
-          <p>
-            All data is stored securely and is fully compliant with modern
-            privacy regulations, giving you and your users peace of mind.
-          </p>
-          <p>
-            Getting started takes less than a minute. Sign in, paste your first
-            URL, and your shortened link is ready to share immediately.
-          </p>
-          <p>
-            Our free tier gives you everything you need to get up and running,
-            with no credit card required and no hidden fees.
-          </p>
-          <p>
-            As your needs grow, flexible plans scale with you, offering higher
-            limits, advanced analytics, and priority support.
-          </p>
-          <p>
-            Join thousands of users who already rely on Link Shortener every day
-            to make their online presence cleaner, smarter, and more impactful.
-          </p>
-        </section>
-
-        <section className="rounded-lg border bg-card p-8">
-          <h2 className="text-2xl font-semibold">Contact us</h2>
-          <div className="mt-6 grid gap-10 sm:grid-cols-2">
-            <ul className="space-y-2 text-muted-foreground">
-              <li>📍 123 Main Street, Suite 400, San Francisco, CA 94105</li>
-              <li>
-                📧{" "}
-                <a
-                  href="mailto:radomir.radojevic@gmail.com"
-                  className="underline hover:text-foreground"
-                >
-                  radomir.radojevic@gmail.com
-                </a>
-              </li>
-            </ul>
-            <ContactForm />
-          </div>
         </section>
       </main>
     </div>

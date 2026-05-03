@@ -6,16 +6,11 @@ const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
 
-  // Redirect signed-in users from / to /dashboard
-  if (userId && req.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+  if (isProtectedRoute(req) && !userId) {
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
-  if (isProtectedRoute(req)) {
-    await auth.protect();
-  }
-
-  // Role-based guard for /dashboard/users is handled in the page Server Component
+  // Role-based guard (viewer redirect) is handled in app/dashboard/layout.tsx
   // (middleware cannot read publicMetadata without a custom Clerk JWT template)
 });
 
