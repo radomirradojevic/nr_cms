@@ -14,6 +14,9 @@ export default clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {
     await auth.protect();
   }
+
+  // Role-based guard for /dashboard/users is handled in the page Server Component
+  // (middleware cannot read publicMetadata without a custom Clerk JWT template)
 });
 
 export const config = {
