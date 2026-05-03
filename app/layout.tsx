@@ -1,10 +1,5 @@
 import type { Metadata } from "next";
-import {
-  ClerkProvider,
-  Show,
-  SignInButton,
-  SignUpButton,
-} from "@clerk/nextjs";
+import { ClerkProvider, Show, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { UserButtonWithRoles } from "@/components/user-button-with-roles";
 import { shadcn } from "@clerk/themes";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -39,9 +34,12 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ClerkProvider appearance={{ theme: shadcn }}>
           <header className="sticky top-0 z-50 bg-background flex items-center justify-between p-4 gap-4 h-16 border-b">
-            <span className="text-xl font-bold tracking-tight text-gray-400">
-              Link Shortener
-            </span>
+            <a
+              href="/"
+              className="text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors"
+            >
+              Night Raven CMS
+            </a>
             <div className="flex items-center gap-4">
               <Show when="signed-out">
                 <SignInButton mode="modal">
@@ -69,19 +67,11 @@ export default function RootLayout({
             <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-col gap-1">
                 <span className="font-semibold text-foreground">Contact</span>
-                <span>123 Main Street, Suite 400</span>
-                <span>San Francisco, CA 94105</span>
                 <a
                   href="mailto:radomir.radojevic@gmail.com"
                   className="underline hover:text-foreground"
                 >
                   radomir.radojevic@gmail.com
-                </a>
-                <a
-                  href="tel:+14155550199"
-                  className="underline hover:text-foreground"
-                >
-                  +1 (415) 555-0199
                 </a>
               </div>
               <div className="flex flex-col gap-1">
@@ -97,7 +87,7 @@ export default function RootLayout({
               </div>
               <div className="sm:text-right">
                 <span>
-                  &copy; {new Date().getFullYear()} Link Shortener. All rights
+                  &copy; {new Date().getFullYear()} Night Raven CMS. All rights
                   reserved.
                 </span>
               </div>
