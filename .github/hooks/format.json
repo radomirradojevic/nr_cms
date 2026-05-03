@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "powershell -File .github/hooks/format-on-replace.ps1"
+      }
+    ]
+  }
+}
