@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { LinksTableContainer } from "@/app/dashboard/links-table-container";
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -8,5 +9,5 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
-  return <h1>Dashboard</h1>;
+  return <LinksTableContainer />;
 }

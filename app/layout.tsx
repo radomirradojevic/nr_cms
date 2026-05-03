@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { ClerkProvider, Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import {
+  ClerkProvider,
+  Show,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/nextjs";
 import { shadcn } from "@clerk/themes";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Button } from "@/components/ui/button";
@@ -32,15 +38,25 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ClerkProvider appearance={{ theme: shadcn }}>
-          <header className="flex items-center justify-between p-4 gap-4 h-16">
-            <span className="text-xl font-bold tracking-tight">Link Shortener</span>
+          <header className="sticky top-0 z-50 bg-background flex items-center justify-between p-4 gap-4 h-16 border-b">
+            <span className="text-xl font-bold tracking-tight text-gray-400">
+              Link Shortener
+            </span>
             <div className="flex items-center gap-4">
               <Show when="signed-out">
                 <SignInButton mode="modal">
-                  <Button variant="ghost" size="lg" className="cursor-pointer">Sign in</Button>
+                  <Button variant="ghost" size="lg" className="cursor-pointer">
+                    Sign in
+                  </Button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <Button variant="outline" size="lg" className="cursor-pointer">Sign up</Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="cursor-pointer"
+                  >
+                    Sign up
+                  </Button>
                 </SignUpButton>
               </Show>
               <Show when="signed-in">
@@ -49,6 +65,44 @@ export default function RootLayout({
             </div>
           </header>
           {children}
+          <footer className="sticky bottom-0 z-50 bg-background mt-auto border-t px-6 py-8 text-sm text-muted-foreground">
+            <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-foreground">Contact</span>
+                <span>123 Main Street, Suite 400</span>
+                <span>San Francisco, CA 94105</span>
+                <a
+                  href="mailto:hello@linkshortener.io"
+                  className="underline hover:text-foreground"
+                >
+                  hello@linkshortener.io
+                </a>
+                <a
+                  href="tel:+14155550199"
+                  className="underline hover:text-foreground"
+                >
+                  +1 (415) 555-0199
+                </a>
+              </div>
+              <div className="flex flex-col gap-1">
+                <a href="/" className="underline hover:text-foreground">
+                  Home
+                </a>
+                <a
+                  href="/dashboard"
+                  className="underline hover:text-foreground"
+                >
+                  Dashboard
+                </a>
+              </div>
+              <div className="sm:text-right">
+                <span>
+                  &copy; {new Date().getFullYear()} Link Shortener. All rights
+                  reserved.
+                </span>
+              </div>
+            </div>
+          </footer>
         </ClerkProvider>
       </body>
     </html>
