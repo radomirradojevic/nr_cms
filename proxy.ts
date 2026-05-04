@@ -10,8 +10,9 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // Role-based guard (viewer redirect) is handled in app/dashboard/layout.tsx
-  // (middleware cannot read publicMetadata without a custom Clerk JWT template)
+  // Role-based guards (admin-only routes, viewer redirect) are handled in
+  // Server Components via currentUser() — middleware cannot read publicMetadata
+  // without a custom Clerk JWT template.
 });
 
 export const config = {
