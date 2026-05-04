@@ -50,7 +50,13 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ClerkProvider appearance={{ theme: shadcn }}>
-          <header className="sticky top-0 z-50 bg-background flex items-center justify-between p-4 gap-4 h-16 border-b">
+          <header
+            className="sticky top-0 z-50 bg-background flex items-center justify-between p-4 gap-4 h-16"
+            style={{
+              borderBottom: "1px solid #349aee",
+              boxShadow: "0 1px 16px 2px #349aee88, 0 2px 32px 4px #349aee33",
+            }}
+          >
             <a
               href="/"
               className="text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors"
@@ -116,7 +122,13 @@ export default async function RootLayout({
             </div>
           </header>
           {children}
-          <footer className="sticky bottom-0 z-50 bg-background mt-auto border-t px-6 py-8 text-sm text-muted-foreground">
+          <footer
+            className="sticky bottom-0 z-50 bg-background mt-auto px-6 py-8 text-sm text-muted-foreground"
+            style={{
+              borderTop: "1px solid #349aee",
+              boxShadow: "0 -1px 16px 2px #349aee88, 0 -2px 32px 4px #349aee33",
+            }}
+          >
             <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-col gap-1">
                 <span className="font-semibold text-foreground">Contact</span>
