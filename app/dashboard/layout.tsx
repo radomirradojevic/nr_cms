@@ -18,5 +18,5 @@ export default async function DashboardLayout({
     redirect("/");
   }
 
-  return <>{children}</>;
+  return <div className="flex flex-col flex-1">{children}</div>;
 }
