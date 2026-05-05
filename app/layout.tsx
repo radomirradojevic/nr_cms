@@ -75,6 +75,14 @@ export default async function RootLayout({
                         <Link href="/dashboard">Dashboard</Link>
                       </NavigationMenuLink>
                     </NavigationMenuItem>
+                    <NavigationMenuItem>
+                      <NavigationMenuLink
+                        asChild
+                        className={navigationMenuTriggerStyle()}
+                      >
+                        <Link href="/dashboard/content">Content</Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
                     {isAdmin && (
                       <>
                         <NavigationMenuItem>

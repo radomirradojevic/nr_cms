@@ -1,8 +1,23 @@
 import { SignInButton } from "@clerk/nextjs";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { getHomepageContent } from "@/data/content";
+import { PuckRender } from "@/app/dashboard/content/_puck/server-render";
+import type { Data as PuckData } from "@measured/puck";
 
-export default function Home() {
+export default async function Home() {
+  const homepage = await getHomepageContent();
+
+  if (homepage && homepage.status === "published") {
+    return (
+      <div className="flex flex-1 justify-center px-6 py-16">
+        <main className="w-full max-w-5xl">
+          <PuckRender data={homepage.contentJson as PuckData} />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 justify-center px-6 py-16">
       <main className="flex w-full max-w-5xl flex-col gap-16">

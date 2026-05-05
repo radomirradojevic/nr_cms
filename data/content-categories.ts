@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { contentCategories } from "@/db/schema";
+import { contentCategories, content } from "@/db/schema";
 import { asc, eq, and, count, ilike, inArray } from "drizzle-orm";
 
 export type ContentType = "page" | "blog_post";
@@ -73,10 +73,11 @@ export async function getCategoryById(
 }
 
 export async function isCategoryInUse(id: string): Promise<boolean> {
-  // When the content table is added, this query will check references.
-  // For now the table doesn't exist yet; always return false so delete works.
-  // TODO: replace with real join once the content table is defined in schema.
-  return false;
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(content)
+    .where(eq(content.categoryId, id));
+  return total > 0;
 }
 
 export async function insertCategory(data: {

@@ -240,7 +240,7 @@ export function CategoryTable({
             <div className="flex items-center gap-4">
               <PageSizeSelector
                 pageSize={pageSize}
-                onChange={onPageSizeChange}
+                onChange={(s) => onPageSizeChange(s as AllowedPageSize)}
               />
               <div className="flex items-center gap-2">
                 <Button
