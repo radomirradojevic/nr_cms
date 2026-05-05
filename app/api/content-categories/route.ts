@@ -1,0 +1,40 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { getCategoriesPaginated } from "@/data/content-categories";
+
+const ALLOWED_PAGE_SIZES = [10, 20, 30];
+const ALLOWED_TYPES = ["page", "blog_post"] as const;
+
+export async function GET(request: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = request.nextUrl;
+  const rawType = searchParams.get("type");
+  if (
+    !rawType ||
+    !ALLOWED_TYPES.includes(rawType as (typeof ALLOWED_TYPES)[number])
+  ) {
+    return NextResponse.json(
+      { error: "Invalid type parameter" },
+      { status: 400 },
+    );
+  }
+  const type = rawType as "page" | "blog_post";
+
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const rawSize = parseInt(searchParams.get("pageSize") ?? "10", 10);
+  const pageSize = ALLOWED_PAGE_SIZES.includes(rawSize) ? rawSize : 10;
+  const search = searchParams.get("search")?.trim() || undefined;
+
+  const { categories, total } = await getCategoriesPaginated(
+    type,
+    page,
+    pageSize,
+    search,
+  );
+
+  return NextResponse.json({ categories, total });
+}

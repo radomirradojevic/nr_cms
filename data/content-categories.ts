@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { contentCategories } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, and, count, ilike, inArray } from "drizzle-orm";
 
 export type ContentType = "page" | "blog_post";
 
@@ -27,6 +27,38 @@ export async function getCategoriesByType(
     .from(contentCategories)
     .where(eq(contentCategories.contentType, type))
     .orderBy(asc(contentCategories.name));
+}
+
+export async function getCategoriesPaginated(
+  type: ContentType,
+  page: number,
+  pageSize: number,
+  search?: string,
+): Promise<{ categories: ContentCategory[]; total: number }> {
+  const offset = (page - 1) * pageSize;
+
+  const searchCondition = search
+    ? ilike(contentCategories.name, `%${search}%`)
+    : undefined;
+
+  const typeCondition = eq(contentCategories.contentType, type);
+
+  const whereClause = searchCondition
+    ? and(typeCondition, searchCondition)
+    : typeCondition;
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select()
+      .from(contentCategories)
+      .where(whereClause)
+      .orderBy(asc(contentCategories.name))
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ total: count() }).from(contentCategories).where(whereClause),
+  ]);
+
+  return { categories: rows, total };
 }
 
 export async function getCategoryById(
@@ -72,4 +104,9 @@ export async function updateCategoryName(
 
 export async function deleteCategoryById(id: string): Promise<void> {
   await db.delete(contentCategories).where(eq(contentCategories.id, id));
+}
+
+export async function deleteCategoriesByIds(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db.delete(contentCategories).where(inArray(contentCategories.id, ids));
 }
