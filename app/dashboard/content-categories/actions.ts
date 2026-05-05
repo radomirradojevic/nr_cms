@@ -7,6 +7,7 @@ import {
   insertCategory,
   updateCategoryName,
   deleteCategoryById,
+  deleteCategoriesByIds,
   isCategoryInUse,
 } from "@/data/content-categories";
 import { hasRole, getRoles } from "@/lib/roles";
@@ -131,6 +132,44 @@ export async function deleteCategory(input: DeleteCategoryInput) {
     return { success: true };
   } catch (err) {
     console.error("[deleteCategory] Unexpected error:", err);
+    return { error: "Something went wrong. Please try again." };
+  }
+}
+
+// ─── Batch Delete ─────────────────────────────────────────────────────────────
+
+const deleteCategoriesSchema = z.object({
+  ids: z.array(z.string().uuid("Invalid category ID.")).min(1),
+});
+
+export type DeleteCategoriesInput = {
+  ids: string[];
+};
+
+export async function deleteCategories(input: DeleteCategoriesInput) {
+  const session = await getAdminSession();
+  if (!session) return { error: "Forbidden." };
+
+  const parsed = deleteCategoriesSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  try {
+    const inUseChecks = await Promise.all(
+      parsed.data.ids.map((id) => isCategoryInUse(id)),
+    );
+    const anyInUse = inUseChecks.some(Boolean);
+    if (anyInUse) {
+      return {
+        error:
+          "One or more selected categories are assigned to content items and cannot be deleted.",
+      };
+    }
+
+    await deleteCategoriesByIds(parsed.data.ids);
+    revalidatePath("/dashboard/content-categories");
+    return { success: true };
+  } catch (err) {
+    console.error("[deleteCategories] Unexpected error:", err);
     return { error: "Something went wrong. Please try again." };
   }
 }
