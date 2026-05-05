@@ -29,6 +29,13 @@
       "when": 1778005419187,
       "tag": "0003_shiny_speed",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778018221360,
+      "tag": "0004_nebulous_king_cobra",
+      "breakpoints": true
     }
   ]
 }

@@ -23,7 +23,7 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https://*.clerk.com https://img.clerk.com",
+      "img-src 'self' blob: data: https: http:",
       "font-src 'self'",
       "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com",
       "frame-src 'self' https://*.clerk.accounts.dev",
