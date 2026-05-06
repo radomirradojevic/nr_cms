@@ -83,10 +83,16 @@ export function ContentForm({
   >(initial?.status ?? "unpublished");
   const [homepage, setHomepage] = useState(initial?.homepage ?? false);
 
-  const [contentJson, setContentJson] = useState<unknown>(
-    initial?.contentJson ??
-      (contentType === "page" ? emptyPuckData : emptyTiptapJson),
-  );
+  // Deep-clone initial.contentJson so we don't keep a reference to the
+  // RSC-provided value. Otherwise round-tripping the same object back to a
+  // server action turns it into a "temporary client reference" and reading
+  // properties like `attrs.level` throws on the server.
+  const [contentJson, setContentJson] = useState<unknown>(() => {
+    if (initial?.contentJson != null) {
+      return JSON.parse(JSON.stringify(initial.contentJson));
+    }
+    return contentType === "page" ? emptyPuckData : emptyTiptapJson;
+  });
 
   function onTitleChange(v: string) {
     setTitle(v);
@@ -107,7 +113,12 @@ export function ContentForm({
       metaDescription: metaDescription || null,
       excerpt: excerpt || null,
       coverImage: coverImage || null,
-      contentJson,
+      // Always send a freshly-serialized plain object. Otherwise objects
+      // that originated from a server component (or were produced by tiptap
+      // paste handlers) can be tagged as "temporary client references" by
+      // React Flight and crash with "Cannot access X on the server" when the
+      // server action tries to read their attrs.
+      contentJson: JSON.parse(JSON.stringify(contentJson ?? null)),
     };
 
     startTransition(async () => {
