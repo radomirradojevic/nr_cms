@@ -1,6 +1,4 @@
-import { SignInButton } from "@clerk/nextjs";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import { getHomepageContent } from "@/data/content";
 import { PuckRender } from "@/app/dashboard/content/_puck/server-render";
 import type { Data as PuckData } from "@measured/puck";
@@ -73,14 +71,6 @@ export default async function Home() {
             </p>
           </article>
         </section>
-
-        <div className="flex justify-center">
-          <SignInButton mode="modal">
-            <Button variant="secondary" size="lg" className="cursor-pointer">
-              Get started
-            </Button>
-          </SignInButton>
-        </div>
 
         <section className="flex flex-col gap-6 text-muted-foreground">
           <h2 className="text-2xl font-semibold text-foreground">
