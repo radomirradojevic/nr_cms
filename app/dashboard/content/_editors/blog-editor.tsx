@@ -2,10 +2,11 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold,
+  Code2,
   Italic,
   List,
   ListOrdered,
@@ -26,6 +27,9 @@ type Props = {
 };
 
 export function BlogEditor({ value, onChange }: Props) {
+  const [htmlMode, setHtmlMode] = useState(false);
+  const [htmlSource, setHtmlSource] = useState("");
+
   const editor = useEditor({
     extensions: tiptapExtensions,
     content: value ?? emptyTiptapJson,
@@ -65,84 +69,116 @@ export function BlogEditor({ value, onChange }: Props) {
       .run();
   }
 
+  function toggleHtmlMode() {
+    if (!htmlMode) {
+      setHtmlSource(editor!.getHTML());
+    } else {
+      editor!.commands.setContent(htmlSource, true);
+    }
+    setHtmlMode((prev) => !prev);
+  }
+
   return (
     <div className="rounded-md border">
       <div className="flex flex-wrap items-center gap-1 border-b p-2">
-        <Btn
-          active={editor.isActive("heading", { level: 1 })}
-          onClick={() =>
-            editor.chain().focus().toggleHeading({ level: 1 }).run()
-          }
-        >
-          <Heading1 className="h-4 w-4" />
-        </Btn>
-        <Btn
-          active={editor.isActive("heading", { level: 2 })}
-          onClick={() =>
-            editor.chain().focus().toggleHeading({ level: 2 }).run()
-          }
-        >
-          <Heading2 className="h-4 w-4" />
-        </Btn>
-        <Btn
-          active={editor.isActive("heading", { level: 3 })}
-          onClick={() =>
-            editor.chain().focus().toggleHeading({ level: 3 }).run()
-          }
-        >
-          <Heading3 className="h-4 w-4" />
-        </Btn>
-        <Sep />
-        <Btn
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-        >
-          <Bold className="h-4 w-4" />
-        </Btn>
-        <Btn
-          active={editor.isActive("italic")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-        >
-          <Italic className="h-4 w-4" />
-        </Btn>
-        <Btn
-          active={editor.isActive("strike")}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-        >
-          <Strikethrough className="h-4 w-4" />
-        </Btn>
-        <Sep />
-        <Btn
-          active={editor.isActive("bulletList")}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-        >
-          <List className="h-4 w-4" />
-        </Btn>
-        <Btn
-          active={editor.isActive("orderedList")}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        >
-          <ListOrdered className="h-4 w-4" />
-        </Btn>
-        <Btn
-          active={editor.isActive("blockquote")}
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        >
-          <Quote className="h-4 w-4" />
-        </Btn>
-        <Sep />
-        <Btn active={editor.isActive("link")} onClick={setLink}>
-          <LinkIcon className="h-4 w-4" />
-        </Btn>
-        <Sep />
-        <Btn active={false} onClick={() => editor.chain().focus().undo().run()}>
-          <Undo className="h-4 w-4" />
-        </Btn>
-        <Btn active={false} onClick={() => editor.chain().focus().redo().run()}>
-          <Redo className="h-4 w-4" />
+        {!htmlMode && (
+          <>
+            <Btn
+              active={editor.isActive("heading", { level: 1 })}
+              onClick={() =>
+                editor.chain().focus().toggleHeading({ level: 1 }).run()
+              }
+            >
+              <Heading1 className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={editor.isActive("heading", { level: 2 })}
+              onClick={() =>
+                editor.chain().focus().toggleHeading({ level: 2 }).run()
+              }
+            >
+              <Heading2 className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={editor.isActive("heading", { level: 3 })}
+              onClick={() =>
+                editor.chain().focus().toggleHeading({ level: 3 }).run()
+              }
+            >
+              <Heading3 className="h-4 w-4" />
+            </Btn>
+            <Sep />
+            <Btn
+              active={editor.isActive("bold")}
+              onClick={() => editor.chain().focus().toggleBold().run()}
+            >
+              <Bold className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={editor.isActive("italic")}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+            >
+              <Italic className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={editor.isActive("strike")}
+              onClick={() => editor.chain().focus().toggleStrike().run()}
+            >
+              <Strikethrough className="h-4 w-4" />
+            </Btn>
+            <Sep />
+            <Btn
+              active={editor.isActive("bulletList")}
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+            >
+              <List className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={editor.isActive("orderedList")}
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            >
+              <ListOrdered className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={editor.isActive("blockquote")}
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            >
+              <Quote className="h-4 w-4" />
+            </Btn>
+            <Sep />
+            <Btn active={editor.isActive("link")} onClick={setLink}>
+              <LinkIcon className="h-4 w-4" />
+            </Btn>
+            <Sep />
+            <Btn
+              active={false}
+              onClick={() => editor.chain().focus().undo().run()}
+            >
+              <Undo className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={false}
+              onClick={() => editor.chain().focus().redo().run()}
+            >
+              <Redo className="h-4 w-4" />
+            </Btn>
+            <Sep />
+          </>
+        )}
+        <Btn active={htmlMode} onClick={toggleHtmlMode}>
+          <Code2 className="h-4 w-4" />
         </Btn>
       </div>
-      <EditorContent editor={editor} />
+      {htmlMode ? (
+        <textarea
+          value={htmlSource}
+          onChange={(e) => setHtmlSource(e.target.value)}
+          className="w-full min-h-[400px] p-4 font-mono text-sm bg-background text-foreground focus:outline-none resize-y"
+          spellCheck={false}
+        />
+      ) : (
+        <EditorContent editor={editor} />
+      )}
     </div>
   );
 }
