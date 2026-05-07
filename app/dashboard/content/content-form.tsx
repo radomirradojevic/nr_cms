@@ -18,10 +18,19 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { slugify } from "@/lib/utils";
 import { hasRole, type Role } from "@/lib/roles";
+import dynamic from "next/dynamic";
 import { BlogEditor } from "./_editors/blog-editor";
-import { PageEditor } from "./_editors/page-editor";
 import { emptyTiptapJson } from "./_editors/tiptap-extensions";
-import { emptyPuckData } from "./_puck/config";
+import { emptyBuilderData, type BuilderData } from "./_builder/types";
+
+// PageEditor is heavy and uses Craft.js + CodeMirror — load client-only.
+const PageEditor = dynamic(
+  () => import("./_builder/page-editor").then((m) => m.PageEditor),
+  {
+    ssr: false,
+    loading: () => <div className="h-[600px] rounded-md border bg-muted/20" />,
+  },
+);
 import {
   createContent,
   updateContent,
@@ -91,7 +100,7 @@ export function ContentForm({
     if (initial?.contentJson != null) {
       return JSON.parse(JSON.stringify(initial.contentJson));
     }
-    return contentType === "page" ? emptyPuckData : emptyTiptapJson;
+    return contentType === "page" ? emptyBuilderData : emptyTiptapJson;
   });
 
   function onTitleChange(v: string) {
@@ -233,8 +242,8 @@ export function ContentForm({
             <Label>Content</Label>
             {contentType === "page" ? (
               <PageEditor
-                value={contentJson as never}
-                onChange={(d) => setContentJson(d)}
+                value={contentJson}
+                onChange={(d: BuilderData) => setContentJson(d)}
               />
             ) : (
               <BlogEditor
