@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getContentBySlug } from "@/data/content";
-import { PuckRender } from "@/app/dashboard/content/_puck/server-render";
-import type { Data as PuckData } from "@measured/puck";
+import { BuilderRender } from "@/app/dashboard/content/_builder/server-render";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -43,7 +42,7 @@ export default async function PublicContentPage({ params }: Props) {
         )}
         {row.contentType === "page" ? (
           <article className="max-w-none">
-            <PuckRender data={row.contentJson as PuckData} />
+            <BuilderRender data={row.contentJson} />
           </article>
         ) : (
           <article

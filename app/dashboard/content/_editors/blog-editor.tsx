@@ -73,7 +73,7 @@ export function BlogEditor({ value, onChange }: Props) {
     if (!htmlMode) {
       setHtmlSource(editor!.getHTML());
     } else {
-      editor!.commands.setContent(htmlSource, true);
+      editor!.commands.setContent(htmlSource);
     }
     setHtmlMode((prev) => !prev);
   }

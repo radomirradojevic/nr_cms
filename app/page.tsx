@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { getHomepageContent } from "@/data/content";
-import { PuckRender } from "@/app/dashboard/content/_puck/server-render";
-import type { Data as PuckData } from "@measured/puck";
+import { BuilderRender } from "@/app/dashboard/content/_builder/server-render";
 
 export default async function Home() {
   const homepage = await getHomepageContent();
@@ -10,7 +9,7 @@ export default async function Home() {
     return (
       <div className="flex flex-1 justify-center px-6 py-16">
         <main className="w-full max-w-5xl">
-          <PuckRender data={homepage.contentJson as PuckData} />
+          <BuilderRender data={homepage.contentJson} />
         </main>
       </div>
     );
