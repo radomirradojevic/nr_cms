@@ -7,8 +7,10 @@ import {
   boolean,
   jsonb,
   index,
+  integer,
   uniqueIndex,
   check,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -79,5 +81,38 @@ export const content = pgTable(
     index("content_type_idx").on(table.contentType),
     index("content_category_id_idx").on(table.categoryId),
     index("content_author_id_idx").on(table.authorId),
+  ],
+);
+
+export const topMenuItems = pgTable(
+  "top_menu_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    label: text("label").notNull(),
+    url: text("url").notNull(),
+    parentId: uuid("parent_id").references((): AnyPgColumn => topMenuItems.id, {
+      onDelete: "cascade",
+    }),
+    order: integer("order").notNull().default(0),
+    contentId: uuid("content_id").references(() => content.id, {
+      onDelete: "set null",
+    }),
+    target: text("target").notNull().default("_self"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      "top_menu_items_target_check",
+      sql`${table.target} IN ('_self','_blank')`,
+    ),
+    index("top_menu_items_parent_id_idx").on(table.parentId),
+    index("top_menu_items_parent_order_idx").on(table.parentId, table.order),
+    index("top_menu_items_content_id_idx").on(table.contentId),
   ],
 );
