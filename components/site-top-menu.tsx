@@ -6,9 +6,9 @@ import {
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
+import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
 
 function isExternal(url: string) {
   return /^https?:\/\//i.test(url);
@@ -74,7 +74,11 @@ function RootItem({ item }: { item: TopMenuTreeNode }) {
 
   return (
     <NavigationMenuItem>
-      <NavigationMenuTrigger>{item.label}</NavigationMenuTrigger>
+      <SiteTopMenuParentTrigger
+        url={item.url}
+        target={item.target}
+        label={item.label}
+      />
       <NavigationMenuContent>
         <ul className="grid w-[240px] gap-1 p-2">
           {item.children.map((child) => (
