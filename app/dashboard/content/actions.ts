@@ -1,13 +1,13 @@
 "use server";
 
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { generateHTML } from "@tiptap/html";
 import type { JSONContent } from "@tiptap/react";
 
 import { db } from "@/db";
-import { content } from "@/db/schema";
+import { content, topMenuItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 import {
@@ -331,6 +331,15 @@ export async function updateContent(input: UpdateContentInput) {
 
     revalidatePath("/dashboard/content");
     revalidatePath(`/dashboard/content/${data.id}/edit`);
+    if (slug !== target.slug) {
+      // Slug changed: refresh URLs of any menu items linked to this content
+      await db
+        .update(topMenuItems)
+        .set({ url: "/" + slug })
+        .where(eq(topMenuItems.contentId, target.id));
+      revalidateTag("top-menu");
+      revalidatePath("/", "layout");
+    }
     if (
       nextStatus === "published" ||
       target.status === "published" ||
@@ -372,8 +381,33 @@ export async function deleteContent(input: { id: string }) {
     };
   }
 
+  // Mark dependent menu items as broken before the FK nulls out content_id.
+  const dependents = await db
+    .select({ id: topMenuItems.id, label: topMenuItems.label })
+    .from(topMenuItems)
+    .where(eq(topMenuItems.contentId, target.id));
+  if (dependents.length > 0) {
+    await Promise.all(
+      dependents.map((d) =>
+        db
+          .update(topMenuItems)
+          .set({
+            url: "#",
+            label: d.label.endsWith(" (broken)")
+              ? d.label
+              : `${d.label} (broken)`,
+          })
+          .where(eq(topMenuItems.id, d.id)),
+      ),
+    );
+  }
+
   await deleteContentById(target.id);
   revalidatePath("/dashboard/content");
+  if (dependents.length > 0) {
+    revalidateTag("top-menu");
+    revalidatePath("/", "layout");
+  }
   if (target.status === "published") {
     revalidatePath("/");
     revalidatePath(`/${target.slug}`);

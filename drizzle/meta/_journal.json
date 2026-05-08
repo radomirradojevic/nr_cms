@@ -36,6 +36,13 @@
       "when": 1778018221360,
       "tag": "0004_nebulous_king_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778250428612,
+      "tag": "0005_top_menu_items",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 import { getRoles, hasRole } from "@/lib/roles";
+import { SiteTopMenu } from "@/components/site-top-menu";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -64,6 +65,7 @@ export default async function RootLayout({
               Night Raven CMS
             </a>
             <div className="flex items-center gap-4">
+              <SiteTopMenu />
               {isBackendUser && (
                 <NavigationMenu>
                   <NavigationMenuList>
@@ -101,6 +103,14 @@ export default async function RootLayout({
                             <Link href="/dashboard/content-categories">
                               Content Categories
                             </Link>
+                          </NavigationMenuLink>
+                        </NavigationMenuItem>
+                        <NavigationMenuItem>
+                          <NavigationMenuLink
+                            asChild
+                            className={navigationMenuTriggerStyle()}
+                          >
+                            <Link href="/dashboard/top-menu">Top Menu</Link>
                           </NavigationMenuLink>
                         </NavigationMenuItem>
                       </>
