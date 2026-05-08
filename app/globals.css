@@ -232,6 +232,29 @@
   height: auto;
   border-radius: 0.375rem;
 }
+
+/* Craft.js Layers panel — add hover feedback on each layer header.
+   Default state (unselected) has a transparent background and inherited
+   text color, so hovering produced no visible change. We highlight the
+   row with a light tint of the selected-blue and force the label/icon
+   color to white for clear contrast. */
+.craft-layer-node > div:first-child {
+  /* The library hard-codes a light-gray background on child layer
+     wrappers (e.g. #f1f1f1) which clashes with our dark theme and
+     causes white-on-white text. Force transparency so the panel
+     inherits the surrounding background. */
+  background: transparent !important;
+}
+.craft-layer-node > div:first-child > div:hover {
+  background: rgba(38, 128, 235, 0.6);
+  color: rgb(255, 255, 255);
+}
+.craft-layer-node > div:first-child > div:hover h2 {
+  color: rgb(255, 255, 255);
+}
+.craft-layer-node > div:first-child > div:hover svg {
+  fill: rgb(255, 255, 255);
+}
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
