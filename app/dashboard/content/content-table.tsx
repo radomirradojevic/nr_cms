@@ -163,9 +163,14 @@ export function ContentTable({
                         </Badge>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
+                    <a
+                      href={`/${row.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-muted-foreground mt-0.5 hover:underline"
+                    >
                       /{row.slug}
-                    </div>
+                    </a>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
