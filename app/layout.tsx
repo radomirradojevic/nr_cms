@@ -157,17 +157,6 @@ export default async function RootLayout({
                   radomir.radojevic@gmail.com
                 </a>
               </div>
-              <div className="flex flex-col gap-1">
-                <a href="/" className="underline hover:text-foreground">
-                  Home
-                </a>
-                <a
-                  href="/dashboard"
-                  className="underline hover:text-foreground"
-                >
-                  Dashboard
-                </a>
-              </div>
               <div className="sm:text-right">
                 <span>
                   &copy; {new Date().getFullYear()} Night Raven CMS. All rights
