@@ -22,6 +22,16 @@ import {
 } from "lucide-react";
 import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
 import { ImageInsertDialog } from "./image-insert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type Props = {
   value: JSONContent | null | undefined;
@@ -32,6 +42,8 @@ export function BlogEditor({ value, onChange }: Props) {
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
 
   const editor = useEditor({
     extensions: tiptapExtensions,
@@ -58,18 +70,28 @@ export function BlogEditor({ value, onChange }: Props) {
 
   function setLink() {
     const previousUrl = editor!.getAttributes("link").href as string | null;
-    const url = window.prompt("URL", previousUrl ?? "https://");
-    if (url === null) return;
+    setLinkUrl(previousUrl ?? "https://");
+    setLinkDialogOpen(true);
+  }
+
+  function applyLink() {
+    const url = linkUrl.trim();
     if (url === "") {
       editor!.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
+    } else {
+      editor!
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: url })
+        .run();
     }
-    editor!
-      .chain()
-      .focus()
-      .extendMarkRange("link")
-      .setLink({ href: url })
-      .run();
+    setLinkDialogOpen(false);
+  }
+
+  function removeLink() {
+    editor!.chain().focus().extendMarkRange("link").unsetLink().run();
+    setLinkDialogOpen(false);
   }
 
   function toggleHtmlMode() {
@@ -198,6 +220,50 @@ export function BlogEditor({ value, onChange }: Props) {
             .run();
         }}
       />
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Insert link</DialogTitle>
+            <DialogDescription>
+              Enter a URL to link the selected text. Leave empty to remove the
+              link.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="link-url">URL</Label>
+            <Input
+              id="link-url"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="https://example.com"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  applyLink();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            {editor.isActive("link") && (
+              <Button type="button" variant="outline" onClick={removeLink}>
+                Remove link
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setLinkDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={applyLink}>
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
