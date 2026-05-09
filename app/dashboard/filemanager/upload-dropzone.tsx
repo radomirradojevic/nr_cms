@@ -1,0 +1,177 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { Loader2, UploadCloud } from "lucide-react";
+import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import {
+  ALL_ALLOWED_MIMES,
+  MAX_FILE_SIZE,
+  formatBytes,
+} from "@/lib/file-manager";
+import type { FileRow } from "@/data/files";
+
+type Props = {
+  onUploaded: (files: FileRow[]) => void;
+};
+
+type UploadState = {
+  active: boolean;
+  progress: number;
+  totalCount: number;
+};
+
+export function UploadDropzone({ onUploaded }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [state, setState] = useState<UploadState>({
+    active: false,
+    progress: 0,
+    totalCount: 0,
+  });
+
+  function pickFiles() {
+    inputRef.current?.click();
+  }
+
+  async function handleFiles(fileList: FileList | File[]) {
+    const all = Array.from(fileList);
+    const accepted: File[] = [];
+
+    for (const f of all) {
+      if (f.size > MAX_FILE_SIZE) {
+        toast.error(`${f.name}: exceeds ${formatBytes(MAX_FILE_SIZE)} limit.`);
+        continue;
+      }
+      if (
+        f.type &&
+        !ALL_ALLOWED_MIMES.includes(f.type) &&
+        // some browsers omit a type for SVG/text - allow server to validate
+        f.type !== ""
+      ) {
+        toast.error(`${f.name}: file type "${f.type}" is not allowed.`);
+        continue;
+      }
+      accepted.push(f);
+    }
+
+    if (accepted.length === 0) return;
+
+    const form = new FormData();
+    for (const f of accepted) form.append("file", f);
+
+    setState({ active: true, progress: 0, totalCount: accepted.length });
+
+    try {
+      const xhr = new XMLHttpRequest();
+      const result = await new Promise<{
+        results: Array<
+          | { ok: true; file: FileRow }
+          | { ok: false; filename: string; error: string }
+        >;
+      }>((resolve, reject) => {
+        xhr.open("POST", "/api/files");
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setState((s) => ({
+              ...s,
+              progress: Math.round((e.loaded / e.total) * 100),
+            }));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (err) {
+              reject(err);
+            }
+          } else {
+            reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.send(form);
+      });
+
+      const successes: FileRow[] = [];
+      for (const r of result.results) {
+        if (r.ok) {
+          successes.push(r.file);
+        } else {
+          toast.error(`${r.filename}: ${r.error}`);
+        }
+      }
+      if (successes.length > 0) {
+        toast.success(`Uploaded ${successes.length} file(s).`);
+        onUploaded(successes);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Upload failed. Please try again.");
+    } finally {
+      setState({ active: false, progress: 0, totalCount: 0 });
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <Card
+      onClick={pickFiles}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
+      }}
+      className={`border-dashed border-2 cursor-pointer p-8 text-center transition-colors ${
+        dragOver ? "border-primary bg-muted/30" : "border-muted"
+      }`}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        hidden
+        accept={ALL_ALLOWED_MIMES.join(",")}
+        onChange={(e) => {
+          if (e.target.files?.length) handleFiles(e.target.files);
+        }}
+      />
+
+      <div className="flex flex-col items-center gap-3">
+        {state.active ? (
+          <>
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Uploading {state.totalCount} file(s)…
+            </p>
+            <div className="w-full max-w-md">
+              <Progress value={state.progress} />
+            </div>
+          </>
+        ) : (
+          <>
+            <UploadCloud className="h-10 w-10 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Drop files here, or click to browse</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Up to {formatBytes(MAX_FILE_SIZE)} per file. Images, video, and
+                documents.
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm">
+              Choose files
+            </Button>
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}

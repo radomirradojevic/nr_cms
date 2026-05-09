@@ -116,3 +116,37 @@ export const topMenuItems = pgTable(
     index("top_menu_items_content_id_idx").on(table.contentId),
   ],
 );
+
+export const files = pgTable(
+  "files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    filename: text("filename").notNull(),
+    storagePath: text("storage_path").notNull().unique(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    kind: text("kind").notNull(), // "image" | "video" | "document"
+    width: integer("width"),
+    height: integer("height"),
+    alt: text("alt"),
+    title: text("title"),
+    uploadedBy: text("uploaded_by").notNull(),
+    created: timestamp("created", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated: timestamp("updated", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      "files_kind_check",
+      sql`${table.kind} IN ('image','video','document')`,
+    ),
+    index("files_uploaded_by_idx").on(table.uploadedBy),
+    index("files_kind_idx").on(table.kind),
+    index("files_created_idx").on(table.created),
+    index("files_mime_type_idx").on(table.mimeType),
+  ],
+);

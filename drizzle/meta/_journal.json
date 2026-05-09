@@ -43,6 +43,13 @@
       "when": 1778250428612,
       "tag": "0005_top_menu_items",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778355983315,
+      "tag": "0006_quick_living_lightning",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,14 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Environment variables
+
+| Variable      | Description                                                                                           | Default             |
+| ------------- | ----------------------------------------------------------------------------------------------------- | ------------------- |
+| `UPLOADS_DIR` | Absolute or relative directory where the file manager stores uploaded files (kept outside `public/`). | `./storage/uploads` |
+
+The `storage/` directory is gitignored. Files are streamed through the auth-gated route `app/api/files/[id]/route.ts`.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
