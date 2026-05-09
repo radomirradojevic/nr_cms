@@ -232,6 +232,16 @@
   height: auto;
   border-radius: 0.375rem;
 }
+/* Visual feedback when an image (or any node) is selected in the editor.
+   ProseMirror toggles the `.ProseMirror-selectednode` class on the DOM
+   node corresponding to the currently selected NodeSelection. */
+.ProseMirror img.ProseMirror-selectednode,
+.ProseMirror .ProseMirror-selectednode {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+  box-shadow: 0 0 0 1px var(--background);
+}
 
 /* Craft.js Layers panel — add hover feedback on each layer header.
    Default state (unselected) has a transparent background and inherited
