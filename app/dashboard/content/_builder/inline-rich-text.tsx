@@ -5,7 +5,8 @@ import { BubbleMenu } from "@tiptap/react/menus";
 import type { JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
-import { useEffect } from "react";
+import Link from "@tiptap/extension-link";
+import { useEffect, useState } from "react";
 import {
   Bold,
   Italic,
@@ -14,17 +15,15 @@ import {
   List,
   ListOrdered,
 } from "lucide-react";
-
-const inlineExtensions = [
-  StarterKit.configure({
-    link: { openOnClick: false, autolink: true },
-    heading: false,
-    codeBlock: false,
-    blockquote: false,
-    horizontalRule: false,
-  }),
-  Underline,
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export const emptyInlineDoc: JSONContent = {
   type: "doc",
@@ -51,8 +50,22 @@ export function InlineRichText({
   singleLine,
   placeholder,
 }: Props) {
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+
   const editor = useEditor({
-    extensions: inlineExtensions,
+    extensions: [
+      StarterKit.configure({
+        heading: false,
+        codeBlock: false,
+        blockquote: false,
+        horizontalRule: false,
+        underline: false,
+        link: false,
+      }),
+      Underline,
+      Link.configure({ openOnClick: false, autolink: true }),
+    ],
     content: value ?? emptyInlineDoc,
     immediatelyRender: false,
     editorProps: {
@@ -74,20 +87,24 @@ export function InlineRichText({
 
   if (!editor) return null;
 
-  function setLink() {
+  function openLinkDialog() {
     const previousUrl = editor!.getAttributes("link").href as string | null;
-    const url = window.prompt("URL", previousUrl ?? "https://");
-    if (url === null) return;
-    if (url === "") {
+    setLinkUrl(previousUrl ?? "");
+    setLinkDialogOpen(true);
+  }
+
+  function applyLink() {
+    if (linkUrl === "") {
       editor!.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
+    } else {
+      editor!
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: linkUrl })
+        .run();
     }
-    editor!
-      .chain()
-      .focus()
-      .extendMarkRange("link")
-      .setLink({ href: url })
-      .run();
+    setLinkDialogOpen(false);
   }
 
   return (
@@ -131,10 +148,35 @@ export function InlineRichText({
             </BtnInline>
           </>
         )}
-        <BtnInline active={editor.isActive("link")} onClick={setLink}>
+        <BtnInline active={editor.isActive("link")} onClick={openLinkDialog}>
           <LinkIcon className="h-3.5 w-3.5" />
         </BtnInline>
       </BubbleMenu>
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Insert link</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="https://"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyLink();
+              }
+            }}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={applyLink}>Apply</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
