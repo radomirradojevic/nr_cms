@@ -20,8 +20,10 @@ import { slugify } from "@/lib/utils";
 import { hasRole, type Role } from "@/lib/roles";
 import dynamic from "next/dynamic";
 import { BlogEditor } from "./_editors/blog-editor";
+import { ImageInsertDialog } from "./_editors/image-insert-dialog";
 import { emptyTiptapJson } from "./_editors/tiptap-extensions";
 import { emptyBuilderData, type BuilderData } from "./_builder/types";
+import { ImageIcon } from "lucide-react";
 
 // PageEditor is heavy and uses Craft.js + CodeMirror — load client-only.
 const PageEditor = dynamic(
@@ -91,6 +93,7 @@ export function ContentForm({
     "published" | "unpublished" | "archived"
   >(initial?.status ?? "unpublished");
   const [homepage, setHomepage] = useState(initial?.homepage ?? false);
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
 
   // Deep-clone initial.contentJson so we don't keep a reference to the
   // RSC-provided value. Otherwise round-tripping the same object back to a
@@ -228,11 +231,36 @@ export function ContentForm({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cover">Cover image URL</Label>
-                <Input
-                  id="cover"
-                  value={coverImage}
-                  onChange={(e) => setCoverImage(e.target.value)}
-                  placeholder="https://…"
+                <div className="flex gap-2">
+                  <Input
+                    id="cover"
+                    value={coverImage}
+                    onChange={(e) => setCoverImage(e.target.value)}
+                    placeholder="https://…"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCoverPickerOpen(true)}
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                    Browse
+                  </Button>
+                </div>
+                {coverImage && (
+                  <div className="rounded-md border bg-muted/20 p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={coverImage}
+                      alt="Cover preview"
+                      className="max-h-40 rounded object-contain"
+                    />
+                  </div>
+                )}
+                <ImageInsertDialog
+                  open={coverPickerOpen}
+                  onOpenChange={setCoverPickerOpen}
+                  onInsert={({ src }) => setCoverImage(src)}
                 />
               </div>
             </>
