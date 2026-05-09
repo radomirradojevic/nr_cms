@@ -203,6 +203,11 @@ export function GalleryList({
           name={deleteTarget.name}
           open={!!deleteTarget}
           onOpenChange={(o) => !o && setDeleteTarget(null)}
+          onDeleted={(id) => {
+            setRows((prev) => prev.filter((r) => r.id !== id));
+            setTotal((t) => Math.max(0, t - 1));
+            setOffset((o) => Math.max(0, o - 1));
+          }}
         />
       )}
     </div>
