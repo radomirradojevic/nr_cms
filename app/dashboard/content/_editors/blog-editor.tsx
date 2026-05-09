@@ -15,11 +15,13 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Image as ImageIcon,
   Link as LinkIcon,
   Undo,
   Redo,
 } from "lucide-react";
 import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
+import { ImageInsertDialog } from "./image-insert-dialog";
 
 type Props = {
   value: JSONContent | null | undefined;
@@ -29,6 +31,7 @@ type Props = {
 export function BlogEditor({ value, onChange }: Props) {
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
 
   const editor = useEditor({
     extensions: tiptapExtensions,
@@ -168,6 +171,11 @@ export function BlogEditor({ value, onChange }: Props) {
         <Btn active={htmlMode} onClick={toggleHtmlMode}>
           <Code2 className="h-4 w-4" />
         </Btn>
+        {!htmlMode && (
+          <Btn active={false} onClick={() => setImageDialogOpen(true)}>
+            <ImageIcon className="h-4 w-4" />
+          </Btn>
+        )}
       </div>
       {htmlMode ? (
         <textarea
@@ -179,6 +187,17 @@ export function BlogEditor({ value, onChange }: Props) {
       ) : (
         <EditorContent editor={editor} />
       )}
+      <ImageInsertDialog
+        open={imageDialogOpen}
+        onOpenChange={setImageDialogOpen}
+        onInsert={({ src, alt }) => {
+          editor!
+            .chain()
+            .focus()
+            .setImage({ src, alt: alt || undefined })
+            .run();
+        }}
+      />
     </div>
   );
 }
