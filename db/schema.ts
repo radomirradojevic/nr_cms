@@ -10,6 +10,7 @@ import {
   integer,
   uniqueIndex,
   check,
+  primaryKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -148,5 +149,57 @@ export const files = pgTable(
     index("files_kind_idx").on(table.kind),
     index("files_created_idx").on(table.created),
     index("files_mime_type_idx").on(table.mimeType),
+  ],
+);
+
+export const galleries = pgTable(
+  "galleries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    description: text("description"),
+    coverFileId: uuid("cover_file_id").references(() => files.id, {
+      onDelete: "set null",
+    }),
+    createdBy: text("created_by").notNull(),
+    created: timestamp("created", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated: timestamp("updated", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("galleries_created_by_idx").on(table.createdBy),
+    index("galleries_created_idx").on(table.created),
+  ],
+);
+
+export const galleryImages = pgTable(
+  "gallery_images",
+  {
+    galleryId: uuid("gallery_id")
+      .notNull()
+      .references(() => galleries.id, { onDelete: "cascade" }),
+    fileId: uuid("file_id")
+      .notNull()
+      .references(() => files.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    addedBy: text("added_by").notNull(),
+    addedAt: timestamp("added_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      name: "gallery_images_pk",
+      columns: [table.galleryId, table.fileId],
+    }),
+    index("gallery_images_gallery_position_idx").on(
+      table.galleryId,
+      table.position,
+    ),
   ],
 );
