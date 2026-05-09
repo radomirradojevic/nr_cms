@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getRoles } from "@/lib/roles";
+import { Toaster } from "@/components/ui/sonner";
 
 export default async function DashboardLayout({
   children,
@@ -18,5 +19,10 @@ export default async function DashboardLayout({
     redirect("/");
   }
 
-  return <div className="flex flex-col flex-1">{children}</div>;
+  return (
+    <div className="flex flex-col flex-1">
+      {children}
+      <Toaster richColors closeButton />
+    </div>
+  );
 }
