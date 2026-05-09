@@ -93,6 +93,16 @@ export default async function RootLayout({
                         <Link href="/dashboard/filemanager">File Manager</Link>
                       </NavigationMenuLink>
                     </NavigationMenuItem>
+                    <NavigationMenuItem>
+                      <NavigationMenuLink
+                        asChild
+                        className={navigationMenuTriggerStyle()}
+                      >
+                        <Link href="/dashboard/gallerymanager">
+                          Gallery Manager
+                        </Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
                     {isAdmin && (
                       <>
                         <NavigationMenuItem>
