@@ -24,9 +24,16 @@ type Props = {
   name: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onDeleted?: (id: string) => void;
 };
 
-export function DeleteGalleryDialog({ id, name, open, onOpenChange }: Props) {
+export function DeleteGalleryDialog({
+  id,
+  name,
+  open,
+  onOpenChange,
+  onDeleted,
+}: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirm, setConfirm] = useState("");
@@ -43,6 +50,7 @@ export function DeleteGalleryDialog({ id, name, open, onOpenChange }: Props) {
     }
     toast.success("Gallery deleted.");
     onOpenChange(false);
+    onDeleted?.(id);
     router.refresh();
   }
 
