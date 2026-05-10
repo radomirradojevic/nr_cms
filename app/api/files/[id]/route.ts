@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { getFileByIdUnchecked } from "@/data/files";
 import { readUploadStream, statUpload } from "@/lib/file-storage";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
@@ -14,11 +13,6 @@ export async function GET(
   // Validate id shape (uuid).
   if (!/^[0-9a-f-]{36}$/i.test(id)) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
-  }
-
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   const row = await getFileByIdUnchecked(id);
@@ -45,7 +39,7 @@ export async function GET(
       "Content-Type": row.mimeType,
       "Content-Length": String(size),
       "Content-Disposition": `inline; filename="${encodeURIComponent(row.filename)}"`,
-      "Cache-Control": "private, max-age=3600",
+      "Cache-Control": "public, max-age=3600",
     },
   });
 }
