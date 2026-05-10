@@ -71,7 +71,7 @@ export function TextStatic({ content }: TextProps) {
   );
 }
 
-export function ImageStatic({ src, alt }: ImageProps) {
+export function ImageStatic({ src, alt, sizing, width, height }: ImageProps) {
   if (!src) {
     return (
       <div className="my-4 p-8 border border-dashed text-center text-muted-foreground">
@@ -79,8 +79,55 @@ export function ImageStatic({ src, alt }: ImageProps) {
       </div>
     );
   }
+
+  const w = (width ?? "").trim();
+  const h = (height ?? "").trim();
+  const mode = sizing ?? "responsive";
+
+  // Build CSS styles + intrinsic width/height attributes so the browser
+  // preserves the natural aspect ratio when only one dimension is given.
+  const style: React.CSSProperties = {};
+  let widthAttr: number | undefined;
+  let heightAttr: number | undefined;
+
+  if (mode === "fixed") {
+    const wNum = parseInt(w.replace(/px$/i, ""), 10);
+    const hNum = parseInt(h.replace(/px$/i, ""), 10);
+    if (Number.isFinite(wNum) && wNum > 0) {
+      style.width = `${wNum}px`;
+      widthAttr = wNum;
+    }
+    if (Number.isFinite(hNum) && hNum > 0) {
+      style.height = `${hNum}px`;
+      heightAttr = hNum;
+    }
+    // If only one side was provided, let the other side stay auto so
+    // the browser preserves the natural aspect ratio.
+    if (style.width && !style.height) style.height = "auto";
+    if (style.height && !style.width) style.width = "auto";
+    style.maxWidth = "100%";
+  } else {
+    // responsive: percentage values
+    const wPct = w.endsWith("%") ? w : w ? `${w}%` : "";
+    const hPct = h.endsWith("%") ? h : h ? `${h}%` : "";
+    if (wPct) style.width = wPct;
+    if (hPct) style.height = hPct;
+    if (style.width && !style.height) style.height = "auto";
+    if (style.height && !style.width) style.width = "auto";
+    if (!style.width && !style.height) style.maxWidth = "100%";
+  }
+
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} className="my-4 max-w-full rounded" />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={widthAttr}
+      height={heightAttr}
+      style={style}
+      className="my-4 rounded"
+    />
+  );
 }
 
 export function ButtonStatic({ label, href }: ButtonProps) {

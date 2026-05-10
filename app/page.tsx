@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getHomepageContent } from "@/data/content";
-import { BuilderRender } from "@/app/dashboard/content/_builder/server-render";
+import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
 import { Button } from "@/components/ui/button";
 
 export default async function Home() {

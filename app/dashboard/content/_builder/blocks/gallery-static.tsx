@@ -1,0 +1,38 @@
+import { getGalleryByIdPublic } from "@/data/galleries";
+import { GalleryGrid, type GalleryGridImage } from "@/components/gallery-grid";
+import type { GalleryProps } from "./types";
+
+/**
+ * Server-side renderer for the Gallery page-builder block. Fetches the
+ * referenced gallery on demand and renders a responsive thumbnail grid
+ * with lightbox (`<GalleryGrid>`).
+ *
+ * Lives in its own file so the async server component is never imported
+ * by the editor's client-side bundle (`blocks/editable.tsx`).
+ */
+export async function GalleryStatic({ galleryId, galleryName }: GalleryProps) {
+  if (!galleryId) {
+    return (
+      <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+        Gallery placeholder — pick a gallery in the block settings.
+      </div>
+    );
+  }
+
+  const gallery = await getGalleryByIdPublic(galleryId);
+  if (!gallery) {
+    return (
+      <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+        Gallery not found{galleryName ? ` ("${galleryName}")` : ""}.
+      </div>
+    );
+  }
+
+  const images: GalleryGridImage[] = gallery.images.map((img) => ({
+    id: img.fileId,
+    src: `/api/files/${img.fileId}`,
+    alt: img.file.alt ?? img.file.title ?? img.file.filename ?? gallery.name,
+  }));
+
+  return <GalleryGrid images={images} galleryName={gallery.name} />;
+}

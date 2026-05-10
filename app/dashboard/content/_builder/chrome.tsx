@@ -12,6 +12,7 @@ import {
   Columns2,
   LayoutPanelTop,
   FileCode2,
+  Images,
   Trash2,
   Undo2,
   Redo2,
@@ -41,6 +42,11 @@ const items: Array<{
     name: "RawHtml",
     label: "Raw HTML",
     icon: <FileCode2 className="h-4 w-4" />,
+  },
+  {
+    name: "Gallery",
+    label: "Gallery",
+    icon: <Images className="h-4 w-4" />,
   },
 ];
 
@@ -134,23 +140,107 @@ export function Toolbar({
   onWidthChange,
   onToggleSource,
   sourceMode,
+  onRemountWithJson,
 }: {
   width: "sm" | "md" | "lg";
   onWidthChange: (w: "sm" | "md" | "lg") => void;
   onToggleSource: () => void;
   sourceMode: boolean;
+  /**
+   * Triggers a full remount of the Craft.js editor with the provided
+   * serialized JSON. Used by the Delete button to bypass Craft's internal
+   * mutation path entirely (which crashes on certain tree states).
+   */
+  onRemountWithJson: (json: string) => void;
 }) {
-  const { canUndo, canRedo, actions, selectedId, isDeletable } = useEditor(
-    (state, query) => {
+  const { canUndo, canRedo, actions, query, selectedId, isDeletable } =
+    useEditor((state, query) => {
       const id = (Array.from(state.events.selected) as string[])[0];
+      let deletable = false;
+      if (id && id !== ROOT_NODE_ID && state.nodes[id]) {
+        try {
+          deletable = query.node(id).isDeletable();
+        } catch {
+          deletable = false;
+        }
+      }
       return {
         canUndo: query.history.canUndo(),
         canRedo: query.history.canRedo(),
         selectedId: id ?? null,
-        isDeletable: id ? query.node(id).isDeletable() : false,
+        isDeletable: deletable,
       };
-    },
-  );
+    });
+
+  function handleDelete() {
+    if (!selectedId || selectedId === ROOT_NODE_ID) return;
+    // Build a sanitized tree from the current serialized snapshot, then ask
+    // the parent to remount the entire <Editor> with that JSON. We avoid
+    // Craft.js's `actions.delete` / `actions.deserialize` because both
+    // paths iterate node arrays internally and crash if any sibling has a
+    // dangling child reference.
+    let serialized: string;
+    try {
+      serialized = query.serialize();
+    } catch {
+      return;
+    }
+    let tree: Record<string, any>;
+    try {
+      tree = JSON.parse(serialized);
+    } catch {
+      return;
+    }
+    if (!tree || typeof tree !== "object" || !tree[selectedId]) return;
+
+    const toRemove = new Set<string>();
+    const visit = (id: string) => {
+      if (!id || toRemove.has(id)) return;
+      const n = tree[id];
+      if (!n) return;
+      toRemove.add(id);
+      const children: string[] = Array.isArray(n.nodes) ? n.nodes : [];
+      for (const c of children) visit(c);
+      const linked: Record<string, string> = n.linkedNodes ?? {};
+      for (const c of Object.values(linked)) visit(c);
+    };
+    visit(selectedId);
+
+    const parentId: string | undefined = tree[selectedId]?.parent;
+    if (parentId && tree[parentId]) {
+      const parent = tree[parentId];
+      if (Array.isArray(parent.nodes)) {
+        parent.nodes = parent.nodes.filter((x: string) => x !== selectedId);
+      }
+      if (parent.linkedNodes && typeof parent.linkedNodes === "object") {
+        for (const k of Object.keys(parent.linkedNodes)) {
+          if (parent.linkedNodes[k] === selectedId)
+            delete parent.linkedNodes[k];
+        }
+      }
+    }
+
+    for (const id of toRemove) delete tree[id];
+
+    // Scrub remaining dangling refs and fix orphan parents.
+    for (const id of Object.keys(tree)) {
+      const n = tree[id];
+      if (!n) continue;
+      if (Array.isArray(n.nodes)) {
+        n.nodes = n.nodes.filter((cid: string) => !!tree[cid]);
+      }
+      if (n.linkedNodes && typeof n.linkedNodes === "object") {
+        for (const k of Object.keys(n.linkedNodes)) {
+          if (!tree[n.linkedNodes[k]]) delete n.linkedNodes[k];
+        }
+      }
+      if (n.parent && n.parent !== null && !tree[n.parent]) {
+        n.parent = ROOT_NODE_ID;
+      }
+    }
+
+    onRemountWithJson(JSON.stringify(tree));
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
@@ -177,7 +267,7 @@ export function Toolbar({
         size="sm"
         variant="outline"
         disabled={!selectedId || !isDeletable}
-        onClick={() => selectedId && actions.delete(selectedId)}
+        onClick={handleDelete}
       >
         <Trash2 className="h-4 w-4" />
       </Button>
