@@ -120,147 +120,167 @@ export function BlogEditor({ value, onChange }: Props) {
     <div className="rounded-md border">
       <div className="flex flex-wrap items-center gap-1 border-b p-2">
         <TooltipProvider delayDuration={500}>
-        {!htmlMode && (
-          <>
-            <Btn
-              tooltip="Heading 1"
-              active={editor.isActive("heading", { level: 1 })}
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 1 }).run()
-              }
-            >
-              <Heading1 className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Heading 2"
-              active={editor.isActive("heading", { level: 2 })}
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 2 }).run()
-              }
-            >
-              <Heading2 className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Heading 3"
-              active={editor.isActive("heading", { level: 3 })}
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 3 }).run()
-              }
-            >
-              <Heading3 className="h-4 w-4" />
-            </Btn>
-            <Sep />
-            <Btn
-              tooltip="Bold"
-              active={editor.isActive("bold")}
-              onClick={() => editor.chain().focus().toggleBold().run()}
-            >
-              <Bold className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Italic"
-              active={editor.isActive("italic")}
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-            >
-              <Italic className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Strikethrough"
-              active={editor.isActive("strike")}
-              onClick={() => editor.chain().focus().toggleStrike().run()}
-            >
-              <Strikethrough className="h-4 w-4" />
-            </Btn>
-            <Sep />
-            <Btn
-              tooltip="Bullet list"
-              active={editor.isActive("bulletList")}
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
-            >
-              <List className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Ordered list"
-              active={editor.isActive("orderedList")}
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            >
-              <ListOrdered className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Blockquote"
-              active={editor.isActive("blockquote")}
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            >
-              <Quote className="h-4 w-4" />
-            </Btn>
-            <Sep />
-            <Btn tooltip="Insert / edit link" active={editor.isActive("link")} onClick={setLink}>
-              <LinkIcon className="h-4 w-4" />
-            </Btn>
-            <Sep />
-            <Btn
-              tooltip="Align left"
-              active={editor.isActive({ textAlign: "left" })}
-              onClick={() => editor.chain().focus().setTextAlign("left").run()}
-            >
-              <AlignLeft className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Align center"
-              active={editor.isActive({ textAlign: "center" })}
-              onClick={() =>
-                editor.chain().focus().setTextAlign("center").run()
-              }
-            >
-              <AlignCenter className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Align right"
-              active={editor.isActive({ textAlign: "right" })}
-              onClick={() => editor.chain().focus().setTextAlign("right").run()}
-            >
-              <AlignRight className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Justify"
-              active={editor.isActive({ textAlign: "justify" })}
-              onClick={() =>
-                editor.chain().focus().setTextAlign("justify").run()
-              }
-            >
-              <AlignJustify className="h-4 w-4" />
-            </Btn>
-            <Sep />
-            <Btn
-              tooltip="Undo"
-              active={false}
-              onClick={() => editor.chain().focus().undo().run()}
-            >
-              <Undo className="h-4 w-4" />
-            </Btn>
-            <Btn
-              tooltip="Redo"
-              active={false}
-              onClick={() => editor.chain().focus().redo().run()}
-            >
-              <Redo className="h-4 w-4" />
-            </Btn>
-            <Sep />
-          </>
-        )}
-        <Btn tooltip="Toggle HTML source" active={htmlMode} onClick={toggleHtmlMode}>
-          <Code2 className="h-4 w-4" />
-        </Btn>
-        {!htmlMode && (
-          <Btn tooltip="Insert image" active={false} onClick={() => setImageDialogOpen(true)}>
-            <ImageIcon className="h-4 w-4" />
+          {!htmlMode && (
+            <>
+              <Btn
+                tooltip="Heading 1"
+                active={editor.isActive("heading", { level: 1 })}
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 1 }).run()
+                }
+              >
+                <Heading1 className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Heading 2"
+                active={editor.isActive("heading", { level: 2 })}
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 2 }).run()
+                }
+              >
+                <Heading2 className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Heading 3"
+                active={editor.isActive("heading", { level: 3 })}
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 3 }).run()
+                }
+              >
+                <Heading3 className="h-4 w-4" />
+              </Btn>
+              <Sep />
+              <Btn
+                tooltip="Bold"
+                active={editor.isActive("bold")}
+                onClick={() => editor.chain().focus().toggleBold().run()}
+              >
+                <Bold className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Italic"
+                active={editor.isActive("italic")}
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+              >
+                <Italic className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Strikethrough"
+                active={editor.isActive("strike")}
+                onClick={() => editor.chain().focus().toggleStrike().run()}
+              >
+                <Strikethrough className="h-4 w-4" />
+              </Btn>
+              <Sep />
+              <Btn
+                tooltip="Bullet list"
+                active={editor.isActive("bulletList")}
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+              >
+                <List className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Ordered list"
+                active={editor.isActive("orderedList")}
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              >
+                <ListOrdered className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Blockquote"
+                active={editor.isActive("blockquote")}
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              >
+                <Quote className="h-4 w-4" />
+              </Btn>
+              <Sep />
+              <Btn
+                tooltip="Insert / edit link"
+                active={editor.isActive("link")}
+                onClick={setLink}
+              >
+                <LinkIcon className="h-4 w-4" />
+              </Btn>
+              <Sep />
+              <Btn
+                tooltip="Align left"
+                active={editor.isActive({ textAlign: "left" })}
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("left").run()
+                }
+              >
+                <AlignLeft className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Align center"
+                active={editor.isActive({ textAlign: "center" })}
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("center").run()
+                }
+              >
+                <AlignCenter className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Align right"
+                active={editor.isActive({ textAlign: "right" })}
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("right").run()
+                }
+              >
+                <AlignRight className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Justify"
+                active={editor.isActive({ textAlign: "justify" })}
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("justify").run()
+                }
+              >
+                <AlignJustify className="h-4 w-4" />
+              </Btn>
+              <Sep />
+              <Btn
+                tooltip="Undo"
+                active={false}
+                onClick={() => editor.chain().focus().undo().run()}
+              >
+                <Undo className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Redo"
+                active={false}
+                onClick={() => editor.chain().focus().redo().run()}
+              >
+                <Redo className="h-4 w-4" />
+              </Btn>
+              <Sep />
+            </>
+          )}
+          <Btn
+            tooltip="Toggle HTML source"
+            active={htmlMode}
+            onClick={toggleHtmlMode}
+          >
+            <Code2 className="h-4 w-4" />
           </Btn>
-        )}
-        {!htmlMode && (
-          <Btn tooltip="Insert video" active={false} onClick={() => setVideoDialogOpen(true)}>
-            <VideoIcon className="h-4 w-4" />
-          </Btn>
-        )}
+          {!htmlMode && (
+            <Btn
+              tooltip="Insert image"
+              active={false}
+              onClick={() => setImageDialogOpen(true)}
+            >
+              <ImageIcon className="h-4 w-4" />
+            </Btn>
+          )}
+          {!htmlMode && (
+            <Btn
+              tooltip="Insert video"
+              active={false}
+              onClick={() => setVideoDialogOpen(true)}
+            >
+              <VideoIcon className="h-4 w-4" />
+            </Btn>
+          )}
         </TooltipProvider>
       </div>
       {htmlMode ? (
