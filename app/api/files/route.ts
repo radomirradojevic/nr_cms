@@ -18,6 +18,9 @@ import { insertFile } from "@/data/files";
 
 const ALLOWED_ROLES = ["admin", "publisher", "author"] as const;
 
+// Allow long-running uploads (sniffing, SVG sanitize, disk write, DB insert).
+export const maxDuration = 300;
+
 type UploadResult =
   | { ok: true; file: Awaited<ReturnType<typeof insertFile>> }
   | { ok: false; filename: string; error: string };
@@ -36,8 +39,17 @@ export async function POST(req: NextRequest) {
   let form: FormData;
   try {
     form = await req.formData();
-  } catch {
-    return NextResponse.json({ error: "Invalid form data." }, { status: 400 });
+  } catch (err) {
+    console.error("[POST /api/files] formData parse failed:", err);
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error
+            ? `Invalid form data: ${err.message}`
+            : "Invalid form data.",
+      },
+      { status: 400 },
+    );
   }
 
   const entries = form.getAll("file");

@@ -175,18 +175,31 @@ export function ContentForm({
         <div className="flex items-center gap-2">
           {contentType === "blog_post" ? (
             <>
-              <Button onClick={() => submit(false)} disabled={pending}>
-                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === "create" ? "Create" : "Save"}
-              </Button>
-              <Button
-                onClick={() => submit(true)}
-                disabled={pending}
-                variant="secondary"
-              >
-                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === "create" ? "Create and close" : "Save and close"}
-              </Button>
+              {mode === "create" ? (
+                <Button onClick={() => submit(true)} disabled={pending}>
+                  {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={() => submit(false)} disabled={pending}>
+                    {pending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Save
+                  </Button>
+                  <Button
+                    onClick={() => submit(true)}
+                    disabled={pending}
+                    variant="secondary"
+                  >
+                    {pending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Save and close
+                  </Button>
+                </>
+              )}
             </>
           ) : (
             <>

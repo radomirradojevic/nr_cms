@@ -37,6 +37,11 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["172.18.208.1"],
   productionBrowserSourceMaps: false,
+  experimental: {
+    // Allow large multipart uploads through proxy.ts (default is 10MB).
+    // MAX_FILE_SIZE is 300MB and uploads can include multiple files.
+    proxyClientMaxBodySize: "2gb",
+  },
   async headers() {
     return [
       {
