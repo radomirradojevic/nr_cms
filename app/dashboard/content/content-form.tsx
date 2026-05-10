@@ -111,7 +111,7 @@ export function ContentForm({
     if (!slugTouched) setSlug(slugify(v));
   }
 
-  function submit() {
+  function submit(shouldClose = true) {
     setError(null);
     if (!title.trim()) return setError("Title is required.");
     if (!slug.trim()) return setError("Slug is required.");
@@ -143,7 +143,7 @@ export function ContentForm({
         };
         const r = await createContent(input);
         if (r.error) setError(r.error);
-        else router.push("/dashboard/content");
+        else if (shouldClose) router.push("/dashboard/content");
       } else {
         const input: UpdateContentInput = {
           ...base,
@@ -153,7 +153,7 @@ export function ContentForm({
         };
         const r = await updateContent(input);
         if (r.error) setError(r.error);
-        else router.push("/dashboard/content");
+        else if (shouldClose) router.push("/dashboard/content");
       }
     });
   }
@@ -173,12 +173,39 @@ export function ContentForm({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {contentType === "blog_post" ? (
+            <>
+              <Button onClick={() => submit(false)} disabled={pending}>
+                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mode === "create" ? "Create" : "Save"}
+              </Button>
+              <Button
+                onClick={() => submit(true)}
+                disabled={pending}
+                variant="secondary"
+              >
+                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mode === "create" ? "Create and close" : "Save and close"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => submit(false)} disabled={pending}>
+                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mode === "create" ? "Create" : "Save"}
+              </Button>
+              <Button
+                onClick={() => submit(true)}
+                disabled={pending}
+                variant="secondary"
+              >
+                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mode === "create" ? "Create and close" : "Save and close"}
+              </Button>
+            </>
+          )}
           <Button variant="outline" asChild disabled={pending}>
             <Link href="/dashboard/content">Cancel</Link>
-          </Button>
-          <Button onClick={submit} disabled={pending}>
-            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === "create" ? "Create" : "Save"}
           </Button>
         </div>
       </div>

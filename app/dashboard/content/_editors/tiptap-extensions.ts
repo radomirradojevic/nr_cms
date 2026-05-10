@@ -2,6 +2,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
+import TextAlign from "@tiptap/extension-text-align";
 import { Video } from "./video-extension";
 
 const ImageWithSize = Image.extend({
@@ -35,6 +36,7 @@ export const tiptapExtensions = [
   ImageWithSize,
   Video,
   Typography,
+  TextAlign.configure({ types: ["heading", "paragraph"] }),
   Placeholder.configure({ placeholder: "Write your blog post…" }),
 ];
 
