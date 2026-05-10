@@ -43,7 +43,7 @@ export function GalleryGrid({ images, galleryName, className }: Props) {
     <>
       <div
         className={cn(
-          "my-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4",
+          "not-prose my-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4",
           className,
         )}
         data-gallery-grid
@@ -65,7 +65,7 @@ export function GalleryGrid({ images, galleryName, className }: Props) {
               alt={img.alt}
               loading="lazy"
               className={cn(
-                "h-full w-full object-cover transition-transform duration-300",
+                "block m-0 h-full w-full object-cover transition-transform duration-300",
                 "group-hover:scale-105",
               )}
             />
