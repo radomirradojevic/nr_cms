@@ -20,6 +20,10 @@ import {
   Link as LinkIcon,
   Undo,
   Redo,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
 } from "lucide-react";
 import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
 import { ImageInsertDialog } from "./image-insert-dialog";
@@ -176,6 +180,35 @@ export function BlogEditor({ value, onChange }: Props) {
             <Sep />
             <Btn active={editor.isActive("link")} onClick={setLink}>
               <LinkIcon className="h-4 w-4" />
+            </Btn>
+            <Sep />
+            <Btn
+              active={editor.isActive({ textAlign: "left" })}
+              onClick={() => editor.chain().focus().setTextAlign("left").run()}
+            >
+              <AlignLeft className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={editor.isActive({ textAlign: "center" })}
+              onClick={() =>
+                editor.chain().focus().setTextAlign("center").run()
+              }
+            >
+              <AlignCenter className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={editor.isActive({ textAlign: "right" })}
+              onClick={() => editor.chain().focus().setTextAlign("right").run()}
+            >
+              <AlignRight className="h-4 w-4" />
+            </Btn>
+            <Btn
+              active={editor.isActive({ textAlign: "justify" })}
+              onClick={() =>
+                editor.chain().focus().setTextAlign("justify").run()
+              }
+            >
+              <AlignJustify className="h-4 w-4" />
             </Btn>
             <Sep />
             <Btn
