@@ -5,10 +5,23 @@ export type SectionProps = { padded?: boolean };
 export type ColumnsProps = { gap?: "sm" | "md" | "lg" };
 export type HeadingProps = { content: JSONContent; level: "1" | "2" | "3" };
 export type TextProps = { content: JSONContent };
-export type ImageProps = { src: string; alt: string };
+export type ImageProps = {
+  src: string;
+  alt: string;
+  /**
+   * Sizing mode for the image:
+   * - "responsive": width/height interpreted as percentages (e.g. "50%").
+   * - "fixed": width/height interpreted as pixels (e.g. "640").
+   * When a dimension is empty, the natural aspect ratio is preserved.
+   */
+  sizing: "responsive" | "fixed";
+  width: string;
+  height: string;
+};
 export type ButtonProps = { label: string; href: string };
 export type HeroProps = { title: JSONContent; subtitle: JSONContent };
 export type RawHtmlProps = { html: string };
+export type GalleryProps = { galleryId: string; galleryName: string };
 
 export const blockNames = [
   "Section",
@@ -19,6 +32,7 @@ export const blockNames = [
   "Button",
   "Hero",
   "RawHtml",
+  "Gallery",
 ] as const;
 
 export type BlockName = (typeof blockNames)[number];
@@ -48,7 +62,13 @@ export const defaults = {
       ],
     },
   } satisfies TextProps,
-  Image: { src: "", alt: "" } satisfies ImageProps,
+  Image: {
+    src: "",
+    alt: "",
+    sizing: "responsive",
+    width: "",
+    height: "",
+  } satisfies ImageProps,
   Button: { label: "Click me", href: "#" } satisfies ButtonProps,
   Hero: {
     title: {
@@ -70,4 +90,8 @@ export const defaults = {
   RawHtml: {
     html: "<p>Raw HTML block — edit in settings.</p>",
   } satisfies RawHtmlProps,
+  Gallery: {
+    galleryId: "",
+    galleryName: "",
+  } satisfies GalleryProps,
 };

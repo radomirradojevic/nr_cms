@@ -1,11 +1,12 @@
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react/menus";
 import type { JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
+import TextAlign from "@tiptap/extension-text-align";
+import { useNode } from "@craftjs/core";
 import { useEffect, useState } from "react";
 import {
   Bold,
@@ -14,6 +15,10 @@ import {
   Link as LinkIcon,
   List,
   ListOrdered,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
 } from "lucide-react";
 import {
   Dialog,
@@ -52,6 +57,14 @@ export function InlineRichText({
 }: Props) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [focused, setFocused] = useState(false);
+
+  // Read selection state from the nearest Craft.js node so the toolbar can
+  // stay visible whenever the surrounding block is selected (not only while
+  // text is highlighted).
+  const { selected } = useNode((n) => ({
+    selected: n.events.selected,
+  }));
 
   const editor = useEditor({
     extensions: [
@@ -65,6 +78,7 @@ export function InlineRichText({
       }),
       Underline,
       Link.configure({ openOnClick: false, autolink: true }),
+      TextAlign.configure({ types: ["paragraph"] }),
     ],
     content: value ?? emptyInlineDoc,
     immediatelyRender: false,
@@ -75,6 +89,8 @@ export function InlineRichText({
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getJSON()),
+    onFocus: () => setFocused(true),
+    onBlur: () => setFocused(false),
   });
 
   useEffect(() => {
@@ -109,49 +125,106 @@ export function InlineRichText({
 
   return (
     <>
-      <EditorContent editor={editor} />
-      <BubbleMenu
-        editor={editor}
-        className="flex items-center gap-1 rounded-md border bg-popover p-1 shadow-md"
-      >
-        <BtnInline
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-        >
-          <Bold className="h-3.5 w-3.5" />
-        </BtnInline>
-        <BtnInline
-          active={editor.isActive("italic")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-        >
-          <Italic className="h-3.5 w-3.5" />
-        </BtnInline>
-        <BtnInline
-          active={editor.isActive("underline")}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-        >
-          <UnderlineIcon className="h-3.5 w-3.5" />
-        </BtnInline>
-        {!singleLine && (
-          <>
+      <div className="relative">
+        {(selected || focused) && (
+          <div
+            className="absolute -top-10 left-0 z-30 flex items-center gap-1 rounded-md border bg-popover p-1 shadow-md"
+            // Prevent clicks inside the toolbar from blurring the editor or
+            // triggering Craft.js drag/select handlers on the parent block.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <BtnInline
-              active={editor.isActive("bulletList")}
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              active={editor.isActive("bold")}
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              title="Bold"
             >
-              <List className="h-3.5 w-3.5" />
+              <Bold className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
-              active={editor.isActive("orderedList")}
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              active={editor.isActive("italic")}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              title="Italic"
             >
-              <ListOrdered className="h-3.5 w-3.5" />
+              <Italic className="h-3.5 w-3.5" />
             </BtnInline>
-          </>
+            <BtnInline
+              active={editor.isActive("underline")}
+              onClick={() => editor.chain().focus().toggleUnderline().run()}
+              title="Underline"
+            >
+              <UnderlineIcon className="h-3.5 w-3.5" />
+            </BtnInline>
+            <span className="mx-1 h-4 w-px bg-border" />
+            <BtnInline
+              active={editor.isActive({ textAlign: "left" })}
+              onClick={() => editor.chain().focus().setTextAlign("left").run()}
+              title="Align left"
+            >
+              <AlignLeft className="h-3.5 w-3.5" />
+            </BtnInline>
+            <BtnInline
+              active={editor.isActive({ textAlign: "center" })}
+              onClick={() =>
+                editor.chain().focus().setTextAlign("center").run()
+              }
+              title="Align center"
+            >
+              <AlignCenter className="h-3.5 w-3.5" />
+            </BtnInline>
+            <BtnInline
+              active={editor.isActive({ textAlign: "right" })}
+              onClick={() => editor.chain().focus().setTextAlign("right").run()}
+              title="Align right"
+            >
+              <AlignRight className="h-3.5 w-3.5" />
+            </BtnInline>
+            {!singleLine && (
+              <BtnInline
+                active={editor.isActive({ textAlign: "justify" })}
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("justify").run()
+                }
+                title="Justify"
+              >
+                <AlignJustify className="h-3.5 w-3.5" />
+              </BtnInline>
+            )}
+            {!singleLine && (
+              <>
+                <span className="mx-1 h-4 w-px bg-border" />
+                <BtnInline
+                  active={editor.isActive("bulletList")}
+                  onClick={() =>
+                    editor.chain().focus().toggleBulletList().run()
+                  }
+                  title="Bulleted list"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </BtnInline>
+                <BtnInline
+                  active={editor.isActive("orderedList")}
+                  onClick={() =>
+                    editor.chain().focus().toggleOrderedList().run()
+                  }
+                  title="Numbered list"
+                >
+                  <ListOrdered className="h-3.5 w-3.5" />
+                </BtnInline>
+              </>
+            )}
+            <span className="mx-1 h-4 w-px bg-border" />
+            <BtnInline
+              active={editor.isActive("link")}
+              onClick={openLinkDialog}
+              title="Link"
+            >
+              <LinkIcon className="h-3.5 w-3.5" />
+            </BtnInline>
+          </div>
         )}
-        <BtnInline active={editor.isActive("link")} onClick={openLinkDialog}>
-          <LinkIcon className="h-3.5 w-3.5" />
-        </BtnInline>
-      </BubbleMenu>
+        <EditorContent editor={editor} />
+      </div>
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent aria-describedby={undefined} className="sm:max-w-sm">
           <DialogHeader>
@@ -185,14 +258,17 @@ function BtnInline({
   active,
   onClick,
   children,
+  title,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  title?: string;
 }) {
   return (
     <button
       type="button"
+      title={title}
       onMouseDown={(e) => {
         e.preventDefault();
         onClick();

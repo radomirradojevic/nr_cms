@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { getContentBySlug } from "@/data/content";
-import { BuilderRender } from "@/app/dashboard/content/_builder/server-render";
+import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
 import { BlogContent } from "@/components/blog-content";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { getRoles, hasRole } from "@/lib/roles";

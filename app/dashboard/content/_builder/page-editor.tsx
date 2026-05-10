@@ -35,15 +35,37 @@ const widthClass = {
 
 export function PageEditor({ value, onChange }: Props) {
   // Frame only reads `data` once on mount — derive a stable initial JSON.
-  const initialJson = useMemo(() => {
+  const initialJsonFromValue = useMemo(() => {
     if (isBuilderData(value)) return JSON.stringify(value.nodes);
     return JSON.stringify(emptyBuilderData.nodes);
   }, [value]);
 
+  // The current canonical JSON used to (re)mount the editor. Updated by
+  // delete operations that rebuild the tree externally and request a full
+  // remount.
+  const [editorJson, setEditorJson] = useState(initialJsonFromValue);
+  const [remountKey, setRemountKey] = useState(0);
+
+  function handleRemountWithJson(json: string) {
+    setEditorJson(json);
+    setRemountKey((k) => k + 1);
+    try {
+      const nodes = JSON.parse(json) as BuilderData["nodes"];
+      onChange({ version: 1, nodes });
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
     <div className="overflow-hidden rounded-md border">
-      <Editor resolver={resolver}>
-        <Inner initialJson={initialJson} onChange={onChange} />
+      <Editor key={remountKey} resolver={resolver}>
+        <Inner
+          initialJson={editorJson}
+          onChange={onChange}
+          onLatestJson={setEditorJson}
+          onRemountWithJson={handleRemountWithJson}
+        />
       </Editor>
     </div>
   );
@@ -52,9 +74,13 @@ export function PageEditor({ value, onChange }: Props) {
 function Inner({
   initialJson,
   onChange,
+  onLatestJson,
+  onRemountWithJson,
 }: {
   initialJson: string;
   onChange: (value: BuilderData) => void;
+  onLatestJson: (json: string) => void;
+  onRemountWithJson: (json: string) => void;
 }) {
   const [width, setWidth] = useState<"sm" | "md" | "lg">("lg");
   const [sourceMode, setSourceMode] = useState(false);
@@ -62,6 +88,7 @@ function Inner({
   const { actions, query } = useEditor();
 
   function handleSerialize(json: string) {
+    onLatestJson(json);
     try {
       const nodes = JSON.parse(json) as BuilderData["nodes"];
       onChange({ version: 1, nodes });
@@ -128,6 +155,7 @@ function Inner({
         onWidthChange={setWidth}
         sourceMode={sourceMode}
         onToggleSource={sourceMode ? exitSourceMode : enterSourceMode}
+        onRemountWithJson={onRemountWithJson}
       />
 
       {sourceMode ? (

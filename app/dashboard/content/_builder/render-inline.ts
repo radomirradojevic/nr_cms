@@ -1,6 +1,7 @@
 import { generateHTML } from "@tiptap/html";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
 import type { JSONContent } from "@tiptap/react";
 
 const renderExtensions = [
@@ -12,6 +13,7 @@ const renderExtensions = [
     horizontalRule: false,
   }),
   Underline,
+  TextAlign.configure({ types: ["paragraph"] }),
 ];
 
 /**
