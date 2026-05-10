@@ -124,6 +124,34 @@ export async function getGalleryById(
   };
 }
 
+/**
+ * Public read of a gallery — no ownership check. Use only for rendering
+ * embedded galleries inside published content on the public-facing site.
+ */
+export async function getGalleryByIdPublic(
+  id: string,
+): Promise<GalleryDetail | null> {
+  const rows = await db
+    .select()
+    .from(galleries)
+    .where(eq(galleries.id, id))
+    .limit(1);
+  const gallery = rows[0];
+  if (!gallery) return null;
+
+  const imageRows = await db
+    .select({ gi: galleryImages, f: files })
+    .from(galleryImages)
+    .innerJoin(files, eq(galleryImages.fileId, files.id))
+    .where(eq(galleryImages.galleryId, id))
+    .orderBy(asc(galleryImages.position));
+
+  return {
+    ...gallery,
+    images: imageRows.map((r) => ({ ...r.gi, file: r.f })),
+  };
+}
+
 async function generateUniqueSlug(base: string): Promise<string> {
   const baseSlug = slugify(base) || "gallery";
   let candidate = baseSlug;

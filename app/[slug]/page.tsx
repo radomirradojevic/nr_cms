@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { getContentBySlug } from "@/data/content";
 import { BuilderRender } from "@/app/dashboard/content/_builder/server-render";
+import { BlogContent } from "@/components/blog-content";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { getRoles, hasRole } from "@/lib/roles";
 
@@ -101,9 +102,9 @@ export default async function PublicContentPage({ params }: Props) {
             <BuilderRender data={row.contentJson} />
           </article>
         ) : (
-          <article
+          <BlogContent
             className="prose prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: row.content ?? "" }}
+            html={row.content ?? ""}
           />
         )}
       </main>

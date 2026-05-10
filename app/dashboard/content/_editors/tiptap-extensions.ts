@@ -4,6 +4,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
 import TextAlign from "@tiptap/extension-text-align";
 import { Video } from "./video-extension";
+import { GalleryNode } from "./gallery-extension";
 
 const ImageWithSize = Image.extend({
   addAttributes() {
@@ -35,6 +36,7 @@ export const tiptapExtensions = [
   }),
   ImageWithSize,
   Video,
+  GalleryNode,
   Typography,
   TextAlign.configure({ types: ["heading", "paragraph"] }),
   Placeholder.configure({ placeholder: "Write your blog post…" }),
