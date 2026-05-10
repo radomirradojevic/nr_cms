@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, ExternalLink, FileText } from "lucide-react";
+import { GripVertical, ExternalLink, FileText, FolderTree } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { FlatItem } from "./tree-utils";
 import { EditItemDialog } from "./edit-item-dialog";
@@ -33,6 +33,7 @@ export function MenuTreeRow({ item, depth, indent, onMutated }: Props) {
   };
 
   const isContent = !!item.contentId;
+  const isCategory = !!item.categoryId;
   const isExternal = /^https?:\/\//i.test(item.url);
 
   return (
@@ -58,6 +59,11 @@ export function MenuTreeRow({ item, depth, indent, onMutated }: Props) {
             <FileText className="h-3 w-3" />
             Content
           </Badge>
+        ) : isCategory ? (
+          <Badge variant="secondary" className="gap-1">
+            <FolderTree className="h-3 w-3" />
+            Blog category
+          </Badge>
         ) : (
           <Badge variant="outline" className="gap-1">
             <ExternalLink className="h-3 w-3" />
@@ -82,6 +88,7 @@ export function MenuTreeRow({ item, depth, indent, onMutated }: Props) {
             url: item.url,
             target: item.target,
             contentId: item.contentId,
+            categoryId: item.categoryId,
           }}
           onSuccess={onMutated}
         />

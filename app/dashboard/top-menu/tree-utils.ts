@@ -5,6 +5,7 @@ export type FlatItem = {
   label: string;
   url: string;
   contentId: string | null;
+  categoryId: string | null;
   target: "_self" | "_blank";
   parentId: string | null;
   depth: number;
@@ -26,6 +27,7 @@ export function flattenTree(
       label: item.label,
       url: item.url,
       contentId: item.contentId,
+      categoryId: item.categoryId,
       target: item.target,
       parentId,
       depth,

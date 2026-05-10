@@ -15,6 +15,7 @@ import {
   getTopMenuItemById,
 } from "@/data/top-menu";
 import { getContentById } from "@/data/content";
+import { getCategoryById } from "@/data/content-categories";
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -62,9 +63,18 @@ const createCustomItemSchema = z.object({
   target: targetSchema.optional(),
 });
 
+const createCategoryItemSchema = z.object({
+  kind: z.literal("category"),
+  categoryId: z.string().uuid(),
+  label: z.string().min(1).max(200).optional(),
+  parentId: z.string().uuid().nullable(),
+  target: targetSchema.optional(),
+});
+
 const createSchema = z.discriminatedUnion("kind", [
   createContentItemSchema,
   createCustomItemSchema,
+  createCategoryItemSchema,
 ]);
 
 export type CreateMenuItemInput = z.infer<typeof createSchema>;
@@ -95,6 +105,20 @@ export async function createMenuItem(input: CreateMenuItemInput) {
         parentId: data.parentId,
         order,
         contentId: c.id,
+        target: data.target ?? "_self",
+      });
+    } else if (data.kind === "category") {
+      const cat = await getCategoryById(data.categoryId);
+      if (!cat) return { error: "Selected category does not exist." };
+      if (cat.contentType !== "blog_post") {
+        return { error: "Only blog post categories can be linked." };
+      }
+      await db.insert(topMenuItems).values({
+        label: data.label?.trim() || cat.name,
+        url: "/blog-category/" + cat.id,
+        parentId: data.parentId,
+        order,
+        categoryId: cat.id,
         target: data.target ?? "_self",
       });
     } else {
@@ -136,10 +160,10 @@ export async function updateMenuItem(input: UpdateMenuItemInput) {
   const target = await getTopMenuItemById(data.id);
   if (!target) return { error: "Menu item not found." };
 
-  if (data.url !== undefined && target.contentId) {
+  if (data.url !== undefined && (target.contentId || target.categoryId)) {
     return {
       error:
-        "URL cannot be edited for content-linked items — it follows the linked content's slug.",
+        "URL cannot be edited for linked items \u2014 it follows the linked content or category.",
     };
   }
 

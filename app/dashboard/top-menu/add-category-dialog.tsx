@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Pencil } from "lucide-react";
+import { Loader2, FolderTree } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,64 +31,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { updateMenuItem } from "./actions";
+import type { BlogCategoryPickerItem } from "@/data/top-menu";
+import { createMenuItem } from "./actions";
+
+const formSchema = z.object({
+  categoryId: z.string().uuid("Pick a category."),
+  label: z.string().max(200).optional(),
+  target: z.enum(["_self", "_blank"]),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 type Props = {
-  item: {
-    id: string;
-    label: string;
-    url: string;
-    target: "_self" | "_blank";
-    contentId: string | null;
-    categoryId: string | null;
-  };
+  parentId: string | null;
+  categories: BlogCategoryPickerItem[];
   onSuccess?: () => void;
 };
 
-export function EditItemDialog({ item, onSuccess }: Props) {
+export function AddCategoryDialog({ parentId, categories, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const isLinked = !!item.contentId || !!item.categoryId;
-  const isContentLinked = isLinked;
-
-  const formSchema = z.object({
-    label: z.string().min(1, "Label is required.").max(200),
-    url: isContentLinked
-      ? z.string().optional()
-      : z
-          .string()
-          .min(1, "URL is required.")
-          .max(2000)
-          .refine(
-            (v) => /^https?:\/\//i.test(v) || v.startsWith("/"),
-            "Must start with http(s):// or /",
-          ),
-    target: z.enum(["_self", "_blank"]),
-  });
-  type FormValues = z.infer<typeof formSchema>;
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      label: item.label,
-      url: item.url,
-      target: item.target,
-    },
+    defaultValues: { categoryId: "", label: "", target: "_self" },
   });
 
   async function onSubmit(values: FormValues) {
     setServerError(null);
-    const result = await updateMenuItem({
-      id: item.id,
-      label: values.label,
+    const result = await createMenuItem({
+      kind: "category",
+      categoryId: values.categoryId,
+      label: values.label?.trim() ? values.label.trim() : undefined,
       target: values.target,
-      ...(isContentLinked ? {} : { url: values.url }),
+      parentId,
     });
     if ("error" in result && result.error) {
       setServerError(result.error);
       return;
     }
+    form.reset({ categoryId: "", label: "", target: "_self" });
     setOpen(false);
     onSuccess?.();
   }
@@ -99,53 +81,68 @@ export function EditItemDialog({ item, onSuccess }: Props) {
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) {
-          form.reset({
-            label: item.label,
-            url: item.url,
-            target: item.target,
-          });
+          form.reset({ categoryId: "", label: "", target: "_self" });
           setServerError(null);
         }
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <Pencil className="h-4 w-4" />
-          <span className="sr-only">Edit</span>
+        <Button size="sm" variant="outline">
+          <FolderTree className="mr-2 h-4 w-4" />
+          Add blog category
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit menu item</DialogTitle>
+          <DialogTitle>Add blog category</DialogTitle>
           <DialogDescription>
-            {isContentLinked
-              ? "URL is locked because this item is linked to content or a category. It will follow the source automatically."
-              : "Edit the label, URL, and link target."}
+            Pick a blog category. The menu item will link to a page that lists
+            all published blog posts in that category.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="label"
+              name="categoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Label</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
+                  <FormLabel>Blog category</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                          No blog categories available.
+                        </div>
+                      ) : (
+                        categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <FormField
               control={form.control}
-              name="url"
+              name="label"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL</FormLabel>
+                  <FormLabel>Label (optional)</FormLabel>
                   <FormControl>
-                    <Input {...field} disabled={isContentLinked} />
+                    <Input
+                      placeholder="Defaults to the category name"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -183,7 +180,12 @@ export function EditItemDialog({ item, onSuccess }: Props) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button
+                type="submit"
+                disabled={
+                  form.formState.isSubmitting || categories.length === 0
+                }
+              >
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}

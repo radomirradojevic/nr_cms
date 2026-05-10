@@ -1,7 +1,11 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getRoles, hasRole } from "@/lib/roles";
-import { getTopMenuTree, listPickableContent } from "@/data/top-menu";
+import {
+  getTopMenuTree,
+  listPickableContent,
+  listBlogCategories,
+} from "@/data/top-menu";
 import { TopMenuBuilder } from "./top-menu-builder";
 
 export default async function TopMenuPage() {
@@ -11,9 +15,10 @@ export default async function TopMenuPage() {
     redirect("/dashboard");
   }
 
-  const [tree, pickable] = await Promise.all([
+  const [tree, pickable, categories] = await Promise.all([
     getTopMenuTree(),
     listPickableContent(),
+    listBlogCategories(),
   ]);
 
   return (
@@ -22,12 +27,17 @@ export default async function TopMenuPage() {
         <h1 className="text-2xl font-semibold">Top Menu</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Drag content items from the left into the menu on the right. Reorder
-          by dragging existing items up/down or sideways to nest. Admin access
-          only.
+          by dragging existing items up/down or sideways to nest. Use &quot;Add
+          blog category&quot; to link to a list of posts in a category, or
+          &quot;Add custom link&quot; for a free-form URL. Admin access only.
         </p>
       </div>
 
-      <TopMenuBuilder initialTree={tree} pickable={pickable} />
+      <TopMenuBuilder
+        initialTree={tree}
+        pickable={pickable}
+        categories={categories}
+      />
     </div>
   );
 }
