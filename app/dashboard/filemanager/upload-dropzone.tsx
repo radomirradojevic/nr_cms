@@ -21,6 +21,7 @@ type UploadState = {
   active: boolean;
   progress: number;
   totalCount: number;
+  processing: boolean;
 };
 
 export function UploadDropzone({ onUploaded }: Props) {
@@ -30,6 +31,7 @@ export function UploadDropzone({ onUploaded }: Props) {
     active: false,
     progress: 0,
     totalCount: 0,
+    processing: false,
   });
 
   function pickFiles() {
@@ -62,7 +64,12 @@ export function UploadDropzone({ onUploaded }: Props) {
     const form = new FormData();
     for (const f of accepted) form.append("file", f);
 
-    setState({ active: true, progress: 0, totalCount: accepted.length });
+    setState({
+      active: true,
+      progress: 0,
+      totalCount: accepted.length,
+      processing: false,
+    });
 
     try {
       const xhr = new XMLHttpRequest();
@@ -75,11 +82,16 @@ export function UploadDropzone({ onUploaded }: Props) {
         xhr.open("POST", "/api/files");
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
             setState((s) => ({
               ...s,
-              progress: Math.round((e.loaded / e.total) * 100),
+              progress: pct,
+              processing: pct >= 100,
             }));
           }
+        };
+        xhr.upload.onload = () => {
+          setState((s) => ({ ...s, progress: 100, processing: true }));
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
@@ -112,7 +124,12 @@ export function UploadDropzone({ onUploaded }: Props) {
       console.error(err);
       toast.error("Upload failed. Please try again.");
     } finally {
-      setState({ active: false, progress: 0, totalCount: 0 });
+      setState({
+        active: false,
+        progress: 0,
+        totalCount: 0,
+        processing: false,
+      });
       if (inputRef.current) inputRef.current.value = "";
     }
   }
@@ -150,7 +167,9 @@ export function UploadDropzone({ onUploaded }: Props) {
           <>
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Uploading {state.totalCount} file(s)…
+              {state.processing
+                ? `Processing ${state.totalCount} file(s)…`
+                : `Uploading ${state.totalCount} file(s)…`}
             </p>
             <div className="w-full max-w-md">
               <Progress value={state.progress} />

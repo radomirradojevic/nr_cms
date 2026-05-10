@@ -1,4 +1,4 @@
-export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+export const MAX_FILE_SIZE = 300 * 1024 * 1024; // 300 MB
 
 export const ALLOWED_MIME = {
   image: [
