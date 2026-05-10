@@ -9,10 +9,12 @@ import {
   addImagesToGallery as addImagesToGalleryRow,
   createGallery as createGalleryRow,
   deleteGallery as deleteGalleryRow,
+  getGalleryById,
   listGalleries,
   removeImageFromGallery as removeImageFromGalleryRow,
   reorderGalleryImages as reorderGalleryImagesRow,
   updateGallery as updateGalleryRow,
+  type GalleryDetail,
   type GalleryListItem,
 } from "@/data/galleries";
 
@@ -257,4 +259,49 @@ export async function fetchGalleries(
     offset: parsed.data.offset,
   });
   return { success: true, rows, total };
+}
+
+// ─── Picker preview ───────────────────────────────────────────────────────────
+
+const galleryByIdSchema = z.object({ id: z.string().uuid() });
+
+export type GalleryPickerPreviewImage = {
+  fileId: string;
+  alt: string;
+  title: string;
+};
+
+export async function fetchGalleryPreview(
+  input: z.input<typeof galleryByIdSchema>,
+): Promise<
+  | { error: string }
+  | {
+      success: true;
+      id: string;
+      name: string;
+      images: GalleryPickerPreviewImage[];
+    }
+> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+
+  const parsed = galleryByIdSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const detail: GalleryDetail | null = await getGalleryById(
+    parsed.data.id,
+    caller,
+  );
+  if (!detail) return { error: "Gallery not found or access denied." };
+
+  return {
+    success: true,
+    id: detail.id,
+    name: detail.name,
+    images: detail.images.map((img) => ({
+      fileId: img.fileId,
+      alt: img.file.alt ?? img.file.title ?? img.file.filename,
+      title: img.file.title ?? img.file.filename,
+    })),
+  };
 }

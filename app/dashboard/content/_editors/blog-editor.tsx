@@ -17,6 +17,7 @@ import {
   Heading3,
   Image as ImageIcon,
   Video as VideoIcon,
+  LayoutGrid,
   Link as LinkIcon,
   Undo,
   Redo,
@@ -28,6 +29,7 @@ import {
 import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
 import { ImageInsertDialog } from "./image-insert-dialog";
 import { VideoInsertDialog } from "./video-insert-dialog";
+import { GallerySelectDialog } from "./gallery-select-dialog";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +57,7 @@ export function BlogEditor({ value, onChange }: Props) {
   const [htmlSource, setHtmlSource] = useState("");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
 
@@ -281,6 +284,15 @@ export function BlogEditor({ value, onChange }: Props) {
               <VideoIcon className="h-4 w-4" />
             </Btn>
           )}
+          {!htmlMode && (
+            <Btn
+              tooltip="Insert gallery"
+              active={false}
+              onClick={() => setGalleryDialogOpen(true)}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Btn>
+          )}
         </TooltipProvider>
       </div>
       {htmlMode ? (
@@ -323,6 +335,13 @@ export function BlogEditor({ value, onChange }: Props) {
               ...(height ? { height } : {}),
             })
             .run();
+        }}
+      />
+      <GallerySelectDialog
+        open={galleryDialogOpen}
+        onOpenChange={setGalleryDialogOpen}
+        onInsert={({ galleryId, galleryName }) => {
+          editor!.chain().focus().setGallery({ galleryId, galleryName }).run();
         }}
       />
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
