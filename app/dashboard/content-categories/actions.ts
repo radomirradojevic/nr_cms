@@ -2,7 +2,10 @@
 
 import { currentUser } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { eq, inArray } from "drizzle-orm";
+import { db } from "@/db";
+import { topMenuItems } from "@/db/schema";
 import {
   insertCategory,
   updateCategoryName,
@@ -10,7 +13,32 @@ import {
   deleteCategoriesByIds,
   isCategoryInUse,
 } from "@/data/content-categories";
+import { TOP_MENU_TAG } from "@/data/top-menu";
 import { hasRole, getRoles } from "@/lib/roles";
+
+async function markMenuItemsBroken(categoryIds: string[]) {
+  if (categoryIds.length === 0) return;
+  const dependents = await db
+    .select({ id: topMenuItems.id, label: topMenuItems.label })
+    .from(topMenuItems)
+    .where(inArray(topMenuItems.categoryId, categoryIds));
+  if (dependents.length === 0) return;
+  await Promise.all(
+    dependents.map((d) =>
+      db
+        .update(topMenuItems)
+        .set({
+          url: "#",
+          label: d.label.endsWith(" (broken)")
+            ? d.label
+            : d.label + " (broken)",
+        })
+        .where(eq(topMenuItems.id, d.id)),
+    ),
+  );
+  revalidateTag(TOP_MENU_TAG);
+  revalidatePath("/", "layout");
+}
 
 async function getAdminSession() {
   const user = await currentUser();
@@ -128,6 +156,7 @@ export async function deleteCategory(input: DeleteCategoryInput) {
     }
 
     await deleteCategoryById(parsed.data.id);
+    await markMenuItemsBroken([parsed.data.id]);
     revalidatePath("/dashboard/content-categories");
     return { success: true };
   } catch (err) {
@@ -166,6 +195,7 @@ export async function deleteCategories(input: DeleteCategoriesInput) {
     }
 
     await deleteCategoriesByIds(parsed.data.ids);
+    await markMenuItemsBroken(parsed.data.ids);
     revalidatePath("/dashboard/content-categories");
     return { success: true };
   } catch (err) {

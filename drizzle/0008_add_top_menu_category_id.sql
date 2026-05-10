@@ -1,0 +1,3 @@
+ALTER TABLE "top_menu_items" ADD COLUMN "category_id" uuid;--> statement-breakpoint
+ALTER TABLE "top_menu_items" ADD CONSTRAINT "top_menu_items_category_id_content_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."content_categories"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "top_menu_items_category_id_idx" ON "top_menu_items" USING btree ("category_id");

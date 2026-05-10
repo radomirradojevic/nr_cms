@@ -22,7 +22,11 @@ import {
 } from "@dnd-kit/sortable";
 import { useRouter } from "next/navigation";
 
-import type { TopMenuTreeNode, ContentPickerItem } from "@/data/top-menu";
+import type {
+  TopMenuTreeNode,
+  ContentPickerItem,
+  BlogCategoryPickerItem,
+} from "@/data/top-menu";
 import {
   applyProjection,
   buildUpdatesFromFlat,
@@ -33,6 +37,7 @@ import {
 import { ContentPicker } from "./content-picker";
 import { MenuTreeRow } from "./menu-tree-row";
 import { AddItemDialog } from "./add-item-dialog";
+import { AddCategoryDialog } from "./add-category-dialog";
 import { createMenuItem, reorderMenu } from "./actions";
 
 const INDENT = 24;
@@ -40,9 +45,10 @@ const INDENT = 24;
 type Props = {
   initialTree: TopMenuTreeNode[];
   pickable: ContentPickerItem[];
+  categories: BlogCategoryPickerItem[];
 };
 
-export function TopMenuBuilder({ initialTree, pickable }: Props) {
+export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
   const router = useRouter();
   const [tree, setTree] = useState<TopMenuTreeNode[]>(initialTree);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -190,9 +196,16 @@ export function TopMenuBuilder({ initialTree, pickable }: Props) {
         </aside>
 
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">Menu structure</h2>
-            <AddItemDialog parentId={null} onSuccess={refresh} />
+            <div className="flex items-center gap-2">
+              <AddCategoryDialog
+                parentId={null}
+                categories={categories}
+                onSuccess={refresh}
+              />
+              <AddItemDialog parentId={null} onSuccess={refresh} />
+            </div>
           </div>
 
           {error && (
@@ -261,6 +274,7 @@ function rebuildTree(flat: FlatItem[]): TopMenuTreeNode[] {
       parentId: f.parentId,
       order: 0,
       contentId: f.contentId,
+      categoryId: f.categoryId,
       target: f.target,
       children: [],
     });

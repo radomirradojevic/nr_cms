@@ -98,6 +98,9 @@ export const topMenuItems = pgTable(
     contentId: uuid("content_id").references(() => content.id, {
       onDelete: "set null",
     }),
+    categoryId: uuid("category_id").references(() => contentCategories.id, {
+      onDelete: "set null",
+    }),
     target: text("target").notNull().default("_self"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -115,6 +118,7 @@ export const topMenuItems = pgTable(
     index("top_menu_items_parent_id_idx").on(table.parentId),
     index("top_menu_items_parent_order_idx").on(table.parentId, table.order),
     index("top_menu_items_content_id_idx").on(table.contentId),
+    index("top_menu_items_category_id_idx").on(table.categoryId),
   ],
 );
 

@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { asc, eq, isNull, max } from "drizzle-orm";
 import { db } from "@/db";
-import { topMenuItems, content } from "@/db/schema";
+import { topMenuItems, content, contentCategories } from "@/db/schema";
 
 export type TopMenuItemRow = typeof topMenuItems.$inferSelect;
 export type NewTopMenuItem = typeof topMenuItems.$inferInsert;
@@ -13,6 +13,7 @@ export type TopMenuTreeNode = {
   parentId: string | null;
   order: number;
   contentId: string | null;
+  categoryId: string | null;
   target: "_self" | "_blank";
   children: TopMenuTreeNode[];
 };
@@ -36,6 +37,7 @@ function buildTree(rows: TopMenuItemRow[]): TopMenuTreeNode[] {
       parentId: r.parentId,
       order: r.order,
       contentId: r.contentId,
+      categoryId: r.categoryId,
       target: (r.target as "_self" | "_blank") ?? "_self",
       children: [],
     });
@@ -98,6 +100,29 @@ export async function getItemsByContentId(
     .select()
     .from(topMenuItems)
     .where(eq(topMenuItems.contentId, contentId));
+}
+
+export async function getItemsByCategoryId(
+  categoryId: string,
+): Promise<TopMenuItemRow[]> {
+  return db
+    .select()
+    .from(topMenuItems)
+    .where(eq(topMenuItems.categoryId, categoryId));
+}
+
+export type BlogCategoryPickerItem = {
+  id: string;
+  name: string;
+};
+
+export async function listBlogCategories(): Promise<BlogCategoryPickerItem[]> {
+  const rows = await db
+    .select({ id: contentCategories.id, name: contentCategories.name })
+    .from(contentCategories)
+    .where(eq(contentCategories.contentType, "blog_post"))
+    .orderBy(asc(contentCategories.name));
+  return rows;
 }
 
 export type ContentPickerItem = {
