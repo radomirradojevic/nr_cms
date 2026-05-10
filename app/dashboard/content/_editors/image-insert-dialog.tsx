@@ -21,7 +21,12 @@ import type { FileRow } from "@/data/files";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onInsert: (args: { src: string; alt: string }) => void;
+  onInsert: (args: {
+    src: string;
+    alt: string;
+    width: string;
+    height: string;
+  }) => void;
 };
 
 const PAGE_SIZE = 24;
@@ -29,6 +34,8 @@ const PAGE_SIZE = 24;
 export function ImageInsertDialog({ open, onOpenChange, onInsert }: Props) {
   const [url, setUrl] = useState("");
   const [alt, setAlt] = useState("");
+  const [width, setWidth] = useState("");
+  const [height, setHeight] = useState("");
   const [search, setSearch] = useState("");
   const [files, setFiles] = useState<FileRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -42,6 +49,8 @@ export function ImageInsertDialog({ open, onOpenChange, onInsert }: Props) {
     if (open) {
       setUrl("");
       setAlt("");
+      setWidth("");
+      setHeight("");
       setSearch("");
       setSelectedId(null);
       runFetch(0, true, "");
@@ -88,7 +97,7 @@ export function ImageInsertDialog({ open, onOpenChange, onInsert }: Props) {
       }
     }
     if (!src) return;
-    onInsert({ src, alt: nextAlt });
+    onInsert({ src, alt: nextAlt, width: width.trim(), height: height.trim() });
     onOpenChange(false);
   }
 
@@ -127,6 +136,27 @@ export function ImageInsertDialog({ open, onOpenChange, onInsert }: Props) {
               onChange={(e) => setAlt(e.target.value)}
               placeholder="Describe the image"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="image-width">Width (optional)</Label>
+              <Input
+                id="image-width"
+                value={width}
+                onChange={(e) => setWidth(e.target.value)}
+                placeholder="e.g. 600 or 50%"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="image-height">Height (optional)</Label>
+              <Input
+                id="image-height"
+                value={height}
+                onChange={(e) => setHeight(e.target.value)}
+                placeholder="e.g. 400 or auto"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

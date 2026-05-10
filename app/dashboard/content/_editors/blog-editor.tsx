@@ -16,12 +16,14 @@ import {
   Heading2,
   Heading3,
   Image as ImageIcon,
+  Video as VideoIcon,
   Link as LinkIcon,
   Undo,
   Redo,
 } from "lucide-react";
 import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
 import { ImageInsertDialog } from "./image-insert-dialog";
+import { VideoInsertDialog } from "./video-insert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +44,7 @@ export function BlogEditor({ value, onChange }: Props) {
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
 
@@ -198,6 +201,11 @@ export function BlogEditor({ value, onChange }: Props) {
             <ImageIcon className="h-4 w-4" />
           </Btn>
         )}
+        {!htmlMode && (
+          <Btn active={false} onClick={() => setVideoDialogOpen(true)}>
+            <VideoIcon className="h-4 w-4" />
+          </Btn>
+        )}
       </div>
       {htmlMode ? (
         <textarea
@@ -212,11 +220,32 @@ export function BlogEditor({ value, onChange }: Props) {
       <ImageInsertDialog
         open={imageDialogOpen}
         onOpenChange={setImageDialogOpen}
-        onInsert={({ src, alt }) => {
+        onInsert={({ src, alt, width, height }) => {
           editor!
             .chain()
             .focus()
-            .setImage({ src, alt: alt || undefined })
+            .setImage({
+              src,
+              alt: alt || undefined,
+              ...(width ? { width } : {}),
+              ...(height ? { height } : {}),
+            } as { src: string; alt?: string; width?: string; height?: string })
+            .run();
+        }}
+      />
+      <VideoInsertDialog
+        open={videoDialogOpen}
+        onOpenChange={setVideoDialogOpen}
+        onInsert={({ src, provider, width, height }) => {
+          editor!
+            .chain()
+            .focus()
+            .setVideo({
+              src,
+              provider,
+              ...(width ? { width } : {}),
+              ...(height ? { height } : {}),
+            })
             .run();
         }}
       />
