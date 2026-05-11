@@ -15,10 +15,16 @@ import { CommentsTable } from "./comments-table";
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ page?: string; status?: string; q?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    pageSize?: string;
+    status?: string;
+    q?: string;
+  }>;
 };
 
-const PAGE_SIZE = 25;
+const VALID_PAGE_SIZES = [10, 20, 30] as const;
+const DEFAULT_PAGE_SIZE = 10;
 
 async function highestRoleForUserId(userId: string): Promise<Role> {
   try {
@@ -66,6 +72,10 @@ export default async function PostCommentsModerationPage({
   if (!canModerate) redirect("/dashboard/content");
 
   const page = Math.max(1, Number(sp.page) || 1);
+  const rawPageSize = Number(sp.pageSize);
+  const pageSize = (VALID_PAGE_SIZES as readonly number[]).includes(rawPageSize)
+    ? rawPageSize
+    : DEFAULT_PAGE_SIZE;
   const status =
     sp.status === "pending" || sp.status === "published"
       ? sp.status
@@ -76,7 +86,7 @@ export default async function PostCommentsModerationPage({
     listCommentsForPost({
       contentId: post.id,
       page,
-      pageSize: PAGE_SIZE,
+      pageSize,
       status: status === "all" ? undefined : status,
       search: search || undefined,
       sort: "created_desc",
@@ -140,7 +150,7 @@ export default async function PostCommentsModerationPage({
         rows={rows}
         total={total}
         page={page}
-        pageSize={PAGE_SIZE}
+        pageSize={pageSize}
         status={status}
         search={search}
         parentLookup={parentLookup}

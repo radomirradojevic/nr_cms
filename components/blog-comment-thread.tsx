@@ -91,7 +91,10 @@ export function BlogCommentThread({
             variant="ghost"
             size="sm"
             className="text-xs text-muted-foreground"
-            onClick={() => { setShowReplyForm(true); setReplyMsg(null); }}
+            onClick={() => {
+              setShowReplyForm(true);
+              setReplyMsg(null);
+            }}
           >
             Reply
           </Button>
@@ -107,7 +110,10 @@ export function BlogCommentThread({
             allowAnonymous={allowAnonymous}
             parentId={node.id}
             onCancel={() => setShowReplyForm(false)}
-            onSubmitted={(msg) => { setReplyMsg(msg); setShowReplyForm(false); }}
+            onSubmitted={(msg) => {
+              setReplyMsg(msg);
+              setShowReplyForm(false);
+            }}
           />
         </div>
       )}
