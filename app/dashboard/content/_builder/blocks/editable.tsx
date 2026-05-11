@@ -3,16 +3,18 @@
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useNode, useEditor, Element } from "@craftjs/core";
 import { Button } from "@/components/ui/button";
-import { ImageIcon, Images } from "lucide-react";
+import { ImageIcon, Images, FormInput } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePickerDialog } from "./image-picker-dialog";
 import { GallerySelectDialog } from "@/app/dashboard/content/_editors/gallery-select-dialog";
+import { FormSelectDialog } from "@/app/dashboard/content/_editors/form-select-dialog";
 import {
   fetchGalleryPreview,
   type GalleryPickerPreviewImage,
 } from "@/app/dashboard/gallerymanager/actions";
+import { fetchFormPreview } from "@/app/dashboard/form-builder/actions";
 import {
   Select,
   SelectContent,
@@ -36,6 +38,7 @@ import {
   defaults,
   type ButtonProps,
   type ColumnsProps,
+  type FormProps,
   type GalleryProps,
   type HeadingProps,
   type HeroProps,
@@ -759,6 +762,139 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/* ===================== Form ===================== */
+
+export function Form({ formId, formName }: FormProps) {
+  const [preview, setPreview] = useState<{
+    name: string;
+    fieldCount: number;
+    status: string;
+  } | null>(null);
+  const [, startPreview] = useTransition();
+
+  useEffect(() => {
+    if (!formId) {
+      setPreview(null);
+      return;
+    }
+    let cancelled = false;
+    startPreview(async () => {
+      const res = await fetchFormPreview({ id: formId });
+      if (cancelled) return;
+      if ("error" in res) {
+        setPreview(null);
+      } else {
+        setPreview({
+          name: res.name,
+          fieldCount: res.fieldCount,
+          status: res.status,
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [formId]);
+
+  return (
+    <NodeWrap>
+      {!formId ? (
+        <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <FormInput className="mx-auto mb-2 h-6 w-6" />
+          <p>Form placeholder — pick a form in the block settings.</p>
+          <p className="mt-1 text-xs">
+            Only <strong>published</strong> forms appear in the picker.
+          </p>
+        </div>
+      ) : preview ? (
+        <div className="my-4 rounded-md border bg-card p-3 text-sm">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <FormInput className="h-3.5 w-3.5" />
+            <span className="font-medium">{preview.name}</span>
+            <span>
+              · {preview.fieldCount} field{preview.fieldCount === 1 ? "" : "s"}
+            </span>
+            <span>· {preview.status}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+          Loading form{formName ? ` "${formName}"` : ""}…
+        </div>
+      )}
+    </NodeWrap>
+  );
+}
+Form.craft = {
+  displayName: "Form",
+  props: defaults.Form,
+  related: { settings: FormSettings },
+};
+
+function FormSettings() {
+  const {
+    actions: { setProp },
+    formId,
+    formName,
+  } = useNode((n) => ({
+    formId: (n.data.props as FormProps).formId,
+    formName: (n.data.props as FormProps).formName,
+  }));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  return (
+    <>
+      <Field label="Selected form">
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          {formId ? (
+            <>
+              <p className="font-medium">{formName || "(untitled)"}</p>
+              <p className="truncate text-xs text-muted-foreground">{formId}</p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">No form selected.</p>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 w-full"
+          onClick={() => setPickerOpen(true)}
+        >
+          <FormInput className="h-4 w-4" />
+          {formId ? "Change form" : "Choose form"}
+        </Button>
+        {formId ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-1 w-full"
+            onClick={() =>
+              setProp((p: FormProps) => {
+                p.formId = "";
+                p.formName = "";
+              })
+            }
+          >
+            Clear selection
+          </Button>
+        ) : null}
+      </Field>
+      <FormSelectDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onInsert={({ formId: nextId, formName: nextName }) => {
+          setProp((p: FormProps) => {
+            p.formId = nextId;
+            p.formName = nextName;
+          });
+        }}
+      />
+    </>
+  );
+}
+
 /* ===================== Resolver ===================== */
 
 export const resolver = {
@@ -774,6 +910,7 @@ export const resolver = {
   Hero,
   RawHtml,
   Gallery,
+  Form,
 };
 
 /** Re-export for convenience in chrome / page-editor. */

@@ -1,6 +1,8 @@
 import { Fragment } from "react";
 import { getGalleryByIdPublic } from "@/data/galleries";
+import { getPublishedFormById, type FormDetail } from "@/data/forms";
 import { GalleryGrid, type GalleryGridImage } from "@/components/gallery-grid";
+import { CmsFormRenderer } from "@/components/cms-form-renderer";
 
 type Props = {
   html: string;
@@ -9,25 +11,30 @@ type Props = {
 
 const GALLERY_OPEN_RE =
   /<div\b[^>]*\bdata-gallery-id="([0-9a-fA-F-]{36})"[^>]*>/g;
+const FORM_OPEN_RE =
+  /<div\b[^>]*\bdata-cms-form-id="([0-9a-fA-F-]{36})"[^>]*>/g;
 const DIV_TAG_RE = /<(\/?)div\b[^>]*>/g;
 
-/**
- * Scan `html` for outer `<div data-gallery-id="…">…</div>` blocks, correctly
- * balancing nested `<div>` tags so the matcher consumes the full block (not
- * just the first inner `</div>`, which would leak a stray `</div>` into the
- * next HTML chunk and break hydration).
- */
-function findGalleryBlocks(
+type EmbedMatch = {
+  kind: "gallery" | "form";
+  fullMatch: string;
+  id: string;
+  index: number;
+};
+
+function findEmbedBlocks(
   html: string,
-): { fullMatch: string; galleryId: string; index: number }[] {
-  const matches: { fullMatch: string; galleryId: string; index: number }[] = [];
-  GALLERY_OPEN_RE.lastIndex = 0;
+  openRe: RegExp,
+  kind: "gallery" | "form",
+): EmbedMatch[] {
+  const matches: EmbedMatch[] = [];
+  openRe.lastIndex = 0;
   let open: RegExpExecArray | null;
-  while ((open = GALLERY_OPEN_RE.exec(html))) {
+  while ((open = openRe.exec(html))) {
     const start = open.index;
-    const galleryId = open[1];
+    const id = open[1];
     let depth = 1;
-    DIV_TAG_RE.lastIndex = GALLERY_OPEN_RE.lastIndex;
+    DIV_TAG_RE.lastIndex = openRe.lastIndex;
     let tag: RegExpExecArray | null;
     while ((tag = DIV_TAG_RE.exec(html))) {
       if (tag[1] === "/") {
@@ -35,39 +42,37 @@ function findGalleryBlocks(
         if (depth === 0) {
           const end = tag.index + tag[0].length;
           matches.push({
+            kind,
             fullMatch: html.slice(start, end),
-            galleryId,
+            id,
             index: start,
           });
-          GALLERY_OPEN_RE.lastIndex = end;
+          openRe.lastIndex = end;
           break;
         }
       } else {
         depth++;
       }
     }
-    if (depth !== 0) {
-      // Unbalanced — bail to avoid an infinite loop.
-      break;
-    }
+    if (depth !== 0) break;
   }
   return matches;
 }
 
 /**
  * Renders blog post HTML produced by the TipTap editor and hydrates
- * embedded `<div data-gallery-id="...">` placeholders into real gallery
- * grids (with thumbnails + lightbox).
- *
- * Server component — fetches gallery data on the server during render.
+ * embedded `<div data-gallery-id="…">` and `<div data-cms-form-id="…">`
+ * placeholders into real gallery grids and form renderers.
  */
 export async function BlogContent({ html, className }: Props) {
   const safeHtml = html ?? "";
 
-  // Collect placeholders + their gallery ids (balanced-div matcher).
-  const matches = findGalleryBlocks(safeHtml);
+  const galleryMatches = findEmbedBlocks(safeHtml, GALLERY_OPEN_RE, "gallery");
+  const formMatches = findEmbedBlocks(safeHtml, FORM_OPEN_RE, "form");
+  const matches = [...galleryMatches, ...formMatches].sort(
+    (a, b) => a.index - b.index,
+  );
 
-  // No galleries → render plain HTML.
   if (matches.length === 0) {
     return (
       <article
@@ -77,17 +82,28 @@ export async function BlogContent({ html, className }: Props) {
     );
   }
 
-  // Fetch gallery data in parallel; dedupe by id.
-  const uniqueIds = Array.from(new Set(matches.map((x) => x.galleryId)));
-  const fetched = await Promise.all(
-    uniqueIds.map(async (id) => [id, await getGalleryByIdPublic(id)] as const),
-  );
-  const galleryById = new Map(fetched);
+  const uniqueGalleryIds = Array.from(new Set(galleryMatches.map((x) => x.id)));
+  const uniqueFormIds = Array.from(new Set(formMatches.map((x) => x.id)));
 
-  // Walk segments: HTML chunk → GalleryGrid → HTML chunk → ...
+  const [galleryEntries, formEntries] = await Promise.all([
+    Promise.all(
+      uniqueGalleryIds.map(
+        async (id) => [id, await getGalleryByIdPublic(id)] as const,
+      ),
+    ),
+    Promise.all(
+      uniqueFormIds.map(
+        async (id) => [id, await getPublishedFormById(id)] as const,
+      ),
+    ),
+  ]);
+  const galleryById = new Map(galleryEntries);
+  const formById = new Map<string, FormDetail | null>(formEntries);
+
   type Segment =
     | { type: "html"; value: string }
-    | { type: "gallery"; id: string; key: string };
+    | { type: "gallery"; id: string; key: string }
+    | { type: "form"; id: string; key: string };
   const out: Segment[] = [];
 
   let cursor = 0;
@@ -95,11 +111,19 @@ export async function BlogContent({ html, className }: Props) {
     if (match.index > cursor) {
       out.push({ type: "html", value: safeHtml.slice(cursor, match.index) });
     }
-    out.push({
-      type: "gallery",
-      id: match.galleryId,
-      key: `gal-${idx}-${match.galleryId}`,
-    });
+    if (match.kind === "gallery") {
+      out.push({
+        type: "gallery",
+        id: match.id,
+        key: `gal-${idx}-${match.id}`,
+      });
+    } else {
+      out.push({
+        type: "form",
+        id: match.id,
+        key: `form-${idx}-${match.id}`,
+      });
+    }
     cursor = match.index + match.fullMatch.length;
   });
   if (cursor < safeHtml.length) {
@@ -117,25 +141,43 @@ export async function BlogContent({ html, className }: Props) {
             />
           );
         }
-        const gallery = galleryById.get(seg.id) ?? null;
-        if (!gallery) {
+        if (seg.type === "gallery") {
+          const gallery = galleryById.get(seg.id) ?? null;
+          if (!gallery) {
+            return (
+              <div
+                key={seg.key}
+                className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground"
+              >
+                Gallery is unavailable.
+              </div>
+            );
+          }
+          const images: GalleryGridImage[] = gallery.images.map((img) => ({
+            id: img.fileId,
+            src: `/api/files/${img.fileId}`,
+            alt: img.file.alt ?? img.file.title ?? img.file.filename,
+          }));
+          return (
+            <Fragment key={seg.key}>
+              <GalleryGrid images={images} galleryName={gallery.name} />
+            </Fragment>
+          );
+        }
+        const detail = formById.get(seg.id) ?? null;
+        if (!detail) {
           return (
             <div
               key={seg.key}
               className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground"
             >
-              Gallery is unavailable.
+              Form is unavailable.
             </div>
           );
         }
-        const images: GalleryGridImage[] = gallery.images.map((img) => ({
-          id: img.fileId,
-          src: `/api/files/${img.fileId}`,
-          alt: img.file.alt ?? img.file.title ?? img.file.filename,
-        }));
         return (
           <Fragment key={seg.key}>
-            <GalleryGrid images={images} galleryName={gallery.name} />
+            <CmsFormRenderer form={detail} />
           </Fragment>
         );
       })}

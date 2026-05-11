@@ -58,6 +58,14 @@ export const defaultStaticRegistry: StaticRegistry = {
       {typeof galleryName === "string" && galleryName ? `: ${galleryName}` : ""}
     </div>
   ),
+  // Synchronous client-safe placeholder. The RSC entry overrides this with
+  // the async `FormStatic` that fetches and renders the real form.
+  Form: ({ formName }: Record<string, unknown> & { children?: ReactNode }) => (
+    <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+      Form
+      {typeof formName === "string" && formName ? `: ${formName}` : ""}
+    </div>
+  ),
 };
 
 function resolvedName(node: SerializedNode): string {
