@@ -278,27 +278,54 @@ export function CommentsTable({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <span className="text-sm text-muted-foreground">
           {total} comment{total === 1 ? "" : "s"} · page {page} of {totalPages}
         </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setParam("page", String(page - 1))}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setParam("page", String(page + 1))}
-          >
-            Next
-          </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              Per page
+            </span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => {
+                const next = new URLSearchParams(sp.toString());
+                next.set("pageSize", v);
+                next.delete("page");
+                router.push(
+                  `/dashboard/content/${postId}/comments?${next.toString()}`,
+                );
+              }}
+            >
+              <SelectTrigger className="w-[80px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="30">30</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setParam("page", String(page - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setParam("page", String(page + 1))}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
     </div>
