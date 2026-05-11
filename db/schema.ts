@@ -57,6 +57,13 @@ export const content = pgTable(
     slug: text("slug").notNull().unique(),
     authorId: text("author_id").notNull(),
     homepage: boolean("homepage").notNull().default(false),
+    enableComments: boolean("enable_comments").notNull().default(false),
+    autoPublishComments: boolean("auto_publish_comments")
+      .notNull()
+      .default(false),
+    allowAnonymousComments: boolean("allow_anonymous_comments")
+      .notNull()
+      .default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -205,5 +212,50 @@ export const galleryImages = pgTable(
       table.galleryId,
       table.position,
     ),
+  ],
+);
+
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contentId: uuid("content_id")
+      .notNull()
+      .references(() => content.id, { onDelete: "cascade" }),
+    parentId: uuid("parent_id").references((): AnyPgColumn => comments.id, {
+      onDelete: "cascade",
+    }),
+    authorId: text("author_id"),
+    authorName: text("author_name").notNull(),
+    authorEmail: text("author_email"),
+    body: text("body").notNull(),
+    status: text("status").notNull().default("pending"),
+    ipHash: text("ip_hash"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      "comments_status_check",
+      sql`${table.status} IN ('pending','published')`,
+    ),
+    check(
+      "comments_body_length_check",
+      sql`char_length(${table.body}) BETWEEN 1 AND 5000`,
+    ),
+    index("comments_post_status_created_idx").on(
+      table.contentId,
+      table.status,
+      table.createdAt,
+    ),
+    index("comments_parent_id_idx").on(table.parentId),
+    index("comments_author_id_idx").on(table.authorId),
+    index("comments_ip_hash_idx").on(table.ipHash),
   ],
 );

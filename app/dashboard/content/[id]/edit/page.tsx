@@ -67,6 +67,9 @@ export default async function EditContentPage({ params }: Props) {
           coverImage: row.coverImage,
           status: row.status as "published" | "unpublished" | "archived",
           homepage: row.homepage,
+          enableComments: row.enableComments,
+          autoPublishComments: row.autoPublishComments,
+          allowAnonymousComments: row.allowAnonymousComments,
           contentJson: row.contentJson,
         }}
       />
