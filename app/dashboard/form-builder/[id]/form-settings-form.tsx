@@ -127,6 +127,33 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
 
         {enableEmail && (
           <>
+            <div className="rounded-md border border-amber-500/40 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/40 dark:text-amber-100">
+              <p className="font-medium">Sender configuration required</p>
+              <p className="mt-1">
+                Emails are sent using credentials from environment variables
+                (set in <code>.env</code> and restart the dev server). Provider
+                is selected by <code>EMAIL_PROVIDER</code>.
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-4">
+                <li>
+                  <strong>Resend</strong> (default): set{" "}
+                  <code>EMAIL_PROVIDER=resend</code>,{" "}
+                  <code>RESEND_API_KEY</code>, and <code>EMAIL_FROM</code> (must
+                  be a verified sender/domain in Resend).
+                </li>
+                <li>
+                  <strong>SMTP</strong>: set <code>EMAIL_PROVIDER=smtp</code>,{" "}
+                  <code>SMTP_HOST</code>, <code>SMTP_PORT</code>,{" "}
+                  <code>SMTP_USER</code>, <code>SMTP_PASS</code>,{" "}
+                  <code>SMTP_SECURE</code>, and <code>EMAIL_FROM</code>.
+                  Requires <code>npm i nodemailer</code>.
+                </li>
+              </ul>
+              <p className="mt-2">
+                Submissions are always saved. If sending fails, the reason is
+                shown on the submission detail under <em>Email error</em>.
+              </p>
+            </div>
             <div className="space-y-1">
               <Label className="text-xs">Recipients</Label>
               <div className="flex flex-wrap gap-2">
