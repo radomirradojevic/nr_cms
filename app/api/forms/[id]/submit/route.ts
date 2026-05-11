@@ -12,10 +12,27 @@ import {
 import { buildFormValuesSchema, normalizeValues } from "@/lib/form-validation";
 import { getClientIp, hashIp } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
-import { interpolateTemplate, sendEmail } from "@/lib/email";
+import {
+  interpolateTemplate,
+  sendEmail,
+  type EmailAttachment,
+} from "@/lib/email";
+import { getFileByIdUnchecked } from "@/data/files";
+import { readFile } from "node:fs/promises";
+import { resolvePath } from "@/lib/file-storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function valueToString(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.join(", ");
+  if (typeof v === "object" && "originalName" in v)
+    return (v as { originalName: string }).originalName;
+  return "";
+}
 
 const MAX_BODY = 100 * 1024; // 100KB
 const GENERIC_ERROR = "We could not submit your form. Please try again.";
@@ -135,10 +152,7 @@ export async function POST(
           const text = interpolateTemplate(
             detail.settings.emailTemplate,
             Object.fromEntries(
-              Object.entries(values).map(([k, v]) => [
-                k,
-                v == null ? "" : String(v),
-              ]),
+              Object.entries(values).map(([k, v]) => [k, valueToString(v)]),
             ),
           );
           let replyTo: string | undefined;
@@ -151,11 +165,45 @@ export async function POST(
             detail.settings.notificationSubject,
             { form_name: detail.form.name },
           );
+
+          // Collect file attachments from file-type fields
+          const attachments: EmailAttachment[] = [];
+          for (const v of Object.values(values)) {
+            if (
+              v != null &&
+              typeof v === "object" &&
+              !Array.isArray(v) &&
+              "fileId" in v
+            ) {
+              const fv = v as {
+                fileId: string;
+                originalName: string;
+                mime: string;
+              };
+              const fileRow = await getFileByIdUnchecked(fv.fileId);
+              if (fileRow) {
+                try {
+                  const content = await readFile(
+                    resolvePath(fileRow.storagePath),
+                  );
+                  attachments.push({
+                    filename: fv.originalName,
+                    content,
+                    mime: fv.mime,
+                  });
+                } catch {
+                  // File unreadable — skip attachment, still send email
+                }
+              }
+            }
+          }
+
           const sent = await sendEmail({
             to: recipients,
             subject,
             text,
             replyTo,
+            attachments: attachments.length > 0 ? attachments : undefined,
           });
           await updateSubmissionEmailStatus(submission.id, {
             status: sent.ok ? "sent" : "failed",

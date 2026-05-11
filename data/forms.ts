@@ -82,6 +82,26 @@ export async function listForms(opts: {
   }
   const where = conds.length ? and(...conds) : undefined;
 
+  // Pre-aggregate counts in subqueries then LEFT JOIN to avoid correlated
+  // subquery pitfalls with Drizzle's sql`` template parameter binding.
+  const submissionCounts = db
+    .select({
+      formId: formSubmissions.formId,
+      cnt: sql<number>`count(*)::int`.as("submission_cnt"),
+    })
+    .from(formSubmissions)
+    .groupBy(formSubmissions.formId)
+    .as("sc");
+
+  const fieldCounts = db
+    .select({
+      formId: formFields.formId,
+      cnt: sql<number>`count(*)::int`.as("field_cnt"),
+    })
+    .from(formFields)
+    .groupBy(formFields.formId)
+    .as("fc");
+
   const [rows, [{ total }]] = await Promise.all([
     db
       .select({
@@ -97,10 +117,12 @@ export async function listForms(opts: {
         createdAt: forms.createdAt,
         updatedAt: forms.updatedAt,
         publishedAt: forms.publishedAt,
-        submissionCount: sql<number>`COALESCE((SELECT COUNT(*)::int FROM ${formSubmissions} WHERE ${formSubmissions.formId} = ${forms.id}), 0)`,
-        fieldCount: sql<number>`COALESCE((SELECT COUNT(*)::int FROM ${formFields} WHERE ${formFields.formId} = ${forms.id}), 0)`,
+        submissionCount: sql<number>`coalesce(${submissionCounts.cnt}, 0)`,
+        fieldCount: sql<number>`coalesce(${fieldCounts.cnt}, 0)`,
       })
       .from(forms)
+      .leftJoin(submissionCounts, eq(submissionCounts.formId, forms.id))
+      .leftJoin(fieldCounts, eq(fieldCounts.formId, forms.id))
       .where(where)
       .orderBy(desc(forms.updatedAt))
       .limit(opts.limit)
