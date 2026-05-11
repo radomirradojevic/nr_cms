@@ -32,6 +32,7 @@ export type ContentRow = {
   status: "published" | "unpublished" | "archived";
   homepage: boolean;
   authorId: string;
+  authorName: string;
   updatedAt: string;
   publishedAt: string | null;
 };
@@ -130,6 +131,7 @@ export function ContentTable({
                 <TableHead>Title</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Author</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Updated</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -178,6 +180,7 @@ export function ContentTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm">{row.categoryName}</TableCell>
+                  <TableCell className="text-sm">{row.authorName}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[row.status]}>
                       {row.status}

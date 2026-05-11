@@ -9,6 +9,7 @@ import {
   Pencil,
   Search,
   Trash2,
+  User,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -167,8 +168,14 @@ export function GalleryList({
                     {g.description}
                   </p>
                 )}
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <User className="h-3 w-3 shrink-0" />
+                  <span className="truncate" title={g.creatorName}>
+                    {g.creatorName}
+                  </span>
+                </div>
               </CardContent>
-              <CardFooter className="px-3 pb-3 pt-0 flex items-center justify-between text-xs text-muted-foreground">
+              <CardFooter className="mt-auto px-3 pb-3 pt-0 flex items-center justify-between text-xs text-muted-foreground">
                 <span>
                   {g.imageCount} image{g.imageCount === 1 ? "" : "s"}
                 </span>

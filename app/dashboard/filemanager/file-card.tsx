@@ -31,6 +31,7 @@ type Props = {
   onToggleSelected: (id: string, next: boolean) => void;
   onUpdated: (file: FileRow) => void;
   onDeleted: (ids: string[]) => void;
+  uploaderName: string;
 };
 
 export function FileCard({
@@ -39,6 +40,7 @@ export function FileCard({
   onToggleSelected,
   onUpdated,
   onDeleted,
+  uploaderName,
 }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -114,6 +116,12 @@ export function FileCard({
           </p>
           <p className="text-xs text-muted-foreground truncate">
             {file.mimeType} · {formatBytes(file.sizeBytes)}
+          </p>
+          <p
+            className="text-xs text-muted-foreground truncate"
+            title={uploaderName}
+          >
+            ↑ {uploaderName}
           </p>
         </div>
 
