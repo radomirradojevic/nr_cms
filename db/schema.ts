@@ -259,3 +259,132 @@ export const comments = pgTable(
     index("comments_ip_hash_idx").on(table.ipHash),
   ],
 );
+
+// ─── Form Builder ─────────────────────────────────────────────────────────────
+
+export const forms = pgTable(
+  "forms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    description: text("description"),
+    status: text("status").notNull().default("draft"),
+    submitLabel: text("submit_label").notNull().default("Submit"),
+    successMessage: text("success_message")
+      .notNull()
+      .default("Thank you. Your submission has been received."),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+  },
+  (table) => [
+    check("forms_status_check", sql`${table.status} IN ('draft','published')`),
+    index("forms_status_idx").on(table.status),
+    index("forms_created_by_idx").on(table.createdBy),
+  ],
+);
+
+export const formFields = pgTable(
+  "form_fields",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    formId: uuid("form_id")
+      .notNull()
+      .references(() => forms.id, { onDelete: "cascade" }),
+    fieldKey: text("field_key").notNull(),
+    fieldType: text("field_type").notNull(),
+    label: text("label").notNull(),
+    placeholder: text("placeholder"),
+    helpText: text("help_text"),
+    required: boolean("required").notNull().default(false),
+    position: integer("position").notNull(),
+    options: jsonb("options"),
+    validation: jsonb("validation"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      "form_fields_type_check",
+      sql`${table.fieldType} IN ('text','textarea','email','number','phone','select','radio','checkbox','date','file')`,
+    ),
+    unique("form_fields_form_key_unique").on(table.formId, table.fieldKey),
+    index("form_fields_form_position_idx").on(table.formId, table.position),
+  ],
+);
+
+export const formSettings = pgTable("form_settings", {
+  formId: uuid("form_id")
+    .primaryKey()
+    .references(() => forms.id, { onDelete: "cascade" }),
+  enableEmailNotifications: boolean("enable_email_notifications")
+    .notNull()
+    .default(false),
+  notificationRecipients: jsonb("notification_recipients")
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  notificationSubject: text("notification_subject")
+    .notNull()
+    .default("New submission for {{form_name}}"),
+  replyToField: text("reply_to_field"),
+  emailTemplate: text("email_template").notNull().default(""),
+  redirectUrl: text("redirect_url"),
+  enableTurnstile: boolean("enable_turnstile").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const formSubmissions = pgTable(
+  "form_submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    formId: uuid("form_id")
+      .notNull()
+      .references(() => forms.id, { onDelete: "cascade" }),
+    data: jsonb("data").notNull(),
+    status: text("status").notNull().default("new"),
+    emailStatus: text("email_status").notNull().default("not_sent"),
+    emailError: text("email_error"),
+    ipHash: text("ip_hash"),
+    userAgent: text("user_agent"),
+    referer: text("referer"),
+    submittedBy: text("submitted_by"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "form_submissions_status_check",
+      sql`${table.status} IN ('new','read','spam')`,
+    ),
+    check(
+      "form_submissions_email_status_check",
+      sql`${table.emailStatus} IN ('not_sent','sent','failed','skipped')`,
+    ),
+    index("form_submissions_form_created_idx").on(
+      table.formId,
+      table.createdAt,
+    ),
+    index("form_submissions_form_status_idx").on(table.formId, table.status),
+    index("form_submissions_ip_hash_idx").on(table.ipHash, table.createdAt),
+  ],
+);

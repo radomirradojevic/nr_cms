@@ -131,6 +131,16 @@ export default async function RootLayout({
                             <Link href="/dashboard/top-menu">Top Menu</Link>
                           </NavigationMenuLink>
                         </NavigationMenuItem>
+                        <NavigationMenuItem>
+                          <NavigationMenuLink
+                            asChild
+                            className={navigationMenuTriggerStyle()}
+                          >
+                            <Link href="/dashboard/form-builder">
+                              Form Builder
+                            </Link>
+                          </NavigationMenuLink>
+                        </NavigationMenuItem>
                       </>
                     )}
                   </NavigationMenuList>

@@ -5,6 +5,7 @@ import Typography from "@tiptap/extension-typography";
 import TextAlign from "@tiptap/extension-text-align";
 import { Video } from "./video-extension";
 import { GalleryNode } from "./gallery-extension";
+import { CmsFormNode } from "./form-extension";
 
 const ImageWithSize = Image.extend({
   addAttributes() {
@@ -37,6 +38,7 @@ export const tiptapExtensions = [
   ImageWithSize,
   Video,
   GalleryNode,
+  CmsFormNode,
   Typography,
   TextAlign.configure({ types: ["heading", "paragraph"] }),
   Placeholder.configure({ placeholder: "Write your blog post…" }),

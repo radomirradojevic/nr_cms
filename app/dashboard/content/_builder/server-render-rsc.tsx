@@ -1,5 +1,6 @@
 import "server-only";
 import { GalleryStatic } from "./blocks/gallery-static";
+import { FormStatic } from "./blocks/form-static";
 import {
   defaultStaticRegistry,
   renderTree,
@@ -9,12 +10,13 @@ import { isBuilderData } from "./types";
 
 /**
  * RSC-only static registry. Extends the client-safe registry with the
- * async `GalleryStatic` renderer (which fetches gallery data from the
- * database).
+ * async `GalleryStatic` and `FormStatic` renderers (which fetch data
+ * from the database).
  */
 const rscRegistry: StaticRegistry = {
   ...defaultStaticRegistry,
   Gallery: GalleryStatic as never,
+  Form: FormStatic as never,
 };
 
 /**

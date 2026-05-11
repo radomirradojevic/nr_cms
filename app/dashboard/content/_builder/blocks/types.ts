@@ -22,6 +22,7 @@ export type ButtonProps = { label: string; href: string };
 export type HeroProps = { title: JSONContent; subtitle: JSONContent };
 export type RawHtmlProps = { html: string };
 export type GalleryProps = { galleryId: string; galleryName: string };
+export type FormProps = { formId: string; formName: string };
 
 export const blockNames = [
   "Section",
@@ -33,6 +34,7 @@ export const blockNames = [
   "Hero",
   "RawHtml",
   "Gallery",
+  "Form",
 ] as const;
 
 export type BlockName = (typeof blockNames)[number];
@@ -94,4 +96,8 @@ export const defaults = {
     galleryId: "",
     galleryName: "",
   } satisfies GalleryProps,
+  Form: {
+    formId: "",
+    formName: "",
+  } satisfies FormProps,
 };
