@@ -149,6 +149,23 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
                   Requires <code>npm i nodemailer</code>.
                 </li>
               </ul>
+              <div className="mt-3 space-y-2">
+                <p className="font-medium">
+                  Example <code>.env</code> entries:
+                </p>
+                <div>
+                  <p className="mb-1 text-amber-700 dark:text-amber-300">
+                    Resend:
+                  </p>
+                  <pre className="overflow-x-auto rounded bg-amber-100 p-2 font-mono text-[11px] leading-relaxed dark:bg-amber-900/40">{`EMAIL_PROVIDER=resend\nRESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx\nEMAIL_FROM=noreply@yourdomain.com`}</pre>
+                </div>
+                <div>
+                  <p className="mb-1 text-amber-700 dark:text-amber-300">
+                    SMTP (e.g. Gmail):
+                  </p>
+                  <pre className="overflow-x-auto rounded bg-amber-100 p-2 font-mono text-[11px] leading-relaxed dark:bg-amber-900/40">{`EMAIL_PROVIDER=smtp\nSMTP_HOST=smtp.gmail.com\nSMTP_PORT=465\nSMTP_USER=you@gmail.com\nSMTP_PASS=your-app-password\nSMTP_SECURE=true\nEMAIL_FROM=you@gmail.com`}</pre>
+                </div>
+              </div>
               <p className="mt-2">
                 Submissions are always saved. If sending fails, the reason is
                 shown on the submission detail under <em>Email error</em>.
