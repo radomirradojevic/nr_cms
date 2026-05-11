@@ -2,13 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import {
-  ChevronDown,
-  Download,
-  Loader2,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { Download, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -376,10 +370,10 @@ export function SubmissionsList({
                             setStatusOne(r.id, v as SubmissionStatus)
                           }
                         >
-                          <SelectTrigger className="h-7 w-20 text-xs">
-                            <ChevronDown className="h-3 w-3" />
+                          <SelectTrigger className="h-7 w-24 text-xs">
+                            <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent position="popper" align="end">
                             <SelectItem value="new">new</SelectItem>
                             <SelectItem value="read">read</SelectItem>
                             <SelectItem value="spam">spam</SelectItem>
