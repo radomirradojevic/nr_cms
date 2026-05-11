@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser, clerkClient } from "@clerk/nextjs/server";
 import { listContent } from "@/data/content";
 import { getRoles } from "@/lib/roles";
 
@@ -62,6 +62,22 @@ export async function GET(request: NextRequest) {
     sort,
   });
 
+  // Batch-fetch Clerk user names for all unique author IDs
+  const uniqueAuthorIds = [...new Set(rows.map((r) => r.authorId))];
+  const client = await clerkClient();
+  const { data: clerkUsers } = await client.users.getUserList({
+    userId: uniqueAuthorIds,
+    limit: uniqueAuthorIds.length || 1,
+  });
+  const authorNameMap = new Map(
+    clerkUsers.map((u) => [
+      u.id,
+      [u.firstName, u.lastName].filter(Boolean).join(" ") ||
+        u.emailAddresses[0]?.emailAddress ||
+        u.id,
+    ]),
+  );
+
   return NextResponse.json({
     rows: rows.map((r) => ({
       id: r.id,
@@ -73,6 +89,7 @@ export async function GET(request: NextRequest) {
       status: r.status,
       homepage: r.homepage,
       authorId: r.authorId,
+      authorName: authorNameMap.get(r.authorId) ?? r.authorId,
       updatedAt: r.updatedAt,
       publishedAt: r.publishedAt,
     })),

@@ -1,3 +1,4 @@
+import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { galleries, galleryImages, files } from "@/db/schema";
 import {
@@ -26,6 +27,7 @@ function ownerWhere(c: Caller) {
 export type GalleryListItem = GalleryRow & {
   imageCount: number;
   coverFileId: string | null;
+  creatorName: string;
 };
 
 export async function listGalleries(opts: {
@@ -73,6 +75,28 @@ export async function listGalleries(opts: {
     db.select({ total: count() }).from(galleries).where(where),
   ]);
 
+  const uniqueUserIds = [...new Set(rowsRaw.map((r) => r.createdBy))];
+  const nameMap = new Map<string, string>();
+  if (uniqueUserIds.length > 0) {
+    try {
+      const client = await clerkClient();
+      const clerkUsers = await client.users.getUserList({
+        userId: uniqueUserIds,
+        limit: 100,
+      });
+      for (const u of clerkUsers.data) {
+        const name =
+          [u.firstName, u.lastName].filter(Boolean).join(" ") ||
+          u.username ||
+          u.emailAddresses[0]?.emailAddress ||
+          "Unknown";
+        nameMap.set(u.id, name);
+      }
+    } catch {
+      // non-fatal: fall back to unknown
+    }
+  }
+
   const rows: GalleryListItem[] = rowsRaw.map((r) => ({
     id: r.id,
     name: r.name,
@@ -83,6 +107,7 @@ export async function listGalleries(opts: {
     created: r.created,
     updated: r.updated,
     imageCount: Number(r.imageCount ?? 0),
+    creatorName: nameMap.get(r.createdBy) ?? "Unknown",
   }));
 
   return { rows, total };

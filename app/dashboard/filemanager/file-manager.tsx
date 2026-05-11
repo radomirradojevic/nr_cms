@@ -20,6 +20,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { FileRow } from "@/data/files";
+import type { UploaderInfo } from "./page";
 import type { FileKind } from "@/lib/file-manager";
 import { UploadDropzone } from "./upload-dropzone";
 import { FileCard } from "./file-card";
@@ -31,6 +32,7 @@ type Props = {
   initialTotal: number;
   pageSize: number;
   isAdmin: boolean;
+  uploaders: UploaderInfo[];
 };
 
 type DateRange = { from?: Date; to?: Date };
@@ -40,6 +42,7 @@ export function FileManager({
   initialTotal,
   pageSize,
   isAdmin,
+  uploaders,
 }: Props) {
   const [files, setFiles] = useState<FileRow[]>(initialFiles);
   const [total, setTotal] = useState(initialTotal);
@@ -48,6 +51,12 @@ export function FileManager({
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<FileKind | "all">("all");
   const [range, setRange] = useState<DateRange>({});
+  const [uploadedBy, setUploadedBy] = useState<string>("all");
+
+  const uploaderMap = useMemo(
+    () => Object.fromEntries(uploaders.map((u) => [u.id, u.name])),
+    [uploaders],
+  );
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -67,7 +76,7 @@ export function FileManager({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, kind, range.from, range.to]);
+  }, [search, kind, range.from, range.to, uploadedBy]);
 
   function runFetch(nextOffset: number, replace: boolean) {
     startTransition(async () => {
@@ -76,6 +85,7 @@ export function FileManager({
         search: search || undefined,
         from: range.from?.toISOString(),
         to: range.to?.toISOString(),
+        uploadedBy: uploadedBy !== "all" ? uploadedBy : undefined,
         limit: pageSize,
         offset: nextOffset,
       });
@@ -158,6 +168,22 @@ export function FileManager({
           </SelectContent>
         </Select>
 
+        {isAdmin && uploaders.length > 0 && (
+          <Select value={uploadedBy} onValueChange={setUploadedBy}>
+            <SelectTrigger className="w-full md:w-[180px]">
+              <SelectValue placeholder="Uploaded by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All users</SelectItem>
+              {uploaders.map((u) => (
+                <SelectItem key={u.id} value={u.id}>
+                  {u.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -237,6 +263,7 @@ export function FileManager({
               onToggleSelected={toggleSelected}
               onUpdated={handleUpdated}
               onDeleted={handleDeleted}
+              uploaderName={uploaderMap[file.uploadedBy] ?? file.uploadedBy}
             />
           ))}
         </div>

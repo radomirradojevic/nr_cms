@@ -133,6 +133,7 @@ const listFilesSchema = z.object({
   search: z.string().max(200).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  uploadedBy: z.string().optional(),
   limit: z.number().int().min(1).max(200).default(60),
   offset: z.number().int().min(0).default(0),
 });
@@ -150,7 +151,10 @@ export async function fetchFiles(
   const parsed = listFilesSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const { kind, search, from, to, limit, offset } = parsed.data;
+  const { kind, search, from, to, uploadedBy, limit, offset } = parsed.data;
+
+  // Non-admins can only see their own files — silently ignore uploadedBy.
+  const resolvedUploadedBy = caller.isAdmin ? uploadedBy : undefined;
 
   const { rows, total } = await listFiles({
     caller,
@@ -158,6 +162,7 @@ export async function fetchFiles(
     search,
     from: from ? new Date(from) : undefined,
     to: to ? new Date(to) : undefined,
+    uploadedBy: resolvedUploadedBy,
     limit,
     offset,
   });

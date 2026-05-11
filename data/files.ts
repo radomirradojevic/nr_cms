@@ -29,6 +29,7 @@ export async function listFiles(opts: {
   search?: string;
   from?: Date;
   to?: Date;
+  uploadedBy?: string;
   limit: number;
   offset: number;
 }): Promise<{ rows: FileRow[]; total: number }> {
@@ -45,6 +46,7 @@ export async function listFiles(opts: {
   }
   if (opts.from) conditions.push(gte(files.created, opts.from));
   if (opts.to) conditions.push(lte(files.created, opts.to));
+  if (opts.uploadedBy) conditions.push(eq(files.uploadedBy, opts.uploadedBy));
 
   const where = conditions.length ? and(...conditions) : undefined;
 
@@ -216,6 +218,13 @@ export async function purgeFileReferences(fileId: string): Promise<void> {
       await db.update(content).set(patch).where(eq(content.id, row.id));
     }
   }
+}
+
+export async function getDistinctUploaderIds(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ uploadedBy: files.uploadedBy })
+    .from(files);
+  return rows.map((r) => r.uploadedBy);
 }
 
 // Sort export utilities reused above
