@@ -147,9 +147,13 @@ export async function POST(
             const v = (values[replyKey] as string).trim();
             if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) replyTo = v;
           }
+          const subject = interpolateTemplate(
+            detail.settings.notificationSubject,
+            { form_name: detail.form.name },
+          );
           const sent = await sendEmail({
             to: recipients,
-            subject: detail.settings.notificationSubject,
+            subject,
             text,
             replyTo,
           });
