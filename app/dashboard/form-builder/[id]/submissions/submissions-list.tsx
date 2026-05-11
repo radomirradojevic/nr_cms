@@ -103,7 +103,7 @@ export function SubmissionsList({
         limit: pageSize,
         offset: replace ? 0 : rows.length,
       });
-      if ("error" in res && res.error) {
+      if ("error" in res) {
         toast.error(res.error);
         return;
       }
@@ -132,7 +132,7 @@ export function SubmissionsList({
 
   function setStatusOne(id: string, s: SubmissionStatus) {
     startTransition(async () => {
-      const r = await setSubmissionStatus({ formId, id, status: s });
+      const r = await setSubmissionStatus({ id, status: s });
       if ("error" in r && r.error) {
         toast.error(r.error);
         return;
@@ -147,7 +147,6 @@ export function SubmissionsList({
     if (selected.size === 0) return;
     startTransition(async () => {
       const r = await bulkSubmissionAction({
-        formId,
         ids: Array.from(selected),
         action,
       });
@@ -164,7 +163,7 @@ export function SubmissionsList({
     if (!deleteId) return;
     const id = deleteId;
     startTransition(async () => {
-      const r = await deleteSubmissionAction({ formId, id });
+      const r = await deleteSubmissionAction({ id });
       if ("error" in r && r.error) {
         toast.error(r.error);
         setDeleteId(null);
@@ -186,7 +185,7 @@ export function SubmissionsList({
         toDate: toDate || undefined,
         search: search.trim() || undefined,
       });
-      if ("error" in r && r.error) {
+      if ("error" in r) {
         toast.error(r.error);
         return;
       }
@@ -194,7 +193,7 @@ export function SubmissionsList({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = r.filename;
+      a.download = `submissions-${formId}-${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();

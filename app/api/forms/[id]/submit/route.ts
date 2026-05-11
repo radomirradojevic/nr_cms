@@ -134,7 +134,12 @@ export async function POST(
         try {
           const text = interpolateTemplate(
             detail.settings.emailTemplate,
-            values as Record<string, unknown>,
+            Object.fromEntries(
+              Object.entries(values).map(([k, v]) => [
+                k,
+                v == null ? "" : String(v),
+              ]),
+            ),
           );
           let replyTo: string | undefined;
           const replyKey = detail.settings.replyToField;
