@@ -1,11 +1,18 @@
 import "server-only";
 import { z } from "zod";
 
+export type EmailAttachment = {
+  filename: string;
+  content: Buffer;
+  mime: string;
+};
+
 export type EmailInput = {
   to: string[];
   subject: string;
   text: string;
   replyTo?: string;
+  attachments?: EmailAttachment[];
 };
 
 export type SendResult = { ok: true } | { ok: false; error: string };
@@ -69,6 +76,10 @@ async function sendViaResend(
       subject: input.subject,
       text: input.text,
       reply_to: input.replyTo,
+      attachments: input.attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content.toString("base64"),
+      })),
     }),
     cache: "no-store",
   });
@@ -102,6 +113,11 @@ async function sendViaSmtp(
         subject: string;
         text: string;
         replyTo?: string;
+        attachments?: {
+          filename: string;
+          content: Buffer;
+          contentType: string;
+        }[];
       }) => Promise<unknown>;
     };
   };
@@ -130,6 +146,11 @@ async function sendViaSmtp(
     subject: input.subject,
     text: input.text,
     replyTo: input.replyTo,
+    attachments: input.attachments?.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      contentType: a.mime,
+    })),
   });
   return { ok: true };
 }
