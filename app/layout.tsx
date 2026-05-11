@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider, Show, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { currentUser } from "@clerk/nextjs/server";
-import { UserButtonWithRoles } from "@/components/user-button-with-roles";
+import { UserButtonClient } from "@/components/user-button-client";
 import { shadcn } from "@clerk/themes";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Button } from "@/components/ui/button";
@@ -153,7 +153,7 @@ export default async function RootLayout({
                 </SignUpButton>
               </Show>
               <Show when="signed-in">
-                <UserButtonWithRoles />
+                <UserButtonClient />
               </Show>
             </div>
           </header>

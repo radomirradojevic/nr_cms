@@ -5,6 +5,7 @@ import { Pencil } from "lucide-react";
 import { getContentBySlug } from "@/data/content";
 import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
 import { BlogContent } from "@/components/blog-content";
+import { BlogComments } from "@/components/blog-comments";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { getRoles, hasRole } from "@/lib/roles";
 
@@ -105,6 +106,13 @@ export default async function PublicContentPage({ params }: Props) {
           <BlogContent
             className="prose prose-invert max-w-none"
             html={row.content ?? ""}
+          />
+        )}
+        {row.contentType === "blog_post" && row.enableComments && (
+          <BlogComments
+            contentId={row.id}
+            postSlug={row.slug}
+            allowAnonymous={row.allowAnonymousComments}
           />
         )}
       </main>

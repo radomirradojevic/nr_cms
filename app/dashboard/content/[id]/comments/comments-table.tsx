@@ -1,0 +1,306 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useTransition } from "react";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { CommentRow } from "@/data/comments";
+import { CommentRowActions } from "./comment-row-actions";
+import { bulkModerate } from "@/app/dashboard/content/comment-actions";
+
+type Props = {
+  postId: string;
+  rows: CommentRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  status: "all" | "pending" | "published";
+  search: string;
+  parentLookup: Record<string, string | null>; // commentId -> parent author or null
+};
+
+function fmt(d: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(d));
+}
+
+function truncate(s: string, n = 140) {
+  if (s.length <= n) return s;
+  return s.slice(0, n) + "…";
+}
+
+export function CommentsTable({
+  postId,
+  rows,
+  total,
+  page,
+  pageSize,
+  status,
+  search,
+  parentLookup,
+}: Props) {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pending, startTransition] = useTransition();
+  const [searchInput, setSearchInput] = useState(search);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  function setParam(key: string, value: string | null) {
+    const next = new URLSearchParams(sp.toString());
+    if (value === null || value === "") next.delete(key);
+    else next.set(key, value);
+    if (key !== "page") next.delete("page");
+    router.push(`/dashboard/content/${postId}/comments?${next.toString()}`);
+  }
+
+  function refresh() {
+    router.refresh();
+    setSelected(new Set());
+  }
+
+  function runBulk(action: "publish" | "unpublish" | "delete") {
+    if (selected.size === 0) return;
+    setBulkError(null);
+    startTransition(async () => {
+      const r = await bulkModerate({ ids: Array.from(selected), action });
+      if ("error" in r) {
+        setBulkError(r.error);
+      } else {
+        const failed = r.results.filter((x) => !x.ok);
+        if (failed.length > 0) {
+          setBulkError(`${failed.length} item(s) failed.`);
+        }
+        refresh();
+      }
+    });
+  }
+
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium">Status</label>
+          <Select
+            value={status}
+            onValueChange={(v) => setParam("status", v === "all" ? null : v)}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <form
+          className="flex items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setParam("q", searchInput.trim() || null);
+          }}
+        >
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Search</label>
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="body or author"
+              className="w-[240px]"
+            />
+          </div>
+          <Button type="submit" variant="outline">
+            Filter
+          </Button>
+        </form>
+      </div>
+
+      {selected.size > 0 && (
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
+          <span className="text-sm">{selected.size} selected</span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => runBulk("publish")}
+          >
+            Publish
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => runBulk("unpublish")}
+          >
+            Unpublish
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={pending}
+            onClick={() => runBulk("delete")}
+          >
+            Delete
+          </Button>
+          {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {bulkError && (
+            <span className="text-sm text-destructive">{bulkError}</span>
+          )}
+        </div>
+      )}
+
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={(c) => {
+                    if (c) setSelected(new Set(rows.map((r) => r.id)));
+                    else setSelected(new Set());
+                  }}
+                />
+              </TableHead>
+              <TableHead>Author</TableHead>
+              <TableHead>Body</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="text-center text-muted-foreground py-8"
+                >
+                  No comments found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(r.id)}
+                      onCheckedChange={(c) => {
+                        const next = new Set(selected);
+                        if (c) next.add(r.id);
+                        else next.delete(r.id);
+                        setSelected(next);
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm font-medium">{r.authorName}</div>
+                    {r.authorId ? (
+                      <div className="text-xs text-muted-foreground">
+                        signed-in
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">guest</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="max-w-md">
+                    <p className="whitespace-pre-wrap text-sm">
+                      {truncate(r.body)}
+                    </p>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        r.status === "published" ? "default" : "secondary"
+                      }
+                    >
+                      {r.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {r.parentId ? (
+                      <span className="text-xs">
+                        Reply to{" "}
+                        <span className="font-medium">
+                          {parentLookup[r.parentId] ?? "—"}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Top-level
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {fmt(r.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <CommentRowActions
+                      commentId={r.id}
+                      status={r.status as "pending" | "published"}
+                      onMutated={refresh}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">
+          {total} comment{total === 1 ? "" : "s"} · page {page} of {totalPages}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setParam("page", String(page - 1))}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setParam("page", String(page + 1))}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

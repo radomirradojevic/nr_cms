@@ -20,9 +20,12 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Environment variables
 
-| Variable      | Description                                                                                           | Default             |
-| ------------- | ----------------------------------------------------------------------------------------------------- | ------------------- |
-| `UPLOADS_DIR` | Absolute or relative directory where the file manager stores uploaded files (kept outside `public/`). | `./storage/uploads` |
+| Variable                         | Description                                                                                           | Default             |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------- |
+| `UPLOADS_DIR`                    | Absolute or relative directory where the file manager stores uploaded files (kept outside `public/`). | `./storage/uploads` |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (public). Required for the blog comment form.                           | _none_              |
+| `TURNSTILE_SECRET_KEY`           | Cloudflare Turnstile secret key. Required to verify comment submissions server-side.                  | _none_              |
+| `IP_HASH_SALT`                   | Random string used to SHA-256-hash visitor IPs for comment rate limiting. Raw IPs are never stored.   | _none_              |
 
 The `storage/` directory is gitignored. Files are streamed through the auth-gated route `app/api/files/[id]/route.ts`.
 

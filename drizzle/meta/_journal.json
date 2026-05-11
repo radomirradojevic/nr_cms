@@ -64,6 +64,13 @@
       "when": 1778422039854,
       "tag": "0008_add_top_menu_category_id",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778506296515,
+      "tag": "0009_add_comments",
+      "breakpoints": true
     }
   ]
 }

@@ -117,10 +117,17 @@ const baseFields = {
   contentJson: z.unknown(),
 };
 
+const commentFlagFields = {
+  enableComments: z.boolean().optional(),
+  autoPublishComments: z.boolean().optional(),
+  allowAnonymousComments: z.boolean().optional(),
+};
+
 const createSchema = z.object({
   contentType: z.enum(["page", "blog_post"]),
   status: z.enum(["published", "unpublished", "archived"]).optional(),
   homepage: z.boolean().optional(),
+  ...commentFlagFields,
   ...baseFields,
 });
 
@@ -128,6 +135,7 @@ const updateSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(["published", "unpublished", "archived"]).optional(),
   homepage: z.boolean().optional(),
+  ...commentFlagFields,
   ...baseFields,
 });
 
@@ -198,6 +206,7 @@ export async function createContent(input: CreateContentInput) {
         .set({ homepage: false })
         .where(eq(content.homepage, true));
     }
+    const isBlogPost = data.contentType === "blog_post";
     const rows = await db
       .insert(content)
       .values({
@@ -215,6 +224,11 @@ export async function createContent(input: CreateContentInput) {
         publishedAt,
         authorId: actor.userId,
         homepage,
+        enableComments: isBlogPost ? !!data.enableComments : false,
+        autoPublishComments: isBlogPost ? !!data.autoPublishComments : false,
+        allowAnonymousComments: isBlogPost
+          ? !!data.allowAnonymousComments
+          : false,
       })
       .returning();
     const created = rows[0];
@@ -311,6 +325,7 @@ export async function updateContent(input: UpdateContentInput) {
         .set({ homepage: false })
         .where(eq(content.homepage, true));
     }
+    const isBlogPost = target.contentType === "blog_post";
     await db
       .update(content)
       .set({
@@ -326,6 +341,22 @@ export async function updateContent(input: UpdateContentInput) {
         status: nextStatus,
         publishedAt: nextPublishedAt,
         homepage,
+        ...(isBlogPost
+          ? {
+              enableComments:
+                typeof data.enableComments === "boolean"
+                  ? data.enableComments
+                  : target.enableComments,
+              autoPublishComments:
+                typeof data.autoPublishComments === "boolean"
+                  ? data.autoPublishComments
+                  : target.autoPublishComments,
+              allowAnonymousComments:
+                typeof data.allowAnonymousComments === "boolean"
+                  ? data.allowAnonymousComments
+                  : target.allowAnonymousComments,
+            }
+          : {}),
       })
       .where(eq(content.id, data.id));
 

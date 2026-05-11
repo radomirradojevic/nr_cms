@@ -58,6 +58,9 @@ type Props = {
     coverImage: string | null;
     status: "published" | "unpublished" | "archived";
     homepage: boolean;
+    enableComments: boolean;
+    autoPublishComments: boolean;
+    allowAnonymousComments: boolean;
     contentJson: unknown;
   };
 };
@@ -93,6 +96,15 @@ export function ContentForm({
     "published" | "unpublished" | "archived"
   >(initial?.status ?? "unpublished");
   const [homepage, setHomepage] = useState(initial?.homepage ?? false);
+  const [enableComments, setEnableComments] = useState(
+    initial?.enableComments ?? false,
+  );
+  const [autoPublishComments, setAutoPublishComments] = useState(
+    initial?.autoPublishComments ?? false,
+  );
+  const [allowAnonymousComments, setAllowAnonymousComments] = useState(
+    initial?.allowAnonymousComments ?? false,
+  );
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
 
   // Deep-clone initial.contentJson so we don't keep a reference to the
@@ -140,6 +152,13 @@ export function ContentForm({
           contentType,
           ...(canChooseStatus ? { status } : {}),
           ...(isAdmin && contentType === "page" ? { homepage } : {}),
+          ...(contentType === "blog_post"
+            ? {
+                enableComments,
+                autoPublishComments,
+                allowAnonymousComments,
+              }
+            : {}),
         };
         const r = await createContent(input);
         if (r.error) setError(r.error);
@@ -150,6 +169,13 @@ export function ContentForm({
           id: initial!.id,
           ...(canChooseStatus ? { status } : {}),
           ...(isAdmin && contentType === "page" ? { homepage } : {}),
+          ...(contentType === "blog_post"
+            ? {
+                enableComments,
+                autoPublishComments,
+                allowAnonymousComments,
+              }
+            : {}),
         };
         const r = await updateContent(input);
         if (r.error) setError(r.error);
@@ -388,6 +414,73 @@ export function ContentForm({
               />
             </div>
           </div>
+
+          {contentType === "blog_post" && (
+            <div className="rounded-lg border p-4 space-y-4">
+              <h3 className="text-sm font-semibold">Comments</h3>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label htmlFor="enable-comments" className="text-sm">
+                    Enable comments
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Master switch for the comment form and list.
+                  </p>
+                </div>
+                <Switch
+                  id="enable-comments"
+                  checked={enableComments}
+                  onCheckedChange={setEnableComments}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label htmlFor="auto-publish-comments" className="text-sm">
+                    Auto-publish comments
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Skip moderation queue for new comments.
+                  </p>
+                </div>
+                <Switch
+                  id="auto-publish-comments"
+                  checked={autoPublishComments}
+                  onCheckedChange={setAutoPublishComments}
+                  disabled={!enableComments}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label htmlFor="allow-anon-comments" className="text-sm">
+                    Allow anonymous
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Guests can comment with name + optional email.
+                  </p>
+                </div>
+                <Switch
+                  id="allow-anon-comments"
+                  checked={allowAnonymousComments}
+                  onCheckedChange={setAllowAnonymousComments}
+                  disabled={!enableComments}
+                />
+              </div>
+              {mode === "edit" && initial?.id && (
+                <div className="pt-2 border-t">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Link href={`/dashboard/content/${initial.id}/comments`}>
+                      Manage comments
+                    </Link>
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </aside>
       </div>
     </div>
