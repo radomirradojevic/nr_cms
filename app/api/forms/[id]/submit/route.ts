@@ -90,7 +90,7 @@ export async function POST(
         { status: 400, headers: { "Cache-Control": "no-store" } },
       );
     }
-    const values = normalizeValues(result.data);
+    const values = normalizeValues(result.data, detail.fields);
 
     const ip = await getClientIp();
     const ipHash = hashIp(ip);
@@ -148,15 +148,18 @@ export async function POST(
             text,
             replyTo,
           });
-          await updateSubmissionEmailStatus(
-            submission.id,
-            sent.ok ? "sent" : "failed",
-          );
-        } catch {
-          await updateSubmissionEmailStatus(submission.id, "failed");
+          await updateSubmissionEmailStatus(submission.id, {
+            status: sent.ok ? "sent" : "failed",
+            error: sent.ok ? null : sent.error,
+          });
+        } catch (err) {
+          await updateSubmissionEmailStatus(submission.id, {
+            status: "failed",
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       } else {
-        await updateSubmissionEmailStatus(submission.id, "skipped");
+        await updateSubmissionEmailStatus(submission.id, { status: "skipped" });
       }
     }
 
@@ -168,7 +171,8 @@ export async function POST(
       },
       { status: 200, headers: { "Cache-Control": "no-store" } },
     );
-  } catch {
+  } catch (err) {
+    console.error("[forms/submit] error:", err);
     return genericResponse(500);
   }
 }
