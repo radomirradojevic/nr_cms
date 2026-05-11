@@ -425,6 +425,14 @@ export function SubmissionsList({
                 <span>{detail.status}</span>
                 <span className="text-muted-foreground">Email status</span>
                 <span>{detail.emailStatus}</span>
+                {detail.emailStatus === "failed" && detail.emailError && (
+                  <>
+                    <span className="text-muted-foreground">Email error</span>
+                    <span className="break-all text-destructive">
+                      {detail.emailError}
+                    </span>
+                  </>
+                )}
                 <span className="text-muted-foreground">IP hash</span>
                 <span className="font-mono text-[10px] break-all">
                   {detail.ipHash ?? "(none)"}
