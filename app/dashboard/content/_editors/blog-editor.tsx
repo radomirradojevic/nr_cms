@@ -12,6 +12,7 @@ import {
   ListOrdered,
   Quote,
   Strikethrough,
+  Underline,
   Heading1,
   Heading2,
   Heading3,
@@ -176,6 +177,13 @@ export function BlogEditor({ value, onChange }: Props) {
                 onClick={() => editor.chain().focus().toggleStrike().run()}
               >
                 <Strikethrough className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Underline"
+                active={editor.isActive("underline")}
+                onClick={() => editor.chain().focus().toggleUnderline().run()}
+              >
+                <Underline className="h-4 w-4" />
               </Btn>
               <Sep />
               <Btn

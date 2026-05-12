@@ -6,15 +6,13 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import {
-  ALL_ALLOWED_MIMES,
-  MAX_FILE_SIZE,
-  formatBytes,
-} from "@/lib/file-manager";
+import { ALL_ALLOWED_MIMES, formatBytes } from "@/lib/file-manager";
 import type { FileRow } from "@/data/files";
 
 type Props = {
   onUploaded: (files: FileRow[]) => void;
+  maxFileSize: number;
+  maxBatchSize: number;
 };
 
 type UploadState = {
@@ -24,7 +22,11 @@ type UploadState = {
   processing: boolean;
 };
 
-export function UploadDropzone({ onUploaded }: Props) {
+export function UploadDropzone({
+  onUploaded,
+  maxFileSize,
+  maxBatchSize,
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [state, setState] = useState<UploadState>({
@@ -41,10 +43,11 @@ export function UploadDropzone({ onUploaded }: Props) {
   async function handleFiles(fileList: FileList | File[]) {
     const all = Array.from(fileList);
     const accepted: File[] = [];
+    let totalSize = 0;
 
     for (const f of all) {
-      if (f.size > MAX_FILE_SIZE) {
-        toast.error(`${f.name}: exceeds ${formatBytes(MAX_FILE_SIZE)} limit.`);
+      if (f.size > maxFileSize) {
+        toast.error(`${f.name}: exceeds ${formatBytes(maxFileSize)} limit.`);
         continue;
       }
       if (
@@ -57,9 +60,17 @@ export function UploadDropzone({ onUploaded }: Props) {
         continue;
       }
       accepted.push(f);
+      totalSize += f.size;
     }
 
     if (accepted.length === 0) return;
+
+    if (totalSize > maxBatchSize) {
+      toast.error(
+        `Total size ${formatBytes(totalSize)} exceeds batch limit of ${formatBytes(maxBatchSize)}.`,
+      );
+      return;
+    }
 
     const form = new FormData();
     for (const f of accepted) form.append("file", f);
@@ -181,7 +192,7 @@ export function UploadDropzone({ onUploaded }: Props) {
             <div>
               <p className="font-medium">Drop files here, or click to browse</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Up to {formatBytes(MAX_FILE_SIZE)} per file. Images, video, and
+                Up to {formatBytes(maxFileSize)} per file. Images, video, and
                 documents.
               </p>
             </div>

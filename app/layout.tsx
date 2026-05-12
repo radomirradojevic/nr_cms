@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/navigation-menu";
 import { getRoles, hasRole } from "@/lib/roles";
 import { SiteTopMenu } from "@/components/site-top-menu";
+import { getGlobalSettings } from "@/data/global-settings";
+import { cn } from "@/lib/utils";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,25 +46,57 @@ export default async function RootLayout({
     hasRole(roles, "publisher") ||
     hasRole(roles, "author");
   const isAdmin = hasRole(roles, "admin");
+  const settings = await getGlobalSettings();
+  const siteName = settings.siteName;
+  const logoUrl = settings.siteLogo
+    ? `/api/files/${settings.siteLogo.fileId}`
+    : null;
+  const stickyHeaderH = settings.stickyHeaderHeight;
+  const stickyFooterH = settings.stickyFooterHeight;
+  const headerIsSticky = settings.headerSettings.sticky;
+  const footerIsSticky = settings.footerSettings.sticky;
+  const rootStyle = {
+    ...(headerIsSticky && stickyHeaderH > 0
+      ? { ["--sticky-header-h" as string]: `${stickyHeaderH}px` }
+      : {}),
+    ...(footerIsSticky && stickyFooterH > 0
+      ? { ["--sticky-footer-h" as string]: `${stickyFooterH}px` }
+      : {}),
+  } as React.CSSProperties;
   return (
     <html
       lang="en"
       className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      style={rootStyle}
     >
       <body className="min-h-full flex flex-col">
         <ClerkProvider appearance={{ theme: shadcn }}>
           <header
-            className="sticky top-0 z-50 bg-background flex items-center justify-between p-4 gap-4 h-16"
+            className={cn(
+              "bg-background flex items-center justify-between p-4 gap-4",
+              headerIsSticky ? "sticky top-0 z-50" : "h-16",
+            )}
             style={{
               borderBottom: "1px solid #349aee",
               boxShadow: "0 1px 16px 2px #349aee88, 0 2px 32px 4px #349aee33",
+              ...(headerIsSticky && stickyHeaderH > 0
+                ? { height: `${stickyHeaderH}px` }
+                : {}),
             }}
           >
             <a
               href="/"
-              className="text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors"
+              className="text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors flex items-center gap-2"
             >
-              Night Raven CMS
+              {logoUrl && settings.headerSettings.showLogo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt={settings.siteLogo?.alt ?? siteName}
+                  className="h-8 w-8 object-contain"
+                />
+              )}
+              {settings.headerSettings.showSiteName && <span>{siteName}</span>}
             </a>
             <div className="flex items-center gap-4">
               <SiteTopMenu />
@@ -141,6 +175,16 @@ export default async function RootLayout({
                             </Link>
                           </NavigationMenuLink>
                         </NavigationMenuItem>
+                        <NavigationMenuItem>
+                          <NavigationMenuLink
+                            asChild
+                            className={navigationMenuTriggerStyle()}
+                          >
+                            <Link href="/dashboard/global-settings">
+                              Global Settings
+                            </Link>
+                          </NavigationMenuLink>
+                        </NavigationMenuItem>
                       </>
                     )}
                   </NavigationMenuList>
@@ -167,12 +211,29 @@ export default async function RootLayout({
               </Show>
             </div>
           </header>
-          {children}
+          <div
+            style={{
+              ...(headerIsSticky && stickyHeaderH > 0
+                ? { paddingTop: `${stickyHeaderH}px` }
+                : {}),
+              ...(footerIsSticky && stickyFooterH > 0
+                ? { paddingBottom: `${stickyFooterH}px` }
+                : {}),
+            }}
+          >
+            {children}
+          </div>
           <footer
-            className="sticky bottom-0 z-50 bg-background mt-auto px-6 py-8 text-sm text-muted-foreground"
+            className={cn(
+              "bg-background mt-auto px-6 py-8 text-sm text-muted-foreground",
+              footerIsSticky && "sticky bottom-0 z-50",
+            )}
             style={{
               borderTop: "1px solid #349aee",
               boxShadow: "0 -1px 16px 2px #349aee88, 0 -2px 32px 4px #349aee33",
+              ...(footerIsSticky && stickyFooterH > 0
+                ? { height: `${stickyFooterH}px` }
+                : {}),
             }}
           >
             <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">

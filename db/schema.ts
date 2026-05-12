@@ -8,6 +8,7 @@ import {
   jsonb,
   index,
   integer,
+  bigint,
   uniqueIndex,
   check,
   primaryKey,
@@ -387,5 +388,60 @@ export const formSubmissions = pgTable(
     ),
     index("form_submissions_form_status_idx").on(table.formId, table.status),
     index("form_submissions_ip_hash_idx").on(table.ipHash, table.createdAt),
+  ],
+);
+
+// ─── Global Settings (singleton) ──────────────────────────────────────────────
+
+export const globalSettings = pgTable(
+  "global_settings",
+  {
+    id: integer("id").primaryKey(),
+    siteName: text("site_name").notNull().default("Night Raven CMS"),
+    siteLogoFileId: uuid("site_logo_file_id").references(() => files.id, {
+      onDelete: "set null",
+    }),
+    headerContent: text("header_content"),
+    headerSettings: jsonb("header_settings")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    footerContent: text("footer_content"),
+    footerSettings: jsonb("footer_settings")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    stickyHeaderHeight: integer("sticky_header_height").notNull().default(80),
+    stickyFooterHeight: integer("sticky_footer_height").notNull().default(110),
+    maxUploadSizeBytes: bigint("max_upload_size_bytes", { mode: "number" })
+      .notNull()
+      .default(52_428_800),
+    maxBatchUploadSizeBytes: bigint("max_batch_upload_size_bytes", {
+      mode: "number",
+    })
+      .notNull()
+      .default(524_288_000),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    updatedBy: text("updated_by"),
+  },
+  (table) => [
+    check("global_settings_singleton_check", sql`${table.id} = 1`),
+    check(
+      "global_settings_sticky_header_check",
+      sql`${table.stickyHeaderHeight} BETWEEN 0 AND 400`,
+    ),
+    check(
+      "global_settings_sticky_footer_check",
+      sql`${table.stickyFooterHeight} BETWEEN 0 AND 400`,
+    ),
+    check(
+      "global_settings_max_upload_check",
+      sql`${table.maxUploadSizeBytes} > 0`,
+    ),
+    check(
+      "global_settings_max_batch_check",
+      sql`${table.maxBatchUploadSizeBytes} >= ${table.maxUploadSizeBytes}`,
+    ),
   ],
 );

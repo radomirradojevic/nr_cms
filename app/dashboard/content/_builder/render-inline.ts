@@ -11,6 +11,7 @@ const renderExtensions = [
     codeBlock: false,
     blockquote: false,
     horizontalRule: false,
+    underline: false,
   }),
   Underline,
   TextAlign.configure({ types: ["paragraph"] }),
