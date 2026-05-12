@@ -53,18 +53,14 @@ export function FileManager({
   const [range, setRange] = useState<DateRange>({});
   const [uploadedBy, setUploadedBy] = useState<string>("all");
 
-  const uploaderMap = useMemo(
-    () => Object.fromEntries(uploaders.map((u) => [u.id, u.name])),
-    [uploaders],
+  const [uploaderMap, setUploaderMap] = useState<Record<string, string>>(() =>
+    Object.fromEntries(uploaders.map((u) => [u.id, u.name])),
   );
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Mark unused-prop warning quiet — exposed for future per-row admin UI.
-  void isAdmin;
 
   // Refetch list when filters change (debounced).
   useEffect(() => {
@@ -121,6 +117,15 @@ export function FileManager({
 
   function handleUpdated(updated: FileRow) {
     setFiles((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+  }
+
+  function handleReassigned(
+    file: FileRow,
+    newOwnerId: string,
+    newOwnerName: string,
+  ) {
+    setUploaderMap((prev) => ({ ...prev, [newOwnerId]: newOwnerName }));
+    handleUpdated(file);
   }
 
   function handleDeleted(ids: string[]) {
@@ -264,6 +269,8 @@ export function FileManager({
               onUpdated={handleUpdated}
               onDeleted={handleDeleted}
               uploaderName={uploaderMap[file.uploadedBy] ?? file.uploadedBy}
+              isAdmin={isAdmin}
+              onReassigned={handleReassigned}
             />
           ))}
         </div>

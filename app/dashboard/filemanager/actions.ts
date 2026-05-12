@@ -1,6 +1,6 @@
 "use server";
 
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import {
@@ -8,6 +8,7 @@ import {
   listFiles,
   purgeFileReferences,
   updateFile as updateFileRow,
+  reassignFileOwner,
   type FileRow,
 } from "@/data/files";
 import type { FileKind } from "@/lib/file-manager";
@@ -168,4 +169,67 @@ export async function fetchFiles(
   });
 
   return { success: true, rows, total };
+}
+
+// ─── List CMS users (admin only) ──────────────────────────────────────────────
+
+export type CmsUser = { id: string; name: string };
+
+export async function listCmsUsers(): Promise<
+  { error: string } | { success: true; users: CmsUser[] }
+> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+  if (!caller.isAdmin) return { error: "Only admins can list CMS users." };
+
+  const client = await clerkClient();
+  const { data: users } = await client.users.getUserList({ limit: 200 });
+  return {
+    success: true,
+    users: users.map((u) => ({
+      id: u.id,
+      name:
+        u.fullName || u.username || u.primaryEmailAddress?.emailAddress || u.id,
+    })),
+  };
+}
+
+// ─── Reassign file owner (admin only) ─────────────────────────────────────────
+
+const reassignSchema = z.object({
+  fileId: z.string().uuid("Invalid file ID."),
+  newOwnerId: z.string().min(1, "Target user is required."),
+});
+
+export async function reassignFile(input: {
+  fileId: string;
+  newOwnerId: string;
+}): Promise<{ error: string } | { success: true; file: FileRow }> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+  if (!caller.isAdmin) return { error: "Only admins can reassign files." };
+
+  const parsed = reassignSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  // Verify the target user still exists in Clerk.
+  const client = await clerkClient();
+  try {
+    await client.users.getUser(parsed.data.newOwnerId);
+  } catch {
+    return { error: "Target user not found." };
+  }
+
+  try {
+    const row = await reassignFileOwner(
+      parsed.data.fileId,
+      parsed.data.newOwnerId,
+    );
+    if (!row) return { error: "File not found." };
+    revalidatePath("/dashboard/filemanager");
+    return { success: true, file: row };
+  } catch (err) {
+    console.error("[reassignFile] Unexpected error:", err);
+    return { error: "Something went wrong. Please try again." };
+  }
 }

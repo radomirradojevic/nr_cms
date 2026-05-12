@@ -9,6 +9,7 @@ import {
   Copy,
   Pencil,
   Trash2,
+  UserRoundCog,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import type { FileRow } from "@/data/files";
 import { formatBytes } from "@/lib/file-manager";
 import { EditFileDialog } from "./edit-file-dialog";
 import { DeleteFileDialog } from "./delete-file-dialog";
+import { ReassignFileDialog } from "./reassign-file-dialog";
 
 type Props = {
   file: FileRow;
@@ -32,6 +34,12 @@ type Props = {
   onUpdated: (file: FileRow) => void;
   onDeleted: (ids: string[]) => void;
   uploaderName: string;
+  isAdmin?: boolean;
+  onReassigned?: (
+    file: FileRow,
+    newOwnerId: string,
+    newOwnerName: string,
+  ) => void;
 };
 
 export function FileCard({
@@ -41,9 +49,12 @@ export function FileCard({
   onUpdated,
   onDeleted,
   uploaderName,
+  isAdmin,
+  onReassigned,
 }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [reassignOpen, setReassignOpen] = useState(false);
 
   const url = `/api/files/${file.id}`;
 
@@ -82,6 +93,11 @@ export function FileCard({
               <DropdownMenuItem onSelect={copyUrl}>
                 <Copy className="mr-2 h-4 w-4" /> Copy URL
               </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem onSelect={() => setReassignOpen(true)}>
+                  <UserRoundCog className="mr-2 h-4 w-4" /> Reassign owner
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onSelect={() => setDeleteOpen(true)}
                 className="text-destructive focus:text-destructive"
@@ -144,6 +160,14 @@ export function FileCard({
         onOpenChange={setDeleteOpen}
         onDeleted={onDeleted}
       />
+      {isAdmin && onReassigned && (
+        <ReassignFileDialog
+          file={file}
+          open={reassignOpen}
+          onOpenChange={setReassignOpen}
+          onReassigned={onReassigned}
+        />
+      )}
     </>
   );
 }
