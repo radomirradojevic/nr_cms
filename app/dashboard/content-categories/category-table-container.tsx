@@ -8,7 +8,11 @@ type CategoryRow = {
   id: string;
   name: string;
   contentType: string;
+  createdBy: string | null;
+  createdByName: string | null;
 };
+
+type AdminUser = { id: string; name: string };
 
 const ALLOWED_PAGE_SIZES = [10, 20, 30] as const;
 type AllowedPageSize = (typeof ALLOWED_PAGE_SIZES)[number];
@@ -25,8 +29,18 @@ export function CategoryTableContainer({ contentType }: Props) {
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admins")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.admins) setAdmins(data.admins);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -82,6 +96,7 @@ export function CategoryTableContainer({ contentType }: Props) {
       <CategoryTable
         contentType={contentType}
         categories={categories}
+        admins={admins}
         total={total}
         loading={loading}
         safePage={safePage}

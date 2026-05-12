@@ -21,6 +21,7 @@ export const contentCategories = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     contentType: text("content_type").notNull(), // "page" | "blog_post"
+    createdBy: text("created_by"),
     created: timestamp("created", { withTimezone: true })
       .notNull()
       .defaultNow(),
