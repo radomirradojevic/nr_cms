@@ -24,9 +24,10 @@ type Props = {
   gallery: GalleryListItem;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUpdated?: (patch: { id: string; name: string; description: string | null }) => void;
 };
 
-export function EditGalleryDialog({ gallery, open, onOpenChange }: Props) {
+export function EditGalleryDialog({ gallery, open, onOpenChange, onUpdated }: Props) {
   const router = useRouter();
   const [name, setName] = useState(gallery.name);
   const [description, setDescription] = useState(gallery.description ?? "");
@@ -56,6 +57,13 @@ export function EditGalleryDialog({ gallery, open, onOpenChange }: Props) {
       return;
     }
     toast.success("Gallery updated.");
+    if ("gallery" in result && result.gallery) {
+      onUpdated?.({
+        id: result.gallery.id,
+        name: result.gallery.name,
+        description: result.gallery.description ?? null,
+      });
+    }
     onOpenChange(false);
     router.refresh();
   }

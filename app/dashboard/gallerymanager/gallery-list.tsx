@@ -240,6 +240,12 @@ export function GalleryList({
           gallery={editTarget}
           open={!!editTarget}
           onOpenChange={(o) => !o && setEditTarget(null)}
+          onUpdated={({ id, name, description }) => {
+            setRows((prev) =>
+              prev.map((r) => (r.id === id ? { ...r, name, description } : r)),
+            );
+            setEditTarget(null);
+          }}
         />
       )}
       {deleteTarget && (
