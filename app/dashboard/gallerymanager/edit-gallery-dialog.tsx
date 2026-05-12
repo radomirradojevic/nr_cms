@@ -24,10 +24,19 @@ type Props = {
   gallery: GalleryListItem;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpdated?: (patch: { id: string; name: string; description: string | null }) => void;
+  onUpdated?: (patch: {
+    id: string;
+    name: string;
+    description: string | null;
+  }) => void;
 };
 
-export function EditGalleryDialog({ gallery, open, onOpenChange, onUpdated }: Props) {
+export function EditGalleryDialog({
+  gallery,
+  open,
+  onOpenChange,
+  onUpdated,
+}: Props) {
   const router = useRouter();
   const [name, setName] = useState(gallery.name);
   const [description, setDescription] = useState(gallery.description ?? "");

@@ -26,8 +26,7 @@ export function buildFormValuesSchema(fields: FormFieldRow[]) {
         let str = z.string().max(validation.maxLength ?? TEXT_DEFAULT_MAX);
         if (validation.minLength !== undefined && validation.minLength > 0)
           str = str.min(validation.minLength);
-        else if (f.required)
-          str = str.min(1, "This field is required.");
+        else if (f.required) str = str.min(1, "This field is required.");
         if (validation.pattern) {
           try {
             const re = new RegExp(validation.pattern);
@@ -108,7 +107,7 @@ export function buildFormValuesSchema(fields: FormFieldRow[]) {
     ) {
       // A required single boolean checkbox must be true.
       s = z.literal(true, {
-        errorMap: () => ({ message: "Required" }),
+        error: () => ({ message: "Required" }),
       });
     }
     shape[f.fieldKey] = s;
