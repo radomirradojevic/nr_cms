@@ -49,7 +49,7 @@ export async function SiteTopMenu() {
   if (tree.length === 0) return null;
 
   return (
-    <NavigationMenu>
+    <NavigationMenu viewport={false}>
       <NavigationMenuList>
         {tree.map((item) => (
           <RootItem key={item.id} item={item} />
@@ -103,7 +103,7 @@ function SubmenuItem({ item }: { item: TopMenuTreeNode }) {
         </MenuLink>
       </NavigationMenuLink>
       {item.children.length > 0 && (
-        <ul className="ml-3 mt-1 border-l pl-2 space-y-1">
+        <ul className="mt-1 gap-1">
           {item.children.map((c) => (
             <SubmenuItem key={c.id} item={c} />
           ))}

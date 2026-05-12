@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getCategoriesPaginated } from "@/data/content-categories";
 
 const ALLOWED_PAGE_SIZES = [10, 20, 30];
@@ -36,5 +36,33 @@ export async function GET(request: NextRequest) {
     search,
   );
 
-  return NextResponse.json({ categories, total });
+  // Resolve Clerk user names for unique createdBy IDs
+  const creatorIds = [
+    ...new Set(categories.map((c) => c.createdBy).filter(Boolean) as string[]),
+  ];
+  const nameMap: Record<string, string> = {};
+  if (creatorIds.length > 0) {
+    const client = await clerkClient();
+    await Promise.all(
+      creatorIds.map(async (id) => {
+        try {
+          const u = await client.users.getUser(id);
+          nameMap[id] =
+            u.fullName ||
+            u.username ||
+            u.primaryEmailAddress?.emailAddress ||
+            id;
+        } catch {
+          nameMap[id] = id;
+        }
+      }),
+    );
+  }
+
+  const enriched = categories.map((c) => ({
+    ...c,
+    createdByName: c.createdBy ? (nameMap[c.createdBy] ?? c.createdBy) : null,
+  }));
+
+  return NextResponse.json({ categories: enriched, total });
 }

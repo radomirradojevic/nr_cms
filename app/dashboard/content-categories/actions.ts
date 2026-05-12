@@ -9,6 +9,7 @@ import { topMenuItems } from "@/db/schema";
 import {
   insertCategory,
   updateCategoryName,
+  updateCategoryOwner,
   deleteCategoryById,
   deleteCategoriesByIds,
   isCategoryInUse,
@@ -74,6 +75,7 @@ export async function createCategory(input: CreateCategoryInput) {
     await insertCategory({
       name: parsed.data.name,
       contentType: parsed.data.contentType,
+      createdBy: session.id,
     });
     revalidatePath("/dashboard/content-categories");
     return { success: true };
@@ -125,6 +127,35 @@ export async function updateCategory(input: UpdateCategoryInput) {
       };
     }
     console.error("[updateCategory] Unexpected error:", err);
+    return { error: "Something went wrong. Please try again." };
+  }
+}
+
+// ─── Reassign Owner ───────────────────────────────────────────────────────────
+
+const reassignOwnerSchema = z.object({
+  id: z.string().uuid("Invalid category ID."),
+  ownerId: z.string().min(1, "Owner is required."),
+});
+
+export type ReassignCategoryOwnerInput = {
+  id: string;
+  ownerId: string;
+};
+
+export async function reassignCategoryOwner(input: ReassignCategoryOwnerInput) {
+  const session = await getAdminSession();
+  if (!session) return { error: "Forbidden." };
+
+  const parsed = reassignOwnerSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  try {
+    await updateCategoryOwner(parsed.data.id, parsed.data.ownerId);
+    revalidatePath("/dashboard/content-categories");
+    return { success: true };
+  } catch (err) {
+    console.error("[reassignCategoryOwner] Unexpected error:", err);
     return { error: "Something went wrong. Please try again." };
   }
 }

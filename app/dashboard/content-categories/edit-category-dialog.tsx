@@ -24,41 +24,76 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { updateCategory } from "@/app/dashboard/content-categories/actions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  updateCategory,
+  reassignCategoryOwner,
+} from "@/app/dashboard/content-categories/actions";
 
 const formSchema = z.object({
   name: z
     .string()
     .min(1, "Name is required.")
     .max(100, "Name must be 100 characters or fewer."),
+  ownerId: z.string().min(1, "Author is required."),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+type AdminUser = { id: string; name: string };
 
 type Props = {
   category: {
     id: string;
     name: string;
     contentType: string;
+    createdBy: string | null;
   };
+  admins: AdminUser[];
   onSuccess?: () => void;
 };
 
-export function EditCategoryDialog({ category, onSuccess }: Props) {
+export function EditCategoryDialog({ category, admins, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: category.name },
+    defaultValues: {
+      name: category.name,
+      ownerId: category.createdBy ?? "",
+    },
   });
 
   async function onSubmit(values: FormValues) {
     setServerError(null);
-    const result = await updateCategory({ id: category.id, name: values.name });
 
-    if (result.error) {
-      setServerError(result.error);
+    const nameChanged = values.name !== category.name;
+    const ownerChanged = values.ownerId !== (category.createdBy ?? "");
+
+    const ops: Promise<{ error?: string; success?: boolean }>[] = [];
+    if (nameChanged)
+      ops.push(updateCategory({ id: category.id, name: values.name }));
+    if (ownerChanged)
+      ops.push(
+        reassignCategoryOwner({ id: category.id, ownerId: values.ownerId }),
+      );
+
+    if (ops.length === 0) {
+      setOpen(false);
+      return;
+    }
+
+    const results = await Promise.all(ops);
+    const firstError = results.find((r) => r.error);
+    if (firstError?.error) {
+      setServerError(firstError.error);
       return;
     }
 
@@ -74,7 +109,10 @@ export function EditCategoryDialog({ category, onSuccess }: Props) {
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) {
-          form.reset({ name: category.name });
+          form.reset({
+            name: category.name,
+            ownerId: category.createdBy ?? "",
+          });
           setServerError(null);
         }
       }}
@@ -90,8 +128,7 @@ export function EditCategoryDialog({ category, onSuccess }: Props) {
         <DialogHeader>
           <DialogTitle>Edit {typeLabel} Category</DialogTitle>
           <DialogDescription>
-            Update the name of this category. The content type cannot be
-            changed.
+            Update the name or reassign the author of this category.
           </DialogDescription>
         </DialogHeader>
 
@@ -106,6 +143,31 @@ export function EditCategoryDialog({ category, onSuccess }: Props) {
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="ownerId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Author</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an admin…" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent position="popper">
+                      {admins.map((admin) => (
+                        <SelectItem key={admin.id} value={admin.id}>
+                          {admin.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

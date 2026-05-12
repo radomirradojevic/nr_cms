@@ -36,11 +36,16 @@ type CategoryRow = {
   id: string;
   name: string;
   contentType: string;
+  createdBy: string | null;
+  createdByName: string | null;
 };
+
+type AdminUser = { id: string; name: string };
 
 type Props = {
   contentType: "page" | "blog_post";
   categories: CategoryRow[];
+  admins: AdminUser[];
   total: number;
   loading: boolean;
   safePage: number;
@@ -55,6 +60,7 @@ type Props = {
 export function CategoryTable({
   contentType,
   categories,
+  admins,
   total,
   loading,
   safePage,
@@ -196,6 +202,7 @@ export function CategoryTable({
                   />
                 </TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Author</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -217,10 +224,16 @@ export function CategoryTable({
                     />
                   </TableCell>
                   <TableCell className="font-medium">{category.name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {category.createdByName ?? (
+                      <span className="italic">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <EditCategoryDialog
                         category={category}
+                        admins={admins}
                         onSuccess={onMutated}
                       />
                       <DeleteCategoryDialog

@@ -1,6 +1,7 @@
 "use server";
 
 import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { hasRole, ROLES } from "@/lib/roles";
 
@@ -33,5 +34,6 @@ export async function updateUserRoles(
     publicMetadata: { roles },
   });
 
+  revalidatePath(`/dashboard/users/${parsed.data.userId}`);
   return { success: true };
 }

@@ -8,6 +8,7 @@ export type ContentCategory = {
   id: string;
   name: string;
   contentType: string;
+  createdBy: string | null;
   created: Date;
   updated: Date;
 };
@@ -83,10 +84,15 @@ export async function isCategoryInUse(id: string): Promise<boolean> {
 export async function insertCategory(data: {
   name: string;
   contentType: string;
+  createdBy?: string;
 }): Promise<ContentCategory> {
   const rows = await db
     .insert(contentCategories)
-    .values({ name: data.name, contentType: data.contentType })
+    .values({
+      name: data.name,
+      contentType: data.contentType,
+      createdBy: data.createdBy ?? null,
+    })
     .returning();
   return rows[0];
 }
@@ -98,6 +104,18 @@ export async function updateCategoryName(
   const rows = await db
     .update(contentCategories)
     .set({ name })
+    .where(eq(contentCategories.id, id))
+    .returning();
+  return rows[0];
+}
+
+export async function updateCategoryOwner(
+  id: string,
+  createdBy: string | null,
+): Promise<ContentCategory> {
+  const rows = await db
+    .update(contentCategories)
+    .set({ createdBy })
     .where(eq(contentCategories.id, id))
     .returning();
   return rows[0];
