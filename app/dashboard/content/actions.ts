@@ -587,5 +587,69 @@ export async function checkSlugAvailable(input: {
   return { available: !exists };
 }
 
+// ─── Reassign author (admin only) ─────────────────────────────────────────────
+
+const reassignSchema = z.object({
+  id: z.string().uuid(),
+  newAuthorId: z.string().min(1).max(200),
+});
+
+export async function fetchClerkUsersForReassign(): Promise<
+  { users: { id: string; name: string }[] } | { error: string }
+> {
+  const actor = await loadActor();
+  if (!actor) return { error: "Forbidden." };
+  if (!hasRole(actor.roles, "admin")) return { error: "Forbidden." };
+
+  try {
+    const client = await clerkClient();
+    const { data: users } = await client.users.getUserList({ limit: 200 });
+    return {
+      users: users.map((u) => ({
+        id: u.id,
+        name:
+          [u.firstName, u.lastName].filter(Boolean).join(" ") ||
+          u.emailAddresses[0]?.emailAddress ||
+          u.id,
+      })),
+    };
+  } catch {
+    return { error: "Failed to fetch users." };
+  }
+}
+
+export async function reassignContent(input: {
+  id: string;
+  newAuthorId: string;
+}) {
+  const actor = await loadActor();
+  if (!actor) return { error: "Forbidden." };
+  if (!hasRole(actor.roles, "admin")) return { error: "Forbidden." };
+
+  const parsed = reassignSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const target = await getContentById(parsed.data.id);
+  if (!target) return { error: "Content not found." };
+
+  // Verify target user exists in Clerk
+  try {
+    const client = await clerkClient();
+    await client.users.getUser(parsed.data.newAuthorId);
+  } catch {
+    return { error: "Target user not found." };
+  }
+
+  try {
+    await updateContentById(parsed.data.id, {
+      authorId: parsed.data.newAuthorId,
+    });
+    revalidatePath("/dashboard/content");
+    return { success: true };
+  } catch {
+    return { error: "Something went wrong." };
+  }
+}
+
 // Suppress unused import warning
 void auth;

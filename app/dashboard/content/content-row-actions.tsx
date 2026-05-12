@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, MoreHorizontal, Trash2, Star } from "lucide-react";
+import {
+  Loader2,
+  MoreHorizontal,
+  Trash2,
+  Star,
+  UserRoundCog,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,6 +30,7 @@ import {
 import { hasRole, type Role } from "@/lib/roles";
 import { deleteContent, setHomepage, setStatus } from "./actions";
 import type { ContentRow } from "./content-table";
+import { ContentReassignDialog } from "./content-reassign-dialog";
 
 type Props = {
   row: ContentRow;
@@ -40,6 +47,7 @@ export function ContentRowActions({
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [reassignOpen, setReassignOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isAdmin = hasRole(currentUserRoles, "admin");
@@ -112,6 +120,12 @@ export function ContentRowActions({
               Set as homepage
             </DropdownMenuItem>
           )}
+          {isAdmin && (
+            <DropdownMenuItem onClick={() => setReassignOpen(true)}>
+              <UserRoundCog className="mr-2 h-4 w-4" />
+              Reassign author
+            </DropdownMenuItem>
+          )}
           {canDelete && (
             <>
               <DropdownMenuSeparator />
@@ -132,6 +146,13 @@ export function ContentRowActions({
           {error}
         </p>
       )}
+
+      <ContentReassignDialog
+        row={row}
+        open={reassignOpen}
+        onOpenChange={setReassignOpen}
+        onMutated={onMutated}
+      />
 
       <AlertDialog
         open={confirmDelete}

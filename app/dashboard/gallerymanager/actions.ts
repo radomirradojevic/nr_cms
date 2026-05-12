@@ -1,6 +1,6 @@
 "use server";
 
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
@@ -8,6 +8,7 @@ import { getRoles, hasRole } from "@/lib/roles";
 import {
   addImagesToGallery as addImagesToGalleryRow,
   createGallery as createGalleryRow,
+  reassignGallery as reassignGalleryRow,
   deleteGallery as deleteGalleryRow,
   getGalleryById,
   listGalleries,
@@ -235,6 +236,7 @@ export async function reorderGalleryImages(input: ReorderInput) {
 
 const listSchema = z.object({
   search: z.string().max(200).optional(),
+  createdBy: z.string().optional(),
   limit: z.number().int().min(1).max(100).default(24),
   offset: z.number().int().min(0).default(0),
 });
@@ -255,6 +257,7 @@ export async function fetchGalleries(
   const { rows, total } = await listGalleries({
     caller,
     search: parsed.data.search,
+    createdBy: parsed.data.createdBy,
     limit: parsed.data.limit,
     offset: parsed.data.offset,
   });
@@ -270,6 +273,66 @@ export type GalleryPickerPreviewImage = {
   alt: string;
   title: string;
 };
+
+// ─── Fetch CMS users (admin only) ────────────────────────────────────────────
+
+export type CmsUser = { id: string; name: string };
+
+export async function fetchCmsUsers(): Promise<
+  { error: string } | { success: true; users: CmsUser[] }
+> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+  if (!caller.isAdmin) return { error: "Forbidden." };
+
+  try {
+    const client = await clerkClient();
+    const { data: users } = await client.users.getUserList({ limit: 200 });
+    const result: CmsUser[] = users.map((u) => ({
+      id: u.id,
+      name:
+        [u.firstName, u.lastName].filter(Boolean).join(" ") ||
+        u.username ||
+        u.emailAddresses[0]?.emailAddress ||
+        "Unknown",
+    }));
+    return { success: true, users: result };
+  } catch {
+    return { error: "Failed to load users." };
+  }
+}
+
+// ─── Reassign gallery owner (admin only) ──────────────────────────────────────
+
+const reassignSchema = z.object({
+  id: z.string().uuid(),
+  newOwnerId: z.string().min(1),
+});
+
+export async function reassignGallery(input: {
+  id: string;
+  newOwnerId: string;
+}) {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+  if (!caller.isAdmin) return { error: "Forbidden." };
+
+  const parsed = reassignSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  try {
+    const row = await reassignGalleryRow(
+      parsed.data.id,
+      parsed.data.newOwnerId,
+    );
+    if (!row) return { error: "Gallery not found." };
+    revalidatePath("/dashboard/gallerymanager");
+    return { success: true as const };
+  } catch (err) {
+    console.error("[reassignGallery] error", err);
+    return { error: "Something went wrong. Please try again." };
+  }
+}
 
 export async function fetchGalleryPreview(
   input: z.input<typeof galleryByIdSchema>,

@@ -10,6 +10,7 @@ import {
   Search,
   Trash2,
   User,
+  UserRoundCog,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,17 +22,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { GalleryListItem } from "@/data/galleries";
 import { fetchGalleries } from "./actions";
+import type { CreatorInfo } from "./page";
 import { EditGalleryDialog } from "./edit-gallery-dialog";
 import { DeleteGalleryDialog } from "./delete-gallery-dialog";
+import { ReassignGalleryDialog } from "./reassign-gallery-dialog";
 
 type Props = {
   initialRows: GalleryListItem[];
   initialTotal: number;
   pageSize: number;
   isAdmin: boolean;
+  creators: CreatorInfo[];
 };
 
 export function GalleryList({
@@ -39,11 +50,13 @@ export function GalleryList({
   initialTotal,
   pageSize,
   isAdmin,
+  creators,
 }: Props) {
   const [rows, setRows] = useState<GalleryListItem[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
   const [offset, setOffset] = useState(initialRows.length);
   const [search, setSearch] = useState("");
+  const [createdBy, setCreatedBy] = useState<string>("all");
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -51,8 +64,9 @@ export function GalleryList({
   const [deleteTarget, setDeleteTarget] = useState<GalleryListItem | null>(
     null,
   );
-
-  void isAdmin;
+  const [reassignTarget, setReassignTarget] = useState<GalleryListItem | null>(
+    null,
+  );
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -63,12 +77,13 @@ export function GalleryList({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, createdBy]);
 
   function runFetch(nextOffset: number, replace: boolean) {
     startTransition(async () => {
       const res = await fetchGalleries({
         search: search || undefined,
+        createdBy: createdBy !== "all" ? createdBy : undefined,
         limit: pageSize,
         offset: nextOffset,
       });
@@ -87,14 +102,31 @@ export function GalleryList({
 
   return (
     <div className="space-y-6">
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search galleries…"
-          className="pl-9"
-        />
+      <div className="flex flex-wrap gap-3">
+        <div className="relative max-w-md flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search galleries…"
+            className="pl-9"
+          />
+        </div>
+        {isAdmin && creators.length > 0 && (
+          <Select value={createdBy} onValueChange={setCreatedBy}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by user" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All users</SelectItem>
+              {creators.map((u) => (
+                <SelectItem key={u.id} value={u.id}>
+                  {u.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {pending && rows.length === 0 ? (
@@ -151,6 +183,12 @@ export function GalleryList({
                       <DropdownMenuItem onSelect={() => setEditTarget(g)}>
                         <Pencil className="mr-2 h-4 w-4" /> Edit
                       </DropdownMenuItem>
+                      {isAdmin && (
+                        <DropdownMenuItem onSelect={() => setReassignTarget(g)}>
+                          <UserRoundCog className="mr-2 h-4 w-4" /> Reassign
+                          Owner
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onSelect={() => setDeleteTarget(g)}
                         className="text-destructive focus:text-destructive"
@@ -214,6 +252,21 @@ export function GalleryList({
             setRows((prev) => prev.filter((r) => r.id !== id));
             setTotal((t) => Math.max(0, t - 1));
             setOffset((o) => Math.max(0, o - 1));
+          }}
+        />
+      )}
+      {reassignTarget && (
+        <ReassignGalleryDialog
+          gallery={reassignTarget}
+          open={!!reassignTarget}
+          onOpenChange={(o) => !o && setReassignTarget(null)}
+          onReassigned={(id, _newOwnerId, newOwnerName) => {
+            setRows((prev) =>
+              prev.map((r) =>
+                r.id === id ? { ...r, creatorName: newOwnerName } : r,
+              ),
+            );
+            setReassignTarget(null);
           }}
         />
       )}

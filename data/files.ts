@@ -227,5 +227,17 @@ export async function getDistinctUploaderIds(): Promise<string[]> {
   return rows.map((r) => r.uploadedBy);
 }
 
+export async function reassignFileOwner(
+  id: string,
+  newUploadedBy: string,
+): Promise<FileRow | null> {
+  const rows = await db
+    .update(files)
+    .set({ uploadedBy: newUploadedBy })
+    .where(eq(files.id, id))
+    .returning();
+  return rows[0] ?? null;
+}
+
 // Sort export utilities reused above
 export { asc };

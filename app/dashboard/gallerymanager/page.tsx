@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
 
 import { getRoles, hasRole } from "@/lib/roles";
-import { listGalleries } from "@/data/galleries";
+import { listGalleries, getDistinctCreatorIds } from "@/data/galleries";
 import { GalleryList } from "./gallery-list";
 import { CreateGalleryDialog } from "./create-gallery-dialog";
+
+export type CreatorInfo = { id: string; name: string };
 
 const ALLOWED_ROLES = ["admin", "publisher", "author"] as const;
 const PAGE_SIZE = 24;
@@ -26,6 +28,25 @@ export default async function GalleryManagerPage() {
     offset: 0,
   });
 
+  let creators: CreatorInfo[] = [];
+  if (isAdmin) {
+    const creatorIds = await getDistinctCreatorIds();
+    if (creatorIds.length > 0) {
+      const client = await clerkClient();
+      const clerkUsers = await Promise.all(
+        creatorIds.map((id) => client.users.getUser(id).catch(() => null)),
+      );
+      creators = clerkUsers.filter(Boolean).map((u) => ({
+        id: u!.id,
+        name:
+          u!.fullName ||
+          u!.username ||
+          u!.primaryEmailAddress?.emailAddress ||
+          u!.id,
+      }));
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -43,6 +64,7 @@ export default async function GalleryManagerPage() {
         initialTotal={total}
         pageSize={PAGE_SIZE}
         isAdmin={isAdmin}
+        creators={creators}
       />
     </div>
   );

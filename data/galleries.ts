@@ -33,6 +33,7 @@ export type GalleryListItem = GalleryRow & {
 export async function listGalleries(opts: {
   caller: Caller;
   search?: string;
+  createdBy?: string;
   limit: number;
   offset: number;
 }): Promise<{ rows: GalleryListItem[]; total: number }> {
@@ -42,6 +43,9 @@ export async function listGalleries(opts: {
   if (opts.search && opts.search.trim()) {
     const q = `%${opts.search.trim()}%`;
     conditions.push(ilike(galleries.name, q));
+  }
+  if (opts.caller.isAdmin && opts.createdBy) {
+    conditions.push(eq(galleries.createdBy, opts.createdBy));
   }
   const where = conditions.length ? and(...conditions) : undefined;
 
@@ -111,6 +115,13 @@ export async function listGalleries(opts: {
   }));
 
   return { rows, total };
+}
+
+export async function getDistinctCreatorIds(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ createdBy: galleries.createdBy })
+    .from(galleries);
+  return rows.map((r) => r.createdBy);
 }
 
 export type GalleryDetail = GalleryRow & {
@@ -418,4 +429,16 @@ export async function reorderGalleryImages(
     ),
   );
   return { success: true };
+}
+
+export async function reassignGallery(
+  id: string,
+  newOwnerId: string,
+): Promise<GalleryRow | null> {
+  const rows = await db
+    .update(galleries)
+    .set({ createdBy: newOwnerId })
+    .where(eq(galleries.id, id))
+    .returning();
+  return rows[0] ?? null;
 }
