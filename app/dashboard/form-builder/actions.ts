@@ -1,6 +1,6 @@
 "use server";
 
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
@@ -18,6 +18,7 @@ import {
   listPublishedFormsForPicker,
   listSubmissions,
   publishForm as publishFormRow,
+  reassignForm as reassignFormRow,
   replaceFormFields,
   unpublishForm as unpublishFormRow,
   updateForm as updateFormRow,
@@ -295,6 +296,33 @@ export async function deleteForm(input: z.input<typeof idSchema>) {
   return { success: true as const };
 }
 
+// ─── Reassign ─────────────────────────────────────────────────────────────────
+
+const reassignSchema = z.object({
+  id: z.string().uuid(),
+  ownerId: z.string().min(1, "Owner is required."),
+});
+
+export async function reassignForm(input: z.input<typeof reassignSchema>) {
+  const caller = await requireAdmin();
+  if (!caller) return { error: "Forbidden." };
+  const parsed = reassignSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  try {
+    const row = await reassignFormRow(
+      parsed.data.id,
+      parsed.data.ownerId,
+      caller,
+    );
+    if (!row) return { error: "Form not found." };
+    bumpForm(parsed.data.id);
+    return { success: true as const };
+  } catch (err) {
+    console.error("[reassignForm]", err);
+    return { error: "Could not reassign form." };
+  }
+}
+
 // ─── Submission moderation ────────────────────────────────────────────────────
 
 export async function setSubmissionStatus(
@@ -379,7 +407,37 @@ export async function fetchFormsList(input: {
   const caller = await requireAdmin();
   if (!caller) return { error: "Forbidden." };
   const out = await listForms(input);
-  return out;
+
+  // Resolve creator names from Clerk
+  const creatorIds = [
+    ...new Set(out.rows.map((r) => r.createdBy).filter(Boolean) as string[]),
+  ];
+  const nameMap = new Map<string, string>();
+  if (creatorIds.length > 0) {
+    const client = await clerkClient();
+    await Promise.all(
+      creatorIds.map(async (id) => {
+        const u = await client.users.getUser(id).catch(() => null);
+        if (u) {
+          nameMap.set(
+            id,
+            u.fullName ||
+              u.username ||
+              u.primaryEmailAddress?.emailAddress ||
+              id,
+          );
+        }
+      }),
+    );
+  }
+
+  return {
+    ...out,
+    rows: out.rows.map((r) => ({
+      ...r,
+      createdByName: r.createdBy ? (nameMap.get(r.createdBy) ?? null) : null,
+    })),
+  };
 }
 
 export async function fetchSubmissions(input: {

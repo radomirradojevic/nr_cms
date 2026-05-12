@@ -10,6 +10,7 @@ import {
   Pencil,
   Search,
   Trash2,
+  UserCog,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,17 +40,30 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchFormsList } from "./actions";
 import { DeleteFormDialog } from "./delete-form-dialog";
+import { ReassignFormDialog } from "./reassign-form-dialog";
 import type { FormRow, FormStatus } from "@/lib/form-types";
 
-type Row = FormRow & { submissionCount: number; fieldCount: number };
+type Row = FormRow & {
+  submissionCount: number;
+  fieldCount: number;
+  createdByName: string | null;
+};
+
+type AdminUser = { id: string; name: string };
 
 type Props = {
   initialRows: Row[];
   initialTotal: number;
   pageSize: number;
+  admins: AdminUser[];
 };
 
-export function FormsList({ initialRows, initialTotal, pageSize }: Props) {
+export function FormsList({
+  initialRows,
+  initialTotal,
+  pageSize,
+  admins,
+}: Props) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
   const [offset, setOffset] = useState(initialRows.length);
@@ -58,6 +72,7 @@ export function FormsList({ initialRows, initialTotal, pageSize }: Props) {
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
+  const [reassignTarget, setReassignTarget] = useState<Row | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -118,6 +133,7 @@ export function FormsList({ initialRows, initialTotal, pageSize }: Props) {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Creator</TableHead>
               <TableHead className="text-right">Fields</TableHead>
               <TableHead className="text-right">Submissions</TableHead>
               <TableHead>Updated</TableHead>
@@ -128,7 +144,7 @@ export function FormsList({ initialRows, initialTotal, pageSize }: Props) {
             {pending && rows.length === 0 ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <Skeleton className="h-6 w-full" />
                   </TableCell>
                 </TableRow>
@@ -136,7 +152,7 @@ export function FormsList({ initialRows, initialTotal, pageSize }: Props) {
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center text-muted-foreground py-10"
                 >
                   No forms yet.
@@ -162,6 +178,9 @@ export function FormsList({ initialRows, initialTotal, pageSize }: Props) {
                     >
                       {r.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {r.createdByName ?? "—"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {r.fieldCount}
@@ -196,6 +215,9 @@ export function FormsList({ initialRows, initialTotal, pageSize }: Props) {
                           <Link href={`/dashboard/form-builder/${r.id}`}>
                             <FileText className="mr-2 h-4 w-4" /> Fields
                           </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setReassignTarget(r)}>
+                          <UserCog className="mr-2 h-4 w-4" /> Reassign
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() => setDeleteTarget(r)}
@@ -238,6 +260,27 @@ export function FormsList({ initialRows, initialTotal, pageSize }: Props) {
             setRows((prev) => prev.filter((r) => r.id !== id));
             setTotal((t) => Math.max(0, t - 1));
             setOffset((o) => Math.max(0, o - 1));
+          }}
+        />
+      )}
+
+      {reassignTarget && (
+        <ReassignFormDialog
+          formId={reassignTarget.id}
+          formName={reassignTarget.name}
+          currentOwnerId={reassignTarget.createdBy ?? null}
+          admins={admins}
+          open={!!reassignTarget}
+          onOpenChange={(o) => !o && setReassignTarget(null)}
+          onReassigned={(id, newOwnerId, newOwnerName) => {
+            setRows((prev) =>
+              prev.map((r) =>
+                r.id === id
+                  ? { ...r, createdBy: newOwnerId, createdByName: newOwnerName }
+                  : r,
+              ),
+            );
+            setReassignTarget(null);
           }}
         />
       )}

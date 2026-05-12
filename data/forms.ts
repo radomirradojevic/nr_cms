@@ -249,6 +249,19 @@ export async function updateForm(
   return rows[0] ?? null;
 }
 
+export async function reassignForm(
+  id: string,
+  newOwnerId: string,
+  caller: { userId: string },
+): Promise<FormRow | null> {
+  const rows = await db
+    .update(forms)
+    .set({ createdBy: newOwnerId, updatedBy: caller.userId })
+    .where(eq(forms.id, id))
+    .returning();
+  return rows[0] ?? null;
+}
+
 export async function publishForm(
   id: string,
   caller: { userId: string },
