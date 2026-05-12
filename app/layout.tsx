@@ -55,7 +55,9 @@ export default async function RootLayout({
   const stickyFooterH = settings.stickyFooterHeight;
   const headerIsSticky = settings.headerSettings.sticky;
   const footerIsSticky = settings.footerSettings.sticky;
+  const headerH = headerIsSticky && stickyHeaderH > 0 ? stickyHeaderH : 64;
   const rootStyle = {
+    ["--header-h" as string]: `${headerH}px`,
     ...(headerIsSticky && stickyHeaderH > 0
       ? { ["--sticky-header-h" as string]: `${stickyHeaderH}px` }
       : {}),
@@ -89,12 +91,29 @@ export default async function RootLayout({
               className="text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors flex items-center gap-2"
             >
               {logoUrl && settings.headerSettings.showLogo && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={logoUrl}
-                  alt={settings.siteLogo?.alt ?? siteName}
-                  className="h-8 w-8 object-contain"
-                />
+                <div
+                  style={{
+                    width: "calc(var(--header-h) * 0.85)",
+                    height: "calc(var(--header-h) * 0.85)",
+                    borderRadius: "50%",
+                    boxShadow:
+                      "0 0 0 2px #349aee, 0 0 12px 4px #349aee88, 0 0 24px 8px #349aee33",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoUrl}
+                    alt={settings.siteLogo?.alt ?? siteName}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: "50%",
+                    }}
+                    className="object-contain"
+                  />
+                </div>
               )}
               {settings.headerSettings.showSiteName && <span>{siteName}</span>}
             </a>
