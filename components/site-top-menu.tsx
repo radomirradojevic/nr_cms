@@ -9,6 +9,7 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
+import { SiteTopMenuMobile } from "@/components/site-top-menu-mobile";
 
 function isExternal(url: string) {
   return /^https?:\/\//i.test(url);
@@ -44,18 +45,36 @@ function MenuLink({
   );
 }
 
-export async function SiteTopMenu() {
+export async function SiteTopMenu({
+  isBackendUser = false,
+  isAdmin = false,
+}: {
+  isBackendUser?: boolean;
+  isAdmin?: boolean;
+}) {
   const tree = await getTopMenuTree();
-  if (tree.length === 0) return null;
 
   return (
-    <NavigationMenu viewport={false}>
-      <NavigationMenuList>
-        {tree.map((item) => (
-          <RootItem key={item.id} item={item} />
-        ))}
-      </NavigationMenuList>
-    </NavigationMenu>
+    <>
+      {/* Desktop navigation — visible on lg and above */}
+      {tree.length > 0 && (
+        <div className="hidden lg:block">
+          <NavigationMenu viewport={false}>
+            <NavigationMenuList>
+              {tree.map((item) => (
+                <RootItem key={item.id} item={item} />
+              ))}
+            </NavigationMenuList>
+          </NavigationMenu>
+        </div>
+      )}
+      {/* Mobile/tablet hamburger — hidden on lg and above */}
+      <SiteTopMenuMobile
+        tree={tree}
+        isBackendUser={isBackendUser}
+        isAdmin={isAdmin}
+      />
+    </>
   );
 }
 
@@ -103,7 +122,7 @@ function SubmenuItem({ item }: { item: TopMenuTreeNode }) {
         </MenuLink>
       </NavigationMenuLink>
       {item.children.length > 0 && (
-        <ul className="mt-1 gap-1">
+        <ul className="mt-1 ml-3 space-y-1 border-l border-border pl-2">
           {item.children.map((c) => (
             <SubmenuItem key={c.id} item={c} />
           ))}
