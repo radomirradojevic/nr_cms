@@ -184,7 +184,9 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
     for (const f of visibleFields) {
       if (!f.required) continue;
       const v = values[f.fieldKey];
-      const opts = (f.options ?? {}) as { choices?: { value: string; label: string }[] };
+      const opts = (f.options ?? {}) as {
+        choices?: { value: string; label: string }[];
+      };
       if (
         f.fieldType === "text" ||
         f.fieldType === "textarea" ||
