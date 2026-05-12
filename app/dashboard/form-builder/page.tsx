@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
 
 import { getRoles, hasRole } from "@/lib/roles";
 import { listForms } from "@/data/forms";
@@ -15,10 +15,37 @@ export default async function FormBuilderPage() {
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) redirect("/dashboard");
 
-  const { rows, total } = await listForms({
-    limit: PAGE_SIZE,
-    offset: 0,
-  });
+  const client = await clerkClient();
+
+  const [{ rows, total }, allUsersRes] = await Promise.all([
+    listForms({ limit: PAGE_SIZE, offset: 0 }),
+    client.users.getUserList({ limit: 100 }),
+  ]);
+
+  // Build a name map for creator display
+  const nameMap = new Map<string, string>(
+    allUsersRes.data.map((u) => [
+      u.id,
+      u.fullName || u.username || u.primaryEmailAddress?.emailAddress || u.id,
+    ]),
+  );
+
+  // Build admins list (users with "admin" role)
+  const admins = allUsersRes.data
+    .filter((u) => {
+      const r = getRoles(u.publicMetadata);
+      return hasRole(r, "admin");
+    })
+    .map((u) => ({
+      id: u.id,
+      name:
+        u.fullName || u.username || u.primaryEmailAddress?.emailAddress || u.id,
+    }));
+
+  const enrichedRows = rows.map((r) => ({
+    ...r,
+    createdByName: r.createdBy ? (nameMap.get(r.createdBy) ?? null) : null,
+  }));
 
   return (
     <div className="p-6 space-y-6">
@@ -33,7 +60,12 @@ export default async function FormBuilderPage() {
         <CreateFormDialog />
       </div>
 
-      <FormsList initialRows={rows} initialTotal={total} pageSize={PAGE_SIZE} />
+      <FormsList
+        initialRows={enrichedRows}
+        initialTotal={total}
+        pageSize={PAGE_SIZE}
+        admins={admins}
+      />
     </div>
   );
 }
