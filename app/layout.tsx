@@ -117,96 +117,100 @@ export default async function RootLayout({
               {settings.headerSettings.showSiteName && <span>{siteName}</span>}
             </a>
             <div className="flex items-center gap-4">
-              <SiteTopMenu />
+              <SiteTopMenu isBackendUser={isBackendUser} isAdmin={isAdmin} />
               {isBackendUser && (
-                <NavigationMenu>
-                  <NavigationMenuList>
-                    <NavigationMenuItem>
-                      <NavigationMenuLink
-                        asChild
-                        className={navigationMenuTriggerStyle()}
-                      >
-                        <Link href="/dashboard">Dashboard</Link>
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
-                    <NavigationMenuItem>
-                      <NavigationMenuLink
-                        asChild
-                        className={navigationMenuTriggerStyle()}
-                      >
-                        <Link href="/dashboard/content">Content</Link>
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
-                    <NavigationMenuItem>
-                      <NavigationMenuLink
-                        asChild
-                        className={navigationMenuTriggerStyle()}
-                      >
-                        <Link href="/dashboard/filemanager">File Manager</Link>
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
-                    <NavigationMenuItem>
-                      <NavigationMenuLink
-                        asChild
-                        className={navigationMenuTriggerStyle()}
-                      >
-                        <Link href="/dashboard/gallerymanager">
-                          Gallery Manager
-                        </Link>
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
-                    {isAdmin && (
-                      <>
-                        <NavigationMenuItem>
-                          <NavigationMenuLink
-                            asChild
-                            className={navigationMenuTriggerStyle()}
-                          >
-                            <Link href="/dashboard/users">Users</Link>
-                          </NavigationMenuLink>
-                        </NavigationMenuItem>
-                        <NavigationMenuItem>
-                          <NavigationMenuLink
-                            asChild
-                            className={navigationMenuTriggerStyle()}
-                          >
-                            <Link href="/dashboard/content-categories">
-                              Content Categories
-                            </Link>
-                          </NavigationMenuLink>
-                        </NavigationMenuItem>
-                        <NavigationMenuItem>
-                          <NavigationMenuLink
-                            asChild
-                            className={navigationMenuTriggerStyle()}
-                          >
-                            <Link href="/dashboard/top-menu">Top Menu</Link>
-                          </NavigationMenuLink>
-                        </NavigationMenuItem>
-                        <NavigationMenuItem>
-                          <NavigationMenuLink
-                            asChild
-                            className={navigationMenuTriggerStyle()}
-                          >
-                            <Link href="/dashboard/form-builder">
-                              Form Builder
-                            </Link>
-                          </NavigationMenuLink>
-                        </NavigationMenuItem>
-                        <NavigationMenuItem>
-                          <NavigationMenuLink
-                            asChild
-                            className={navigationMenuTriggerStyle()}
-                          >
-                            <Link href="/dashboard/global-settings">
-                              Global Settings
-                            </Link>
-                          </NavigationMenuLink>
-                        </NavigationMenuItem>
-                      </>
-                    )}
-                  </NavigationMenuList>
-                </NavigationMenu>
+                <div className="hidden lg:block">
+                  <NavigationMenu>
+                    <NavigationMenuList>
+                      <NavigationMenuItem>
+                        <NavigationMenuLink
+                          asChild
+                          className={navigationMenuTriggerStyle()}
+                        >
+                          <Link href="/dashboard">Dashboard</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                      <NavigationMenuItem>
+                        <NavigationMenuLink
+                          asChild
+                          className={navigationMenuTriggerStyle()}
+                        >
+                          <Link href="/dashboard/content">Content</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                      <NavigationMenuItem>
+                        <NavigationMenuLink
+                          asChild
+                          className={navigationMenuTriggerStyle()}
+                        >
+                          <Link href="/dashboard/filemanager">
+                            File Manager
+                          </Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                      <NavigationMenuItem>
+                        <NavigationMenuLink
+                          asChild
+                          className={navigationMenuTriggerStyle()}
+                        >
+                          <Link href="/dashboard/gallerymanager">
+                            Gallery Manager
+                          </Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                      {isAdmin && (
+                        <>
+                          <NavigationMenuItem>
+                            <NavigationMenuLink
+                              asChild
+                              className={navigationMenuTriggerStyle()}
+                            >
+                              <Link href="/dashboard/users">Users</Link>
+                            </NavigationMenuLink>
+                          </NavigationMenuItem>
+                          <NavigationMenuItem>
+                            <NavigationMenuLink
+                              asChild
+                              className={navigationMenuTriggerStyle()}
+                            >
+                              <Link href="/dashboard/content-categories">
+                                Content Categories
+                              </Link>
+                            </NavigationMenuLink>
+                          </NavigationMenuItem>
+                          <NavigationMenuItem>
+                            <NavigationMenuLink
+                              asChild
+                              className={navigationMenuTriggerStyle()}
+                            >
+                              <Link href="/dashboard/top-menu">Top Menu</Link>
+                            </NavigationMenuLink>
+                          </NavigationMenuItem>
+                          <NavigationMenuItem>
+                            <NavigationMenuLink
+                              asChild
+                              className={navigationMenuTriggerStyle()}
+                            >
+                              <Link href="/dashboard/form-builder">
+                                Form Builder
+                              </Link>
+                            </NavigationMenuLink>
+                          </NavigationMenuItem>
+                          <NavigationMenuItem>
+                            <NavigationMenuLink
+                              asChild
+                              className={navigationMenuTriggerStyle()}
+                            >
+                              <Link href="/dashboard/global-settings">
+                                Global Settings
+                              </Link>
+                            </NavigationMenuLink>
+                          </NavigationMenuItem>
+                        </>
+                      )}
+                    </NavigationMenuList>
+                  </NavigationMenu>
+                </div>
               )}
               <Show when="signed-out">
                 <SignInButton mode="modal">
