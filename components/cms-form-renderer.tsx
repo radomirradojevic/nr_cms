@@ -179,10 +179,55 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
     }
   }
 
+  function validateRequired(): Record<string, string> {
+    const errs: Record<string, string> = {};
+    for (const f of visibleFields) {
+      if (!f.required) continue;
+      const v = values[f.fieldKey];
+      const opts = (f.options ?? {}) as { choices?: { value: string; label: string }[] };
+      if (
+        f.fieldType === "text" ||
+        f.fieldType === "textarea" ||
+        f.fieldType === "email" ||
+        f.fieldType === "phone" ||
+        f.fieldType === "date" ||
+        f.fieldType === "select" ||
+        f.fieldType === "radio"
+      ) {
+        if (!v || (typeof v === "string" && v.trim() === "")) {
+          errs[f.fieldKey] = "This field is required.";
+        }
+      } else if (f.fieldType === "number") {
+        if (v === "" || v === null || v === undefined) {
+          errs[f.fieldKey] = "This field is required.";
+        }
+      } else if (f.fieldType === "checkbox") {
+        if (Array.isArray(opts.choices) && opts.choices.length > 0) {
+          if (!Array.isArray(v) || (v as string[]).length === 0) {
+            errs[f.fieldKey] = "This field is required.";
+          }
+        } else if (!v) {
+          errs[f.fieldKey] = "This field is required.";
+        }
+      } else if (f.fieldType === "file") {
+        if (!v || typeof v !== "object") {
+          errs[f.fieldKey] = "This field is required.";
+        }
+      }
+    }
+    return errs;
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setTopError(null);
     setErrors({});
+    const fieldErrs = validateRequired();
+    if (Object.keys(fieldErrs).length > 0) {
+      setErrors(fieldErrs);
+      setTopError("Please fill in all required fields.");
+      return;
+    }
     if (enableTurnstile && !token) {
       setTopError("Please complete the captcha.");
       return;

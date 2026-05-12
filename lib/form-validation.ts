@@ -24,8 +24,10 @@ export function buildFormValuesSchema(fields: FormFieldRow[]) {
       case "text":
       case "textarea": {
         let str = z.string().max(validation.maxLength ?? TEXT_DEFAULT_MAX);
-        if (validation.minLength !== undefined)
+        if (validation.minLength !== undefined && validation.minLength > 0)
           str = str.min(validation.minLength);
+        else if (f.required)
+          str = str.min(1, "This field is required.");
         if (validation.pattern) {
           try {
             const re = new RegExp(validation.pattern);
