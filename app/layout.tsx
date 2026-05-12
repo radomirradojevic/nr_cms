@@ -96,8 +96,7 @@ export default async function RootLayout({
                     width: "calc(var(--header-h) * 0.85)",
                     height: "calc(var(--header-h) * 0.85)",
                     borderRadius: "50%",
-                    boxShadow:
-                      "0 0 0 2px #349aee, 0 0 12px 4px #349aee88, 0 0 24px 8px #349aee33",
+                    border: "1px solid #6b7280",
                     overflow: "hidden",
                     flexShrink: 0,
                   }}
