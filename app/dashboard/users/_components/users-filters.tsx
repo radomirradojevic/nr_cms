@@ -80,7 +80,7 @@ export function UsersFilters() {
         <SelectContent>
           <SelectItem value="all">All statuses</SelectItem>
           <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="banned">Banned</SelectItem>
+          <SelectItem value="locked">Locked</SelectItem>
         </SelectContent>
       </Select>
 
