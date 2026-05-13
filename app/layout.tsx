@@ -17,6 +17,7 @@ import {
 import { getRoles, hasRole } from "@/lib/roles";
 import { SiteTopMenu } from "@/components/site-top-menu";
 import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
+import { SiteTopMenuLink } from "@/components/site-top-menu-link";
 import { getGlobalSettings } from "@/data/global-settings";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -91,7 +92,7 @@ export default async function RootLayout({
           >
             <a
               href="/"
-              className="text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors flex items-center gap-2"
+              className="text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors flex items-center gap-2 shrink-0"
             >
               {logoUrl && settings.headerSettings.showLogo && (
                 <div
@@ -119,7 +120,13 @@ export default async function RootLayout({
               )}
               {settings.headerSettings.showSiteName && <span>{siteName}</span>}
             </a>
-            <div className="flex items-center gap-4">
+            {settings.headerContent && (
+              <div
+                className="flex-1 min-w-0 self-stretch overflow-hidden flex items-center"
+                dangerouslySetInnerHTML={{ __html: settings.headerContent }}
+              />
+            )}
+            <div className="flex items-center gap-4 shrink-0">
               <SiteTopMenu isBackendUser={isBackendUser} isAdmin={isAdmin} />
               {isBackendUser && (
                 <div className="hidden lg:block">
@@ -213,30 +220,22 @@ export default async function RootLayout({
                       {isAdmin && (
                         <>
                           <NavigationMenuItem>
-                            <NavigationMenuLink
-                              asChild
-                              className={navigationMenuTriggerStyle()}
-                            >
-                              <Link href="/dashboard/users">Users</Link>
-                            </NavigationMenuLink>
+                            <SiteTopMenuLink
+                              href="/dashboard/users"
+                              label="Users"
+                            />
                           </NavigationMenuItem>
                           <NavigationMenuItem>
-                            <NavigationMenuLink
-                              asChild
-                              className={navigationMenuTriggerStyle()}
-                            >
-                              <Link href="/dashboard/top-menu">Top Menu</Link>
-                            </NavigationMenuLink>
+                            <SiteTopMenuLink
+                              href="/dashboard/top-menu"
+                              label="Top Menu"
+                            />
                           </NavigationMenuItem>
                           <NavigationMenuItem>
-                            <NavigationMenuLink
-                              asChild
-                              className={navigationMenuTriggerStyle()}
-                            >
-                              <Link href="/dashboard/form-builder">
-                                Form Builder
-                              </Link>
-                            </NavigationMenuLink>
+                            <SiteTopMenuLink
+                              href="/dashboard/form-builder"
+                              label="Form Builder"
+                            />
                           </NavigationMenuItem>
                         </>
                       )}
