@@ -6,7 +6,6 @@ import DOMPurify from "isomorphic-dompurify";
 import { getRoles } from "@/lib/roles";
 import {
   ALLOWED_MIME,
-  MAX_FILE_SIZE,
   extFromMime,
   formatBytes,
   isMimeAllowed,
@@ -15,6 +14,7 @@ import {
 } from "@/lib/file-manager";
 import { buildStoragePath, writeUpload } from "@/lib/file-storage";
 import { insertFile } from "@/data/files";
+import { getGlobalSettings } from "@/data/global-settings";
 
 const ALLOWED_ROLES = ["admin", "publisher", "author"] as const;
 
@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No files provided." }, { status: 400 });
   }
 
+  const settings = await getGlobalSettings();
   const results: UploadResult[] = [];
 
   for (const entry of entries) {
@@ -64,11 +65,11 @@ export async function POST(req: NextRequest) {
     const original = sanitizeFilename(entry.name || "file");
 
     try {
-      if (entry.size > MAX_FILE_SIZE) {
+      if (entry.size > settings.maxUploadSizeBytes) {
         results.push({
           ok: false,
           filename: original,
-          error: `File exceeds ${formatBytes(MAX_FILE_SIZE)} limit.`,
+          error: `File exceeds ${formatBytes(settings.maxUploadSizeBytes)} limit.`,
         });
         continue;
       }

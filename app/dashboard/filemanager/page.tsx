@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
 import { getRoles, hasRole } from "@/lib/roles";
 import { listFiles, getDistinctUploaderIds } from "@/data/files";
+import { getGlobalSettings } from "@/data/global-settings";
 import { FileManager } from "./file-manager";
 
 export type UploaderInfo = { id: string; name: string };
@@ -20,11 +21,14 @@ export default async function FileManagerPage() {
   }
   const isAdmin = hasRole(roles, "admin");
 
-  const { rows, total } = await listFiles({
-    caller: { userId, isAdmin },
-    limit: PAGE_SIZE,
-    offset: 0,
-  });
+  const [{ rows, total }, settings] = await Promise.all([
+    listFiles({
+      caller: { userId, isAdmin },
+      limit: PAGE_SIZE,
+      offset: 0,
+    }),
+    getGlobalSettings(),
+  ]);
 
   // Build uploader name map for display + admin filter
   let uploaders: UploaderInfo[] = [];
@@ -72,6 +76,8 @@ export default async function FileManagerPage() {
         pageSize={PAGE_SIZE}
         isAdmin={isAdmin}
         uploaders={uploaders}
+        maxFileSize={settings.maxUploadSizeBytes}
+        maxBatchSize={settings.maxBatchUploadSizeBytes}
       />
     </div>
   );
