@@ -20,6 +20,7 @@ import {
   MB,
 } from "@/lib/global-settings";
 import { LogoPickerDialog } from "./logo-picker-dialog";
+import { FooterContentEditor } from "./footer-content-editor";
 
 interface SettingsFormProps {
   settings: GlobalSettingsRow | null;
@@ -227,9 +228,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="stickyHeaderHeight">
-              Header Height (px)
-            </Label>
+            <Label htmlFor="stickyHeaderHeight">Header Height (px)</Label>
             <Input
               id="stickyHeaderHeight"
               type="number"
@@ -286,9 +285,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="stickyFooterHeight">
-              Footer Height (px)
-            </Label>
+            <Label htmlFor="stickyFooterHeight">Footer Height (px)</Label>
             <Input
               id="stickyFooterHeight"
               type="number"
@@ -319,13 +316,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="footerContent">Footer Content (HTML)</Label>
-            <Textarea
-              id="footerContent"
-              rows={6}
+            <Label>Footer Content (HTML)</Label>
+            <FooterContentEditor
               value={footerContent}
-              onChange={(e) => setFooterContent(e.target.value)}
-              maxLength={20000}
+              onChange={setFooterContent}
             />
           </div>
         </CardContent>

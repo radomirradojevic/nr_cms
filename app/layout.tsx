@@ -57,6 +57,8 @@ export default async function RootLayout({
   const stickyFooterH = settings.stickyFooterHeight;
   const headerIsSticky = settings.headerSettings.sticky;
   const footerIsSticky = settings.footerSettings.sticky;
+  const headerBg = settings.headerSettings.background;
+  const footerBg = settings.footerSettings.background;
   const headerH = stickyHeaderH > 0 ? stickyHeaderH : 64;
   const rootStyle = {
     ["--header-h" as string]: `${headerH}px`,
@@ -84,6 +86,7 @@ export default async function RootLayout({
               borderBottom: "1px solid #349aee",
               boxShadow: "0 1px 16px 2px #349aee88, 0 2px 32px 4px #349aee33",
               height: `${headerH}px`,
+              ...(headerBg ? { backgroundColor: headerBg } : {}),
             }}
           >
             <a
@@ -282,28 +285,25 @@ export default async function RootLayout({
             style={{
               borderTop: "1px solid #349aee",
               boxShadow: "0 -1px 16px 2px #349aee88, 0 -2px 32px 4px #349aee33",
-              ...(stickyFooterH > 0
-                ? { height: `${stickyFooterH}px` }
-                : {}),
+              ...(stickyFooterH > 0 ? { height: `${stickyFooterH}px` } : {}),
+              ...(footerBg ? { backgroundColor: footerBg } : {}),
             }}
           >
-            <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-foreground">Contact</span>
-                <a
-                  href="mailto:radomir.radojevic@gmail.com"
-                  className="underline hover:text-foreground"
-                >
-                  radomir.radojevic@gmail.com
-                </a>
+            {(settings.footerContent || settings.footerSettings.copyright) && (
+              <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                {settings.footerContent && (
+                  <div
+                    className="prose prose-invert max-w-none text-sm text-muted-foreground [&_a]:underline [&_a]:hover:text-foreground"
+                    dangerouslySetInnerHTML={{ __html: settings.footerContent }}
+                  />
+                )}
+                {settings.footerSettings.copyright && (
+                  <div className="sm:text-right shrink-0">
+                    <span>{settings.footerSettings.copyright}</span>
+                  </div>
+                )}
               </div>
-              <div className="sm:text-right">
-                <span>
-                  &copy; {new Date().getFullYear()} Night Raven CMS. All rights
-                  reserved.
-                </span>
-              </div>
-            </div>
+            )}
           </footer>
         </ClerkProvider>
       </body>
