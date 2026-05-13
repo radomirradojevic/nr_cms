@@ -18,8 +18,7 @@ import {
   type EmailAttachment,
 } from "@/lib/email";
 import { getFileByIdUnchecked } from "@/data/files";
-import { readFile } from "node:fs/promises";
-import { resolvePath } from "@/lib/file-storage";
+import { readUploadBuffer } from "@/lib/file-storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -183,9 +182,7 @@ export async function POST(
               const fileRow = await getFileByIdUnchecked(fv.fileId);
               if (fileRow) {
                 try {
-                  const content = await readFile(
-                    resolvePath(fileRow.storagePath),
-                  );
+                  const content = await readUploadBuffer(fileRow.storagePath);
                   attachments.push({
                     filename: fv.originalName,
                     content,
