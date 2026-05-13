@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFileByIdUnchecked } from "@/data/files";
-import { readUploadStream, statUpload } from "@/lib/file-storage";
+import { readUpload } from "@/lib/file-storage";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { Readable } from "node:stream";
 
@@ -20,24 +20,32 @@ export async function GET(
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  let size: number;
+  let result;
   try {
-    const stat = await statUpload(row.storagePath);
-    size = stat.size;
+    result = await readUpload(row.storagePath);
   } catch {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  const nodeStream = readUploadStream(row.storagePath);
+  // Remote object stores expose a public URL — redirect instead of proxying
+  // bytes through the serverless function (saves invocation time + bandwidth).
+  if (result.redirectUrl) {
+    return NextResponse.redirect(result.redirectUrl, 307);
+  }
+
+  if (!result.stream) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
   const webStream = Readable.toWeb(
-    nodeStream,
+    result.stream,
   ) as NodeReadableStream<Uint8Array>;
 
   return new Response(webStream as unknown as ReadableStream, {
     status: 200,
     headers: {
       "Content-Type": row.mimeType,
-      "Content-Length": String(size),
+      "Content-Length": String(result.size),
       "Content-Disposition": `inline; filename="${encodeURIComponent(row.filename)}"`,
       "Cache-Control": "public, max-age=3600",
     },

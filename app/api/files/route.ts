@@ -12,7 +12,12 @@ import {
   kindFromMime,
   sanitizeFilename,
 } from "@/lib/file-manager";
-import { buildStoragePath, writeUpload } from "@/lib/file-storage";
+import {
+  buildStoragePath,
+  getMaxUploadBytes,
+  getStorageProviderName,
+  writeUpload,
+} from "@/lib/file-storage";
 import { insertFile } from "@/data/files";
 import { getGlobalSettings } from "@/data/global-settings";
 
@@ -58,6 +63,11 @@ export async function POST(req: NextRequest) {
   }
 
   const settings = await getGlobalSettings();
+  // Effective limit is the smaller of the operator-configured cap and the
+  // provider/platform hard cap (e.g. ~4.5 MB on Vercel without Fluid Compute).
+  const providerMax = getMaxUploadBytes();
+  const providerName = getStorageProviderName();
+  const effectiveMax = Math.min(settings.maxUploadSizeBytes, providerMax);
   const results: UploadResult[] = [];
 
   for (const entry of entries) {
@@ -65,11 +75,17 @@ export async function POST(req: NextRequest) {
     const original = sanitizeFilename(entry.name || "file");
 
     try {
-      if (entry.size > settings.maxUploadSizeBytes) {
+      if (entry.size > effectiveMax) {
+        const hint =
+          providerMax < settings.maxUploadSizeBytes
+            ? providerName === "vercel-blob"
+              ? ` (${providerName} request body limit; enable Vercel Fluid Compute or set VERCEL_FLUID_COMPUTE=1 / VERCEL_BLOB_MAX_UPLOAD_BYTES to raise it)`
+              : ` (${providerName} provider limit)`
+            : "";
         results.push({
           ok: false,
           filename: original,
-          error: `File exceeds ${formatBytes(settings.maxUploadSizeBytes)} limit.`,
+          error: `File exceeds ${formatBytes(effectiveMax)} limit${hint}.`,
         });
         continue;
       }
@@ -125,7 +141,7 @@ export async function POST(req: NextRequest) {
       const id = randomUUID();
       const ext = extFromMime(mime);
       const storagePath = buildStoragePath(id, ext);
-      await writeUpload(storagePath, buffer);
+      await writeUpload(storagePath, buffer, { contentType: mime });
 
       const row = await insertFile({
         filename: original,

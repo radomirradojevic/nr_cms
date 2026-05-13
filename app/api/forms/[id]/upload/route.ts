@@ -15,7 +15,12 @@ import {
   kindFromMime,
   sanitizeFilename,
 } from "@/lib/file-manager";
-import { buildStoragePath, writeUpload } from "@/lib/file-storage";
+import {
+  buildStoragePath,
+  getMaxUploadBytes,
+  getStorageProviderName,
+  writeUpload,
+} from "@/lib/file-storage";
 import { getClientIp, hashIp } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { checkSubmissionRateLimit } from "@/data/forms";
@@ -79,10 +84,19 @@ export async function POST(
     const fieldMax = validation.maxFileSizeKb
       ? validation.maxFileSizeKb * 1024
       : MAX_FILE_SIZE;
-    const effectiveMax = Math.min(fieldMax, MAX_FILE_SIZE);
+    const providerMax = getMaxUploadBytes();
+    const effectiveMax = Math.min(fieldMax, MAX_FILE_SIZE, providerMax);
 
     if (file.size > effectiveMax) {
-      return err(413, `File exceeds ${formatBytes(effectiveMax)} limit.`);
+      const providerName = getStorageProviderName();
+      const hint =
+        providerMax === effectiveMax && providerName === "vercel-blob"
+          ? " (Vercel request body limit; enable Fluid Compute to raise it)"
+          : "";
+      return err(
+        413,
+        `File exceeds ${formatBytes(effectiveMax)} limit${hint}.`,
+      );
     }
 
     // IP-based rate limit (reuse submission limiter keyed on file uploads).
@@ -143,7 +157,7 @@ export async function POST(
     const fileId = randomUUID();
     const ext = extFromMime(mime);
     const storagePath = buildStoragePath(fileId, ext);
-    await writeUpload(storagePath, buffer);
+    await writeUpload(storagePath, buffer, { contentType: mime });
 
     const row = await insertFile({
       filename: original,
