@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { hasRole, getRoles, type Role } from "@/lib/roles";
 import { UsersFilters } from "./_components/users-filters";
+import { LockUserButton } from "./[userId]/lock-user-button";
 
 const roleBadgeVariant: Record<
   Role,
@@ -78,10 +79,10 @@ export default async function UsersPage({
 
   // Filter by status
   const byStatus =
-    statusFilter === "banned"
-      ? fetched.filter((u) => u.banned)
+    statusFilter === "locked"
+      ? fetched.filter((u) => u.locked)
       : statusFilter === "active"
-        ? fetched.filter((u) => !u.banned)
+        ? fetched.filter((u) => !u.locked)
         : fetched;
 
   // Filter by role (publicMetadata — done in-memory)
@@ -153,8 +154,8 @@ export default async function UsersPage({
                   <TableCell className="font-medium">{displayName}</TableCell>
                   <TableCell>{email}</TableCell>
                   <TableCell>
-                    <Badge variant={user.banned ? "destructive" : "secondary"}>
-                      {user.banned ? "Banned" : "Active"}
+                    <Badge variant={user.locked ? "destructive" : "secondary"}>
+                      {user.locked ? "Locked" : "Active"}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -167,9 +168,15 @@ export default async function UsersPage({
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/dashboard/users/${user.id}`}>View</Link>
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <LockUserButton
+                        userId={user.id}
+                        isLocked={user.locked ?? false}
+                      />
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/dashboard/users/${user.id}`}>View</Link>
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

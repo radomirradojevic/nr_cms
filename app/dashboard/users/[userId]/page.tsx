@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { hasRole, getRoles, type Role } from "@/lib/roles";
 import { EditUserDialog } from "@/app/dashboard/users/[userId]/edit-user-dialog";
+import { LockUserButton } from "@/app/dashboard/users/[userId]/lock-user-button";
+import { DeleteUserButton } from "@/app/dashboard/users/[userId]/delete-user-button";
 
 const roleBadgeVariant: Record<
   Role,
@@ -52,7 +54,11 @@ export default async function UserDetailPage({ params }: Props) {
           </Button>
           <h1 className="text-2xl font-semibold">User Details</h1>
         </div>
-        <EditUserDialog userId={user.id} currentRoles={roles} />
+        <div className="flex items-center gap-2">
+          <LockUserButton userId={user.id} isLocked={user.locked ?? false} />
+          <EditUserDialog userId={user.id} currentRoles={roles} />
+          <DeleteUserButton userId={user.id} />
+        </div>
       </div>
 
       <div className="border rounded-lg divide-y">
@@ -62,8 +68,8 @@ export default async function UserDetailPage({ params }: Props) {
         <Row
           label="Status"
           value={
-            <Badge variant={user.banned ? "destructive" : "secondary"}>
-              {user.banned ? "Banned" : "Active"}
+            <Badge variant={user.locked ? "destructive" : "secondary"}>
+              {user.locked ? "Locked" : "Active"}
             </Badge>
           }
         />
