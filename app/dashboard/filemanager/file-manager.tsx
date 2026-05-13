@@ -33,6 +33,8 @@ type Props = {
   pageSize: number;
   isAdmin: boolean;
   uploaders: UploaderInfo[];
+  maxFileSize: number;
+  maxBatchSize: number;
 };
 
 type DateRange = { from?: Date; to?: Date };
@@ -43,6 +45,8 @@ export function FileManager({
   pageSize,
   isAdmin,
   uploaders,
+  maxFileSize,
+  maxBatchSize,
 }: Props) {
   const [files, setFiles] = useState<FileRow[]>(initialFiles);
   const [total, setTotal] = useState(initialTotal);
@@ -145,7 +149,11 @@ export function FileManager({
 
   return (
     <div className="space-y-6">
-      <UploadDropzone onUploaded={handleUploaded} />
+      <UploadDropzone
+        onUploaded={handleUploaded}
+        maxFileSize={maxFileSize}
+        maxBatchSize={maxBatchSize}
+      />
 
       <div className="flex flex-col md:flex-row gap-3 md:items-center">
         <div className="relative flex-1">

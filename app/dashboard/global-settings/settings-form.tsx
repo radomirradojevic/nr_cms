@@ -226,21 +226,19 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               onCheckedChange={setHeaderSticky}
             />
           </div>
-          {headerSticky && (
-            <div className="space-y-1.5">
-              <Label htmlFor="stickyHeaderHeight">
-                Sticky Header Height (px)
-              </Label>
-              <Input
-                id="stickyHeaderHeight"
-                type="number"
-                min={0}
-                max={400}
-                value={stickyHeaderHeight}
-                onChange={(e) => setStickyHeaderHeight(e.target.value)}
-              />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="stickyHeaderHeight">
+              Header Height (px)
+            </Label>
+            <Input
+              id="stickyHeaderHeight"
+              type="number"
+              min={0}
+              max={400}
+              value={stickyHeaderHeight}
+              onChange={(e) => setStickyHeaderHeight(e.target.value)}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="headerBackground">
               Background Color (hex, optional)
@@ -287,21 +285,19 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               onCheckedChange={setFooterSticky}
             />
           </div>
-          {footerSticky && (
-            <div className="space-y-1.5">
-              <Label htmlFor="stickyFooterHeight">
-                Sticky Footer Height (px)
-              </Label>
-              <Input
-                id="stickyFooterHeight"
-                type="number"
-                min={0}
-                max={400}
-                value={stickyFooterHeight}
-                onChange={(e) => setStickyFooterHeight(e.target.value)}
-              />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="stickyFooterHeight">
+              Footer Height (px)
+            </Label>
+            <Input
+              id="stickyFooterHeight"
+              type="number"
+              min={0}
+              max={400}
+              value={stickyFooterHeight}
+              onChange={(e) => setStickyFooterHeight(e.target.value)}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="footerBackground">
               Background Color (hex, optional)

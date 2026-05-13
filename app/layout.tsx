@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import {
   NavigationMenu,
+  NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/navigation-menu";
 import { getRoles, hasRole } from "@/lib/roles";
 import { SiteTopMenu } from "@/components/site-top-menu";
+import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
 import { getGlobalSettings } from "@/data/global-settings";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -55,11 +57,11 @@ export default async function RootLayout({
   const stickyFooterH = settings.stickyFooterHeight;
   const headerIsSticky = settings.headerSettings.sticky;
   const footerIsSticky = settings.footerSettings.sticky;
-  const headerH = headerIsSticky && stickyHeaderH > 0 ? stickyHeaderH : 64;
+  const headerH = stickyHeaderH > 0 ? stickyHeaderH : 64;
   const rootStyle = {
     ["--header-h" as string]: `${headerH}px`,
-    ...(headerIsSticky && stickyHeaderH > 0
-      ? { ["--sticky-header-h" as string]: `${stickyHeaderH}px` }
+    ...(headerIsSticky
+      ? { ["--sticky-header-h" as string]: `${headerH}px` }
       : {}),
     ...(footerIsSticky && stickyFooterH > 0
       ? { ["--sticky-footer-h" as string]: `${stickyFooterH}px` }
@@ -76,14 +78,12 @@ export default async function RootLayout({
           <header
             className={cn(
               "bg-background flex items-center justify-between p-4 gap-4",
-              headerIsSticky ? "sticky top-0 z-50" : "h-16",
+              headerIsSticky && "sticky top-0 z-50",
             )}
             style={{
               borderBottom: "1px solid #349aee",
               boxShadow: "0 1px 16px 2px #349aee88, 0 2px 32px 4px #349aee33",
-              ...(headerIsSticky && stickyHeaderH > 0
-                ? { height: `${stickyHeaderH}px` }
-                : {}),
+              height: `${headerH}px`,
             }}
           >
             <a
@@ -120,43 +120,92 @@ export default async function RootLayout({
               <SiteTopMenu isBackendUser={isBackendUser} isAdmin={isAdmin} />
               {isBackendUser && (
                 <div className="hidden lg:block">
-                  <NavigationMenu>
+                  <NavigationMenu viewport={false}>
                     <NavigationMenuList>
                       <NavigationMenuItem>
-                        <NavigationMenuLink
-                          asChild
-                          className={navigationMenuTriggerStyle()}
-                        >
-                          <Link href="/dashboard">Dashboard</Link>
-                        </NavigationMenuLink>
+                        {isAdmin ? (
+                          <>
+                            <SiteTopMenuParentTrigger
+                              url="/dashboard"
+                              target="_self"
+                              label="Dashboard"
+                            />
+                            <NavigationMenuContent>
+                              <ul className="grid w-48 gap-1 p-2">
+                                <li>
+                                  <NavigationMenuLink asChild>
+                                    <Link
+                                      href="/dashboard/global-settings"
+                                      className="block rounded px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                                    >
+                                      Global Settings
+                                    </Link>
+                                  </NavigationMenuLink>
+                                </li>
+                              </ul>
+                            </NavigationMenuContent>
+                          </>
+                        ) : (
+                          <NavigationMenuLink
+                            asChild
+                            className={navigationMenuTriggerStyle()}
+                          >
+                            <Link href="/dashboard">Dashboard</Link>
+                          </NavigationMenuLink>
+                        )}
                       </NavigationMenuItem>
                       <NavigationMenuItem>
-                        <NavigationMenuLink
-                          asChild
-                          className={navigationMenuTriggerStyle()}
-                        >
-                          <Link href="/dashboard/content">Content</Link>
-                        </NavigationMenuLink>
+                        {isAdmin ? (
+                          <>
+                            <SiteTopMenuParentTrigger
+                              url="/dashboard/content"
+                              target="_self"
+                              label="Content"
+                            />
+                            <NavigationMenuContent>
+                              <ul className="grid w-52 gap-1 p-2">
+                                <li>
+                                  <NavigationMenuLink asChild>
+                                    <Link
+                                      href="/dashboard/content-categories"
+                                      className="block rounded px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                                    >
+                                      Content Categories
+                                    </Link>
+                                  </NavigationMenuLink>
+                                </li>
+                              </ul>
+                            </NavigationMenuContent>
+                          </>
+                        ) : (
+                          <NavigationMenuLink
+                            asChild
+                            className={navigationMenuTriggerStyle()}
+                          >
+                            <Link href="/dashboard/content">Content</Link>
+                          </NavigationMenuLink>
+                        )}
                       </NavigationMenuItem>
                       <NavigationMenuItem>
-                        <NavigationMenuLink
-                          asChild
-                          className={navigationMenuTriggerStyle()}
-                        >
-                          <Link href="/dashboard/filemanager">
-                            File Manager
-                          </Link>
-                        </NavigationMenuLink>
-                      </NavigationMenuItem>
-                      <NavigationMenuItem>
-                        <NavigationMenuLink
-                          asChild
-                          className={navigationMenuTriggerStyle()}
-                        >
-                          <Link href="/dashboard/gallerymanager">
-                            Gallery Manager
-                          </Link>
-                        </NavigationMenuLink>
+                        <SiteTopMenuParentTrigger
+                          url="/dashboard/filemanager"
+                          target="_self"
+                          label="File Manager"
+                        />
+                        <NavigationMenuContent>
+                          <ul className="grid w-52 gap-1 p-2">
+                            <li>
+                              <NavigationMenuLink asChild>
+                                <Link
+                                  href="/dashboard/gallerymanager"
+                                  className="block rounded px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                                >
+                                  Gallery Manager
+                                </Link>
+                              </NavigationMenuLink>
+                            </li>
+                          </ul>
+                        </NavigationMenuContent>
                       </NavigationMenuItem>
                       {isAdmin && (
                         <>
@@ -166,16 +215,6 @@ export default async function RootLayout({
                               className={navigationMenuTriggerStyle()}
                             >
                               <Link href="/dashboard/users">Users</Link>
-                            </NavigationMenuLink>
-                          </NavigationMenuItem>
-                          <NavigationMenuItem>
-                            <NavigationMenuLink
-                              asChild
-                              className={navigationMenuTriggerStyle()}
-                            >
-                              <Link href="/dashboard/content-categories">
-                                Content Categories
-                              </Link>
                             </NavigationMenuLink>
                           </NavigationMenuItem>
                           <NavigationMenuItem>
@@ -193,16 +232,6 @@ export default async function RootLayout({
                             >
                               <Link href="/dashboard/form-builder">
                                 Form Builder
-                              </Link>
-                            </NavigationMenuLink>
-                          </NavigationMenuItem>
-                          <NavigationMenuItem>
-                            <NavigationMenuLink
-                              asChild
-                              className={navigationMenuTriggerStyle()}
-                            >
-                              <Link href="/dashboard/global-settings">
-                                Global Settings
                               </Link>
                             </NavigationMenuLink>
                           </NavigationMenuItem>
@@ -253,7 +282,7 @@ export default async function RootLayout({
             style={{
               borderTop: "1px solid #349aee",
               boxShadow: "0 -1px 16px 2px #349aee88, 0 -2px 32px 4px #349aee33",
-              ...(footerIsSticky && stickyFooterH > 0
+              ...(stickyFooterH > 0
                 ? { height: `${stickyFooterH}px` }
                 : {}),
             }}

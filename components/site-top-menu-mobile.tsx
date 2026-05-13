@@ -127,27 +127,43 @@ function MobileMenuItem({
 
 const BACKEND_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
+  {
+    href: "/dashboard/global-settings",
+    label: "Global Settings",
+    isChild: true,
+    adminOnly: true,
+  },
   { href: "/dashboard/content", label: "Content" },
+  {
+    href: "/dashboard/content-categories",
+    label: "Content Categories",
+    isChild: true,
+    adminOnly: true,
+  },
   { href: "/dashboard/filemanager", label: "File Manager" },
-  { href: "/dashboard/gallerymanager", label: "Gallery Manager" },
+  {
+    href: "/dashboard/gallerymanager",
+    label: "Gallery Manager",
+    isChild: true,
+  },
 ];
 
 const ADMIN_LINKS = [
   { href: "/dashboard/users", label: "Users" },
-  { href: "/dashboard/content-categories", label: "Content Categories" },
   { href: "/dashboard/top-menu", label: "Top Menu" },
   { href: "/dashboard/form-builder", label: "Form Builder" },
-  { href: "/dashboard/global-settings", label: "Global Settings" },
 ];
 
 function AdminNavLink({
   href,
   label,
   onClose,
+  isChild,
 }: {
   href: string;
   label: string;
   onClose: () => void;
+  isChild?: boolean;
 }) {
   return (
     <li>
@@ -159,8 +175,10 @@ function AdminNavLink({
           "min-h-[44px] transition-colors duration-150",
           "hover:bg-accent hover:text-accent-foreground",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          isChild && "ml-4 text-muted-foreground",
         )}
       >
+        {isChild && <span className="mr-2 text-muted-foreground">↳</span>}
         {label}
       </Link>
     </li>
@@ -205,7 +223,9 @@ export function SiteTopMenuMobile({
 
   if (!hasAnything) return null;
 
-  const backendLinks = isBackendUser ? BACKEND_LINKS : [];
+  const backendLinks = isBackendUser
+    ? BACKEND_LINKS.filter((l) => !l.adminOnly || isAdmin)
+    : [];
   const adminLinks = isAdmin ? ADMIN_LINKS : [];
 
   return (
@@ -302,6 +322,7 @@ export function SiteTopMenuMobile({
                     href={link.href}
                     label={link.label}
                     onClose={() => setIsOpen(false)}
+                    isChild={link.isChild}
                   />
                 ))}
                 {adminLinks.map((link) => (
