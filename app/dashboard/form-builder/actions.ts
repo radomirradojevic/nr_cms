@@ -45,7 +45,7 @@ function bumpForm(id: string) {
   revalidatePath("/dashboard/form-builder");
   revalidatePath(`/dashboard/form-builder/${id}`);
   revalidatePath(`/dashboard/form-builder/${id}/submissions`);
-  revalidateTag(`form:${id}`);
+  revalidateTag(`form:${id}`, "default");
 }
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -292,7 +292,7 @@ export async function deleteForm(input: z.input<typeof idSchema>) {
   const ok = await deleteFormRow(parsed.data.id);
   if (!ok) return { error: "Form not found." };
   revalidatePath("/dashboard/form-builder");
-  revalidateTag(`form:${parsed.data.id}`);
+  revalidateTag(`form:${parsed.data.id}`, "default");
   return { success: true as const };
 }
 

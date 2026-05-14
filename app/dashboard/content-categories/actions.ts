@@ -37,7 +37,7 @@ async function markMenuItemsBroken(categoryIds: string[]) {
         .where(eq(topMenuItems.id, d.id)),
     ),
   );
-  revalidateTag(TOP_MENU_TAG);
+  revalidateTag(TOP_MENU_TAG, "default");
   revalidatePath("/", "layout");
 }
 

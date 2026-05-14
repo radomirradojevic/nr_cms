@@ -368,7 +368,7 @@ export async function updateContent(input: UpdateContentInput) {
         .update(topMenuItems)
         .set({ url: "/" + slug })
         .where(eq(topMenuItems.contentId, target.id));
-      revalidateTag("top-menu");
+      revalidateTag("top-menu", "default");
       revalidatePath("/", "layout");
     }
     if (
@@ -436,7 +436,7 @@ export async function deleteContent(input: { id: string }) {
   await deleteContentById(target.id);
   revalidatePath("/dashboard/content");
   if (dependents.length > 0) {
-    revalidateTag("top-menu");
+    revalidateTag("top-menu", "default");
     revalidatePath("/", "layout");
   }
   if (target.status === "published") {
