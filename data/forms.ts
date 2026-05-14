@@ -19,6 +19,7 @@ import { slugify } from "@/lib/utils";
 import type {
   FieldOptions,
   FieldValidation,
+  FormDetail,
   FormFieldRow,
   FormRow,
   FormSettingsRow,
