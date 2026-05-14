@@ -246,7 +246,11 @@ export default async function RootLayout({
               {!user ? (
                 <>
                   <SignInButton mode="modal">
-                    <Button variant="ghost" size="lg" className="cursor-pointer">
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      className="cursor-pointer"
+                    >
                       Sign in
                     </Button>
                   </SignInButton>

@@ -109,6 +109,15 @@ export default async function BlogCategoryPage({ params }: Props) {
                       )}
                     </p>
                   </div>
+                  {post.coverImage && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={post.coverImage}
+                      alt={post.title}
+                      referrerPolicy="no-referrer"
+                      className="aspect-video w-full rounded-lg object-cover"
+                    />
+                  )}
                   {post.excerpt && (
                     <p className="text-base text-foreground/90">
                       {post.excerpt}

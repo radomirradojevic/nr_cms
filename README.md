@@ -20,24 +20,24 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Environment Variables
 
-| Variable                                                              | Description                                                                                                                                   | Required         |
-| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| `DATABASE_URL`                                                        | Postgres connection string. A Neon HTTP URL (`postgresql://...neon.tech/...`) takes the optimal serverless path; any Postgres works.          | ✅               |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`                                   | Clerk frontend key (use a production instance for prod, a dev instance for previews).                                                         | ✅               |
-| `CLERK_SECRET_KEY`                                                    | Clerk backend key.                                                                                                                            | ✅               |
-| `CLERK_WEBHOOK_SECRET`                                                | Svix signing secret for `/api/webhooks/clerk`.                                                                                                | ✅               |
+| Variable                                                              | Description                                                                                                                                      | Required         |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| `DATABASE_URL`                                                        | Postgres connection string. A Neon HTTP URL (`postgresql://...neon.tech/...`) takes the optimal serverless path; any Postgres works.             | ✅               |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`                                   | Clerk frontend key (use a production instance for prod, a dev instance for previews).                                                            | ✅               |
+| `CLERK_SECRET_KEY`                                                    | Clerk backend key.                                                                                                                               | ✅               |
+| `CLERK_WEBHOOK_SECRET`                                                | Svix signing secret for `/api/webhooks/clerk`.                                                                                                   | ✅               |
 | `STORAGE_PROVIDER`                                                    | `local` (default, writes to disk) or `vercel-blob` (uses Vercel Blob). Auto-detects `vercel-blob` on Vercel when `BLOB_READ_WRITE_TOKEN` is set. | optional         |
-| `UPLOADS_DIR`                                                         | Directory the local provider writes to. Defaults to `./storage/uploads`. Ignored when `STORAGE_PROVIDER=vercel-blob`.                          | self-hosted only |
-| `BLOB_READ_WRITE_TOKEN`                                               | Vercel Blob read/write token. Auto-injected by Vercel when a Blob store is attached. Required when `STORAGE_PROVIDER=vercel-blob`.             | Vercel only      |
-| `VERCEL_FLUID_COMPUTE`                                                | Set to `1` when Fluid Compute is enabled to raise the per-request upload cap from ~4.5 MB to ~200 MB.                                          | optional         |
-| `VERCEL_BLOB_MAX_UPLOAD_BYTES`                                        | Explicit override for the Vercel upload cap, in bytes. Takes precedence over `VERCEL_FLUID_COMPUTE`.                                           | optional         |
-| `EMAIL_FROM`                                                          | Default `From` address for transactional email.                                                                                               | ✅ for email     |
-| `EMAIL_PROVIDER`                                                      | `resend` (default) or `smtp`.                                                                                                                 | optional         |
-| `RESEND_API_KEY`                                                      | Resend API key.                                                                                                                               | ✅ if Resend     |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_SECURE` | SMTP credentials.                                                                                                                             | ✅ if SMTP       |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`                                      | Cloudflare Turnstile site key (public). Required for the blog comment form and public forms.                                                  | ✅               |
-| `TURNSTILE_SECRET_KEY`                                                | Cloudflare Turnstile secret key. Verifies submissions server-side.                                                                            | ✅               |
-| `IP_HASH_SALT`                                                        | ≥32-char random string used to SHA-256-hash visitor IPs for rate limiting. Raw IPs are never stored.                                          | ✅               |
+| `UPLOADS_DIR`                                                         | Directory the local provider writes to. Defaults to `./storage/uploads`. Ignored when `STORAGE_PROVIDER=vercel-blob`.                            | self-hosted only |
+| `BLOB_READ_WRITE_TOKEN`                                               | Vercel Blob read/write token. Auto-injected by Vercel when a Blob store is attached. Required when `STORAGE_PROVIDER=vercel-blob`.               | Vercel only      |
+| `VERCEL_FLUID_COMPUTE`                                                | Set to `1` when Fluid Compute is enabled to raise the per-request upload cap from ~4.5 MB to ~200 MB.                                            | optional         |
+| `VERCEL_BLOB_MAX_UPLOAD_BYTES`                                        | Explicit override for the Vercel upload cap, in bytes. Takes precedence over `VERCEL_FLUID_COMPUTE`.                                             | optional         |
+| `EMAIL_FROM`                                                          | Default `From` address for transactional email.                                                                                                  | ✅ for email     |
+| `EMAIL_PROVIDER`                                                      | `resend` (default) or `smtp`.                                                                                                                    | optional         |
+| `RESEND_API_KEY`                                                      | Resend API key.                                                                                                                                  | ✅ if Resend     |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_SECURE` | SMTP credentials.                                                                                                                                | ✅ if SMTP       |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`                                      | Cloudflare Turnstile site key (public). Required for the blog comment form and public forms.                                                     | ✅               |
+| `TURNSTILE_SECRET_KEY`                                                | Cloudflare Turnstile secret key. Verifies submissions server-side.                                                                               | ✅               |
+| `IP_HASH_SALT`                                                        | ≥32-char random string used to SHA-256-hash visitor IPs for rate limiting. Raw IPs are never stored.                                             | ✅               |
 
 The `storage/` directory is gitignored. Files are streamed through the auth-gated route `app/api/files/[id]/route.ts`. When `STORAGE_PROVIDER=vercel-blob` that route 307-redirects to the public Blob URL instead of streaming bytes through the function.
 
@@ -47,10 +47,10 @@ The `storage/` directory is gitignored. Files are streamed through the auth-gate
 
 Uploads (File Manager, Gallery Manager, global-settings logo, form-builder file fields) go through a single abstraction in [lib/file-storage.ts](lib/file-storage.ts). Two providers ship out of the box:
 
-| Provider      | Use case               | Notes                                                                                                                                                  |
-| ------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `local`       | Self-hosted (default)  | Writes to `UPLOADS_DIR`. Per-file cap up to `proxyClientMaxBodySize` (2 GB) × `MAX_FILE_SIZE` (300 MB).                                                  |
-| `vercel-blob` | Vercel deployments     | Stores objects in Vercel Blob, served via 307 redirect from `/api/files/[id]`. Per-request cap is ~4.5 MB unless Fluid Compute / overrides are enabled. |
+| Provider      | Use case              | Notes                                                                                                                                                   |
+| ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `local`       | Self-hosted (default) | Writes to `UPLOADS_DIR`. Per-file cap up to `proxyClientMaxBodySize` (2 GB) × `MAX_FILE_SIZE` (300 MB).                                                 |
+| `vercel-blob` | Vercel deployments    | Stores objects in Vercel Blob, served via 307 redirect from `/api/files/[id]`. Per-request cap is ~4.5 MB unless Fluid Compute / overrides are enabled. |
 
 Selection rules (in order):
 
