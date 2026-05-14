@@ -392,9 +392,9 @@ export async function fetchFormPreview(input: { id: string }) {
   const form = await getFormById(input.id);
   if (!form) return { error: "Not found." } as const;
   return {
-    id: form.id,
-    name: form.name,
-    status: form.status as FormStatus,
+    id: form.form.id,
+    name: form.form.name,
+    status: form.form.status as FormStatus,
     fieldCount: form.fields.length,
   } as const;
 }
