@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Menu, X, ChevronDown } from "lucide-react";
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
+import { UserButtonClient } from "@/components/user-button-client";
 import { cn } from "@/lib/utils";
 import type { TopMenuTreeNode } from "@/data/top-menu";
 
@@ -189,16 +191,18 @@ export function SiteTopMenuMobile({
   tree,
   isBackendUser = false,
   isAdmin = false,
+  isLoggedIn = false,
 }: {
   tree: TopMenuTreeNode[];
   isBackendUser?: boolean;
   isAdmin?: boolean;
+  isLoggedIn?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const hasSiteNav = tree.length > 0;
-  const hasAnything = hasSiteNav || isBackendUser;
+  const hasAnything = hasSiteNav || isBackendUser || true;
 
   /* Close on Escape */
   useEffect(() => {
@@ -336,6 +340,46 @@ export function SiteTopMenuMobile({
               </ul>
             </>
           )}
+
+          {/* Auth section */}
+          <div className="mx-2 border-t border-border" />
+          <div className="p-2">
+            {isLoggedIn ? (
+              <div className="flex items-center gap-3 px-3 py-2">
+                <UserButtonClient />
+                <span className="text-sm font-medium">Account</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <SignInButton mode="modal">
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      "flex w-full items-center rounded-md px-3 py-2.5 text-sm font-medium",
+                      "min-h-[44px] transition-colors duration-150",
+                      "hover:bg-accent hover:text-accent-foreground",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    )}
+                  >
+                    Sign in
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      "flex w-full items-center rounded-md px-3 py-2.5 text-sm font-medium",
+                      "min-h-[44px] transition-colors duration-150",
+                      "hover:bg-accent hover:text-accent-foreground",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    )}
+                  >
+                    Sign up
+                  </button>
+                </SignUpButton>
+              </div>
+            )}
+          </div>
         </nav>
       </div>
     </div>

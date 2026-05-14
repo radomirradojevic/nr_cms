@@ -150,8 +150,8 @@ export default async function DashboardPage() {
     <div className="flex flex-col items-center p-6 gap-10">
       <div
         style={{
-          width: 400,
-          height: 400,
+          width: "min(400px, 100%)",
+          aspectRatio: "1 / 1",
           borderRadius: "50%",
           boxShadow:
             "0 0 0 4px #349aee, 0 0 32px 12px #349aee88, 0 0 64px 24px #349aee33",
@@ -163,7 +163,7 @@ export default async function DashboardPage() {
           alt="Night Raven Logo"
           width={400}
           height={400}
-          style={{ borderRadius: "50%" }}
+          style={{ borderRadius: "50%", width: "100%", height: "100%" }}
           priority
         />
       </div>

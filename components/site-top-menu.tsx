@@ -48,9 +48,11 @@ function MenuLink({
 export async function SiteTopMenu({
   isBackendUser = false,
   isAdmin = false,
+  isLoggedIn = false,
 }: {
   isBackendUser?: boolean;
   isAdmin?: boolean;
+  isLoggedIn?: boolean;
 }) {
   const tree = await getTopMenuTree();
 
@@ -73,6 +75,7 @@ export async function SiteTopMenu({
         tree={tree}
         isBackendUser={isBackendUser}
         isAdmin={isAdmin}
+        isLoggedIn={isLoggedIn}
       />
     </>
   );
