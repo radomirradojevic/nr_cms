@@ -329,15 +329,16 @@ export function BlogEditor({ value, onChange }: Props) {
         open={imageDialogOpen}
         onOpenChange={setImageDialogOpen}
         onInsert={({ src, alt, width, height }) => {
+          const imageAttrs: Record<string, unknown> = {
+            src,
+            alt: alt || undefined,
+            ...(width ? { width } : {}),
+            ...(height ? { height } : {}),
+          };
           editor!
             .chain()
             .focus()
-            .setImage({
-              src,
-              alt: alt || undefined,
-              ...(width ? { width } : {}),
-              ...(height ? { height } : {}),
-            } as { src: string; alt?: string; width?: string; height?: string })
+            .setImage(imageAttrs as unknown as { src: string })
             .run();
         }}
       />
