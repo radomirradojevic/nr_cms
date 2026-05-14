@@ -17,6 +17,8 @@ import {
 } from "drizzle-orm";
 import { slugify } from "@/lib/utils";
 import type {
+  EmailStatus,
+  FieldInput,
   FieldOptions,
   FieldValidation,
   FormDetail,
@@ -24,6 +26,8 @@ import type {
   FormRow,
   FormSettingsRow,
   FormStatus,
+  FormSubmissionRow,
+  SubmissionStatus,
 } from "@/lib/form-types";
 
 // Re-export client-safe types & constants so existing imports from
