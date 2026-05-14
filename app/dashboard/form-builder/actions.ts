@@ -26,6 +26,7 @@ import {
   upsertFormSettings,
   type FieldInput,
   type FieldType,
+  type FormFieldRow,
   type FormStatus,
   type SubmissionStatus,
 } from "@/data/forms";
@@ -487,7 +488,7 @@ export async function exportSubmissionsCsvAction(input: {
     "status",
     "email_status",
     "ip_hash",
-    ...detail.fields.map((f) => f.fieldKey),
+    ...detail.fields.map((f: FormFieldRow) => f.fieldKey),
   ];
   const lines: string[] = [headers.map(csvEscape).join(",")];
   for (const r of rows) {
@@ -497,7 +498,7 @@ export async function exportSubmissionsCsvAction(input: {
       r.status,
       r.emailStatus,
       r.ipHash ?? "",
-      ...detail.fields.map((f) => csvSerialize(data[f.fieldKey])),
+      ...detail.fields.map((f: FormFieldRow) => csvSerialize(data[f.fieldKey])),
     ];
     lines.push(row.map(csvEscape).join(","));
   }
