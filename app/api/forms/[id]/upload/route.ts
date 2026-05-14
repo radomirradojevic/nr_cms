@@ -73,7 +73,8 @@ export async function POST(
     if (!(file instanceof File)) return err(400, "No file provided.");
 
     const fieldDef = detail.fields.find(
-      (f) => f.fieldKey === fieldKey && f.fieldType === "file",
+      (f: (typeof detail.fields)[number]) =>
+        f.fieldKey === fieldKey && f.fieldType === "file",
     );
     if (!fieldDef) return err(400, "Unknown field.");
 
