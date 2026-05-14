@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ClerkProvider, Show, SignInButton, SignUpButton } from "@clerk/nextjs";
+import { ClerkProvider, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { currentUser } from "@clerk/nextjs/server";
 import { UserButtonClient } from "@/components/user-button-client";
 import { shadcn } from "@clerk/themes";
@@ -243,25 +243,26 @@ export default async function RootLayout({
                   </NavigationMenu>
                 </div>
               )}
-              <Show when="signed-out">
-                <SignInButton mode="modal">
-                  <Button variant="ghost" size="lg" className="cursor-pointer">
-                    Sign in
-                  </Button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="cursor-pointer"
-                  >
-                    Sign up
-                  </Button>
-                </SignUpButton>
-              </Show>
-              <Show when="signed-in">
+              {!user ? (
+                <>
+                  <SignInButton mode="modal">
+                    <Button variant="ghost" size="lg" className="cursor-pointer">
+                      Sign in
+                    </Button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="cursor-pointer"
+                    >
+                      Sign up
+                    </Button>
+                  </SignUpButton>
+                </>
+              ) : (
                 <UserButtonClient />
-              </Show>
+              )}
             </div>
           </header>
           <div
