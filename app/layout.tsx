@@ -127,7 +127,11 @@ export default async function RootLayout({
               />
             )}
             <div className="flex items-center gap-4 shrink-0">
-              <SiteTopMenu isBackendUser={isBackendUser} isAdmin={isAdmin} />
+              <SiteTopMenu
+                isBackendUser={isBackendUser}
+                isAdmin={isAdmin}
+                isLoggedIn={!!user}
+              />
               {isBackendUser && (
                 <div className="hidden lg:block">
                   <NavigationMenu viewport={false}>
@@ -243,30 +247,32 @@ export default async function RootLayout({
                   </NavigationMenu>
                 </div>
               )}
-              {!user ? (
-                <>
-                  <SignInButton mode="modal">
-                    <Button
-                      variant="ghost"
-                      size="lg"
-                      className="cursor-pointer"
-                    >
-                      Sign in
-                    </Button>
-                  </SignInButton>
-                  <SignUpButton mode="modal">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="cursor-pointer"
-                    >
-                      Sign up
-                    </Button>
-                  </SignUpButton>
-                </>
-              ) : (
-                <UserButtonClient />
-              )}
+              <div className="hidden lg:flex items-center gap-2">
+                {!user ? (
+                  <>
+                    <SignInButton mode="modal">
+                      <Button
+                        variant="ghost"
+                        size="lg"
+                        className="cursor-pointer"
+                      >
+                        Sign in
+                      </Button>
+                    </SignInButton>
+                    <SignUpButton mode="modal">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="cursor-pointer"
+                      >
+                        Sign up
+                      </Button>
+                    </SignUpButton>
+                  </>
+                ) : (
+                  <UserButtonClient />
+                )}
+              </div>
             </div>
           </header>
           <div
