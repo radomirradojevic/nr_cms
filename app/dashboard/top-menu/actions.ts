@@ -28,7 +28,7 @@ async function requireAdmin() {
 }
 
 function bumpCaches() {
-  revalidateTag(TOP_MENU_TAG);
+  revalidateTag(TOP_MENU_TAG, "default");
   revalidatePath("/", "layout");
   revalidatePath("/dashboard/top-menu");
 }
