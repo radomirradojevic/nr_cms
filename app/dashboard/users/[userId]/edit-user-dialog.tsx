@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -65,6 +66,9 @@ export function EditUserDialog({ userId, currentRoles }: Props) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit User Roles</DialogTitle>
+          <DialogDescription>
+            Select the roles to assign to this user.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 py-2">
