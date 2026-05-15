@@ -1,7 +1,7 @@
 "use server";
 
 import { currentUser } from "@clerk/nextjs/server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { eq, and, isNull } from "drizzle-orm";
 
@@ -28,7 +28,14 @@ async function requireAdmin() {
 }
 
 function bumpCaches() {
-  revalidateTag(TOP_MENU_TAG, "default");
+  // Use updateTag (write-through / immediate expiration) instead of
+  // revalidateTag(tag, "default"), which only marks the tag stale and serves
+  // the previous value to the next request via stale-while-revalidate. With
+  // SWR semantics the public site keeps rendering the old top-menu tree until
+  // a background refresh completes, which manifests in production as missing
+  // child items right after a save. updateTag guarantees the next render of
+  // any consumer of getTopMenuTree() sees the fresh tree.
+  updateTag(TOP_MENU_TAG);
   revalidatePath("/", "layout");
   revalidatePath("/dashboard/top-menu");
 }

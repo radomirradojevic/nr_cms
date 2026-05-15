@@ -2,7 +2,7 @@
 
 import { currentUser } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { topMenuItems } from "@/db/schema";
@@ -37,7 +37,10 @@ async function markMenuItemsBroken(categoryIds: string[]) {
         .where(eq(topMenuItems.id, d.id)),
     ),
   );
-  revalidateTag(TOP_MENU_TAG, "default");
+  // updateTag = write-through invalidation; revalidateTag(tag, "default")
+  // would only mark the tag stale (SWR), causing the public site to keep
+  // rendering the old top-menu tree until a background refresh.
+  updateTag(TOP_MENU_TAG);
   revalidatePath("/", "layout");
 }
 
