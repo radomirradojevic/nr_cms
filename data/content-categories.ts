@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { contentCategories, content } from "@/db/schema";
-import { asc, eq, and, count, ilike, inArray } from "drizzle-orm";
+import { asc, eq, and, count, ilike, inArray, sql } from "drizzle-orm";
 
 export type ContentType = "page" | "blog_post";
 
@@ -35,7 +35,10 @@ export async function getCategoriesPaginated(
   page: number,
   pageSize: number,
   search?: string,
-): Promise<{ categories: ContentCategory[]; total: number }> {
+): Promise<{
+  categories: (ContentCategory & { itemCount: number })[];
+  total: number;
+}> {
   const offset = (page - 1) * pageSize;
 
   const searchCondition = search
@@ -48,10 +51,30 @@ export async function getCategoriesPaginated(
     ? and(typeCondition, searchCondition)
     : typeCondition;
 
+  const itemCountSq = db
+    .select({
+      categoryId: content.categoryId,
+      itemCount: count().as("item_count"),
+    })
+    .from(content)
+    .groupBy(content.categoryId)
+    .as("item_counts");
+
   const [rows, [{ total }]] = await Promise.all([
     db
-      .select()
+      .select({
+        id: contentCategories.id,
+        name: contentCategories.name,
+        contentType: contentCategories.contentType,
+        createdBy: contentCategories.createdBy,
+        created: contentCategories.created,
+        updated: contentCategories.updated,
+        itemCount: sql<number>`COALESCE(${itemCountSq.itemCount}, 0)`.mapWith(
+          Number,
+        ),
+      })
       .from(contentCategories)
+      .leftJoin(itemCountSq, eq(contentCategories.id, itemCountSq.categoryId))
       .where(whereClause)
       .orderBy(asc(contentCategories.name))
       .limit(pageSize)

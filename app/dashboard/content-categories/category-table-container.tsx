@@ -10,6 +10,7 @@ type CategoryRow = {
   contentType: string;
   createdBy: string | null;
   createdByName: string | null;
+  itemCount: number;
 };
 
 type AdminUser = { id: string; name: string };
