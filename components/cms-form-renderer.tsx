@@ -64,6 +64,11 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const widgetIdRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Defer loading the Cloudflare Turnstile script + widget until the user
+  // interacts with the form. Keeps the host page console / network clean for
+  // visitors who never engage with the form.
+  const [armed, setArmed] = useState(false);
+  const arm = () => setArmed(true);
 
   const visibleFields = useMemo(
     () => [...form.fields].sort((a, b) => a.position - b.position),
@@ -71,7 +76,7 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
   );
 
   useEffect(() => {
-    if (!enableTurnstile) return;
+    if (!enableTurnstile || !armed) return;
     function tryRender() {
       if (
         !siteKey ||
@@ -106,7 +111,7 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
       }
       widgetIdRef.current = null;
     };
-  }, [enableTurnstile, siteKey]);
+  }, [enableTurnstile, siteKey, armed]);
 
   function resetWidget() {
     setToken("");
@@ -222,6 +227,7 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (enableTurnstile && !armed) setArmed(true);
     setTopError(null);
     setErrors({});
     const fieldErrs = validateRequired();
@@ -305,7 +311,7 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
 
   return (
     <>
-      {enableTurnstile && siteKey && (
+      {enableTurnstile && siteKey && armed && (
         <Script
           src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
           strategy="afterInteractive"
@@ -313,6 +319,8 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
       )}
       <form
         onSubmit={handleSubmit}
+        onFocusCapture={enableTurnstile ? arm : undefined}
+        onPointerDownCapture={enableTurnstile ? arm : undefined}
         className="space-y-4 rounded-lg border p-4"
         aria-labelledby={titleId}
         noValidate
@@ -331,7 +339,9 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
             disabled={pending || uploadingFor.has(f.fieldKey)}
           />
         ))}
-        {enableTurnstile && <div ref={containerRef} />}
+        {enableTurnstile && (
+          <div ref={containerRef} className={armed ? undefined : "hidden"} />
+        )}
         {topError && (
           <p className="text-sm text-destructive" role="alert">
             {topError}

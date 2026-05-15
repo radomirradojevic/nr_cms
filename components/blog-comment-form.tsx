@@ -60,9 +60,15 @@ export function BlogCommentForm({
   const containerRef = useRef<HTMLDivElement>(null);
   const containerId = useId();
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  // Defer loading the Cloudflare Turnstile script + widget until the user
+  // interacts with the form. Keeps the host page console / network clean
+  // for visitors who never engage with the comment form.
+  const [armed, setArmed] = useState(false);
+  const arm = () => setArmed(true);
 
   // Mount the Turnstile widget once the script has loaded.
   useEffect(() => {
+    if (!armed) return;
     function tryRender() {
       if (
         !siteKey ||
@@ -97,7 +103,7 @@ export function BlogCommentForm({
       }
       widgetIdRef.current = null;
     };
-  }, [siteKey]);
+  }, [siteKey, armed]);
 
   if (!isLoaded) {
     return (
@@ -131,6 +137,7 @@ export function BlogCommentForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!armed) setArmed(true);
     setError(null);
     setOkMsg(null);
     const trimmed = body.trim();
@@ -175,13 +182,17 @@ export function BlogCommentForm({
   return (
     <form
       onSubmit={handleSubmit}
+      onFocusCapture={arm}
+      onPointerDownCapture={arm}
       className="space-y-3 rounded-lg border p-4"
       aria-labelledby={containerId + "-title"}
     >
-      <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-        strategy="afterInteractive"
-      />
+      {armed && (
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+          strategy="afterInteractive"
+        />
+      )}
       <h3 id={containerId + "-title"} className="text-sm font-semibold">
         {parentId ? "Reply" : "Leave a comment"}
       </h3>
@@ -231,7 +242,7 @@ export function BlogCommentForm({
       </div>
 
       {siteKey ? (
-        <div ref={containerRef} />
+        <div ref={containerRef} className={armed ? undefined : "hidden"} />
       ) : (
         <p className="text-xs text-destructive">
           Captcha is not configured. Set NEXT_PUBLIC_TURNSTILE_SITE_KEY.
