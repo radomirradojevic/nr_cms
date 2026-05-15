@@ -179,7 +179,7 @@ export function BlogCommentForm({
       aria-labelledby={containerId + "-title"}
     >
       <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
         strategy="afterInteractive"
       />
       <h3 id={containerId + "-title"} className="text-sm font-semibold">
