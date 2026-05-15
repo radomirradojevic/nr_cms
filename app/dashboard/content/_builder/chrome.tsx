@@ -328,8 +328,27 @@ export function ChangeWatcher({
     let timer: ReturnType<typeof setTimeout> | null = null;
     let lastJson = "";
 
+    // Opt-in perf logging: append `?perf=1` to the URL to log serialize
+    // duration, payload size, and store-event frequency. No-op otherwise so
+    // production users pay zero cost.
+    const perf =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("perf") === "1";
+    let eventCount = 0;
+    let lastLog = perf ? performance.now() : 0;
+
     const flush = () => {
+      const t0 = perf ? performance.now() : 0;
       const json = query.serialize();
+      if (perf) {
+        const dt = performance.now() - t0;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[page-editor] serialize ${dt.toFixed(1)}ms, size=${json.length}B, events=${eventCount}`,
+        );
+        eventCount = 0;
+        lastLog = performance.now();
+      }
       if (json !== lastJson) {
         lastJson = json;
         cbRef.current(json);
@@ -343,6 +362,18 @@ export function ChangeWatcher({
       // Selector: only re-run when nodes actually change.
       (state) => ({ nodes: state.nodes }),
       () => {
+        if (perf) {
+          eventCount += 1;
+          // Throttled "store is busy" log every 1s.
+          const now = performance.now();
+          if (now - lastLog > 1000) {
+            // eslint-disable-next-line no-console
+            console.log(
+              `[page-editor] store busy: ${eventCount} events in last ${(now - lastLog).toFixed(0)}ms`,
+            );
+            lastLog = now;
+          }
+        }
         if (timer) clearTimeout(timer);
         timer = setTimeout(flush, 150);
       },

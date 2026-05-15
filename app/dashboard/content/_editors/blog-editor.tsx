@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold,
@@ -51,11 +51,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type Props = {
-  value: JSONContent | null | undefined;
-  onChange: (value: JSONContent) => void;
+  /**
+   * Initial editor content. Read **once** on mount — subsequent prop changes
+   * are intentionally ignored. The editor is uncontrolled so that typing
+   * does not trigger parent re-renders.
+   */
+  defaultValue: JSONContent | null | undefined;
+  /**
+   * Called once on mount with a getter that returns the latest tiptap JSON.
+   * The parent should hold this in a ref and call it at submit time.
+   */
+  registerGetValue?: (getValue: () => JSONContent) => void;
+  /** Optional notifier; do NOT use to drive parent state on every keystroke. */
+  onChange?: (value: JSONContent) => void;
 };
 
-export function BlogEditor({ value, onChange }: Props) {
+export function BlogEditor({
+  defaultValue,
+  registerGetValue,
+  onChange,
+}: Props) {
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
@@ -65,9 +80,15 @@ export function BlogEditor({ value, onChange }: Props) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
 
+  const initialContentRef = useRef<JSONContent>(
+    defaultValue ?? emptyTiptapJson,
+  );
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   const editor = useEditor({
     extensions: tiptapExtensions,
-    content: value ?? emptyTiptapJson,
+    content: initialContentRef.current,
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -75,16 +96,20 @@ export function BlogEditor({ value, onChange }: Props) {
           "prose prose-invert max-w-none min-h-[400px] focus:outline-none p-4",
       },
     },
-    onUpdate: ({ editor }) => onChange(editor.getJSON()),
+    onUpdate: ({ editor }) => {
+      // Notify optionally; do not assume the parent setState's on this.
+      onChangeRef.current?.(editor.getJSON());
+    },
   });
 
+  // Register the value getter exactly once — the parent reads from this
+  // at submit time without subscribing to per-keystroke updates.
+  const registerRef = useRef(registerGetValue);
+  registerRef.current = registerGetValue;
   useEffect(() => {
     if (!editor) return;
-    const current = editor.getJSON();
-    if (value && JSON.stringify(current) !== JSON.stringify(value)) {
-      editor.commands.setContent(value, { emitUpdate: false });
-    }
-  }, [value, editor]);
+    registerRef.current?.(() => editor.getJSON());
+  }, [editor]);
 
   if (!editor) return null;
 
