@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -111,12 +111,18 @@ export function ContentForm({
   // RSC-provided value. Otherwise round-tripping the same object back to a
   // server action turns it into a "temporary client reference" and reading
   // properties like `attrs.level` throws on the server.
-  const [contentJson, setContentJson] = useState<unknown>(() => {
-    if (initial?.contentJson != null) {
-      return JSON.parse(JSON.stringify(initial.contentJson));
-    }
-    return contentType === "page" ? emptyBuilderData : emptyTiptapJson;
-  });
+  //
+  // Held in a ref (not state) so that drag/drop and keystrokes inside the
+  // editor never re-render this entire form. The PageEditor / BlogEditor
+  // are uncontrolled and push their latest value via `registerGetValue`.
+  const contentJsonRef = useRef<unknown>(
+    initial?.contentJson != null
+      ? JSON.parse(JSON.stringify(initial.contentJson))
+      : contentType === "page"
+        ? emptyBuilderData
+        : emptyTiptapJson,
+  );
+  const getEditorValueRef = useRef<(() => unknown) | null>(null);
 
   function onTitleChange(v: string) {
     setTitle(v);
@@ -128,6 +134,12 @@ export function ContentForm({
     if (!title.trim()) return setError("Title is required.");
     if (!slug.trim()) return setError("Slug is required.");
     if (!categoryId) return setError("Category is required.");
+
+    // Pull the freshest value directly from the editor (uncontrolled).
+    // Falls back to the ref if the editor hasn't registered yet.
+    const latestContent = getEditorValueRef.current
+      ? getEditorValueRef.current()
+      : contentJsonRef.current;
 
     const base = {
       categoryId,
@@ -142,7 +154,7 @@ export function ContentForm({
       // paste handlers) can be tagged as "temporary client references" by
       // React Flight and crash with "Cannot access X on the server" when the
       // server action tries to read their attrs.
-      contentJson: JSON.parse(JSON.stringify(contentJson ?? null)),
+      contentJson: JSON.parse(JSON.stringify(latestContent ?? null)),
     };
 
     startTransition(async () => {
@@ -313,13 +325,23 @@ export function ContentForm({
             <Label>Content</Label>
             {contentType === "page" ? (
               <PageEditor
-                value={contentJson}
-                onChange={(d: BuilderData) => setContentJson(d)}
+                defaultValue={contentJsonRef.current}
+                registerGetValue={(getValue) => {
+                  getEditorValueRef.current = getValue;
+                }}
+                onChange={(d: BuilderData) => {
+                  contentJsonRef.current = d;
+                }}
               />
             ) : (
               <BlogEditor
-                value={contentJson as never}
-                onChange={(j) => setContentJson(j)}
+                defaultValue={contentJsonRef.current as never}
+                registerGetValue={(getValue) => {
+                  getEditorValueRef.current = getValue;
+                }}
+                onChange={(j) => {
+                  contentJsonRef.current = j;
+                }}
               />
             )}
           </div>

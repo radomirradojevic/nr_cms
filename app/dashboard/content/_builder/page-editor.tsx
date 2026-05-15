@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Editor, Frame, Element, useEditor } from "@craftjs/core";
 import dynamic from "next/dynamic";
-import { renderToStaticMarkup } from "react-dom/server";
 import { resolver, Root } from "./blocks/editable";
 import { renderTree } from "./server-render";
 import { BlocksPalette, ChangeWatcher, SettingsPanel, Toolbar } from "./chrome";
@@ -21,10 +20,25 @@ type Props = {
   /**
    * Either a BuilderData envelope or any unknown JSON. Anything that isn't
    * a recognised envelope starts the editor with an empty document.
+   *
+   * IMPORTANT: This value is read **once** on mount. Subsequent changes to
+   * the prop reference are ignored — the editor is intentionally uncontrolled
+   * so that drag/drop and inline edits do not trigger parent re-renders.
+   * Read the latest value via the `valueRef` callback.
    */
-  value: unknown;
-  /** Called with the current envelope on every (debounced) change. */
-  onChange: (value: BuilderData) => void;
+  defaultValue: unknown;
+  /**
+   * Called once on mount with a getter that always returns the latest
+   * `BuilderData` from the editor. The parent should hold this in a ref
+   * and call it at submit time. Avoids a full form re-render per keystroke.
+   */
+  registerGetValue?: (getValue: () => BuilderData) => void;
+  /**
+   * Optional debounced change notifier. Fires after each (debounced) edit.
+   * Prefer `registerGetValue` for save/submit flows — using `onChange` to
+   * `setState` in the parent will reintroduce the per-edit re-render storm.
+   */
+  onChange?: (value: BuilderData) => void;
 };
 
 const widthClass = {
@@ -33,12 +47,18 @@ const widthClass = {
   lg: "max-w-5xl",
 } as const;
 
-export function PageEditor({ value, onChange }: Props) {
+export function PageEditor({
+  defaultValue,
+  registerGetValue,
+  onChange,
+}: Props) {
   // Frame only reads `data` once on mount — derive a stable initial JSON.
+  // Computed exactly once; subsequent prop changes are intentionally ignored.
   const initialJsonFromValue = useMemo(() => {
-    if (isBuilderData(value)) return JSON.stringify(value.nodes);
+    if (isBuilderData(defaultValue)) return JSON.stringify(defaultValue.nodes);
     return JSON.stringify(emptyBuilderData.nodes);
-  }, [value]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // The current canonical JSON used to (re)mount the editor. Updated by
   // delete operations that rebuild the tree externally and request a full
@@ -46,15 +66,44 @@ export function PageEditor({ value, onChange }: Props) {
   const [editorJson, setEditorJson] = useState(initialJsonFromValue);
   const [remountKey, setRemountKey] = useState(0);
 
+  // Latest serialized nodes pushed by ChangeWatcher. The parent reads via
+  // the registered getter at submit time — never causes a re-render here.
+  const latestNodesRef = useRef<BuilderData["nodes"]>(
+    (() => {
+      try {
+        return JSON.parse(initialJsonFromValue) as BuilderData["nodes"];
+      } catch {
+        return emptyBuilderData.nodes;
+      }
+    })(),
+  );
+
+  // Register the getter exactly once on mount.
+  const registerRef = useRef(registerGetValue);
+  registerRef.current = registerGetValue;
+  useMemo(() => {
+    registerRef.current?.(() => ({
+      version: 1,
+      nodes: latestNodesRef.current,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleRemountWithJson(json: string) {
     setEditorJson(json);
     setRemountKey((k) => k + 1);
     try {
       const nodes = JSON.parse(json) as BuilderData["nodes"];
-      onChange({ version: 1, nodes });
+      latestNodesRef.current = nodes;
+      onChange?.({ version: 1, nodes });
     } catch {
       /* ignore */
     }
+  }
+
+  function handleLatestNodes(nodes: BuilderData["nodes"]) {
+    latestNodesRef.current = nodes;
+    onChange?.({ version: 1, nodes });
   }
 
   return (
@@ -62,7 +111,7 @@ export function PageEditor({ value, onChange }: Props) {
       <Editor key={remountKey} resolver={resolver}>
         <Inner
           initialJson={editorJson}
-          onChange={onChange}
+          onLatestNodes={handleLatestNodes}
           onLatestJson={setEditorJson}
           onRemountWithJson={handleRemountWithJson}
         />
@@ -73,12 +122,12 @@ export function PageEditor({ value, onChange }: Props) {
 
 function Inner({
   initialJson,
-  onChange,
+  onLatestNodes,
   onLatestJson,
   onRemountWithJson,
 }: {
   initialJson: string;
-  onChange: (value: BuilderData) => void;
+  onLatestNodes: (nodes: BuilderData["nodes"]) => void;
   onLatestJson: (json: string) => void;
   onRemountWithJson: (json: string) => void;
 }) {
@@ -91,15 +140,18 @@ function Inner({
     onLatestJson(json);
     try {
       const nodes = JSON.parse(json) as BuilderData["nodes"];
-      onChange({ version: 1, nodes });
+      onLatestNodes(nodes);
     } catch {
       /* ignore */
     }
   }
 
-  function enterSourceMode() {
+  async function enterSourceMode() {
     try {
       const nodes = JSON.parse(query.serialize()) as BuilderData["nodes"];
+      // `react-dom/server` is ~50 KB and only needed for Source view —
+      // load on demand to keep it out of the editor's initial chunk.
+      const { renderToStaticMarkup } = await import("react-dom/server");
       const html = renderToStaticMarkup(
         renderTree({ version: 1, nodes }) as React.ReactElement,
       );
@@ -144,7 +196,7 @@ function Inner({
       },
     };
     actions.deserialize(JSON.stringify(newNodes));
-    onChange({ version: 1, nodes: newNodes });
+    onLatestNodes(newNodes);
     setSourceMode(false);
   }
 
