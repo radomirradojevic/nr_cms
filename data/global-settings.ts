@@ -101,20 +101,22 @@ export async function updateGlobalSettings(
   input: UpdateGlobalSettingsInput,
   userId: string,
 ): Promise<void> {
+  const values = {
+    siteName: input.siteName,
+    siteLogoFileId: input.siteLogoFileId,
+    headerContent: input.headerContent,
+    footerContent: input.footerContent,
+    headerSettings: input.headerSettings,
+    footerSettings: input.footerSettings,
+    stickyHeaderHeight: input.stickyHeaderHeight,
+    stickyFooterHeight: input.stickyFooterHeight,
+    maxUploadSizeBytes: input.maxUploadSizeBytes,
+    maxBatchUploadSizeBytes: input.maxBatchUploadSizeBytes,
+    updatedBy: userId,
+  };
+
   await db
-    .update(globalSettings)
-    .set({
-      siteName: input.siteName,
-      siteLogoFileId: input.siteLogoFileId,
-      headerContent: input.headerContent,
-      footerContent: input.footerContent,
-      headerSettings: input.headerSettings,
-      footerSettings: input.footerSettings,
-      stickyHeaderHeight: input.stickyHeaderHeight,
-      stickyFooterHeight: input.stickyFooterHeight,
-      maxUploadSizeBytes: input.maxUploadSizeBytes,
-      maxBatchUploadSizeBytes: input.maxBatchUploadSizeBytes,
-      updatedBy: userId,
-    })
-    .where(eq(globalSettings.id, SINGLETON_ID));
+    .insert(globalSettings)
+    .values({ id: SINGLETON_ID, ...values })
+    .onConflictDoUpdate({ target: globalSettings.id, set: values });
 }
