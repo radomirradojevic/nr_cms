@@ -90,7 +90,7 @@ export default async function BlogCategoryPage({ params }: Props) {
                 : null;
               const author = authorNames.get(post.authorId);
               return (
-                <li key={post.id} className="space-y-3 border rounded-lg p-6">
+                <li key={post.id} className="space-y-3 py-6">
                   <div className="space-y-1">
                     <h2 className="text-2xl font-semibold tracking-tight">
                       <Link href={`/${post.slug}`} className="hover:underline">
