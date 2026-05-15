@@ -33,8 +33,10 @@ export async function updateUserRoles(
   const parsed = updateUserRolesSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid input." };
 
-  // viewer is always present
-  const roles = Array.from(new Set(["viewer", ...parsed.data.roles]));
+  // Only one role may be assigned at a time; viewer is always implicitly present.
+  // If the caller submitted any non-viewer role, keep only the first one.
+  const nonViewer = parsed.data.roles.find((r) => r !== "viewer");
+  const roles = nonViewer ? ["viewer", nonViewer] : ["viewer"];
 
   const client = await clerkClient();
   await client.users.updateUser(parsed.data.userId, {

@@ -34,10 +34,13 @@ export function EditUserDialog({ userId, currentRoles }: Props) {
   const [isPending, startTransition] = useTransition();
 
   function toggle(role: Role) {
-    if (role === "viewer") return; // viewer cannot be removed
-    setSelected((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
-    );
+    if (role === "viewer") return; // viewer is always assigned
+    setSelected((prev) => {
+      // Only one role at a time; viewer is always implicitly assigned.
+      // Clicking the currently-selected role clears it back to viewer-only.
+      if (prev.includes(role)) return ["viewer"];
+      return ["viewer", role];
+    });
   }
 
   function handleSave() {
