@@ -331,7 +331,7 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
             disabled={pending || uploadingFor.has(f.fieldKey)}
           />
         ))}
-        {enableTurnstile && <div ref={containerRef} className="cf-turnstile" />}
+        {enableTurnstile && <div ref={containerRef} />}
         {topError && (
           <p className="text-sm text-destructive" role="alert">
             {topError}
