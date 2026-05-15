@@ -1,7 +1,7 @@
 "use server";
 
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 import { getRoles, hasRole } from "@/lib/roles";
 import { getFileByIdUnchecked } from "@/data/files";
@@ -46,7 +46,8 @@ export async function updateGlobalSettings(
     return { error: "Failed to save settings." };
   }
 
-  revalidateTag(GLOBAL_SETTINGS_TAG, "default");
+  // updateTag (write-through) — see top-menu actions for rationale.
+  updateTag(GLOBAL_SETTINGS_TAG);
   revalidatePath("/", "layout");
 
   return { success: true };

@@ -1,7 +1,7 @@
 "use server";
 
 import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
 import { getRoles, hasRole } from "@/lib/roles";
@@ -46,7 +46,8 @@ function bumpForm(id: string) {
   revalidatePath("/dashboard/form-builder");
   revalidatePath(`/dashboard/form-builder/${id}`);
   revalidatePath(`/dashboard/form-builder/${id}/submissions`);
-  revalidateTag(`form:${id}`, "default");
+  // Write-through invalidation; see top-menu actions for the rationale.
+  updateTag(`form:${id}`);
 }
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -293,7 +294,7 @@ export async function deleteForm(input: z.input<typeof idSchema>) {
   const ok = await deleteFormRow(parsed.data.id);
   if (!ok) return { error: "Form not found." };
   revalidatePath("/dashboard/form-builder");
-  revalidateTag(`form:${parsed.data.id}`, "default");
+  updateTag(`form:${parsed.data.id}`);
   return { success: true as const };
 }
 

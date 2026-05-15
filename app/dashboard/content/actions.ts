@@ -1,7 +1,7 @@
 "use server";
 
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { generateHTML } from "@tiptap/html";
 import type { JSONContent } from "@tiptap/react";
@@ -368,7 +368,10 @@ export async function updateContent(input: UpdateContentInput) {
         .update(topMenuItems)
         .set({ url: "/" + slug })
         .where(eq(topMenuItems.contentId, target.id));
-      revalidateTag("top-menu", "default");
+      // Write-through invalidation so the public top-menu reflects the
+      // new slug on the very next request (revalidateTag with a profile
+      // would only schedule a background SWR refresh).
+      updateTag("top-menu");
       revalidatePath("/", "layout");
     }
     if (
@@ -436,7 +439,7 @@ export async function deleteContent(input: { id: string }) {
   await deleteContentById(target.id);
   revalidatePath("/dashboard/content");
   if (dependents.length > 0) {
-    revalidateTag("top-menu", "default");
+    updateTag("top-menu");
     revalidatePath("/", "layout");
   }
   if (target.status === "published") {
