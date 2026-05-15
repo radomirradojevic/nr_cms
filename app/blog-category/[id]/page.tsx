@@ -78,7 +78,7 @@ export default async function BlogCategoryPage({ params }: Props) {
             No published posts in this category yet.
           </p>
         ) : (
-          <ul className="space-y-8 divide-y">
+          <ul className="space-y-6">
             {posts.map((post) => {
               const dt = post.publishedAt ?? post.createdAt;
               const formatted = dt
@@ -90,7 +90,7 @@ export default async function BlogCategoryPage({ params }: Props) {
                 : null;
               const author = authorNames.get(post.authorId);
               return (
-                <li key={post.id} className="pt-8 first:pt-0 space-y-3">
+                <li key={post.id} className="space-y-3 border rounded-lg p-6">
                   <div className="space-y-1">
                     <h2 className="text-2xl font-semibold tracking-tight">
                       <Link href={`/${post.slug}`} className="hover:underline">
@@ -115,7 +115,7 @@ export default async function BlogCategoryPage({ params }: Props) {
                       src={post.coverImage}
                       alt={post.title}
                       referrerPolicy="no-referrer"
-                      className="aspect-video w-full rounded-lg object-cover"
+                      className="aspect-video w-full rounded-lg object-cover border"
                     />
                   )}
                   {post.excerpt && (

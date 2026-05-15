@@ -69,7 +69,7 @@ export default async function PublicContentPage({ params }: Props) {
                 src={row.coverImage}
                 alt={row.title}
                 referrerPolicy="no-referrer"
-                className="aspect-video w-full rounded-lg object-cover"
+                className="aspect-video w-full rounded-lg object-cover border"
               />
             )}
             <h1 className="text-4xl font-bold tracking-tight">
