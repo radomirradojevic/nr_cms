@@ -86,6 +86,7 @@ function Sep() {
 const footerEditorExtensions = [
   StarterKit.configure({
     link: { openOnClick: false, autolink: true },
+    underline: false,
   }),
   Underline,
   TextAlign.configure({ types: ["heading", "paragraph"] }),
