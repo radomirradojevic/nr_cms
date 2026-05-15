@@ -38,6 +38,7 @@ type CategoryRow = {
   contentType: string;
   createdBy: string | null;
   createdByName: string | null;
+  itemCount: number;
 };
 
 type AdminUser = { id: string; name: string };
@@ -202,6 +203,7 @@ export function CategoryTable({
                   />
                 </TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Items</TableHead>
                 <TableHead>Author</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -224,6 +226,9 @@ export function CategoryTable({
                     />
                   </TableCell>
                   <TableCell className="font-medium">{category.name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {category.itemCount}
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {category.createdByName ?? (
                       <span className="italic">—</span>
