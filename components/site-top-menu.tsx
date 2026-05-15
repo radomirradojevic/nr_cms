@@ -56,6 +56,16 @@ export async function SiteTopMenu({
 }) {
   const tree = await getTopMenuTree();
 
+  if (process.env.NODE_ENV === "production") {
+    console.log(
+      "[top-menu] SiteTopMenu render",
+      JSON.stringify({
+        roots: tree.length,
+        labels: tree.map((t) => t.label),
+      }),
+    );
+  }
+
   return (
     <>
       {/* Desktop navigation — visible on lg and above */}
