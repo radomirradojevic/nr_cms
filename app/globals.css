@@ -196,18 +196,7 @@
 :where(.ProseMirror, .cms-content) :where(h1, h2, h3, h4, h5, h6) {
   color: var(--cms-text-color, var(--foreground));
 }
-/* Block-level Typography → Align sets `--cms-text-align` on the block
-   wrapper. TipTap's TextAlign extension always serializes
-   `style="text-align: ..."` on every <p>, which would otherwise beat the
-   inherited alignment from the wrapper. Using a custom property here
-   makes the declaration *invalid* (and therefore inert) when no block
-   override is set — letting the inline per-paragraph alignment from the
-   inline toolbar win — but active and `!important` when the block sets
-   an alignment, so it cascades to every text-bearing child. */
-:where(.ProseMirror, .cms-content)
-  :where(p, h1, h2, h3, h4, h5, h6, li, blockquote) {
-  text-align: var(--cms-text-align) !important;
-}
+
 :where(.ProseMirror, .cms-content) :where(h1) {
   font-size: 2rem;
   font-weight: 700;
