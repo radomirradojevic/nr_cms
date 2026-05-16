@@ -113,8 +113,7 @@ export function FooterContentEditor({
         // `prose` / `prose-invert` classes — they hard-code light text that
         // becomes invisible on light themes (default, minimal, corporate,
         // elegant).
-        class:
-          "max-w-none min-h-[160px] focus:outline-none p-4 text-sm",
+        class: "max-w-none min-h-[160px] focus:outline-none p-4 text-sm",
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
