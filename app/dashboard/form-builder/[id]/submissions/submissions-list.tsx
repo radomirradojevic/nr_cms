@@ -59,6 +59,8 @@ import type {
 const STATUS_FILTER = ["all", "new", "read", "spam"] as const;
 type StatusFilter = (typeof STATUS_FILTER)[number];
 
+const PAGE_SIZE_OPTIONS = [10, 20, 30] as const;
+
 type Props = {
   formId: string;
   fields: FormFieldRow[];
@@ -78,7 +80,7 @@ export function SubmissionsList({
   fields,
   initialRows,
   initialTotal,
-  pageSize,
+  pageSize: initialPageSize,
 }: Props) {
   const [rows, setRows] = useState<FormSubmissionRow[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
@@ -91,8 +93,14 @@ export function SubmissionsList({
   const [exporting, startExport] = useTransition();
   const [detail, setDetail] = useState<FormSubmissionRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(
+    PAGE_SIZE_OPTIONS.includes(initialPageSize as (typeof PAGE_SIZE_OPTIONS)[number])
+      ? initialPageSize
+      : PAGE_SIZE_OPTIONS[0],
+  );
 
-  function reload(replace = true) {
+  function reload(newPage = page, newPageSize = pageSize) {
     startTransition(async () => {
       const res = await fetchSubmissions({
         formId,
@@ -100,15 +108,17 @@ export function SubmissionsList({
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
         search: search.trim() || undefined,
-        limit: pageSize,
-        offset: replace ? 0 : rows.length,
+        limit: newPageSize,
+        offset: (newPage - 1) * newPageSize,
       });
       if ("error" in res) {
         toast.error(res.error);
         return;
       }
-      setRows((prev) => (replace ? res.rows : [...prev, ...res.rows]));
+      setRows(res.rows);
       setTotal(res.total);
+      setPage(newPage);
+      setPageSize(newPageSize);
       setSelected(new Set());
     });
   }
@@ -155,7 +165,7 @@ export function SubmissionsList({
         return;
       }
       toast.success(`${r.count} updated.`);
-      reload(true);
+      reload(1);
     });
   }
 
@@ -202,6 +212,7 @@ export function SubmissionsList({
   }
 
   const allChecked = rows.length > 0 && selected.size === rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="space-y-3">
@@ -250,7 +261,7 @@ export function SubmissionsList({
             onChange={(e) => setToDate(e.target.value)}
           />
         </div>
-        <Button onClick={() => reload(true)} disabled={pending}>
+        <Button onClick={() => reload(1)} disabled={pending}>
           {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           <RefreshCw className="mr-2 h-4 w-4" /> Apply
         </Button>
@@ -396,18 +407,51 @@ export function SubmissionsList({
         </Table>
       </div>
 
-      {rows.length < total && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            onClick={() => reload(false)}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Per page</Label>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => reload(1, Number(v))}
             disabled={pending}
           >
-            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Load more
+            <SelectTrigger className="h-8 w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">
+            {total === 0
+              ? "0"
+              : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}`}{" "}
+            of {total}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => reload(page - 1)}
+            disabled={page <= 1 || pending}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => reload(page + 1)}
+            disabled={page >= totalPages || pending}
+          >
+            Next
           </Button>
         </div>
-      )}
+      </div>
 
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-2xl">

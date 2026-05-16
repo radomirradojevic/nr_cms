@@ -8,7 +8,7 @@ import { getFormById, listSubmissions } from "@/data/forms";
 import { Button } from "@/components/ui/button";
 import { SubmissionsList } from "./submissions-list";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 export default async function FormSubmissionsPage({
   params,
