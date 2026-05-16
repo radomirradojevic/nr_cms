@@ -235,6 +235,13 @@ const THEME_PALETTES: Record<Theme, { dark: boolean; vars: Palette }> = {
       "--sidebar-accent-foreground": "oklch(0.12 0.04 295)",
       "--sidebar-border": "oklch(0.4 0.15 320 / 50%)",
       "--sidebar-ring": "oklch(0.75 0.25 330)",
+      // Navigation hover/focus/active surfaces.
+      // The default (`accent` / `accent-foreground`) maps to a vivid cyan
+      // background with a near-black foreground, which loses contrast inside
+      // the dark-purple popover. Use a lifted purple surface with a bright
+      // foreground that stays readable on the dropdown background.
+      "--nav-hover-bg": "oklch(0.34 0.14 320)",
+      "--nav-hover-foreground": "oklch(0.98 0.04 180)",
     },
   },
   elegant: {
