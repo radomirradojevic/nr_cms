@@ -70,12 +70,6 @@ function applyTypography(
   if (t.textTransform) out.textTransform = t.textTransform;
   if (t.textAlign) {
     out.textAlign = t.textAlign;
-    // Also expose as a CSS custom property so the shared rule in
-    // globals.css can override the inline `text-align` that TipTap's
-    // TextAlign extension stamps onto every paragraph. Cascades to
-    // <p>, headings, lists and blockquotes inside the block.
-    const style = out as unknown as Record<string, string | number>;
-    style["--cms-text-align"] = t.textAlign;
   }
   if (t.fontStyle) out.fontStyle = t.fontStyle;
   if (t.textDecoration) out.textDecoration = t.textDecoration;
