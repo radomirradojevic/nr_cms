@@ -92,8 +92,14 @@ export function BlogEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class:
-          "prose prose-invert max-w-none min-h-[400px] focus:outline-none p-4",
+        // NOTE: Do NOT add Tailwind's `prose` / `prose-invert` classes here.
+        // Editor typography (headings, lists, blockquote, code, links, etc.)
+        // is fully styled by the `.ProseMirror` rules in `app/globals.css`,
+        // which derive colors from the active appearance theme's CSS
+        // variables (`--foreground`, `--muted-foreground`, `--primary`, …).
+        // `prose-invert` would force light-on-light text under light themes
+        // (`default`, `minimal`, `corporate`, `elegant`).
+        class: "max-w-none min-h-[400px] focus:outline-none p-4",
       },
     },
     onUpdate: ({ editor }) => {

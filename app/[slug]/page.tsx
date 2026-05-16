@@ -119,7 +119,7 @@ export default async function PublicContentPage({ params }: Props) {
           </article>
         ) : (
           <BlogContent
-            className="prose prose-invert max-w-none"
+            className="cms-content max-w-none"
             html={row.content ?? ""}
           />
         )}

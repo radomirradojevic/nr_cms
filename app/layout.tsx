@@ -21,6 +21,7 @@ import { SiteTopMenuLink } from "@/components/site-top-menu-link";
 import { getGlobalSettings } from "@/data/global-settings";
 import { cn } from "@/lib/utils";
 import { cssVarsToInlineStyle, resolveAppearance } from "@/lib/appearance";
+import { resolveGlowCssVars } from "@/lib/glow";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -63,8 +64,20 @@ export default async function RootLayout({
   const footerBg = settings.footerSettings.background;
   const headerH = stickyHeaderH > 0 ? stickyHeaderH : 64;
   const appearance = resolveAppearance(settings.appearance);
+  const headerGlowVars = resolveGlowCssVars(
+    settings.headerSettings.glow,
+    "header",
+    "bottom",
+  );
+  const footerGlowVars = resolveGlowCssVars(
+    settings.footerSettings.glow,
+    "footer",
+    "top",
+  );
   const rootStyle = {
     ...cssVarsToInlineStyle(appearance.cssVars),
+    ...(headerGlowVars as React.CSSProperties),
+    ...(footerGlowVars as React.CSSProperties),
     ["--header-h" as string]: `${headerH}px`,
     ...(headerIsSticky
       ? { ["--sticky-header-h" as string]: `${headerH}px` }
@@ -98,12 +111,10 @@ export default async function RootLayout({
         <ClerkProvider appearance={{ theme: shadcn }}>
           <header
             className={cn(
-              "bg-background flex items-center justify-between p-4 gap-4",
+              "site-header bg-background flex items-center justify-between p-4 gap-4",
               headerIsSticky && "sticky top-0 z-50",
             )}
             style={{
-              borderBottom: "1px solid #349aee",
-              boxShadow: "0 1px 16px 2px #349aee88, 0 2px 32px 4px #349aee33",
               height: `${headerH}px`,
               ...(headerBg ? { backgroundColor: headerBg } : {}),
             }}
@@ -312,12 +323,10 @@ export default async function RootLayout({
           </div>
           <footer
             className={cn(
-              "bg-background mt-auto px-6 py-8 text-sm text-muted-foreground",
+              "site-footer bg-background mt-auto px-6 py-8 text-sm text-muted-foreground",
               footerIsSticky && "sticky bottom-0 z-50",
             )}
             style={{
-              borderTop: "1px solid #349aee",
-              boxShadow: "0 -1px 16px 2px #349aee88, 0 -2px 32px 4px #349aee33",
               ...(stickyFooterH > 0 ? { height: `${stickyFooterH}px` } : {}),
               ...(footerBg ? { backgroundColor: footerBg } : {}),
             }}
@@ -326,7 +335,7 @@ export default async function RootLayout({
               <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                 {settings.footerContent && (
                   <div
-                    className="prose prose-invert max-w-none text-sm text-muted-foreground [&_a]:underline [&_a]:hover:text-foreground"
+                    className="cms-content max-w-none text-sm [&_a]:underline [&_a]:hover:text-foreground"
                     dangerouslySetInnerHTML={{ __html: settings.footerContent }}
                   />
                 )}

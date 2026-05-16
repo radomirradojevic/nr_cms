@@ -148,105 +148,176 @@
   }
 }
 
-/* TipTap editor content styling.
-   Tailwind v4 Preflight strips default browser styles for headings, lists,
-   <strong>, <em>, etc. Re-apply them inside the ProseMirror surface so
-   formatting toolbar actions are visually reflected. */
-.ProseMirror {
-  line-height: 1.6;
+/*
+ * Configurable glowing borders for layout regions.
+ *
+ * Values are driven by CSS custom properties applied on the <html>
+ * element in `app/layout.tsx` via `resolveGlowCssVars()` from
+ * `lib/glow.ts`. When a region's glow is disabled, the relevant
+ * variables are omitted and the fallbacks (`0` / `none`) take over,
+ * leaving the layout flush. This keeps the cyberpunk neon effect
+ * configurable per region (header / footer) and consistent across
+ * themes, sticky modes, and responsive breakpoints.
+ *
+ * To add a new glowable region, set `--<namespace>-glow-border-top|bottom`
+ * and `--<namespace>-glow-shadow` and add a matching rule here.
+ */
+.site-header {
+  border-bottom: var(--header-glow-border-bottom, 0 solid transparent);
+  box-shadow: var(--header-glow-shadow, none);
 }
-.ProseMirror :where(h1) {
+.site-footer {
+  border-top: var(--footer-glow-border-top, 0 solid transparent);
+  box-shadow: var(--footer-glow-shadow, none);
+}
+
+/* Rich-text content styling — shared between:
+   - The TipTap editor surface (`.ProseMirror`, applied automatically by
+     ProseMirror to the editable root in the dashboard).
+   - The public frontend renderer (`.cms-content`, applied to the
+     `<article>` produced by `components/blog-content.tsx` and to any
+     other surface that dangerouslySetInnerHTML's TipTap-generated HTML,
+     e.g. the footer in `app/layout.tsx`).
+
+   Tailwind v4 Preflight strips default browser styles for headings,
+   lists, <strong>, <em>, etc., so we re-apply them here. All colors
+   derive from the active appearance theme's CSS variables (set on
+   `<html>` by `resolveAppearance()` in `lib/appearance.ts`), which
+   keeps the editor preview, SSR output, and client hydration visually
+   consistent across light themes (`default`, `minimal`, `corporate`,
+   `elegant`) and dark themes (`dark`, `cyberpunk`). */
+:where(.ProseMirror, .cms-content) {
+  line-height: 1.6;
+  color: var(--foreground);
+}
+:where(.ProseMirror, .cms-content) :where(h1, h2, h3, h4, h5, h6) {
+  color: var(--foreground);
+}
+:where(.ProseMirror, .cms-content) :where(h1) {
   font-size: 2rem;
   font-weight: 700;
   line-height: 1.2;
   margin: 1.25rem 0 0.75rem;
 }
-.ProseMirror :where(h2) {
+:where(.ProseMirror, .cms-content) :where(h2) {
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.25;
   margin: 1.1rem 0 0.6rem;
 }
-.ProseMirror :where(h3) {
+:where(.ProseMirror, .cms-content) :where(h3) {
   font-size: 1.25rem;
   font-weight: 600;
   line-height: 1.3;
   margin: 1rem 0 0.5rem;
 }
-.ProseMirror :where(p) {
+:where(.ProseMirror, .cms-content) :where(p) {
   margin: 0.5rem 0;
 }
-.ProseMirror :where(strong, b) {
+:where(.ProseMirror, .cms-content) :where(strong, b) {
   font-weight: 700;
 }
-.ProseMirror :where(em, i) {
+:where(.ProseMirror, .cms-content) :where(em, i) {
   font-style: italic;
 }
-.ProseMirror :where(s, strike, del) {
+:where(.ProseMirror, .cms-content) :where(s, strike, del) {
   text-decoration: line-through;
 }
-.ProseMirror :where(ul) {
+:where(.ProseMirror, .cms-content) :where(ul) {
   list-style: disc;
   padding-left: 1.5rem;
   margin: 0.5rem 0;
 }
-.ProseMirror :where(ol) {
+:where(.ProseMirror, .cms-content) :where(ol) {
   list-style: decimal;
   padding-left: 1.5rem;
   margin: 0.5rem 0;
 }
-.ProseMirror :where(ul ul) {
+:where(.ProseMirror, .cms-content) :where(ul ul) {
   list-style: circle;
 }
-.ProseMirror :where(ul ul ul) {
+:where(.ProseMirror, .cms-content) :where(ul ul ul) {
   list-style: square;
 }
-.ProseMirror :where(li) {
+:where(.ProseMirror, .cms-content) :where(li) {
   margin: 0.15rem 0;
 }
-.ProseMirror :where(li > p) {
+:where(.ProseMirror, .cms-content) :where(li > p) {
   margin: 0;
 }
-.ProseMirror :where(blockquote) {
+:where(.ProseMirror, .cms-content) :where(blockquote) {
   border-left: 3px solid var(--border);
   padding-left: 1rem;
   margin: 0.75rem 0;
   color: var(--muted-foreground);
   font-style: italic;
 }
-.ProseMirror :where(a) {
-  color: #60a5fa;
+/* Links: pick a blue with sufficient contrast against the active theme.
+   Light themes use a darker blue (blue-600); dark themes use the lighter
+   sky-400 that previously hard-coded the rule. */
+:where(.ProseMirror, .cms-content) :where(a) {
+  color: #2563eb;
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
 }
-.ProseMirror :where(code) {
+.dark :where(.ProseMirror, .cms-content) :where(a) {
+  color: #60a5fa;
+}
+:where(.ProseMirror, .cms-content) :where(code) {
   background: var(--muted);
+  color: var(--foreground);
   padding: 0.1rem 0.3rem;
   border-radius: 0.25rem;
   font-family: var(--font-mono), monospace;
   font-size: 0.9em;
 }
-.ProseMirror :where(pre) {
+:where(.ProseMirror, .cms-content) :where(pre) {
   background: var(--muted);
+  color: var(--foreground);
   padding: 0.75rem 1rem;
   border-radius: 0.375rem;
   overflow-x: auto;
   margin: 0.75rem 0;
 }
-.ProseMirror :where(pre code) {
+:where(.ProseMirror, .cms-content) :where(pre code) {
   background: transparent;
   padding: 0;
 }
-.ProseMirror :where(hr) {
+:where(.ProseMirror, .cms-content) :where(hr) {
   border: 0;
   border-top: 1px solid var(--border);
   margin: 1rem 0;
 }
-.ProseMirror :where(img) {
+:where(.ProseMirror, .cms-content) :where(img) {
   max-width: 100%;
   height: auto;
   border-radius: 0.375rem;
+}
+:where(.ProseMirror, .cms-content) :where(figure) {
+  margin: 1rem 0;
+}
+:where(.ProseMirror, .cms-content) :where(figure figcaption) {
+  color: var(--muted-foreground);
+  font-size: 0.875em;
+  text-align: center;
+  margin-top: 0.5rem;
+}
+:where(.ProseMirror, .cms-content) :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  color: var(--foreground);
+}
+:where(.ProseMirror, .cms-content) :where(th, td) {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+:where(.ProseMirror, .cms-content) :where(thead th) {
+  background: var(--muted);
+  font-weight: 600;
 }
 /* Visual feedback when an image (or any node) is selected in the editor.
    ProseMirror toggles the `.ProseMirror-selectednode` class on the DOM
