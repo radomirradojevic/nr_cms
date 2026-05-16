@@ -46,6 +46,7 @@ import {
   type CreateContentInput,
   type UpdateContentInput,
 } from "./actions";
+import type { AppearanceSettings } from "@/lib/appearance";
 
 export type ContentFormCategory = { id: string; name: string };
 
@@ -54,6 +55,8 @@ type Props = {
   contentType: "page" | "blog_post";
   categories: ContentFormCategory[];
   currentUserRoles: Role[];
+  /** Appearance settings used by the page-builder preview. Defaults if omitted. */
+  appearance?: AppearanceSettings;
   initial?: {
     id: string;
     title: string;
@@ -78,6 +81,7 @@ export function ContentForm({
   contentType,
   categories,
   currentUserRoles,
+  appearance,
   initial,
 }: Props) {
   const router = useRouter();
@@ -350,6 +354,7 @@ export function ContentForm({
             {contentType === "page" ? (
               <PageEditor
                 defaultValue={contentJsonRef.current}
+                appearance={appearance}
                 registerGetValue={(getValue) => {
                   getEditorValueRef.current = getValue;
                 }}

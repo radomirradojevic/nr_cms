@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+import {
+  CONTENT_WIDTHS,
+  DEFAULT_APPEARANCE,
+  FONT_PRESETS,
+  RADIUS_PRESETS,
+  SHADOW_PRESETS,
+  THEMES,
+  type AppearanceSettings,
+} from "@/lib/appearance";
+
 // ─── Cache tags ───────────────────────────────────────────────────────────────
 
 export const GLOBAL_SETTINGS_TAG = "global-settings";
@@ -70,6 +80,11 @@ export const UpdateGlobalSettingsSchema = z
       .int()
       .positive()
       .max(HARD_MAX_BATCH_UPLOAD_SIZE_BYTES),
+    theme: z.enum(THEMES),
+    contentWidth: z.enum(CONTENT_WIDTHS),
+    fontPreset: z.enum(FONT_PRESETS),
+    radiusPreset: z.enum(RADIUS_PRESETS),
+    shadowPreset: z.enum(SHADOW_PRESETS),
   })
   .refine((v) => v.maxBatchUploadSizeBytes >= v.maxUploadSizeBytes, {
     message:
@@ -100,6 +115,7 @@ export type ResolvedGlobalSettings = {
   stickyFooterHeight: number;
   maxUploadSizeBytes: number;
   maxBatchUploadSizeBytes: number;
+  appearance: AppearanceSettings;
 };
 
 export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
@@ -113,4 +129,5 @@ export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
   stickyFooterHeight: 110,
   maxUploadSizeBytes: DEFAULT_MAX_UPLOAD_SIZE_BYTES,
   maxBatchUploadSizeBytes: DEFAULT_MAX_BATCH_UPLOAD_SIZE_BYTES,
+  appearance: DEFAULT_APPEARANCE,
 };

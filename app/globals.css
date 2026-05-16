@@ -49,6 +49,12 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Appearance — driven by lib/appearance.ts via inline CSS variables on <html>. */
+  --content-max-width: var(--content-max-width, 72rem);
+  --shadow-xs: var(--shadow-xs, 0 1px 2px 0 oklch(0 0 0 / 0.04));
+  --shadow-sm: var(--shadow-sm, 0 1px 2px 0 oklch(0 0 0 / 0.05));
+  --shadow-md: var(--shadow-md, 0 4px 6px -1px oklch(0 0 0 / 0.1));
+  --shadow-lg: var(--shadow-lg, 0 10px 15px -3px oklch(0 0 0 / 0.1));
 }
 
 :root {
@@ -84,6 +90,14 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /*
+   * Navigation hover/focus/active tokens.
+   * Default to accent so themes that don't override them retain existing
+   * behavior. Themes (see `lib/appearance.ts`) may override these to fine
+   * tune dropdown contrast — currently used by `cyberpunk`.
+   */
+  --nav-hover-bg: var(--accent);
+  --nav-hover-foreground: var(--accent-foreground);
 }
 
 .dark {
@@ -118,6 +132,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --nav-hover-bg: var(--accent);
+  --nav-hover-foreground: var(--accent-foreground);
 }
 
 @layer base {

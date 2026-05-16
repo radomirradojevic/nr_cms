@@ -13,6 +13,11 @@ import {
   isBuilderData,
   type BuilderData,
 } from "./types";
+import {
+  cssVarsToInlineStyle,
+  resolveAppearance,
+  type AppearanceSettings,
+} from "@/lib/appearance";
 
 const LayersPanel = dynamic(() => import("./layers"), { ssr: false });
 
@@ -39,6 +44,12 @@ type Props = {
    * `setState` in the parent will reintroduce the per-edit re-render storm.
    */
   onChange?: (value: BuilderData) => void;
+  /**
+   * Frontend appearance settings (theme/fonts/radius/shadow/contentWidth).
+   * Applied to the editor preview frame so the canvas mirrors the public
+   * site exactly. Optional — defaults are used when not provided.
+   */
+  appearance?: AppearanceSettings;
 };
 
 const widthClass = {
@@ -51,6 +62,7 @@ export function PageEditor({
   defaultValue,
   registerGetValue,
   onChange,
+  appearance,
 }: Props) {
   // Frame only reads `data` once on mount — derive a stable initial JSON.
   // Computed exactly once; subsequent prop changes are intentionally ignored.
@@ -114,6 +126,7 @@ export function PageEditor({
           onLatestNodes={handleLatestNodes}
           onLatestJson={setEditorJson}
           onRemountWithJson={handleRemountWithJson}
+          appearance={appearance}
         />
       </Editor>
     </div>
@@ -125,16 +138,27 @@ function Inner({
   onLatestNodes,
   onLatestJson,
   onRemountWithJson,
+  appearance,
 }: {
   initialJson: string;
   onLatestNodes: (nodes: BuilderData["nodes"]) => void;
   onLatestJson: (json: string) => void;
   onRemountWithJson: (json: string) => void;
+  appearance?: AppearanceSettings;
 }) {
   const [width, setWidth] = useState<"sm" | "md" | "lg">("lg");
   const [sourceMode, setSourceMode] = useState(false);
   const [sourceHtml, setSourceHtml] = useState("");
   const { actions, query } = useEditor();
+
+  const resolvedAppearance = useMemo(
+    () => resolveAppearance(appearance),
+    [appearance],
+  );
+  const previewStyle = useMemo(
+    () => cssVarsToInlineStyle(resolvedAppearance.cssVars),
+    [resolvedAppearance],
+  );
 
   function handleSerialize(json: string) {
     onLatestJson(json);
@@ -239,7 +263,8 @@ function Inner({
 
           <main className="overflow-auto bg-muted/20 p-6">
             <div
-              className={`mx-auto ${widthClass[width]} rounded-md bg-background shadow`}
+              className={`mx-auto ${widthClass[width]} rounded-md bg-background shadow ${resolvedAppearance.htmlClass}`}
+              style={previewStyle}
             >
               <Frame data={initialJson}>
                 <Element is={Root} canvas />
