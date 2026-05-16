@@ -90,6 +90,14 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /*
+   * Navigation hover/focus/active tokens.
+   * Default to accent so themes that don't override them retain existing
+   * behavior. Themes (see `lib/appearance.ts`) may override these to fine
+   * tune dropdown contrast — currently used by `cyberpunk`.
+   */
+  --nav-hover-bg: var(--accent);
+  --nav-hover-foreground: var(--accent-foreground);
 }
 
 .dark {
@@ -124,6 +132,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --nav-hover-bg: var(--accent);
+  --nav-hover-foreground: var(--accent-foreground);
 }
 
 @layer base {

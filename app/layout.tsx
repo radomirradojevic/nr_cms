@@ -168,7 +168,7 @@ export default async function RootLayout({
                                   <NavigationMenuLink asChild>
                                     <Link
                                       href="/dashboard/global-settings"
-                                      className="block rounded px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                                      className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
                                     >
                                       Global Settings
                                     </Link>
@@ -200,7 +200,7 @@ export default async function RootLayout({
                                   <NavigationMenuLink asChild>
                                     <Link
                                       href="/dashboard/content-categories"
-                                      className="block rounded px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                                      className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
                                     >
                                       Content Categories
                                     </Link>
@@ -230,7 +230,7 @@ export default async function RootLayout({
                               <NavigationMenuLink asChild>
                                 <Link
                                   href="/dashboard/gallerymanager"
-                                  className="block rounded px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                                  className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
                                 >
                                   Gallery Manager
                                 </Link>

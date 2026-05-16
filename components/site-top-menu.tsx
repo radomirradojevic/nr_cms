@@ -133,7 +133,7 @@ function SubmenuItem({ item }: { item: TopMenuTreeNode }) {
         <MenuLink
           url={item.url}
           target={item.target}
-          className="block rounded px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+          className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
         >
           {item.label}
         </MenuLink>

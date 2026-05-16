@@ -67,7 +67,8 @@ function MobileMenuItem({
           className={cn(
             "flex flex-1 items-center rounded-md px-3 py-2.5 text-sm font-medium",
             "min-h-[44px] transition-colors duration-150",
-            "hover:bg-accent hover:text-accent-foreground",
+            "hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]",
+            "focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}
           onClick={onClose}
@@ -175,7 +176,8 @@ function AdminNavLink({
         className={cn(
           "flex items-center rounded-md px-3 py-2.5 text-sm font-medium",
           "min-h-[44px] transition-colors duration-150",
-          "hover:bg-accent hover:text-accent-foreground",
+          "hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]",
+          "focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           isChild && "ml-4 text-muted-foreground",
         )}
@@ -357,7 +359,8 @@ export function SiteTopMenuMobile({
                     className={cn(
                       "flex w-full items-center rounded-md px-3 py-2.5 text-sm font-medium",
                       "min-h-[44px] transition-colors duration-150",
-                      "hover:bg-accent hover:text-accent-foreground",
+                      "hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]",
+                      "focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)]",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     )}
                   >
@@ -370,7 +373,8 @@ export function SiteTopMenuMobile({
                     className={cn(
                       "flex w-full items-center rounded-md px-3 py-2.5 text-sm font-medium",
                       "min-h-[44px] transition-colors duration-150",
-                      "hover:bg-accent hover:text-accent-foreground",
+                      "hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]",
+                      "focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)]",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     )}
                   >
