@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getCategoriesByType } from "@/data/content-categories";
+import { getGlobalSettings } from "@/data/global-settings";
 import { getRoles, hasRole } from "@/lib/roles";
 import { ContentForm } from "../../content-form";
 
@@ -13,7 +14,10 @@ export default async function NewPageContentPage() {
     hasRole(roles, "author");
   if (!allowed) redirect("/dashboard");
 
-  const categories = await getCategoriesByType("page");
+  const [categories, settings] = await Promise.all([
+    getCategoriesByType("page"),
+    getGlobalSettings(),
+  ]);
 
   return (
     <div className="p-6">
@@ -22,6 +26,7 @@ export default async function NewPageContentPage() {
         contentType="page"
         currentUserRoles={roles}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        appearance={settings.appearance}
       />
     </div>
   );

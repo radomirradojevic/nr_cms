@@ -2,6 +2,7 @@ import { currentUser, clerkClient } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import { getContentById } from "@/data/content";
 import { getCategoriesByType } from "@/data/content-categories";
+import { getGlobalSettings } from "@/data/global-settings";
 import { getRoles, hasRole } from "@/lib/roles";
 import { ContentForm } from "../../content-form";
 import { parseVisibility } from "@/lib/content-visibility";
@@ -46,9 +47,10 @@ export default async function EditContentPage({ params }: Props) {
   }
   if (!canEdit) redirect("/dashboard/content");
 
-  const categories = await getCategoriesByType(
-    row.contentType as "page" | "blog_post",
-  );
+  const [categories, settings] = await Promise.all([
+    getCategoriesByType(row.contentType as "page" | "blog_post"),
+    getGlobalSettings(),
+  ]);
 
   return (
     <div className="p-6">
@@ -57,6 +59,7 @@ export default async function EditContentPage({ params }: Props) {
         contentType={row.contentType as "page" | "blog_post"}
         currentUserRoles={roles}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        appearance={settings.appearance}
         initial={{
           id: row.id,
           title: row.title,
