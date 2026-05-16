@@ -27,6 +27,14 @@ import {
   MB,
 } from "@/lib/global-settings";
 import {
+  DEFAULT_GLOW,
+  MAX_GLOW_BLUR,
+  MAX_GLOW_INTENSITY,
+  MIN_GLOW_BLUR,
+  MIN_GLOW_INTENSITY,
+  type GlowEffect,
+} from "@/lib/glow";
+import {
   CONTENT_WIDTHS,
   DEFAULT_APPEARANCE,
   FONT_PRESETS,
@@ -43,6 +51,92 @@ import {
 } from "@/lib/appearance";
 import { LogoPickerDialog } from "./logo-picker-dialog";
 import { FooterContentEditor } from "./footer-content-editor";
+
+interface GlowFieldsProps {
+  idPrefix: string;
+  value: GlowEffect;
+  onChange: (next: GlowEffect) => void;
+}
+
+function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
+  const enabledId = `${idPrefix}-glow-enabled`;
+  const colorId = `${idPrefix}-glow-color`;
+  const intensityId = `${idPrefix}-glow-intensity`;
+  const blurId = `${idPrefix}-glow-blur`;
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <div className="flex items-center justify-between">
+        <Label htmlFor={enabledId}>Glow Border</Label>
+        <Switch
+          id={enabledId}
+          checked={value.enabled}
+          onCheckedChange={(enabled) => onChange({ ...value, enabled })}
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={colorId}>Glow Color</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id={colorId}
+              type="color"
+              value={value.color}
+              onChange={(e) => onChange({ ...value, color: e.target.value })}
+              disabled={!value.enabled}
+              className="h-9 w-14 p-1"
+            />
+            <Input
+              type="text"
+              value={value.color}
+              onChange={(e) => onChange({ ...value, color: e.target.value })}
+              disabled={!value.enabled}
+              placeholder="#349aee"
+              maxLength={7}
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={intensityId}>
+            Glow Intensity ({value.intensity})
+          </Label>
+          <Input
+            id={intensityId}
+            type="range"
+            min={MIN_GLOW_INTENSITY}
+            max={MAX_GLOW_INTENSITY}
+            step={1}
+            value={value.intensity}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                intensity: parseInt(e.target.value, 10) || 0,
+              })
+            }
+            disabled={!value.enabled}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={blurId}>Glow Blur Size ({value.blurSize}px)</Label>
+          <Input
+            id={blurId}
+            type="range"
+            min={MIN_GLOW_BLUR}
+            max={MAX_GLOW_BLUR}
+            step={1}
+            value={value.blurSize}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                blurSize: parseInt(e.target.value, 10) || 0,
+              })
+            }
+            disabled={!value.enabled}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface SettingsFormProps {
   settings: GlobalSettingsRow | null;
@@ -75,6 +169,9 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [headerBackground, setHeaderBackground] = useState(
     headerSettings.background ?? "",
   );
+  const [headerGlow, setHeaderGlow] = useState<GlowEffect>(
+    headerSettings.glow ?? DEFAULT_GLOW,
+  );
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(
     String(settings?.stickyHeaderHeight ?? 80),
   );
@@ -92,6 +189,9 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [footerSticky, setFooterSticky] = useState(footerSettings.sticky);
   const [footerBackground, setFooterBackground] = useState(
     footerSettings.background ?? "",
+  );
+  const [footerGlow, setFooterGlow] = useState<GlowEffect>(
+    footerSettings.glow ?? DEFAULT_GLOW,
   );
   const [stickyFooterHeight, setStickyFooterHeight] = useState(
     String(settings?.stickyFooterHeight ?? 110),
@@ -153,12 +253,14 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
           showSiteName: headerShowSiteName,
           sticky: headerSticky,
           background: headerBackground || undefined,
+          glow: headerGlow,
         },
         footerSettings: {
           showLogo: footerShowLogo,
           copyright: footerCopyright || undefined,
           sticky: footerSticky,
           background: footerBackground || undefined,
+          glow: footerGlow,
         },
         stickyHeaderHeight: Math.max(
           0,
@@ -309,6 +411,11 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               onChange={(e) => setHeaderBackground(e.target.value)}
             />
           </div>
+          <GlowFields
+            idPrefix="header"
+            value={headerGlow}
+            onChange={setHeaderGlow}
+          />
           <div className="space-y-1.5">
             <Label htmlFor="headerContent">Header Content (HTML)</Label>
             <Textarea
@@ -366,6 +473,11 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               onChange={(e) => setFooterBackground(e.target.value)}
             />
           </div>
+          <GlowFields
+            idPrefix="footer"
+            value={footerGlow}
+            onChange={setFooterGlow}
+          />
           <div className="space-y-1.5">
             <Label htmlFor="footerCopyright">Copyright Text (optional)</Label>
             <Input

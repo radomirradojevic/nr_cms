@@ -9,6 +9,7 @@ import {
   THEMES,
   type AppearanceSettings,
 } from "@/lib/appearance";
+import { DEFAULT_GLOW, GlowEffectSchema } from "@/lib/glow";
 
 // ─── Cache tags ───────────────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ export const HeaderSettingsSchema = z.object({
   showSiteName: z.boolean().default(true),
   sticky: z.boolean().default(false),
   background: z.string().regex(HEX_COLOR).optional(),
+  glow: GlowEffectSchema.optional(),
 });
 
 export const FooterSettingsSchema = z.object({
@@ -42,6 +44,7 @@ export const FooterSettingsSchema = z.object({
   copyright: z.string().max(200).optional(),
   sticky: z.boolean().default(false),
   background: z.string().regex(HEX_COLOR).optional(),
+  glow: GlowEffectSchema.optional(),
 });
 
 export type HeaderSettings = z.infer<typeof HeaderSettingsSchema>;
@@ -51,11 +54,13 @@ export const DEFAULT_HEADER_SETTINGS: HeaderSettings = {
   showLogo: true,
   showSiteName: true,
   sticky: false,
+  glow: DEFAULT_GLOW,
 };
 
 export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
   showLogo: false,
   sticky: false,
+  glow: DEFAULT_GLOW,
 };
 
 // ─── Update payload schema ────────────────────────────────────────────────────

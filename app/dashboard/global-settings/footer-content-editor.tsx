@@ -108,8 +108,13 @@ export function FooterContentEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
+        // Typography colors come from the active appearance theme via the
+        // `.ProseMirror` rules in `app/globals.css`. Do not add Tailwind's
+        // `prose` / `prose-invert` classes — they hard-code light text that
+        // becomes invisible on light themes (default, minimal, corporate,
+        // elegant).
         class:
-          "prose prose-invert max-w-none min-h-[160px] focus:outline-none p-4 text-sm",
+          "max-w-none min-h-[160px] focus:outline-none p-4 text-sm",
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
