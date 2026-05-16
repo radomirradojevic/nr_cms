@@ -20,6 +20,7 @@ import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trig
 import { SiteTopMenuLink } from "@/components/site-top-menu-link";
 import { getGlobalSettings } from "@/data/global-settings";
 import { cn } from "@/lib/utils";
+import { cssVarsToInlineStyle, resolveAppearance } from "@/lib/appearance";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -61,7 +62,9 @@ export default async function RootLayout({
   const headerBg = settings.headerSettings.background;
   const footerBg = settings.footerSettings.background;
   const headerH = stickyHeaderH > 0 ? stickyHeaderH : 64;
+  const appearance = resolveAppearance(settings.appearance);
   const rootStyle = {
+    ...cssVarsToInlineStyle(appearance.cssVars),
     ["--header-h" as string]: `${headerH}px`,
     ...(headerIsSticky
       ? { ["--sticky-header-h" as string]: `${headerH}px` }
@@ -73,9 +76,24 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={cn(
+        appearance.htmlClass,
+        geistSans.variable,
+        geistMono.variable,
+        "h-full antialiased",
+      )}
       style={rootStyle}
+      suppressHydrationWarning
     >
+      <head>
+        {appearance.fontLinks.map((link) => (
+          <link
+            key={`${link.rel}:${link.href}`}
+            rel={link.rel}
+            href={link.href}
+          />
+        ))}
+      </head>
       <body className="min-h-full flex flex-col">
         <ClerkProvider appearance={{ theme: shadcn }}>
           <header
@@ -285,7 +303,12 @@ export default async function RootLayout({
                 : {}),
             }}
           >
-            {children}
+            <div
+              className="mx-auto w-full px-4"
+              style={{ maxWidth: "var(--content-max-width)" }}
+            >
+              {children}
+            </div>
           </div>
           <footer
             className={cn(

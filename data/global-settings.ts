@@ -15,6 +15,20 @@ import {
   type ResolvedGlobalSettings,
   type UpdateGlobalSettingsInput,
 } from "@/lib/global-settings";
+import {
+  CONTENT_WIDTHS,
+  DEFAULT_APPEARANCE,
+  FONT_PRESETS,
+  RADIUS_PRESETS,
+  SHADOW_PRESETS,
+  THEMES,
+  type AppearanceSettings,
+  type ContentWidth,
+  type FontPreset,
+  type RadiusPreset,
+  type ShadowPreset,
+  type Theme,
+} from "@/lib/appearance";
 
 export type GlobalSettingsRow = typeof globalSettings.$inferSelect;
 
@@ -30,6 +44,53 @@ function parseFooter(value: unknown): FooterSettings {
   return parsed.success ? parsed.data : DEFAULT_FOOTER_SETTINGS;
 }
 
+function pickEnum<T extends readonly string[]>(
+  list: T,
+  value: unknown,
+  fallback: T[number],
+): T[number] {
+  return typeof value === "string" &&
+    (list as readonly string[]).includes(value)
+    ? (value as T[number])
+    : fallback;
+}
+
+function parseAppearance(row: {
+  theme: unknown;
+  contentWidth: unknown;
+  fontPreset: unknown;
+  radiusPreset: unknown;
+  shadowPreset: unknown;
+}): AppearanceSettings {
+  return {
+    theme: pickEnum<typeof THEMES>(
+      THEMES,
+      row.theme,
+      DEFAULT_APPEARANCE.theme,
+    ) as Theme,
+    contentWidth: pickEnum<typeof CONTENT_WIDTHS>(
+      CONTENT_WIDTHS,
+      row.contentWidth,
+      DEFAULT_APPEARANCE.contentWidth,
+    ) as ContentWidth,
+    fontPreset: pickEnum<typeof FONT_PRESETS>(
+      FONT_PRESETS,
+      row.fontPreset,
+      DEFAULT_APPEARANCE.fontPreset,
+    ) as FontPreset,
+    radiusPreset: pickEnum<typeof RADIUS_PRESETS>(
+      RADIUS_PRESETS,
+      row.radiusPreset,
+      DEFAULT_APPEARANCE.radiusPreset,
+    ) as RadiusPreset,
+    shadowPreset: pickEnum<typeof SHADOW_PRESETS>(
+      SHADOW_PRESETS,
+      row.shadowPreset,
+      DEFAULT_APPEARANCE.shadowPreset,
+    ) as ShadowPreset,
+  };
+}
+
 async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
   const rows = await db
     .select({
@@ -43,6 +104,11 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
       stickyFooterHeight: globalSettings.stickyFooterHeight,
       maxUploadSizeBytes: globalSettings.maxUploadSizeBytes,
       maxBatchUploadSizeBytes: globalSettings.maxBatchUploadSizeBytes,
+      theme: globalSettings.theme,
+      contentWidth: globalSettings.contentWidth,
+      fontPreset: globalSettings.fontPreset,
+      radiusPreset: globalSettings.radiusPreset,
+      shadowPreset: globalSettings.shadowPreset,
       logoStoragePath: files.storagePath,
       logoAlt: files.alt,
     })
@@ -72,6 +138,13 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
     stickyFooterHeight: row.stickyFooterHeight,
     maxUploadSizeBytes: Number(row.maxUploadSizeBytes),
     maxBatchUploadSizeBytes: Number(row.maxBatchUploadSizeBytes),
+    appearance: parseAppearance({
+      theme: row.theme,
+      contentWidth: row.contentWidth,
+      fontPreset: row.fontPreset,
+      radiusPreset: row.radiusPreset,
+      shadowPreset: row.shadowPreset,
+    }),
   };
 }
 
@@ -112,6 +185,11 @@ export async function updateGlobalSettings(
     stickyFooterHeight: input.stickyFooterHeight,
     maxUploadSizeBytes: input.maxUploadSizeBytes,
     maxBatchUploadSizeBytes: input.maxBatchUploadSizeBytes,
+    theme: input.theme,
+    contentWidth: input.contentWidth,
+    fontPreset: input.fontPreset,
+    radiusPreset: input.radiusPreset,
+    shadowPreset: input.shadowPreset,
     updatedBy: userId,
   };
 

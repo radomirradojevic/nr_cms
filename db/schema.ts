@@ -422,6 +422,12 @@ export const globalSettings = pgTable(
     })
       .notNull()
       .default(524_288_000),
+    // ─── Appearance (driven by lib/appearance.ts) ──────────────────────────
+    theme: text("theme").notNull().default("default"),
+    contentWidth: text("content_width").notNull().default("contained"),
+    fontPreset: text("font_preset").notNull().default("system"),
+    radiusPreset: text("radius_preset").notNull().default("medium"),
+    shadowPreset: text("shadow_preset").notNull().default("soft"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
@@ -445,6 +451,27 @@ export const globalSettings = pgTable(
     check(
       "global_settings_max_batch_check",
       sql`${table.maxBatchUploadSizeBytes} >= ${table.maxUploadSizeBytes}`,
+    ),
+    // ─── Appearance enum CHECKs — MUST mirror the arrays in lib/appearance.ts ─
+    check(
+      "global_settings_theme_check",
+      sql`${table.theme} IN ('default','dark','minimal','corporate','cyberpunk','elegant')`,
+    ),
+    check(
+      "global_settings_content_width_check",
+      sql`${table.contentWidth} IN ('full-width','contained','narrow','wide','ultra-wide')`,
+    ),
+    check(
+      "global_settings_font_preset_check",
+      sql`${table.fontPreset} IN ('system','sans','serif','mono','display','humanist')`,
+    ),
+    check(
+      "global_settings_radius_preset_check",
+      sql`${table.radiusPreset} IN ('none','small','medium','large','rounded')`,
+    ),
+    check(
+      "global_settings_shadow_preset_check",
+      sql`${table.shadowPreset} IN ('none','soft','medium','strong')`,
     ),
   ],
 );
