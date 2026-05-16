@@ -95,7 +95,9 @@ export function SubmissionsList({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(
-    PAGE_SIZE_OPTIONS.includes(initialPageSize as (typeof PAGE_SIZE_OPTIONS)[number])
+    PAGE_SIZE_OPTIONS.includes(
+      initialPageSize as (typeof PAGE_SIZE_OPTIONS)[number],
+    )
       ? initialPageSize
       : PAGE_SIZE_OPTIONS[0],
   );
@@ -224,7 +226,7 @@ export function SubmissionsList({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search values…"
             className="w-56"
-            onKeyDown={(e) => e.key === "Enter" && reload(true)}
+            onKeyDown={(e) => e.key === "Enter" && reload(1)}
           />
         </div>
         <div className="space-y-1">
