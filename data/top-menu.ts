@@ -61,24 +61,7 @@ function buildTree(rows: TopMenuItemRow[]): TopMenuTreeNode[] {
 
 export const getTopMenuTree = async (): Promise<TopMenuTreeNode[]> => {
   const rows = await fetchAllRows();
-  const tree = buildTree(rows);
-  // Production-only diagnostic: emit a compact view of the tree shape so we
-  // can tell from Vercel logs whether the value is fresh and contains the
-  // expected parent/child nesting. Cheap (no PII; bounded by row count).
-  if (process.env.NODE_ENV === "production") {
-    const summary = {
-      rows: rows.length,
-      roots: tree.length,
-      rootLabels: tree.map((r) => r.label),
-      shape: tree.map((r) => ({
-        id: r.id,
-        label: r.label,
-        children: r.children.map((c) => ({ id: c.id, label: c.label })),
-      })),
-    };
-    console.log("[top-menu] getTopMenuTree", JSON.stringify(summary));
-  }
-  return tree;
+  return buildTree(rows);
 };
 
 export async function getTopMenuFlat(): Promise<TopMenuItemRow[]> {

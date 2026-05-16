@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { getTopMenuTreeForViewer, type TopMenuTreeNode } from "@/data/top-menu";
 import { getRoles } from "@/lib/roles";
@@ -17,36 +16,6 @@ function isExternal(url: string) {
   return /^https?:\/\//i.test(url);
 }
 
-function MenuLink({
-  url,
-  target,
-  children,
-  className,
-}: {
-  url: string;
-  target: "_self" | "_blank";
-  children: React.ReactNode;
-  className?: string;
-}) {
-  if (isExternal(url)) {
-    return (
-      <a
-        href={url}
-        target={target}
-        rel={target === "_blank" ? "noopener noreferrer" : undefined}
-        className={className}
-      >
-        {children}
-      </a>
-    );
-  }
-  return (
-    <Link href={url} target={target} className={className}>
-      {children}
-    </Link>
-  );
-}
-
 export async function SiteTopMenu({
   isBackendUser = false,
   isAdmin = false,
@@ -59,16 +28,6 @@ export async function SiteTopMenu({
   const me = await currentUser();
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
   const tree = await getTopMenuTreeForViewer(viewerRoles);
-
-  if (process.env.NODE_ENV === "production") {
-    console.log(
-      "[top-menu] SiteTopMenu render",
-      JSON.stringify({
-        roots: tree.length,
-        labels: tree.map((t) => t.label),
-      }),
-    );
-  }
 
   return (
     <>
@@ -97,12 +56,20 @@ export async function SiteTopMenu({
 
 function RootItem({ item }: { item: TopMenuTreeNode }) {
   if (item.children.length === 0) {
+    const external = isExternal(item.url);
     return (
       <NavigationMenuItem>
-        <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-          <MenuLink url={item.url} target={item.target}>
-            {item.label}
-          </MenuLink>
+        <NavigationMenuLink
+          href={item.url}
+          target={item.target}
+          rel={
+            external && item.target === "_blank"
+              ? "noopener noreferrer"
+              : undefined
+          }
+          className={navigationMenuTriggerStyle()}
+        >
+          {item.label}
         </NavigationMenuLink>
       </NavigationMenuItem>
     );
@@ -127,16 +94,20 @@ function RootItem({ item }: { item: TopMenuTreeNode }) {
 }
 
 function SubmenuItem({ item }: { item: TopMenuTreeNode }) {
+  const external = isExternal(item.url);
   return (
     <li>
-      <NavigationMenuLink asChild>
-        <MenuLink
-          url={item.url}
-          target={item.target}
-          className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
-        >
-          {item.label}
-        </MenuLink>
+      <NavigationMenuLink
+        href={item.url}
+        target={item.target}
+        rel={
+          external && item.target === "_blank"
+            ? "noopener noreferrer"
+            : undefined
+        }
+        className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
+      >
+        {item.label}
       </NavigationMenuLink>
       {item.children.length > 0 && (
         <ul className="mt-1 ml-3 space-y-1 border-l border-border pl-2">
