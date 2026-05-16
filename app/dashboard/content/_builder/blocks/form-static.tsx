@@ -1,6 +1,12 @@
 import { getPublishedFormById } from "@/data/forms";
 import { CmsFormRenderer } from "@/components/cms-form-renderer";
 import type { FormProps } from "./types";
+import {
+  applyBlockStyle,
+  buildResponsiveCss,
+  styleHash,
+} from "./style/serialize";
+import { cn } from "@/lib/utils";
 
 /**
  * Server-side renderer for the Form page-builder block. Fetches the
@@ -8,20 +14,36 @@ import type { FormProps } from "./types";
  * `<CmsFormRenderer>`. Lives in its own file so the async server component
  * is never imported by the editor's client bundle.
  */
-export async function FormStatic({ formId, formName }: FormProps) {
+export async function FormStatic({ formId, formName, style }: FormProps) {
   if (!formId) {
-    // No form selected — render nothing on the public site rather than a
-    // builder-facing placeholder. Authors see the placeholder inside the
-    // page builder (see `Form` in editable.tsx).
     return null;
   }
   const detail = await getPublishedFormById(formId);
-  if (!detail) {
-    return (
-      <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-        Form not available{formName ? ` ("${formName}")` : ""}.
+
+  const { style: cssStyle, className } = applyBlockStyle(style);
+  const scope = `bb-${styleHash(style ?? null)}`;
+  const responsiveCss = buildResponsiveCss(style, scope);
+  const wrapperClass = cn(className, responsiveCss ? scope : null);
+  const hasStyle =
+    Object.keys(cssStyle).length > 0 || !!wrapperClass || !!responsiveCss;
+
+  const inner = !detail ? (
+    <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+      Form not available{formName ? ` ("${formName}")` : ""}.
+    </div>
+  ) : (
+    <CmsFormRenderer form={detail} />
+  );
+
+  if (!hasStyle) return inner;
+  return (
+    <>
+      {responsiveCss ? (
+        <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
+      ) : null}
+      <div style={cssStyle} className={wrapperClass || undefined}>
+        {inner}
       </div>
-    );
-  }
-  return <CmsFormRenderer form={detail} />;
+    </>
+  );
 }

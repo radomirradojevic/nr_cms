@@ -188,10 +188,25 @@
    `elegant`) and dark themes (`dark`, `cyberpunk`). */
 :where(.ProseMirror, .cms-content) {
   line-height: 1.6;
-  color: var(--foreground);
+  /* Block-level Colors → Text color sets `--cms-text-color` on the block
+     wrapper; we honor that override here while falling back to the theme
+     foreground when no block override is set. */
+  color: var(--cms-text-color, var(--foreground));
 }
 :where(.ProseMirror, .cms-content) :where(h1, h2, h3, h4, h5, h6) {
-  color: var(--foreground);
+  color: var(--cms-text-color, var(--foreground));
+}
+/* Block-level Typography → Align sets `--cms-text-align` on the block
+   wrapper. TipTap's TextAlign extension always serializes
+   `style="text-align: ..."` on every <p>, which would otherwise beat the
+   inherited alignment from the wrapper. Using a custom property here
+   makes the declaration *invalid* (and therefore inert) when no block
+   override is set — letting the inline per-paragraph alignment from the
+   inline toolbar win — but active and `!important` when the block sets
+   an alignment, so it cascades to every text-bearing child. */
+:where(.ProseMirror, .cms-content)
+  :where(p, h1, h2, h3, h4, h5, h6, li, blockquote) {
+  text-align: var(--cms-text-align) !important;
 }
 :where(.ProseMirror, .cms-content) :where(h1) {
   font-size: 2rem;
@@ -256,13 +271,13 @@
    Light themes use a darker blue (blue-600); dark themes use the lighter
    sky-400 that previously hard-coded the rule. */
 :where(.ProseMirror, .cms-content) :where(a) {
-  color: #2563eb;
+  color: var(--cms-link-color, #2563eb);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
 }
 .dark :where(.ProseMirror, .cms-content) :where(a) {
-  color: #60a5fa;
+  color: var(--cms-link-color, #60a5fa);
 }
 :where(.ProseMirror, .cms-content) :where(code) {
   background: var(--muted);
@@ -358,4 +373,116 @@
   color: var(--muted-foreground);
   pointer-events: none;
   height: 0;
+}
+
+/* =========================================================================
+   Page-builder block style system
+   See `.github/instructions/cms-page-builder-block-properties.instructions.md`
+   ========================================================================= */
+
+/* Responsive visibility helpers used by the BlockStyle `responsive.hide` flags. */
+@media (min-width: 1024px) {
+  .hide-on-desktop {
+    display: none !important;
+  }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hide-on-tablet {
+    display: none !important;
+  }
+}
+@media (max-width: 767px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+/* Entrance animations. Driven by BlockStyle `animation.type` and the
+   CSS variables `--bb-anim-duration` / `--bb-anim-delay` emitted by
+   `resolveAnimation()`. */
+@keyframes bb-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes bb-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes bb-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes bb-slide-left {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes bb-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.bb-anim-fade,
+.bb-anim-slide-up,
+.bb-anim-slide-down,
+.bb-anim-slide-left,
+.bb-anim-slide-right {
+  animation-duration: var(--bb-anim-duration, 600ms);
+  animation-delay: var(--bb-anim-delay, 0ms);
+  animation-fill-mode: both;
+  animation-timing-function: ease-out;
+}
+.bb-anim-fade {
+  animation-name: bb-fade;
+}
+.bb-anim-slide-up {
+  animation-name: bb-slide-up;
+}
+.bb-anim-slide-down {
+  animation-name: bb-slide-down;
+}
+.bb-anim-slide-left {
+  animation-name: bb-slide-left;
+}
+.bb-anim-slide-right {
+  animation-name: bb-slide-right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-anim-fade,
+  .bb-anim-slide-up,
+  .bb-anim-slide-down,
+  .bb-anim-slide-left,
+  .bb-anim-slide-right {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
