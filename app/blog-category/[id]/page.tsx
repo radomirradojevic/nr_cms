@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { clerkClient } from "@clerk/nextjs/server";
+import { clerkClient, currentUser } from "@clerk/nextjs/server";
 
 import { getCategoryById } from "@/data/content-categories";
 import { listContent } from "@/data/content";
+import { getRoles } from "@/lib/roles";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -29,6 +30,9 @@ export default async function BlogCategoryPage({ params }: Props) {
   const category = await getCategoryById(id);
   if (!category || category.contentType !== "blog_post") notFound();
 
+  const me = await currentUser();
+  const viewerRoles = me ? getRoles(me.publicMetadata) : null;
+
   const { rows: posts } = await listContent({
     page: 1,
     pageSize: 100,
@@ -36,6 +40,7 @@ export default async function BlogCategoryPage({ params }: Props) {
     status: "published",
     categoryId: id,
     sort: "updated_desc",
+    viewerRoles,
   });
 
   // Resolve author display names

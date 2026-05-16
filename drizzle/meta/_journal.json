@@ -85,6 +85,20 @@
       "when": 1778610922491,
       "tag": "0011_add_global_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1779840000000,
+      "tag": "0013_content_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1778909589452,
+      "tag": "0014_material_jetstream",
+      "breakpoints": true
     }
   ]
 }

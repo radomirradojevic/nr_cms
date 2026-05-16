@@ -1,12 +1,21 @@
 import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
 import { getHomepageContent } from "@/data/content";
 import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
 import { Button } from "@/components/ui/button";
+import { ContentUnauthorized } from "@/components/content-unauthorized";
+import { canViewContent } from "@/lib/content-visibility";
+import { getRoles } from "@/lib/roles";
 
 export default async function Home() {
   const homepage = await getHomepageContent();
 
   if (homepage && homepage.status === "published") {
+    const me = await currentUser();
+    const viewerRoles = me ? getRoles(me.publicMetadata) : null;
+    if (!canViewContent(homepage.visibility, viewerRoles)) {
+      return <ContentUnauthorized />;
+    }
     return (
       <div className="flex flex-1 justify-center px-6 py-16">
         <main className="w-full max-w-5xl">

@@ -66,6 +66,9 @@ export const content = pgTable(
     allowAnonymousComments: boolean("allow_anonymous_comments")
       .notNull()
       .default(false),
+    visibility: jsonb("visibility")
+      .notNull()
+      .default(sql`'{"public":true,"roles":[]}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

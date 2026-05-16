@@ -16,8 +16,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { slugify } from "@/lib/utils";
 import { hasRole, type Role } from "@/lib/roles";
+import {
+  DEFAULT_VISIBILITY,
+  VISIBILITY_ROLES,
+  type ContentVisibility,
+  type VisibilityRole,
+} from "@/lib/content-visibility";
 import dynamic from "next/dynamic";
 import { BlogEditor } from "./_editors/blog-editor";
 import { ImageInsertDialog } from "./_editors/image-insert-dialog";
@@ -61,6 +68,7 @@ type Props = {
     enableComments: boolean;
     autoPublishComments: boolean;
     allowAnonymousComments: boolean;
+    visibility: ContentVisibility;
     contentJson: unknown;
   };
 };
@@ -106,6 +114,20 @@ export function ContentForm({
     initial?.allowAnonymousComments ?? false,
   );
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+
+  const [visibilityPublic, setVisibilityPublic] = useState(
+    initial?.visibility?.public ?? DEFAULT_VISIBILITY.public,
+  );
+  const [visibilityRoles, setVisibilityRoles] = useState<VisibilityRole[]>(
+    initial?.visibility?.roles ?? [...DEFAULT_VISIBILITY.roles],
+  );
+  function toggleVisibilityRole(role: VisibilityRole, checked: boolean) {
+    setVisibilityRoles((prev) =>
+      checked
+        ? Array.from(new Set([...prev, role]))
+        : prev.filter((r) => r !== role),
+    );
+  }
 
   // Deep-clone initial.contentJson so we don't keep a reference to the
   // RSC-provided value. Otherwise round-tripping the same object back to a
@@ -164,6 +186,7 @@ export function ContentForm({
           contentType,
           ...(canChooseStatus ? { status } : {}),
           ...(isAdmin && contentType === "page" ? { homepage } : {}),
+          visibility: { public: visibilityPublic, roles: visibilityRoles },
           ...(contentType === "blog_post"
             ? {
                 enableComments,
@@ -181,6 +204,7 @@ export function ContentForm({
           id: initial!.id,
           ...(canChooseStatus ? { status } : {}),
           ...(isAdmin && contentType === "page" ? { homepage } : {}),
+          visibility: { public: visibilityPublic, roles: visibilityRoles },
           ...(contentType === "blog_post"
             ? {
                 enableComments,
@@ -392,6 +416,66 @@ export function ContentForm({
                 />
               </div>
             )}
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold">Visibility</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Choose who can view this content on the public site.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <label className="flex items-start gap-3">
+                <Checkbox
+                  id="visibility-public"
+                  checked={visibilityPublic}
+                  onCheckedChange={(v) => setVisibilityPublic(!!v)}
+                  className="mt-0.5"
+                />
+                <div className="space-y-0.5">
+                  <span className="text-sm font-medium">Public</span>
+                  <p className="text-xs text-muted-foreground">
+                    Visible to everyone, including anonymous visitors. Role
+                    selections below are ignored while this is on.
+                  </p>
+                </div>
+              </label>
+              {VISIBILITY_ROLES.map((role) => (
+                <label
+                  key={role}
+                  className="flex items-center gap-3 pl-1"
+                  data-disabled={visibilityPublic || undefined}
+                >
+                  <Checkbox
+                    id={`visibility-${role}`}
+                    checked={
+                      !visibilityPublic && visibilityRoles.includes(role)
+                    }
+                    disabled={visibilityPublic}
+                    onCheckedChange={(v) => toggleVisibilityRole(role, !!v)}
+                  />
+                  <span
+                    className={
+                      visibilityPublic
+                        ? "text-sm text-muted-foreground capitalize"
+                        : "text-sm capitalize"
+                    }
+                  >
+                    {role}
+                  </span>
+                </label>
+              ))}
+              <label className="flex items-center gap-3 pl-1">
+                <Checkbox id="visibility-admin" checked disabled />
+                <span className="text-sm capitalize text-muted-foreground">
+                  admin
+                  <span className="ml-2 text-xs">
+                    (admins always have access)
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <div className="rounded-lg border p-4 space-y-4">

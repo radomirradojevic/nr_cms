@@ -22,6 +22,11 @@ import {
 } from "@/data/content";
 import { getCategoryById } from "@/data/content-categories";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
+import {
+  DEFAULT_VISIBILITY,
+  sanitizeVisibilityInput,
+  VISIBILITY_ROLES,
+} from "@/lib/content-visibility";
 import { slugify } from "@/lib/utils";
 import { tiptapExtensions } from "./_editors/tiptap-extensions";
 
@@ -123,10 +128,18 @@ const commentFlagFields = {
   allowAnonymousComments: z.boolean().optional(),
 };
 
+const visibilitySchema = z
+  .object({
+    public: z.boolean(),
+    roles: z.array(z.enum(VISIBILITY_ROLES)),
+  })
+  .optional();
+
 const createSchema = z.object({
   contentType: z.enum(["page", "blog_post"]),
   status: z.enum(["published", "unpublished", "archived"]).optional(),
   homepage: z.boolean().optional(),
+  visibility: visibilitySchema,
   ...commentFlagFields,
   ...baseFields,
 });
@@ -135,6 +148,7 @@ const updateSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(["published", "unpublished", "archived"]).optional(),
   homepage: z.boolean().optional(),
+  visibility: visibilitySchema,
   ...commentFlagFields,
   ...baseFields,
 });
@@ -229,6 +243,9 @@ export async function createContent(input: CreateContentInput) {
         allowAnonymousComments: isBlogPost
           ? !!data.allowAnonymousComments
           : false,
+        visibility: sanitizeVisibilityInput(
+          data.visibility ?? DEFAULT_VISIBILITY,
+        ),
       })
       .returning();
     const created = rows[0];
@@ -356,6 +373,9 @@ export async function updateContent(input: UpdateContentInput) {
                   ? data.allowAnonymousComments
                   : target.allowAnonymousComments,
             }
+          : {}),
+        ...(data.visibility
+          ? { visibility: sanitizeVisibilityInput(data.visibility) }
           : {}),
       })
       .where(eq(content.id, data.id));

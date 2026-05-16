@@ -1,6 +1,8 @@
-import { asc, eq, isNull, max } from "drizzle-orm";
+import { asc, eq, isNull, max, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { topMenuItems, content, contentCategories } from "@/db/schema";
+import { canViewContent } from "@/lib/content-visibility";
+import type { Role } from "@/lib/roles";
 
 export type TopMenuItemRow = typeof topMenuItems.$inferSelect;
 export type NewTopMenuItem = typeof topMenuItems.$inferInsert;
@@ -163,4 +165,104 @@ export async function listPickableContent(): Promise<ContentPickerItem[]> {
     contentType: r.contentType as "page" | "blog_post",
     status: r.status,
   }));
+}
+
+// ─── Visibility-aware tree ────────────────────────────────────────────────────
+
+/**
+ * Collect every contentId/categoryId referenced anywhere in the tree.
+ */
+function collectLinkedIds(nodes: TopMenuTreeNode[]): {
+  contentIds: string[];
+  categoryIds: string[];
+} {
+  const contentIds = new Set<string>();
+  const categoryIds = new Set<string>();
+  const walk = (ns: TopMenuTreeNode[]) => {
+    for (const n of ns) {
+      if (n.contentId) contentIds.add(n.contentId);
+      if (n.categoryId) categoryIds.add(n.categoryId);
+      walk(n.children);
+    }
+  };
+  walk(nodes);
+  return {
+    contentIds: Array.from(contentIds),
+    categoryIds: Array.from(categoryIds),
+  };
+}
+
+/**
+ * Return the top menu tree filtered for a specific viewer.
+ *
+ * Items are dropped when:
+ *   - they link to a `content` row that is not visible to the viewer
+ *     (or that is not `published`), or
+ *   - they link to a blog category that has zero posts visible to the viewer.
+ *
+ * Pure URL items (no content/category link) are always kept.
+ * Pass `null` for an anonymous (signed-out) viewer.
+ */
+export async function getTopMenuTreeForViewer(
+  viewerRoles: Role[] | null,
+): Promise<TopMenuTreeNode[]> {
+  const tree = await getTopMenuTree();
+  const { contentIds, categoryIds } = collectLinkedIds(tree);
+
+  // Look up linked content visibility + status.
+  const contentVis = new Map<string, { canSee: boolean }>();
+  if (contentIds.length > 0) {
+    const rows = await db
+      .select({
+        id: content.id,
+        status: content.status,
+        visibility: content.visibility,
+      })
+      .from(content)
+      .where(inArray(content.id, contentIds));
+    for (const r of rows) {
+      contentVis.set(r.id, {
+        canSee:
+          r.status === "published" && canViewContent(r.visibility, viewerRoles),
+      });
+    }
+  }
+
+  // For each linked category, check whether at least one visible published
+  // post exists. (Per category, this is a small targeted query.)
+  const categoryHasVisible = new Map<string, boolean>();
+  if (categoryIds.length > 0) {
+    const rows = await db
+      .select({
+        categoryId: content.categoryId,
+        status: content.status,
+        visibility: content.visibility,
+      })
+      .from(content)
+      .where(inArray(content.categoryId, categoryIds));
+    for (const r of rows) {
+      if (
+        r.status === "published" &&
+        canViewContent(r.visibility, viewerRoles)
+      ) {
+        categoryHasVisible.set(r.categoryId, true);
+      }
+    }
+  }
+
+  const filterRec = (nodes: TopMenuTreeNode[]): TopMenuTreeNode[] => {
+    const out: TopMenuTreeNode[] = [];
+    for (const n of nodes) {
+      if (n.contentId) {
+        const vis = contentVis.get(n.contentId);
+        if (!vis || !vis.canSee) continue;
+      } else if (n.categoryId) {
+        if (!categoryHasVisible.get(n.categoryId)) continue;
+      }
+      out.push({ ...n, children: filterRec(n.children) });
+    }
+    return out;
+  };
+
+  return filterRec(tree);
 }

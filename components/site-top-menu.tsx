@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { getTopMenuTree, type TopMenuTreeNode } from "@/data/top-menu";
+import { currentUser } from "@clerk/nextjs/server";
+import { getTopMenuTreeForViewer, type TopMenuTreeNode } from "@/data/top-menu";
+import { getRoles } from "@/lib/roles";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -54,7 +56,9 @@ export async function SiteTopMenu({
   isAdmin?: boolean;
   isLoggedIn?: boolean;
 }) {
-  const tree = await getTopMenuTree();
+  const me = await currentUser();
+  const viewerRoles = me ? getRoles(me.publicMetadata) : null;
+  const tree = await getTopMenuTreeForViewer(viewerRoles);
 
   if (process.env.NODE_ENV === "production") {
     console.log(

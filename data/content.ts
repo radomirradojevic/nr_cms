@@ -12,6 +12,8 @@ import {
   or,
   type SQL,
 } from "drizzle-orm";
+import { buildVisibilityWhere } from "@/lib/content-visibility";
+import type { Role } from "@/lib/roles";
 
 export type ContentType = "page" | "blog_post";
 export type ContentStatus = "published" | "unpublished" | "archived";
@@ -32,6 +34,13 @@ export type ListContentParams = {
   categoryId?: string;
   authorId?: string;
   sort?: "updated_desc" | "updated_asc" | "title_asc" | "title_desc";
+  /**
+   * When provided, restrict results to rows visible to a viewer with these
+   * roles. Pass `null` for an anonymous (signed-out) visitor. Leave
+   * `undefined` for backend/dashboard listings that intentionally see all
+   * content regardless of visibility.
+   */
+  viewerRoles?: Role[] | null;
 };
 
 export async function listContent(
@@ -46,6 +55,9 @@ export async function listContent(
   if (status) conditions.push(eq(content.status, status));
   if (categoryId) conditions.push(eq(content.categoryId, categoryId));
   if (authorId) conditions.push(eq(content.authorId, authorId));
+  if (params.viewerRoles !== undefined) {
+    conditions.push(buildVisibilityWhere(params.viewerRoles));
+  }
   if (search) {
     const like = `%${search}%`;
     const searchClause = or(
@@ -100,6 +112,7 @@ export async function listContent(
         enableComments: content.enableComments,
         autoPublishComments: content.autoPublishComments,
         allowAnonymousComments: content.allowAnonymousComments,
+        visibility: content.visibility,
         createdAt: content.createdAt,
         updatedAt: content.updatedAt,
         categoryName: contentCategories.name,
