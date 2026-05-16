@@ -47,6 +47,21 @@ import {
   type SectionProps,
   type TextProps,
 } from "./types";
+import type { BlockStyle } from "./style/types";
+import { applyBlockStyle } from "./style/serialize";
+import { useViewport } from "./panel/viewport-context";
+import { BlockSettingsPanel } from "./panel/BlockSettingsPanel";
+import { cn } from "@/lib/utils";
+
+/**
+ * Editor-side helper: read the current `style` envelope from a Craft.js
+ * node and resolve it for the current viewport in the preview frame.
+ * Returns `{styleObj, className}` suitable to spread on the block's root.
+ */
+function useBlockStyleShell(style: BlockStyle | undefined) {
+  const { viewport } = useViewport();
+  return applyBlockStyle(style, viewport);
+}
 
 /**
  * Wraps every editable block with the Craft.js drag/select connector
@@ -55,9 +70,15 @@ import {
 function NodeWrap({
   children,
   inline,
+  style,
+  className: extraClass,
+  styleObj,
 }: {
   children: ReactNode;
   inline?: boolean;
+  style?: BlockStyle;
+  className?: string;
+  styleObj?: React.CSSProperties;
 }) {
   const {
     connectors: { connect, drag },
@@ -67,6 +88,12 @@ function NodeWrap({
     selected: n.events.selected,
     hovered: n.events.hovered,
   }));
+  const { viewport } = useViewport();
+  const { style: resolved, className: bbClass } = applyBlockStyle(
+    style,
+    viewport,
+  );
+  const finalStyle: React.CSSProperties = { ...resolved, ...(styleObj ?? {}) };
   const ring = selected
     ? "ring-2 ring-primary"
     : hovered
@@ -77,7 +104,14 @@ function NodeWrap({
       ref={(el) => {
         if (el) connect(drag(el));
       }}
-      className={`relative ${inline ? "inline-block" : "block"} rounded-sm transition-shadow ${ring}`}
+      style={finalStyle}
+      className={cn(
+        "relative rounded-sm transition-shadow",
+        inline ? "inline-block" : "block",
+        bbClass,
+        extraClass,
+        ring,
+      )}
     >
       {children}
     </div>
@@ -109,7 +143,7 @@ Root.craft = {
 
 /* ===================== Section ===================== */
 
-export function Section({ padded }: SectionProps) {
+export function Section({ padded, style }: SectionProps) {
   const {
     connectors: { connect, drag },
     selected,
@@ -118,6 +152,7 @@ export function Section({ padded }: SectionProps) {
     selected: n.events.selected,
     hovered: n.events.hovered,
   }));
+  const { style: cssStyle, className: bbClass } = useBlockStyleShell(style);
   const ring = selected
     ? "ring-2 ring-primary"
     : hovered
@@ -128,7 +163,14 @@ export function Section({ padded }: SectionProps) {
       ref={(el) => {
         if (el) connect(drag(el));
       }}
-      className={`${padded ? "my-6 rounded-lg border bg-card p-6" : "my-4 rounded-md border border-dashed p-3"} ${ring}`}
+      style={cssStyle}
+      className={cn(
+        padded
+          ? "my-6 rounded-lg border bg-card p-6"
+          : "my-4 rounded-md border border-dashed p-3",
+        bbClass,
+        ring,
+      )}
     >
       <Element id="content" is={SectionSlot} canvas />
     </section>
@@ -167,22 +209,25 @@ function SectionSettings() {
     padded,
   } = useNode((n) => ({ padded: (n.data.props as SectionProps).padded }));
   return (
-    <Field label="Padded">
-      <Switch
-        checked={!!padded}
-        onCheckedChange={(v) =>
-          setProp((p: SectionProps) => {
-            p.padded = v;
-          })
-        }
-      />
-    </Field>
+    <>
+      <Field label="Padded">
+        <Switch
+          checked={!!padded}
+          onCheckedChange={(v) =>
+            setProp((p: SectionProps) => {
+              p.padded = v;
+            })
+          }
+        />
+      </Field>
+      <BlockSettingsPanel blockName="Section" />
+    </>
   );
 }
 
 /* ===================== Columns ===================== */
 
-export function Columns({ gap }: ColumnsProps) {
+export function Columns({ gap, style }: ColumnsProps) {
   const {
     connectors: { connect, drag },
     selected,
@@ -192,6 +237,7 @@ export function Columns({ gap }: ColumnsProps) {
     selected: n.events.selected,
     hovered: n.events.hovered,
   }));
+  const { style: cssStyle, className: bbClass } = useBlockStyleShell(style);
   const ring = selected
     ? "ring-2 ring-primary"
     : hovered
@@ -203,7 +249,13 @@ export function Columns({ gap }: ColumnsProps) {
       ref={(el) => {
         if (el) connect(drag(el));
       }}
-      className={`my-6 grid grid-cols-1 md:grid-cols-2 ${gapClass} ${ring}`}
+      style={cssStyle}
+      className={cn(
+        "my-6 grid grid-cols-1 md:grid-cols-2",
+        gapClass,
+        bbClass,
+        ring,
+      )}
       data-cols-id={id}
     >
       <Element id="left" is={ColumnSlot} canvas />
@@ -244,38 +296,41 @@ function ColumnsSettings() {
     gap,
   } = useNode((n) => ({ gap: (n.data.props as ColumnsProps).gap }));
   return (
-    <Field label="Gap">
-      <Select
-        value={gap ?? "md"}
-        onValueChange={(v) =>
-          setProp((p: ColumnsProps) => {
-            p.gap = v as ColumnsProps["gap"];
-          })
-        }
-      >
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="sm">Small</SelectItem>
-          <SelectItem value="md">Medium</SelectItem>
-          <SelectItem value="lg">Large</SelectItem>
-        </SelectContent>
-      </Select>
-    </Field>
+    <>
+      <Field label="Gap">
+        <Select
+          value={gap ?? "md"}
+          onValueChange={(v) =>
+            setProp((p: ColumnsProps) => {
+              p.gap = v as ColumnsProps["gap"];
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sm">Small</SelectItem>
+            <SelectItem value="md">Medium</SelectItem>
+            <SelectItem value="lg">Large</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <BlockSettingsPanel blockName="Columns" />
+    </>
   );
 }
 
 /* ===================== Heading ===================== */
 
-export function Heading({ content, level }: HeadingProps) {
+export function Heading({ content, level, style }: HeadingProps) {
   const {
     actions: { setProp },
   } = useNode();
   const Tag = `h${level}` as "h1" | "h2" | "h3";
   const sizes = { "1": "text-4xl", "2": "text-3xl", "3": "text-2xl" } as const;
   return (
-    <NodeWrap>
+    <NodeWrap style={style}>
       <Tag className={`font-semibold tracking-tight my-4 ${sizes[level]}`}>
         <InlineRichText
           singleLine
@@ -302,36 +357,39 @@ function HeadingSettings() {
     level,
   } = useNode((n) => ({ level: (n.data.props as HeadingProps).level }));
   return (
-    <Field label="Level">
-      <Select
-        value={level}
-        onValueChange={(v) =>
-          setProp((p: HeadingProps) => {
-            p.level = v as HeadingProps["level"];
-          })
-        }
-      >
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="1">H1</SelectItem>
-          <SelectItem value="2">H2</SelectItem>
-          <SelectItem value="3">H3</SelectItem>
-        </SelectContent>
-      </Select>
-    </Field>
+    <>
+      <Field label="Level">
+        <Select
+          value={level}
+          onValueChange={(v) =>
+            setProp((p: HeadingProps) => {
+              p.level = v as HeadingProps["level"];
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">H1</SelectItem>
+            <SelectItem value="2">H2</SelectItem>
+            <SelectItem value="3">H3</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <BlockSettingsPanel blockName="Heading" />
+    </>
   );
 }
 
 /* ===================== Text ===================== */
 
-export function Text({ content }: TextProps) {
+export function Text({ content, style }: TextProps) {
   const {
     actions: { setProp },
   } = useNode();
   return (
-    <NodeWrap>
+    <NodeWrap style={style}>
       <div className="my-3 leading-relaxed [&_p]:my-2 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6">
         <InlineRichText
           value={content ?? emptyInlineDoc}
@@ -348,14 +406,25 @@ export function Text({ content }: TextProps) {
 Text.craft = {
   displayName: "Text",
   props: defaults.Text,
-  related: { settings: () => null },
+  related: { settings: TextSettings },
 };
+
+function TextSettings() {
+  return <BlockSettingsPanel blockName="Text" />;
+}
 
 /* ===================== Image ===================== */
 
-export function ImageBlock({ src, alt, sizing, width, height }: ImageProps) {
+export function ImageBlock({
+  src,
+  alt,
+  sizing,
+  width,
+  height,
+  style,
+}: ImageProps) {
   return (
-    <NodeWrap>
+    <NodeWrap style={style}>
       <ImageStatic
         src={src}
         alt={alt}
@@ -479,15 +548,16 @@ function ImageSettings() {
           });
         }}
       />
+      <BlockSettingsPanel blockName="Image" />
     </>
   );
 }
 
 /* ===================== Button ===================== */
 
-export function ButtonBlock({ label, href }: ButtonProps) {
+export function ButtonBlock({ label, href, style }: ButtonProps) {
   return (
-    <NodeWrap inline>
+    <NodeWrap inline style={style}>
       <ButtonStatic label={label} href={href} />
     </NodeWrap>
   );
@@ -530,18 +600,19 @@ function ButtonSettings() {
           placeholder="https://…"
         />
       </Field>
+      <BlockSettingsPanel blockName="Button" />
     </>
   );
 }
 
 /* ===================== Hero ===================== */
 
-export function Hero({ title, subtitle }: HeroProps) {
+export function Hero({ title, subtitle, style }: HeroProps) {
   const {
     actions: { setProp },
   } = useNode();
   return (
-    <NodeWrap>
+    <NodeWrap style={style}>
       <section className="my-8 rounded-lg border bg-card p-12 text-center">
         <h1 className="text-4xl font-bold tracking-tight">
           <InlineRichText
@@ -571,14 +642,18 @@ export function Hero({ title, subtitle }: HeroProps) {
 Hero.craft = {
   displayName: "Hero",
   props: defaults.Hero,
-  related: { settings: () => null },
+  related: { settings: HeroSettings },
 };
+
+function HeroSettings() {
+  return <BlockSettingsPanel blockName="Hero" />;
+}
 
 /* ===================== Raw HTML ===================== */
 
-export function RawHtml({ html }: RawHtmlProps) {
+export function RawHtml({ html, style }: RawHtmlProps) {
   return (
-    <NodeWrap>
+    <NodeWrap style={style}>
       <RawHtmlStatic html={html} />
     </NodeWrap>
   );
@@ -595,24 +670,27 @@ function RawHtmlSettings() {
     html,
   } = useNode((n) => ({ html: (n.data.props as RawHtmlProps).html }));
   return (
-    <Field label="HTML source">
-      <Textarea
-        rows={10}
-        value={html}
-        onChange={(e) =>
-          setProp((p: RawHtmlProps) => {
-            p.html = e.target.value;
-          })
-        }
-        className="font-mono text-xs"
-      />
-    </Field>
+    <>
+      <Field label="HTML source">
+        <Textarea
+          rows={10}
+          value={html}
+          onChange={(e) =>
+            setProp((p: RawHtmlProps) => {
+              p.html = e.target.value;
+            })
+          }
+          className="font-mono text-xs"
+        />
+      </Field>
+      <BlockSettingsPanel blockName="RawHtml" />
+    </>
   );
 }
 
 /* ===================== Gallery ===================== */
 
-export function Gallery({ galleryId, galleryName }: GalleryProps) {
+export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
   const [preview, setPreview] = useState<{
     name: string;
     images: GalleryPickerPreviewImage[];
@@ -640,7 +718,7 @@ export function Gallery({ galleryId, galleryName }: GalleryProps) {
   }, [galleryId]);
 
   return (
-    <NodeWrap>
+    <NodeWrap style={style}>
       {!galleryId ? (
         <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
           <Images className="mx-auto mb-2 h-6 w-6" />
@@ -747,6 +825,7 @@ function GallerySettings() {
           });
         }}
       />
+      <BlockSettingsPanel blockName="Gallery" />
     </>
   );
 }
@@ -764,7 +843,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 /* ===================== Form ===================== */
 
-export function Form({ formId, formName }: FormProps) {
+export function Form({ formId, formName, style }: FormProps) {
   const [preview, setPreview] = useState<{
     name: string;
     fieldCount: number;
@@ -797,7 +876,7 @@ export function Form({ formId, formName }: FormProps) {
   }, [formId]);
 
   return (
-    <NodeWrap>
+    <NodeWrap style={style}>
       {!formId ? (
         <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
           <FormInput className="mx-auto mb-2 h-6 w-6" />
@@ -891,6 +970,7 @@ function FormSettings() {
           });
         }}
       />
+      <BlockSettingsPanel blockName="Form" />
     </>
   );
 }

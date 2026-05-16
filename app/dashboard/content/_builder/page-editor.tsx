@@ -18,6 +18,13 @@ import {
   resolveAppearance,
   type AppearanceSettings,
 } from "@/lib/appearance";
+import {
+  ViewportProvider,
+  type Viewport,
+} from "./blocks/panel/viewport-context";
+import { Button } from "@/components/ui/button";
+import { Monitor, Tablet, Smartphone } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const LayersPanel = dynamic(() => import("./layers"), { ssr: false });
 
@@ -147,6 +154,7 @@ function Inner({
   appearance?: AppearanceSettings;
 }) {
   const [width, setWidth] = useState<"sm" | "md" | "lg">("lg");
+  const [viewport, setViewport] = useState<Viewport>("desktop");
   const [sourceMode, setSourceMode] = useState(false);
   const [sourceHtml, setSourceHtml] = useState("");
   const { actions, query } = useEditor();
@@ -224,8 +232,15 @@ function Inner({
     setSourceMode(false);
   }
 
+  // Hard cap of the preview canvas width when emulating a viewport.
+  const viewportMaxWidth: Record<Viewport, string | undefined> = {
+    desktop: undefined,
+    tablet: "768px",
+    mobile: "390px",
+  };
+
   return (
-    <>
+    <ViewportProvider value={viewport}>
       <Toolbar
         width={width}
         onWidthChange={setWidth}
@@ -262,9 +277,47 @@ function Inner({
           </aside>
 
           <main className="overflow-auto bg-muted/20 p-6">
+            <div className="mb-3 flex items-center justify-center gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={viewport === "desktop" ? "default" : "outline"}
+                onClick={() => setViewport("desktop")}
+              >
+                <Monitor className="h-4 w-4" />
+                Desktop
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={viewport === "tablet" ? "default" : "outline"}
+                onClick={() => setViewport("tablet")}
+              >
+                <Tablet className="h-4 w-4" />
+                Tablet
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={viewport === "mobile" ? "default" : "outline"}
+                onClick={() => setViewport("mobile")}
+              >
+                <Smartphone className="h-4 w-4" />
+                Mobile
+              </Button>
+            </div>
             <div
-              className={`mx-auto ${widthClass[width]} rounded-md bg-background shadow ${resolvedAppearance.htmlClass}`}
-              style={previewStyle}
+              className={cn(
+                "mx-auto rounded-md bg-background shadow transition-[max-width]",
+                viewport === "desktop" ? widthClass[width] : null,
+                resolvedAppearance.htmlClass,
+              )}
+              style={{
+                ...previewStyle,
+                ...(viewport !== "desktop"
+                  ? { maxWidth: viewportMaxWidth[viewport] }
+                  : null),
+              }}
             >
               <Frame data={initialJson}>
                 <Element is={Root} canvas />
@@ -279,6 +332,6 @@ function Inner({
       )}
 
       <ChangeWatcher onSerialize={handleSerialize} />
-    </>
+    </ViewportProvider>
   );
 }
