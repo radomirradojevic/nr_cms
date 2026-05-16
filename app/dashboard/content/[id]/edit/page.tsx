@@ -4,6 +4,7 @@ import { getContentById } from "@/data/content";
 import { getCategoriesByType } from "@/data/content-categories";
 import { getRoles, hasRole } from "@/lib/roles";
 import { ContentForm } from "../../content-form";
+import { parseVisibility } from "@/lib/content-visibility";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -70,6 +71,7 @@ export default async function EditContentPage({ params }: Props) {
           enableComments: row.enableComments,
           autoPublishComments: row.autoPublishComments,
           allowAnonymousComments: row.allowAnonymousComments,
+          visibility: parseVisibility(row.visibility),
           contentJson: row.contentJson,
         }}
       />

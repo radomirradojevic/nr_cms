@@ -6,8 +6,10 @@ import { getContentBySlug } from "@/data/content";
 import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
 import { BlogContent } from "@/components/blog-content";
 import { BlogComments } from "@/components/blog-comments";
+import { ContentUnauthorized } from "@/components/content-unauthorized";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { getRoles, hasRole } from "@/lib/roles";
+import { canViewContent } from "@/lib/content-visibility";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -15,6 +17,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const row = await getContentBySlug(slug);
   if (!row || row.status !== "published") return {};
+  // Do not leak title/description for restricted content. Generic title only.
+  const me = await currentUser();
+  const viewerRoles = me ? getRoles(me.publicMetadata) : null;
+  if (!canViewContent(row.visibility, viewerRoles)) {
+    return { title: "Restricted" };
+  }
   return {
     title: row.metaTitle ?? row.title,
     description: row.metaDescription ?? row.excerpt ?? undefined,
@@ -26,12 +34,19 @@ export default async function PublicContentPage({ params }: Props) {
   const row = await getContentBySlug(slug);
   if (!row || row.status !== "published") notFound();
 
+  // Visibility check — admin always passes; public passes for anyone;
+  // otherwise the viewer must have a matching role.
+  const me = await currentUser();
+  const viewerRoles = me ? getRoles(me.publicMetadata) : null;
+  if (!canViewContent(row.visibility, viewerRoles)) {
+    return <ContentUnauthorized />;
+  }
+
   // Determine if the current user can edit this content
   const { userId } = await auth();
   let canEdit = false;
   if (userId && row.contentType === "blog_post") {
-    const me = await currentUser();
-    const roles = getRoles(me?.publicMetadata);
+    const roles = viewerRoles ?? [];
     canEdit = hasRole(roles, "admin") || userId === row.authorId;
   }
 
