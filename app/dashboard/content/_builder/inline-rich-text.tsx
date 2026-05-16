@@ -7,7 +7,8 @@ import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import { useNode } from "@craftjs/core";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bold,
   Italic,
@@ -58,6 +59,12 @@ export function InlineRichText({
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [focused, setFocused] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [toolbarPos, setToolbarPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   // Read selection state from the nearest Craft.js node so the toolbar can
   // stay visible whenever the surrounding block is selected (not only while
@@ -65,6 +72,10 @@ export function InlineRichText({
   const { selected } = useNode((n) => ({
     selected: n.events.selected,
   }));
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -101,6 +112,35 @@ export function InlineRichText({
     }
   }, [value, editor]);
 
+  const toolbarVisible = !!editor && (selected || focused);
+
+  // Track the content wrapper's viewport position so the portal-rendered
+  // toolbar can sit above it. We use `position: fixed` coordinates so the
+  // toolbar is fully isolated from any ancestor styling (color, opacity,
+  // background, transforms) applied by NodeWrap or the Colors block panel.
+  useLayoutEffect(() => {
+    if (!toolbarVisible) {
+      setToolbarPos(null);
+      return;
+    }
+    const el = contentRef.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setToolbarPos({ top: rect.top, left: rect.left });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+      ro.disconnect();
+    };
+  }, [toolbarVisible]);
+
   if (!editor) return null;
 
   function openLinkDialog() {
@@ -125,12 +165,27 @@ export function InlineRichText({
 
   return (
     <>
-      <div className="relative">
-        {(selected || focused) && (
+      <div ref={contentRef} className="block-content relative">
+        <EditorContent editor={editor} />
+      </div>
+      {mounted &&
+        toolbarVisible &&
+        toolbarPos &&
+        createPortal(
           <div
-            className="absolute -top-10 left-0 z-30 flex items-center gap-1 rounded-md border bg-popover p-1 shadow-md"
-            // Prevent clicks inside the toolbar from blurring the editor or
-            // triggering Craft.js drag/select handlers on the parent block.
+            // Fixed positioning + portal to body so this element is NOT a
+            // descendant of any NodeWrap that sets color/opacity/background.
+            // Explicit color + opacity reset prevents any leaked inheritance
+            // from CSS rules higher up the tree.
+            style={{
+              position: "fixed",
+              top: Math.max(8, toolbarPos.top - 40),
+              left: toolbarPos.left,
+              zIndex: 50,
+              color: "var(--popover-foreground)",
+              opacity: 1,
+            }}
+            className="block-toolbar flex items-center gap-1 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => e.stopPropagation()}
           >
@@ -221,10 +276,9 @@ export function InlineRichText({
             >
               <LinkIcon className="h-3.5 w-3.5" />
             </BtnInline>
-          </div>
+          </div>,
+          document.body,
         )}
-        <EditorContent editor={editor} />
-      </div>
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent aria-describedby={undefined} className="sm:max-w-sm">
           <DialogHeader>
