@@ -49,6 +49,12 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Appearance — driven by lib/appearance.ts via inline CSS variables on <html>. */
+  --content-max-width: var(--content-max-width, 72rem);
+  --shadow-xs: var(--shadow-xs, 0 1px 2px 0 oklch(0 0 0 / 0.04));
+  --shadow-sm: var(--shadow-sm, 0 1px 2px 0 oklch(0 0 0 / 0.05));
+  --shadow-md: var(--shadow-md, 0 4px 6px -1px oklch(0 0 0 / 0.1));
+  --shadow-lg: var(--shadow-lg, 0 10px 15px -3px oklch(0 0 0 / 0.1));
 }
 
 :root {
