@@ -24,7 +24,11 @@ import {
   DEFAULT_HEADER_SETTINGS,
   FooterSettingsSchema,
   HeaderSettingsSchema,
+  MAX_MAX_SESSION_MINUTES,
   MB,
+  MIN_IDLE_MINUTES,
+  MIN_MAX_SESSION_MINUTES,
+  SESSION_SECURITY_DEFAULTS,
 } from "@/lib/global-settings";
 import {
   DEFAULT_GLOW,
@@ -151,6 +155,26 @@ interface SettingsFormProps {
 
 const CUSTOM_WIDTH_OPTION = "__custom__";
 
+function clampMinutes(
+  raw: string,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n)) return Math.max(min, Math.min(max, fallback));
+  return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
+function formatMinutesHuman(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "0m";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 interface ContentWidthFieldProps {
   id: string;
   label: string;
@@ -261,6 +285,95 @@ function ContentWidthField({
   );
 }
 
+interface SessionSecurityCardProps {
+  maxSessionMinutes: string;
+  setMaxSessionMinutes: (v: string) => void;
+  idleLogoutMinutes: string;
+  setIdleLogoutMinutes: (v: string) => void;
+}
+
+function SessionSecurityCard({
+  maxSessionMinutes,
+  setMaxSessionMinutes,
+  idleLogoutMinutes,
+  setIdleLogoutMinutes,
+}: SessionSecurityCardProps) {
+  const maxNum = parseInt(maxSessionMinutes, 10);
+  const idleNum = parseInt(idleLogoutMinutes, 10);
+  const maxValid =
+    Number.isFinite(maxNum) &&
+    maxNum >= MIN_MAX_SESSION_MINUTES &&
+    maxNum <= MAX_MAX_SESSION_MINUTES;
+  const idleValid = Number.isFinite(idleNum) && idleNum >= MIN_IDLE_MINUTES;
+  const idleLeqMax = maxValid && idleValid && idleNum <= maxNum;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Session Security</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="maxSessionMinutes">
+            Max Session Duration (minutes)
+          </Label>
+          <Input
+            id="maxSessionMinutes"
+            type="number"
+            min={MIN_MAX_SESSION_MINUTES}
+            max={MAX_MAX_SESSION_MINUTES}
+            step={1}
+            value={maxSessionMinutes}
+            onChange={(e) => setMaxSessionMinutes(e.target.value)}
+            aria-invalid={!maxValid || undefined}
+          />
+          <p
+            className={
+              maxValid
+                ? "text-xs text-muted-foreground"
+                : "text-xs text-destructive"
+            }
+          >
+            {maxValid
+              ? `${maxNum} minutes = ${formatMinutesHuman(maxNum)}. Absolute lifetime — user is signed out when this elapses regardless of activity.`
+              : `Enter a whole number between ${MIN_MAX_SESSION_MINUTES} and ${MAX_MAX_SESSION_MINUTES}.`}
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="idleLogoutMinutes">Idle Auto-Logout (minutes)</Label>
+          <Input
+            id="idleLogoutMinutes"
+            type="number"
+            min={MIN_IDLE_MINUTES}
+            max={maxValid ? maxNum : MAX_MAX_SESSION_MINUTES}
+            step={1}
+            value={idleLogoutMinutes}
+            onChange={(e) => setIdleLogoutMinutes(e.target.value)}
+            aria-invalid={!idleValid || !idleLeqMax || undefined}
+          />
+          <p
+            className={
+              idleValid && idleLeqMax
+                ? "text-xs text-muted-foreground"
+                : "text-xs text-destructive"
+            }
+          >
+            {!idleValid
+              ? `Enter a whole number greater than or equal to ${MIN_IDLE_MINUTES}.`
+              : !idleLeqMax
+                ? "Idle logout cannot exceed max session duration."
+                : `${idleNum} minutes = ${formatMinutesHuman(idleNum)}. Sliding window — reset by user activity; a warning appears before sign-out.`}
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Note: for hard server-side enforcement, also configure Clerk&apos;s
+          session token lifetime in the Clerk dashboard to match the max session
+          duration.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const headerSettings =
     HeaderSettingsSchema.safeParse(settings?.headerSettings).data ??
@@ -353,6 +466,20 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       DEFAULT_APPEARANCE.shadowPreset,
   );
 
+  // ─── Session security ──────────────────────────────────────────────────────
+  const [maxSessionMinutes, setMaxSessionMinutes] = useState<string>(
+    String(
+      settings?.maxSessionDurationMinutes ??
+        SESSION_SECURITY_DEFAULTS.maxSessionDurationMinutes,
+    ),
+  );
+  const [idleLogoutMinutesInput, setIdleLogoutMinutesInput] = useState<string>(
+    String(
+      settings?.idleLogoutMinutes ??
+        SESSION_SECURITY_DEFAULTS.idleLogoutMinutes,
+    ),
+  );
+
   const previewAppearance = useMemo(
     () =>
       resolveAppearance({
@@ -375,8 +502,34 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
 
   const [isPending, startTransition] = useTransition();
 
+  const maxSessionMinutesNum = parseInt(maxSessionMinutes, 10);
+  const idleLogoutMinutesNum = parseInt(idleLogoutMinutesInput, 10);
+  const sessionSecurityValid =
+    Number.isFinite(maxSessionMinutesNum) &&
+    maxSessionMinutesNum >= MIN_MAX_SESSION_MINUTES &&
+    maxSessionMinutesNum <= MAX_MAX_SESSION_MINUTES &&
+    Number.isFinite(idleLogoutMinutesNum) &&
+    idleLogoutMinutesNum >= MIN_IDLE_MINUTES &&
+    idleLogoutMinutesNum <= maxSessionMinutesNum;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const parsedMax = clampMinutes(
+      maxSessionMinutes,
+      MIN_MAX_SESSION_MINUTES,
+      MAX_MAX_SESSION_MINUTES,
+      SESSION_SECURITY_DEFAULTS.maxSessionDurationMinutes,
+    );
+    const parsedIdle = clampMinutes(
+      idleLogoutMinutesInput,
+      MIN_IDLE_MINUTES,
+      parsedMax,
+      Math.min(SESSION_SECURITY_DEFAULTS.idleLogoutMinutes, parsedMax),
+    );
+    if (parsedIdle > parsedMax) {
+      toast.error("Idle logout cannot exceed max session duration.");
+      return;
+    }
     startTransition(async () => {
       const result = await updateGlobalSettings({
         siteName,
@@ -413,6 +566,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         fontPreset,
         radiusPreset,
         shadowPreset,
+        maxSessionDurationMinutes: parsedMax,
+        idleLogoutMinutes: parsedIdle,
       });
 
       if ("error" in result) {
@@ -540,12 +695,22 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             <Label htmlFor="headerBackground">
               Background Color (hex, optional)
             </Label>
-            <Input
-              id="headerBackground"
-              placeholder="#ffffff"
-              value={headerBackground}
-              onChange={(e) => setHeaderBackground(e.target.value)}
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                id="headerBackground"
+                type="color"
+                value={headerBackground || "#ffffff"}
+                onChange={(e) => setHeaderBackground(e.target.value)}
+                className="h-9 w-14 p-1"
+              />
+              <Input
+                type="text"
+                value={headerBackground}
+                onChange={(e) => setHeaderBackground(e.target.value)}
+                placeholder="#ffffff"
+                maxLength={7}
+              />
+            </div>
           </div>
           <GlowFields
             idPrefix="header"
@@ -602,12 +767,22 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             <Label htmlFor="footerBackground">
               Background Color (hex, optional)
             </Label>
-            <Input
-              id="footerBackground"
-              placeholder="#ffffff"
-              value={footerBackground}
-              onChange={(e) => setFooterBackground(e.target.value)}
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                id="footerBackground"
+                type="color"
+                value={footerBackground || "#ffffff"}
+                onChange={(e) => setFooterBackground(e.target.value)}
+                className="h-9 w-14 p-1"
+              />
+              <Input
+                type="text"
+                value={footerBackground}
+                onChange={(e) => setFooterBackground(e.target.value)}
+                placeholder="#ffffff"
+                maxLength={7}
+              />
+            </div>
           </div>
           <GlowFields
             idPrefix="footer"
@@ -816,8 +991,16 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         </CardContent>
       </Card>
 
+      {/* ── Session Security ── */}
+      <SessionSecurityCard
+        maxSessionMinutes={maxSessionMinutes}
+        setMaxSessionMinutes={setMaxSessionMinutes}
+        idleLogoutMinutes={idleLogoutMinutesInput}
+        setIdleLogoutMinutes={setIdleLogoutMinutesInput}
+      />
+
       <div>
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending || !sessionSecurityValid}>
           {isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>

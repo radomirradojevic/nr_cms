@@ -127,6 +127,13 @@
       "when": 1779984000000,
       "tag": "0018_add_more_themes",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1780070400000,
+      "tag": "0019_session_security",
+      "breakpoints": true
     }
   ]
 }
