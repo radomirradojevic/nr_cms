@@ -56,14 +56,23 @@ export type RadiusPreset = (typeof RADIUS_PRESETS)[number];
 export type ShadowPreset = (typeof SHADOW_PRESETS)[number];
 
 export const DEFAULT_THEME: Theme = "default";
+/**
+ * @deprecated Prefer `DEFAULT_FRONTEND_CONTENT_WIDTH` /
+ * `DEFAULT_BACKEND_CONTENT_WIDTH`. Kept as a shared fallback used by both.
+ */
 export const DEFAULT_CONTENT_WIDTH: ContentWidth = "contained";
+export const DEFAULT_FRONTEND_CONTENT_WIDTH: ContentWidth = "contained";
+export const DEFAULT_BACKEND_CONTENT_WIDTH: ContentWidth = "contained";
 export const DEFAULT_FONT_PRESET: FontPreset = "system";
 export const DEFAULT_RADIUS_PRESET: RadiusPreset = "medium";
 export const DEFAULT_SHADOW_PRESET: ShadowPreset = "soft";
 
 export type AppearanceSettings = {
   theme: Theme;
-  contentWidth: ContentWidth;
+  /** Max content width applied to public-facing layouts (pages, blog posts). */
+  frontendContentWidth: ContentWidth;
+  /** Max content width applied to admin/dashboard layouts. */
+  backendContentWidth: ContentWidth;
   fontPreset: FontPreset;
   radiusPreset: RadiusPreset;
   shadowPreset: ShadowPreset;
@@ -71,7 +80,8 @@ export type AppearanceSettings = {
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   theme: DEFAULT_THEME,
-  contentWidth: DEFAULT_CONTENT_WIDTH,
+  frontendContentWidth: DEFAULT_FRONTEND_CONTENT_WIDTH,
+  backendContentWidth: DEFAULT_BACKEND_CONTENT_WIDTH,
   fontPreset: DEFAULT_FONT_PRESET,
   radiusPreset: DEFAULT_RADIUS_PRESET,
   shadowPreset: DEFAULT_SHADOW_PRESET,
@@ -287,6 +297,13 @@ const CONTENT_WIDTH_VALUES: Record<ContentWidth, string> = {
   "ultra-wide": "110rem",
 };
 
+/** Map a `ContentWidth` enum value to its CSS length string. */
+export function getContentWidthValue(width: ContentWidth): string {
+  return (
+    CONTENT_WIDTH_VALUES[width] ?? CONTENT_WIDTH_VALUES[DEFAULT_CONTENT_WIDTH]
+  );
+}
+
 // ─── Fonts ──────────────────────────────────────────────────────────────────
 
 const SYSTEM_SANS_STACK =
@@ -443,8 +460,10 @@ export type ResolvedAppearance = {
   htmlClass: string;
   /** Flat map of CSS variable names → values, applied as inline style on the root element. */
   cssVars: Record<string, string>;
-  /** Max content width; mirrors `--content-max-width` so callers can read it directly. */
-  containerMaxWidth: string;
+  /** Max content width applied to frontend layouts; mirrors `--frontend-content-max-width`. */
+  frontendContainerMaxWidth: string;
+  /** Max content width applied to backend (dashboard) layouts; mirrors `--backend-content-max-width`. */
+  backendContainerMaxWidth: string;
   /** Optional `<link>` tags for remote font presets. */
   fontLinks: FontLink[];
 };
@@ -454,7 +473,10 @@ export function resolveAppearance(
 ): ResolvedAppearance {
   const s: AppearanceSettings = {
     theme: settings?.theme ?? DEFAULT_THEME,
-    contentWidth: settings?.contentWidth ?? DEFAULT_CONTENT_WIDTH,
+    frontendContentWidth:
+      settings?.frontendContentWidth ?? DEFAULT_FRONTEND_CONTENT_WIDTH,
+    backendContentWidth:
+      settings?.backendContentWidth ?? DEFAULT_BACKEND_CONTENT_WIDTH,
     fontPreset: settings?.fontPreset ?? DEFAULT_FONT_PRESET,
     radiusPreset: settings?.radiusPreset ?? DEFAULT_RADIUS_PRESET,
     shadowPreset: settings?.shadowPreset ?? DEFAULT_SHADOW_PRESET,
@@ -467,22 +489,31 @@ export function resolveAppearance(
     SHADOW_VALUES[s.shadowPreset] ?? SHADOW_VALUES[DEFAULT_SHADOW_PRESET];
   const radius =
     RADIUS_VALUES[s.radiusPreset] ?? RADIUS_VALUES[DEFAULT_RADIUS_PRESET];
-  const containerMaxWidth =
-    CONTENT_WIDTH_VALUES[s.contentWidth] ??
-    CONTENT_WIDTH_VALUES[DEFAULT_CONTENT_WIDTH];
+  const frontendContainerMaxWidth = getContentWidthValue(
+    s.frontendContentWidth,
+  );
+  const backendContainerMaxWidth = getContentWidthValue(s.backendContentWidth);
 
+  // We emit BOTH width vars on the root element. `--content-max-width` is
+  // resolved per-subtree in CSS (see `app/globals.css`): frontend by default,
+  // backend when the dashboard layout marker (`.dashboard-content-root`) is
+  // present. We deliberately do NOT set `--content-max-width` here, so the
+  // CSS rule can switch between the two without being shadowed by an inline
+  // style on `<html>`.
   const cssVars: Record<string, string> = {
     ...themeEntry.vars,
     ...fontConfig.vars,
     ...shadowVars,
     "--radius": radius,
-    "--content-max-width": containerMaxWidth,
+    "--frontend-content-max-width": frontendContainerMaxWidth,
+    "--backend-content-max-width": backendContainerMaxWidth,
   };
 
   return {
     htmlClass: themeEntry.dark ? "dark" : "",
     cssVars,
-    containerMaxWidth,
+    frontendContainerMaxWidth,
+    backendContainerMaxWidth,
     fontLinks: fontConfig.links,
   };
 }

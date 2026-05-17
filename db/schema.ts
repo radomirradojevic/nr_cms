@@ -424,7 +424,12 @@ export const globalSettings = pgTable(
       .default(524_288_000),
     // ─── Appearance (driven by lib/appearance.ts) ──────────────────────────
     theme: text("theme").notNull().default("default"),
-    contentWidth: text("content_width").notNull().default("contained"),
+    frontendContentWidth: text("frontend_content_width")
+      .notNull()
+      .default("contained"),
+    backendContentWidth: text("backend_content_width")
+      .notNull()
+      .default("contained"),
     fontPreset: text("font_preset").notNull().default("system"),
     radiusPreset: text("radius_preset").notNull().default("medium"),
     shadowPreset: text("shadow_preset").notNull().default("soft"),
@@ -458,8 +463,12 @@ export const globalSettings = pgTable(
       sql`${table.theme} IN ('default','dark','minimal','corporate','cyberpunk','elegant')`,
     ),
     check(
-      "global_settings_content_width_check",
-      sql`${table.contentWidth} IN ('full-width','contained','narrow','wide','ultra-wide')`,
+      "global_settings_frontend_content_width_check",
+      sql`${table.frontendContentWidth} IN ('full-width','contained','narrow','wide','ultra-wide')`,
+    ),
+    check(
+      "global_settings_backend_content_width_check",
+      sql`${table.backendContentWidth} IN ('full-width','contained','narrow','wide','ultra-wide')`,
     ),
     check(
       "global_settings_font_preset_check",
