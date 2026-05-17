@@ -6,6 +6,7 @@ import { getGlobalSettings } from "@/data/global-settings";
 import { getRoles, hasRole } from "@/lib/roles";
 import { ContentForm } from "../../content-form";
 import { parseVisibility } from "@/lib/content-visibility";
+import { ContentEditLockProvider } from "@/components/content-edit-lock-provider";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -54,30 +55,37 @@ export default async function EditContentPage({ params }: Props) {
 
   return (
     <div className="p-6">
-      <ContentForm
-        mode="edit"
-        contentType={row.contentType as "page" | "blog_post"}
+      <ContentEditLockProvider
+        contentId={row.id}
+        initialVersion={row.version}
+        currentUserId={user.id}
         currentUserRoles={roles}
-        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-        appearance={settings.appearance}
-        initial={{
-          id: row.id,
-          title: row.title,
-          slug: row.slug,
-          categoryId: row.categoryId,
-          metaTitle: row.metaTitle,
-          metaDescription: row.metaDescription,
-          excerpt: row.excerpt,
-          coverImage: row.coverImage,
-          status: row.status as "published" | "unpublished" | "archived",
-          homepage: row.homepage,
-          enableComments: row.enableComments,
-          autoPublishComments: row.autoPublishComments,
-          allowAnonymousComments: row.allowAnonymousComments,
-          visibility: parseVisibility(row.visibility),
-          contentJson: row.contentJson,
-        }}
-      />
+      >
+        <ContentForm
+          mode="edit"
+          contentType={row.contentType as "page" | "blog_post"}
+          currentUserRoles={roles}
+          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          appearance={settings.appearance}
+          initial={{
+            id: row.id,
+            title: row.title,
+            slug: row.slug,
+            categoryId: row.categoryId,
+            metaTitle: row.metaTitle,
+            metaDescription: row.metaDescription,
+            excerpt: row.excerpt,
+            coverImage: row.coverImage,
+            status: row.status as "published" | "unpublished" | "archived",
+            homepage: row.homepage,
+            enableComments: row.enableComments,
+            autoPublishComments: row.autoPublishComments,
+            allowAnonymousComments: row.allowAnonymousComments,
+            visibility: parseVisibility(row.visibility),
+            contentJson: row.contentJson,
+          }}
+        />
+      </ContentEditLockProvider>
     </div>
   );
 }
