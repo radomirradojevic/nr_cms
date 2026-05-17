@@ -10,9 +10,11 @@ import {
   FooterSettingsSchema,
   GLOBAL_SETTINGS_TAG,
   HeaderSettingsSchema,
+  SESSION_SECURITY_DEFAULTS,
   type FooterSettings,
   type HeaderSettings,
   type ResolvedGlobalSettings,
+  type SessionSecuritySettings,
   type UpdateGlobalSettingsInput,
 } from "@/lib/global-settings";
 import {
@@ -114,6 +116,8 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
       fontPreset: globalSettings.fontPreset,
       radiusPreset: globalSettings.radiusPreset,
       shadowPreset: globalSettings.shadowPreset,
+      maxSessionDurationMinutes: globalSettings.maxSessionDurationMinutes,
+      idleLogoutMinutes: globalSettings.idleLogoutMinutes,
       logoStoragePath: files.storagePath,
       logoAlt: files.alt,
     })
@@ -151,6 +155,33 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
       radiusPreset: row.radiusPreset,
       shadowPreset: row.shadowPreset,
     }),
+    sessionSecurity: parseSessionSecurity({
+      maxSessionDurationMinutes: row.maxSessionDurationMinutes,
+      idleLogoutMinutes: row.idleLogoutMinutes,
+    }),
+  };
+}
+
+function parseSessionSecurity(row: {
+  maxSessionDurationMinutes: unknown;
+  idleLogoutMinutes: unknown;
+}): SessionSecuritySettings {
+  const max =
+    typeof row.maxSessionDurationMinutes === "number" &&
+    Number.isFinite(row.maxSessionDurationMinutes) &&
+    row.maxSessionDurationMinutes >= 5 &&
+    row.maxSessionDurationMinutes <= 10_080
+      ? Math.floor(row.maxSessionDurationMinutes)
+      : SESSION_SECURITY_DEFAULTS.maxSessionDurationMinutes;
+  const idleRaw =
+    typeof row.idleLogoutMinutes === "number" &&
+    Number.isFinite(row.idleLogoutMinutes) &&
+    row.idleLogoutMinutes >= 1
+      ? Math.floor(row.idleLogoutMinutes)
+      : SESSION_SECURITY_DEFAULTS.idleLogoutMinutes;
+  return {
+    maxSessionDurationMinutes: max,
+    idleLogoutMinutes: Math.min(idleRaw, max),
   };
 }
 
@@ -163,7 +194,7 @@ export const getGlobalSettings = unstable_cache(
       return DEFAULT_RESOLVED_GLOBAL_SETTINGS;
     }
   },
-  ["global-settings:resolved"],
+  ["global-settings:resolved:v2"],
   { tags: [GLOBAL_SETTINGS_TAG] },
 );
 
@@ -197,6 +228,8 @@ export async function updateGlobalSettings(
     fontPreset: input.fontPreset,
     radiusPreset: input.radiusPreset,
     shadowPreset: input.shadowPreset,
+    maxSessionDurationMinutes: input.maxSessionDurationMinutes,
+    idleLogoutMinutes: input.idleLogoutMinutes,
     updatedBy: userId,
   };
 
