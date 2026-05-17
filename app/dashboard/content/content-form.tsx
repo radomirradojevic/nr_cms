@@ -47,6 +47,7 @@ import {
   type UpdateContentInput,
 } from "./actions";
 import type { AppearanceSettings } from "@/lib/appearance";
+import { useContentEditLockOptional } from "@/components/content-edit-lock-provider";
 
 export type ContentFormCategory = { id: string; name: string };
 
@@ -87,6 +88,9 @@ export function ContentForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [staleVersion, setStaleVersion] = useState<number | null>(null);
+  const lock = useContentEditLockOptional();
+  const lockBlocksSave = mode === "edit" && lock !== null && !lock.isEditor;
 
   const isAdmin = hasRole(currentUserRoles, "admin");
   const isPublisher = hasRole(currentUserRoles, "publisher");
@@ -216,10 +220,34 @@ export function ContentForm({
                 allowAnonymousComments,
               }
             : {}),
+          ...(lock
+            ? {
+                lockClientId: lock.clientId,
+                expectedVersion: lock.contentVersion,
+              }
+            : {}),
         };
         const r = await updateContent(input);
-        if (r.error) setError(r.error);
-        else if (shouldClose) router.push("/dashboard/content");
+        if (r.error) {
+          setError(r.error);
+          if ("code" in r && r.code === "STALE_CONTENT") {
+            setStaleVersion(
+              "currentVersion" in r && typeof r.currentVersion === "number"
+                ? r.currentVersion
+                : null,
+            );
+          }
+        } else {
+          // Sync the bumped version back into the lock provider so the
+          // NEXT save from this same session sends the up-to-date
+          // expectedVersion and isn't rejected as stale.
+          if (lock && typeof r.version === "number") {
+            lock.syncVersionAfterSave(r.version);
+          }
+          setError(null);
+          setStaleVersion(null);
+          if (shouldClose) router.push("/dashboard/content");
+        }
       }
     });
   }
@@ -246,14 +274,27 @@ export function ContentForm({
             </Button>
           ) : (
             <>
-              <Button onClick={() => submit(false)} disabled={pending}>
+              <Button
+                onClick={() => submit(false)}
+                disabled={pending || lockBlocksSave}
+                title={
+                  lockBlocksSave
+                    ? "Saving is disabled while another editor holds the edit lock."
+                    : undefined
+                }
+              >
                 {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save
               </Button>
               <Button
                 onClick={() => submit(true)}
-                disabled={pending}
+                disabled={pending || lockBlocksSave}
                 variant="secondary"
+                title={
+                  lockBlocksSave
+                    ? "Saving is disabled while another editor holds the edit lock."
+                    : undefined
+                }
               >
                 {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save and close
@@ -269,10 +310,28 @@ export function ContentForm({
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
           {error}
+          {staleVersion !== null && (
+            <div className="mt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => router.refresh()}
+              >
+                Reload latest version
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <fieldset
+        disabled={lockBlocksSave}
+        className={
+          lockBlocksSave
+            ? "grid grid-cols-1 lg:grid-cols-3 gap-6 opacity-70 pointer-events-none"
+            : "grid grid-cols-1 lg:grid-cols-3 gap-6"
+        }
+      >
         <div className="lg:col-span-2 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
@@ -593,7 +652,7 @@ export function ContentForm({
             </div>
           )}
         </aside>
-      </div>
+      </fieldset>
     </div>
   );
 }

@@ -69,6 +69,7 @@ export const content = pgTable(
     visibility: jsonb("visibility")
       .notNull()
       .default(sql`'{"public":true,"roles":[]}'::jsonb`),
+    version: integer("version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -496,6 +497,61 @@ export const globalSettings = pgTable(
     check(
       "global_settings_idle_le_max",
       sql`${table.idleLogoutMinutes} <= ${table.maxSessionDurationMinutes}`,
+    ),
+  ],
+);
+
+// ─── Content edit locks ─────────────────────────────────────────────────────
+// See .github/instructions/cms-content-edit-locking.instructions.md
+export const contentEditLocks = pgTable(
+  "content_edit_locks",
+  {
+    contentId: uuid("content_id")
+      .primaryKey()
+      .references(() => content.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    userDisplayName: text("user_display_name").notNull(),
+    userRole: text("user_role").notNull(),
+    sessionId: text("session_id").notNull(),
+    clientId: text("client_id").notNull(),
+    acquiredAt: timestamp("acquired_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    leaseExpiresAt: timestamp("lease_expires_at", {
+      withTimezone: true,
+    }).notNull(),
+    takenOverBy: text("taken_over_by"),
+  },
+  (table) => [
+    index("content_edit_locks_user_id_idx").on(table.userId),
+    index("content_edit_locks_lease_expires_at_idx").on(table.leaseExpiresAt),
+  ],
+);
+
+export const contentEditLockAudit = pgTable(
+  "content_edit_lock_audit",
+  {
+    id: bigint("id", { mode: "number" })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    contentId: uuid("content_id").notNull(),
+    userId: text("user_id").notNull(),
+    event: text("event").notNull(),
+    previousUserId: text("previous_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    metadata: jsonb("metadata"),
+  },
+  (table) => [
+    index("content_edit_lock_audit_content_id_idx").on(table.contentId),
+    index("content_edit_lock_audit_created_at_idx").on(table.createdAt),
+    check(
+      "content_edit_lock_audit_event_check",
+      sql`${table.event} IN ('acquired','refreshed','released','expired','force_taken','save_rejected_stale')`,
     ),
   ],
 );
