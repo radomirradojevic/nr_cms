@@ -460,7 +460,7 @@ export const globalSettings = pgTable(
     // ─── Appearance enum CHECKs — MUST mirror the arrays in lib/appearance.ts ─
     check(
       "global_settings_theme_check",
-      sql`${table.theme} IN ('default','dark','minimal','corporate','cyberpunk','elegant')`,
+      sql`${table.theme} IN ('default','dark','minimal','corporate','cyberpunk','elegant','forest','ocean','sunset','pastel','luxury','obsidian','midnight','aurora')`,
     ),
     check(
       "global_settings_frontend_content_width_check",
