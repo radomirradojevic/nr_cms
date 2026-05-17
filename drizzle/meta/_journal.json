@@ -113,6 +113,13 @@
       "when": 1779849600000,
       "tag": "0016_split_content_width",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1779936000000,
+      "tag": "0017_custom_content_width",
+      "breakpoints": true
     }
   ]
 }

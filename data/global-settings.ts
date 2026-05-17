@@ -16,12 +16,12 @@ import {
   type UpdateGlobalSettingsInput,
 } from "@/lib/global-settings";
 import {
-  CONTENT_WIDTHS,
   DEFAULT_APPEARANCE,
   FONT_PRESETS,
   RADIUS_PRESETS,
   SHADOW_PRESETS,
   THEMES,
+  normalizeContentWidth,
   type AppearanceSettings,
   type ContentWidth,
   type FontPreset,
@@ -69,13 +69,11 @@ function parseAppearance(row: {
       row.theme,
       DEFAULT_APPEARANCE.theme,
     ) as Theme,
-    frontendContentWidth: pickEnum<typeof CONTENT_WIDTHS>(
-      CONTENT_WIDTHS,
+    frontendContentWidth: normalizeContentWidth(
       row.frontendContentWidth,
       DEFAULT_APPEARANCE.frontendContentWidth,
     ) as ContentWidth,
-    backendContentWidth: pickEnum<typeof CONTENT_WIDTHS>(
-      CONTENT_WIDTHS,
+    backendContentWidth: normalizeContentWidth(
       row.backendContentWidth,
       DEFAULT_APPEARANCE.backendContentWidth,
     ) as ContentWidth,
