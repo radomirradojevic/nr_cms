@@ -152,6 +152,71 @@ html:has(.dashboard-content-root) {
   --content-max-width: var(--backend-content-max-width);
 }
 
+/*
+ * Aurora theme — animated northern-lights gradient layered on top of the
+ * solid `--background` token. Implemented as a fixed pseudo-element on the
+ * <body> so it covers the viewport without affecting scroll/layout, sits
+ * behind page content (`z-index: -1`), and is purely additive — removing
+ * the `.theme-aurora` class restores the plain background. All other
+ * theme tokens (colors, borders, etc.) still come from `lib/appearance.ts`.
+ *
+ * Honors `prefers-reduced-motion` by disabling the animation while
+ * keeping the static gradient visible.
+ */
+.theme-aurora body {
+  position: relative;
+}
+.theme-aurora body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      60% 50% at 20% 15%,
+      oklch(0.55 0.18 160 / 35%) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      55% 45% at 85% 25%,
+      oklch(0.55 0.2 320 / 30%) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      70% 55% at 50% 95%,
+      oklch(0.5 0.18 240 / 35%) 0%,
+      transparent 75%
+    );
+  background-size: 200% 200%;
+  animation: aurora-shift 18s ease-in-out infinite alternate;
+}
+@keyframes aurora-shift {
+  0% {
+    background-position:
+      0% 0%,
+      100% 0%,
+      50% 100%;
+  }
+  50% {
+    background-position:
+      20% 30%,
+      80% 20%,
+      60% 80%;
+  }
+  100% {
+    background-position:
+      10% 10%,
+      90% 40%,
+      40% 90%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-aurora body::before {
+    animation: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
