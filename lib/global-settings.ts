@@ -31,6 +31,33 @@ export const HARD_MAX_BATCH_UPLOAD_SIZE_BYTES = 20 * GB;
 
 export const MAX_STICKY_HEIGHT_PX = 400;
 
+// ─── Session security ─────────────────────────────────────────────────────────
+
+export const MIN_MAX_SESSION_MINUTES = 5;
+export const MAX_MAX_SESSION_MINUTES = 10_080; // 7 days
+export const MIN_IDLE_MINUTES = 1;
+
+export const SESSION_SECURITY_DEFAULTS = {
+  maxSessionDurationMinutes: 480,
+  idleLogoutMinutes: 30,
+} as const;
+
+export const SessionSecuritySchema = z
+  .object({
+    maxSessionDurationMinutes: z
+      .number()
+      .int()
+      .min(MIN_MAX_SESSION_MINUTES)
+      .max(MAX_MAX_SESSION_MINUTES),
+    idleLogoutMinutes: z.number().int().min(MIN_IDLE_MINUTES),
+  })
+  .refine((v) => v.idleLogoutMinutes <= v.maxSessionDurationMinutes, {
+    path: ["idleLogoutMinutes"],
+    message: "Idle logout cannot exceed max session duration.",
+  });
+
+export type SessionSecuritySettings = z.infer<typeof SessionSecuritySchema>;
+
 // ─── JSON shapes ──────────────────────────────────────────────────────────────
 
 const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -117,11 +144,21 @@ export const UpdateGlobalSettingsSchema = z
     fontPreset: z.enum(FONT_PRESETS),
     radiusPreset: z.enum(RADIUS_PRESETS),
     shadowPreset: z.enum(SHADOW_PRESETS),
+    maxSessionDurationMinutes: z
+      .number()
+      .int()
+      .min(MIN_MAX_SESSION_MINUTES)
+      .max(MAX_MAX_SESSION_MINUTES),
+    idleLogoutMinutes: z.number().int().min(MIN_IDLE_MINUTES),
   })
   .refine((v) => v.maxBatchUploadSizeBytes >= v.maxUploadSizeBytes, {
     message:
       "Max batch upload size must be greater than or equal to max per-file upload size.",
     path: ["maxBatchUploadSizeBytes"],
+  })
+  .refine((v) => v.idleLogoutMinutes <= v.maxSessionDurationMinutes, {
+    message: "Idle logout cannot exceed max session duration.",
+    path: ["idleLogoutMinutes"],
   });
 
 export type UpdateGlobalSettingsInput = z.infer<
@@ -148,6 +185,7 @@ export type ResolvedGlobalSettings = {
   maxUploadSizeBytes: number;
   maxBatchUploadSizeBytes: number;
   appearance: AppearanceSettings;
+  sessionSecurity: SessionSecuritySettings;
 };
 
 export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
@@ -162,4 +200,5 @@ export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
   maxUploadSizeBytes: DEFAULT_MAX_UPLOAD_SIZE_BYTES,
   maxBatchUploadSizeBytes: DEFAULT_MAX_BATCH_UPLOAD_SIZE_BYTES,
   appearance: DEFAULT_APPEARANCE,
+  sessionSecurity: SESSION_SECURITY_DEFAULTS,
 };

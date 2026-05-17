@@ -433,6 +433,11 @@ export const globalSettings = pgTable(
     fontPreset: text("font_preset").notNull().default("system"),
     radiusPreset: text("radius_preset").notNull().default("medium"),
     shadowPreset: text("shadow_preset").notNull().default("soft"),
+    // ─── Session security (driven by lib/session-security.ts) ──────────────
+    maxSessionDurationMinutes: integer("max_session_duration_minutes")
+      .notNull()
+      .default(480),
+    idleLogoutMinutes: integer("idle_logout_minutes").notNull().default(30),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
@@ -481,6 +486,16 @@ export const globalSettings = pgTable(
     check(
       "global_settings_shadow_preset_check",
       sql`${table.shadowPreset} IN ('none','soft','medium','strong')`,
+    ),
+    // ─── Session security CHECKs — MUST mirror SessionSecuritySchema ───────
+    check(
+      "global_settings_max_session_range",
+      sql`${table.maxSessionDurationMinutes} BETWEEN 5 AND 10080`,
+    ),
+    check("global_settings_idle_range", sql`${table.idleLogoutMinutes} >= 1`),
+    check(
+      "global_settings_idle_le_max",
+      sql`${table.idleLogoutMinutes} <= ${table.maxSessionDurationMinutes}`,
     ),
   ],
 );

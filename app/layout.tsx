@@ -19,6 +19,8 @@ import { SiteTopMenu } from "@/components/site-top-menu";
 import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
 import { SiteTopMenuLink } from "@/components/site-top-menu-link";
 import { getGlobalSettings } from "@/data/global-settings";
+import { getSessionSecuritySettings } from "@/lib/session-security";
+import { SessionSecurityProvider } from "@/components/session-security-provider";
 import { cn } from "@/lib/utils";
 import { cssVarsToInlineStyle, resolveAppearance } from "@/lib/appearance";
 import { resolveGlowCssVars } from "@/lib/glow";
@@ -52,6 +54,7 @@ export default async function RootLayout({
     hasRole(roles, "author");
   const isAdmin = hasRole(roles, "admin");
   const settings = await getGlobalSettings();
+  const sessionSecurity = await getSessionSecuritySettings();
   const siteName = settings.siteName;
   const logoUrl = settings.siteLogo
     ? `/api/files/${settings.siteLogo.fileId}`
@@ -109,241 +112,253 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ClerkProvider appearance={{ theme: shadcn }}>
-          <header
-            className={cn(
-              "site-header bg-background flex items-center justify-between p-4 gap-4",
-              headerIsSticky && "sticky top-0 z-50",
-            )}
-            style={{
-              height: `${headerH}px`,
-              ...(headerBg ? { backgroundColor: headerBg } : {}),
-            }}
+          <SessionSecurityProvider
+            maxSessionDurationMinutes={
+              sessionSecurity.maxSessionDurationMinutes
+            }
+            idleLogoutMinutes={sessionSecurity.idleLogoutMinutes}
           >
-            <a
-              href="/"
-              className="text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors flex items-center gap-2 shrink-0"
+            <header
+              className={cn(
+                "site-header bg-background flex items-center justify-between p-4 gap-4",
+                headerIsSticky && "sticky top-0 z-50",
+              )}
+              style={{
+                height: `${headerH}px`,
+                ...(headerBg ? { backgroundColor: headerBg } : {}),
+              }}
             >
-              {logoUrl && settings.headerSettings.showLogo && (
-                <div
-                  style={{
-                    width: "calc(var(--header-h) * 0.85)",
-                    height: "calc(var(--header-h) * 0.85)",
-                    borderRadius: "50%",
-                    border: "1px solid #6b7280",
-                    overflow: "hidden",
-                    flexShrink: 0,
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={logoUrl}
-                    alt={settings.siteLogo?.alt ?? siteName}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      borderRadius: "50%",
-                    }}
-                    className="object-contain"
-                  />
-                </div>
-              )}
-              {settings.headerSettings.showSiteName && <span>{siteName}</span>}
-            </a>
-            {settings.headerContent && (
-              <div
-                className="flex-1 min-w-0 self-stretch overflow-hidden flex items-center"
-                dangerouslySetInnerHTML={{ __html: settings.headerContent }}
-              />
-            )}
-            <div className="flex items-center gap-4 shrink-0">
-              <SiteTopMenu
-                isBackendUser={isBackendUser}
-                isAdmin={isAdmin}
-                isLoggedIn={!!user}
-              />
-              {isBackendUser && (
-                <div className="hidden lg:block">
-                  <NavigationMenu viewport={false}>
-                    <NavigationMenuList>
-                      <NavigationMenuItem>
-                        {isAdmin ? (
-                          <>
-                            <SiteTopMenuParentTrigger
-                              url="/dashboard"
-                              target="_self"
-                              label="Dashboard"
-                            />
-                            <NavigationMenuContent>
-                              <ul className="grid w-48 gap-1 p-2">
-                                <li>
-                                  <NavigationMenuLink asChild>
-                                    <Link
-                                      href="/dashboard/global-settings"
-                                      className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
-                                    >
-                                      Global Settings
-                                    </Link>
-                                  </NavigationMenuLink>
-                                </li>
-                              </ul>
-                            </NavigationMenuContent>
-                          </>
-                        ) : (
-                          <NavigationMenuLink
-                            asChild
-                            className={navigationMenuTriggerStyle()}
-                          >
-                            <Link href="/dashboard">Dashboard</Link>
-                          </NavigationMenuLink>
-                        )}
-                      </NavigationMenuItem>
-                      <NavigationMenuItem>
-                        {isAdmin ? (
-                          <>
-                            <SiteTopMenuParentTrigger
-                              url="/dashboard/content"
-                              target="_self"
-                              label="Content"
-                            />
-                            <NavigationMenuContent>
-                              <ul className="grid w-52 gap-1 p-2">
-                                <li>
-                                  <NavigationMenuLink asChild>
-                                    <Link
-                                      href="/dashboard/content-categories"
-                                      className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
-                                    >
-                                      Content Categories
-                                    </Link>
-                                  </NavigationMenuLink>
-                                </li>
-                              </ul>
-                            </NavigationMenuContent>
-                          </>
-                        ) : (
-                          <NavigationMenuLink
-                            asChild
-                            className={navigationMenuTriggerStyle()}
-                          >
-                            <Link href="/dashboard/content">Content</Link>
-                          </NavigationMenuLink>
-                        )}
-                      </NavigationMenuItem>
-                      <NavigationMenuItem>
-                        <SiteTopMenuParentTrigger
-                          url="/dashboard/filemanager"
-                          target="_self"
-                          label="File Manager"
-                        />
-                        <NavigationMenuContent>
-                          <ul className="grid w-52 gap-1 p-2">
-                            <li>
-                              <NavigationMenuLink asChild>
-                                <Link
-                                  href="/dashboard/gallerymanager"
-                                  className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
-                                >
-                                  Gallery Manager
-                                </Link>
-                              </NavigationMenuLink>
-                            </li>
-                          </ul>
-                        </NavigationMenuContent>
-                      </NavigationMenuItem>
-                      {isAdmin && (
-                        <>
-                          <NavigationMenuItem>
-                            <SiteTopMenuLink
-                              href="/dashboard/users"
-                              label="Users"
-                            />
-                          </NavigationMenuItem>
-                          <NavigationMenuItem>
-                            <SiteTopMenuLink
-                              href="/dashboard/top-menu"
-                              label="Top Menu"
-                            />
-                          </NavigationMenuItem>
-                          <NavigationMenuItem>
-                            <SiteTopMenuLink
-                              href="/dashboard/form-builder"
-                              label="Form Builder"
-                            />
-                          </NavigationMenuItem>
-                        </>
-                      )}
-                    </NavigationMenuList>
-                  </NavigationMenu>
-                </div>
-              )}
-              <div className="hidden lg:flex items-center gap-2">
-                {!user ? (
-                  <>
-                    <SignInButton mode="modal">
-                      <Button
-                        variant="ghost"
-                        size="lg"
-                        className="cursor-pointer"
-                      >
-                        Sign in
-                      </Button>
-                    </SignInButton>
-                    <SignUpButton mode="modal">
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="cursor-pointer"
-                      >
-                        Sign up
-                      </Button>
-                    </SignUpButton>
-                  </>
-                ) : (
-                  <UserButtonClient />
-                )}
-              </div>
-            </div>
-          </header>
-          <div
-            style={{
-              ...(headerIsSticky && stickyHeaderH > 0
-                ? { paddingTop: `${stickyHeaderH}px` }
-                : {}),
-              ...(footerIsSticky && stickyFooterH > 0
-                ? { paddingBottom: `${stickyFooterH}px` }
-                : {}),
-            }}
-          >
-            <div className="site-content-container mx-auto w-full px-4">
-              {children}
-            </div>
-          </div>
-          <footer
-            className={cn(
-              "site-footer bg-background mt-auto px-6 py-8 text-sm text-muted-foreground",
-              footerIsSticky && "sticky bottom-0 z-50",
-            )}
-            style={{
-              ...(stickyFooterH > 0 ? { height: `${stickyFooterH}px` } : {}),
-              ...(footerBg ? { backgroundColor: footerBg } : {}),
-            }}
-          >
-            {(settings.footerContent || settings.footerSettings.copyright) && (
-              <div className="site-content-container mx-auto flex w-full flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-                {settings.footerContent && (
+              <a
+                href="/"
+                className="text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors flex items-center gap-2 shrink-0"
+              >
+                {logoUrl && settings.headerSettings.showLogo && (
                   <div
-                    className="cms-content max-w-none text-sm [&_a]:underline [&_a]:hover:text-foreground"
-                    dangerouslySetInnerHTML={{ __html: settings.footerContent }}
-                  />
-                )}
-                {settings.footerSettings.copyright && (
-                  <div className="sm:text-right shrink-0">
-                    <span>{settings.footerSettings.copyright}</span>
+                    style={{
+                      width: "calc(var(--header-h) * 0.85)",
+                      height: "calc(var(--header-h) * 0.85)",
+                      borderRadius: "50%",
+                      border: "1px solid #6b7280",
+                      overflow: "hidden",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={logoUrl}
+                      alt={settings.siteLogo?.alt ?? siteName}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "50%",
+                      }}
+                      className="object-contain"
+                    />
                   </div>
                 )}
+                {settings.headerSettings.showSiteName && (
+                  <span>{siteName}</span>
+                )}
+              </a>
+              {settings.headerContent && (
+                <div
+                  className="flex-1 min-w-0 self-stretch overflow-hidden flex items-center"
+                  dangerouslySetInnerHTML={{ __html: settings.headerContent }}
+                />
+              )}
+              <div className="flex items-center gap-4 shrink-0">
+                <SiteTopMenu
+                  isBackendUser={isBackendUser}
+                  isAdmin={isAdmin}
+                  isLoggedIn={!!user}
+                />
+                {isBackendUser && (
+                  <div className="hidden lg:block">
+                    <NavigationMenu viewport={false}>
+                      <NavigationMenuList>
+                        <NavigationMenuItem>
+                          {isAdmin ? (
+                            <>
+                              <SiteTopMenuParentTrigger
+                                url="/dashboard"
+                                target="_self"
+                                label="Dashboard"
+                              />
+                              <NavigationMenuContent>
+                                <ul className="grid w-48 gap-1 p-2">
+                                  <li>
+                                    <NavigationMenuLink asChild>
+                                      <Link
+                                        href="/dashboard/global-settings"
+                                        className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
+                                      >
+                                        Global Settings
+                                      </Link>
+                                    </NavigationMenuLink>
+                                  </li>
+                                </ul>
+                              </NavigationMenuContent>
+                            </>
+                          ) : (
+                            <NavigationMenuLink
+                              asChild
+                              className={navigationMenuTriggerStyle()}
+                            >
+                              <Link href="/dashboard">Dashboard</Link>
+                            </NavigationMenuLink>
+                          )}
+                        </NavigationMenuItem>
+                        <NavigationMenuItem>
+                          {isAdmin ? (
+                            <>
+                              <SiteTopMenuParentTrigger
+                                url="/dashboard/content"
+                                target="_self"
+                                label="Content"
+                              />
+                              <NavigationMenuContent>
+                                <ul className="grid w-52 gap-1 p-2">
+                                  <li>
+                                    <NavigationMenuLink asChild>
+                                      <Link
+                                        href="/dashboard/content-categories"
+                                        className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
+                                      >
+                                        Content Categories
+                                      </Link>
+                                    </NavigationMenuLink>
+                                  </li>
+                                </ul>
+                              </NavigationMenuContent>
+                            </>
+                          ) : (
+                            <NavigationMenuLink
+                              asChild
+                              className={navigationMenuTriggerStyle()}
+                            >
+                              <Link href="/dashboard/content">Content</Link>
+                            </NavigationMenuLink>
+                          )}
+                        </NavigationMenuItem>
+                        <NavigationMenuItem>
+                          <SiteTopMenuParentTrigger
+                            url="/dashboard/filemanager"
+                            target="_self"
+                            label="File Manager"
+                          />
+                          <NavigationMenuContent>
+                            <ul className="grid w-52 gap-1 p-2">
+                              <li>
+                                <NavigationMenuLink asChild>
+                                  <Link
+                                    href="/dashboard/gallerymanager"
+                                    className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
+                                  >
+                                    Gallery Manager
+                                  </Link>
+                                </NavigationMenuLink>
+                              </li>
+                            </ul>
+                          </NavigationMenuContent>
+                        </NavigationMenuItem>
+                        {isAdmin && (
+                          <>
+                            <NavigationMenuItem>
+                              <SiteTopMenuLink
+                                href="/dashboard/users"
+                                label="Users"
+                              />
+                            </NavigationMenuItem>
+                            <NavigationMenuItem>
+                              <SiteTopMenuLink
+                                href="/dashboard/top-menu"
+                                label="Top Menu"
+                              />
+                            </NavigationMenuItem>
+                            <NavigationMenuItem>
+                              <SiteTopMenuLink
+                                href="/dashboard/form-builder"
+                                label="Form Builder"
+                              />
+                            </NavigationMenuItem>
+                          </>
+                        )}
+                      </NavigationMenuList>
+                    </NavigationMenu>
+                  </div>
+                )}
+                <div className="hidden lg:flex items-center gap-2">
+                  {!user ? (
+                    <>
+                      <SignInButton mode="modal">
+                        <Button
+                          variant="ghost"
+                          size="lg"
+                          className="cursor-pointer"
+                        >
+                          Sign in
+                        </Button>
+                      </SignInButton>
+                      <SignUpButton mode="modal">
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="cursor-pointer"
+                        >
+                          Sign up
+                        </Button>
+                      </SignUpButton>
+                    </>
+                  ) : (
+                    <UserButtonClient />
+                  )}
+                </div>
               </div>
-            )}
-          </footer>
+            </header>
+            <div
+              style={{
+                ...(headerIsSticky && stickyHeaderH > 0
+                  ? { paddingTop: `${stickyHeaderH}px` }
+                  : {}),
+                ...(footerIsSticky && stickyFooterH > 0
+                  ? { paddingBottom: `${stickyFooterH}px` }
+                  : {}),
+              }}
+            >
+              <div className="site-content-container mx-auto w-full px-4">
+                {children}
+              </div>
+            </div>
+            <footer
+              className={cn(
+                "site-footer bg-background mt-auto px-6 py-8 text-sm text-muted-foreground",
+                footerIsSticky && "sticky bottom-0 z-50",
+              )}
+              style={{
+                ...(stickyFooterH > 0 ? { height: `${stickyFooterH}px` } : {}),
+                ...(footerBg ? { backgroundColor: footerBg } : {}),
+              }}
+            >
+              {(settings.footerContent ||
+                settings.footerSettings.copyright) && (
+                <div className="site-content-container mx-auto flex w-full flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                  {settings.footerContent && (
+                    <div
+                      className="cms-content max-w-none text-sm [&_a]:underline [&_a]:hover:text-foreground"
+                      dangerouslySetInnerHTML={{
+                        __html: settings.footerContent,
+                      }}
+                    />
+                  )}
+                  {settings.footerSettings.copyright && (
+                    <div className="sm:text-right shrink-0">
+                      <span>{settings.footerSettings.copyright}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </footer>
+          </SessionSecurityProvider>
         </ClerkProvider>
       </body>
     </html>
