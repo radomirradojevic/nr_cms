@@ -464,11 +464,11 @@ export const globalSettings = pgTable(
     ),
     check(
       "global_settings_frontend_content_width_check",
-      sql`${table.frontendContentWidth} IN ('full-width','contained','narrow','wide','ultra-wide')`,
+      sql`${table.frontendContentWidth} ~ '^(full-width|contained|narrow|wide|ultra-wide|[1-9][0-9]{0,4})$'`,
     ),
     check(
       "global_settings_backend_content_width_check",
-      sql`${table.backendContentWidth} IN ('full-width','contained','narrow','wide','ultra-wide')`,
+      sql`${table.backendContentWidth} ~ '^(full-width|contained|narrow|wide|ultra-wide|[1-9][0-9]{0,4})$'`,
     ),
     check(
       "global_settings_font_preset_check",

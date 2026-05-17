@@ -4,10 +4,14 @@ import {
   CONTENT_WIDTHS,
   DEFAULT_APPEARANCE,
   FONT_PRESETS,
+  MAX_CUSTOM_CONTENT_WIDTH_PX,
+  MIN_CUSTOM_CONTENT_WIDTH_PX,
   RADIUS_PRESETS,
   SHADOW_PRESETS,
   THEMES,
+  normalizeContentWidth,
   type AppearanceSettings,
+  type ContentWidth,
 } from "@/lib/appearance";
 import { DEFAULT_GLOW, GlowEffectSchema } from "@/lib/glow";
 
@@ -65,6 +69,28 @@ export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
 
 // ─── Update payload schema ────────────────────────────────────────────────────
 
+/**
+ * Accepts a preset key from `CONTENT_WIDTHS` OR a positive integer-as-string
+ * representing the `max-width` in pixels. Numeric inputs (numbers or strings
+ * like `"900"` / `"900px"`) are normalized to a digit-only string and clamped
+ * to `[MIN_CUSTOM_CONTENT_WIDTH_PX, MAX_CUSTOM_CONTENT_WIDTH_PX]`.
+ */
+const ContentWidthSchema = z
+  .union([z.string(), z.number()])
+  .transform((v, ctx) => {
+    const normalized = normalizeContentWidth(v, "" as ContentWidth);
+    if (!normalized) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Content width must be one of ${CONTENT_WIDTHS.join(
+          ", ",
+        )} or a positive integer between ${MIN_CUSTOM_CONTENT_WIDTH_PX} and ${MAX_CUSTOM_CONTENT_WIDTH_PX} pixels.`,
+      });
+      return z.NEVER;
+    }
+    return normalized;
+  });
+
 export const UpdateGlobalSettingsSchema = z
   .object({
     siteName: z.string().trim().min(1).max(120),
@@ -86,8 +112,8 @@ export const UpdateGlobalSettingsSchema = z
       .positive()
       .max(HARD_MAX_BATCH_UPLOAD_SIZE_BYTES),
     theme: z.enum(THEMES),
-    frontendContentWidth: z.enum(CONTENT_WIDTHS),
-    backendContentWidth: z.enum(CONTENT_WIDTHS),
+    frontendContentWidth: ContentWidthSchema,
+    backendContentWidth: ContentWidthSchema,
     fontPreset: z.enum(FONT_PRESETS),
     radiusPreset: z.enum(RADIUS_PRESETS),
     shadowPreset: z.enum(SHADOW_PRESETS),
