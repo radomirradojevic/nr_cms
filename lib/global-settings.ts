@@ -86,7 +86,8 @@ export const UpdateGlobalSettingsSchema = z
       .positive()
       .max(HARD_MAX_BATCH_UPLOAD_SIZE_BYTES),
     theme: z.enum(THEMES),
-    contentWidth: z.enum(CONTENT_WIDTHS),
+    frontendContentWidth: z.enum(CONTENT_WIDTHS),
+    backendContentWidth: z.enum(CONTENT_WIDTHS),
     fontPreset: z.enum(FONT_PRESETS),
     radiusPreset: z.enum(RADIUS_PRESETS),
     shadowPreset: z.enum(SHADOW_PRESETS),

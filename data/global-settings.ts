@@ -57,7 +57,8 @@ function pickEnum<T extends readonly string[]>(
 
 function parseAppearance(row: {
   theme: unknown;
-  contentWidth: unknown;
+  frontendContentWidth: unknown;
+  backendContentWidth: unknown;
   fontPreset: unknown;
   radiusPreset: unknown;
   shadowPreset: unknown;
@@ -68,10 +69,15 @@ function parseAppearance(row: {
       row.theme,
       DEFAULT_APPEARANCE.theme,
     ) as Theme,
-    contentWidth: pickEnum<typeof CONTENT_WIDTHS>(
+    frontendContentWidth: pickEnum<typeof CONTENT_WIDTHS>(
       CONTENT_WIDTHS,
-      row.contentWidth,
-      DEFAULT_APPEARANCE.contentWidth,
+      row.frontendContentWidth,
+      DEFAULT_APPEARANCE.frontendContentWidth,
+    ) as ContentWidth,
+    backendContentWidth: pickEnum<typeof CONTENT_WIDTHS>(
+      CONTENT_WIDTHS,
+      row.backendContentWidth,
+      DEFAULT_APPEARANCE.backendContentWidth,
     ) as ContentWidth,
     fontPreset: pickEnum<typeof FONT_PRESETS>(
       FONT_PRESETS,
@@ -105,7 +111,8 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
       maxUploadSizeBytes: globalSettings.maxUploadSizeBytes,
       maxBatchUploadSizeBytes: globalSettings.maxBatchUploadSizeBytes,
       theme: globalSettings.theme,
-      contentWidth: globalSettings.contentWidth,
+      frontendContentWidth: globalSettings.frontendContentWidth,
+      backendContentWidth: globalSettings.backendContentWidth,
       fontPreset: globalSettings.fontPreset,
       radiusPreset: globalSettings.radiusPreset,
       shadowPreset: globalSettings.shadowPreset,
@@ -140,7 +147,8 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
     maxBatchUploadSizeBytes: Number(row.maxBatchUploadSizeBytes),
     appearance: parseAppearance({
       theme: row.theme,
-      contentWidth: row.contentWidth,
+      frontendContentWidth: row.frontendContentWidth,
+      backendContentWidth: row.backendContentWidth,
       fontPreset: row.fontPreset,
       radiusPreset: row.radiusPreset,
       shadowPreset: row.shadowPreset,
@@ -186,7 +194,8 @@ export async function updateGlobalSettings(
     maxUploadSizeBytes: input.maxUploadSizeBytes,
     maxBatchUploadSizeBytes: input.maxBatchUploadSizeBytes,
     theme: input.theme,
-    contentWidth: input.contentWidth,
+    frontendContentWidth: input.frontendContentWidth,
+    backendContentWidth: input.backendContentWidth,
     fontPreset: input.fontPreset,
     radiusPreset: input.radiusPreset,
     shadowPreset: input.shadowPreset,

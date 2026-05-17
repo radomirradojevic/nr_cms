@@ -209,9 +209,14 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [theme, setTheme] = useState<Theme>(
     (settings?.theme as Theme | undefined) ?? DEFAULT_APPEARANCE.theme,
   );
-  const [contentWidth, setContentWidth] = useState<ContentWidth>(
-    (settings?.contentWidth as ContentWidth | undefined) ??
-      DEFAULT_APPEARANCE.contentWidth,
+  const [frontendContentWidth, setFrontendContentWidth] =
+    useState<ContentWidth>(
+      (settings?.frontendContentWidth as ContentWidth | undefined) ??
+        DEFAULT_APPEARANCE.frontendContentWidth,
+    );
+  const [backendContentWidth, setBackendContentWidth] = useState<ContentWidth>(
+    (settings?.backendContentWidth as ContentWidth | undefined) ??
+      DEFAULT_APPEARANCE.backendContentWidth,
   );
   const [fontPreset, setFontPreset] = useState<FontPreset>(
     (settings?.fontPreset as FontPreset | undefined) ??
@@ -230,12 +235,20 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     () =>
       resolveAppearance({
         theme,
-        contentWidth,
+        frontendContentWidth,
+        backendContentWidth,
         fontPreset,
         radiusPreset,
         shadowPreset,
       }),
-    [theme, contentWidth, fontPreset, radiusPreset, shadowPreset],
+    [
+      theme,
+      frontendContentWidth,
+      backendContentWidth,
+      fontPreset,
+      radiusPreset,
+      shadowPreset,
+    ],
   );
 
   const [isPending, startTransition] = useTransition();
@@ -273,7 +286,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         maxUploadSizeBytes: (parseInt(maxUploadMB, 10) || 50) * MB,
         maxBatchUploadSizeBytes: (parseInt(maxBatchUploadMB, 10) || 500) * MB,
         theme,
-        contentWidth,
+        frontendContentWidth,
+        backendContentWidth,
         fontPreset,
         radiusPreset,
         shadowPreset,
@@ -556,12 +570,37 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="appearance-width">Content Width</Label>
+              <Label htmlFor="appearance-frontend-width">
+                Frontend Content Width
+              </Label>
               <Select
-                value={contentWidth}
-                onValueChange={(v) => setContentWidth(v as ContentWidth)}
+                value={frontendContentWidth}
+                onValueChange={(v) =>
+                  setFrontendContentWidth(v as ContentWidth)
+                }
               >
-                <SelectTrigger id="appearance-width">
+                <SelectTrigger id="appearance-frontend-width">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTENT_WIDTHS.map((w) => (
+                    <SelectItem key={w} value={w}>
+                      {w}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="appearance-backend-width">
+                Backend Content Width
+              </Label>
+              <Select
+                value={backendContentWidth}
+                onValueChange={(v) => setBackendContentWidth(v as ContentWidth)}
+              >
+                <SelectTrigger id="appearance-backend-width">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -671,7 +710,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                     Secondary
                   </button>
                   <span className="text-xs text-muted-foreground">
-                    container: {previewAppearance.containerMaxWidth}
+                    frontend: {previewAppearance.frontendContainerMaxWidth} /
+                    backend: {previewAppearance.backendContainerMaxWidth}
                   </span>
                 </div>
               </div>

@@ -18,7 +18,7 @@ export default async function Home() {
     }
     return (
       <div className="flex flex-1 justify-center px-6 py-16">
-        <main className="w-full max-w-5xl">
+        <main className="w-full">
           <BuilderRender data={homepage.contentJson} />
         </main>
       </div>
