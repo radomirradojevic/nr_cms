@@ -38,12 +38,18 @@ import {
   CONTENT_WIDTHS,
   DEFAULT_APPEARANCE,
   FONT_PRESETS,
+  MAX_CUSTOM_CONTENT_WIDTH_PX,
+  MIN_CUSTOM_CONTENT_WIDTH_PX,
   RADIUS_PRESETS,
   SHADOW_PRESETS,
   THEMES,
   cssVarsToInlineStyle,
+  isContentWidthPreset,
+  normalizeContentWidth,
+  parseCustomContentWidth,
   resolveAppearance,
   type ContentWidth,
+  type ContentWidthPreset,
   type FontPreset,
   type RadiusPreset,
   type ShadowPreset,
@@ -143,6 +149,118 @@ interface SettingsFormProps {
   initialLogoFile: FileRow | null;
 }
 
+const CUSTOM_WIDTH_OPTION = "__custom__";
+
+interface ContentWidthFieldProps {
+  id: string;
+  label: string;
+  value: ContentWidth;
+  onChange: (next: ContentWidth) => void;
+}
+
+function ContentWidthField({
+  id,
+  label,
+  value,
+  onChange,
+}: ContentWidthFieldProps) {
+  const valueIsPreset = isContentWidthPreset(value);
+  // Track the user's selection in local state so switching to "custom" with
+  // an empty/invalid input still reveals the number field (the committed
+  // `value` would otherwise remain a preset and hide it).
+  const [isCustom, setIsCustom] = useState<boolean>(!valueIsPreset);
+  const [customDraft, setCustomDraft] = useState<string>(
+    valueIsPreset ? "" : String(value),
+  );
+  const selectValue: string = isCustom
+    ? CUSTOM_WIDTH_OPTION
+    : valueIsPreset
+      ? value
+      : DEFAULT_APPEARANCE.frontendContentWidth;
+  const customNum = parseCustomContentWidth(customDraft);
+  const showError = isCustom && customDraft.length > 0 && customNum === null;
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Select
+        value={selectValue}
+        onValueChange={(v) => {
+          if (v === CUSTOM_WIDTH_OPTION) {
+            setIsCustom(true);
+            // Seed the draft from the previous numeric value (or empty when
+            // coming from a preset). Only commit upstream when valid so we
+            // never write an invalid value.
+            const seed = valueIsPreset ? "" : String(value);
+            setCustomDraft(seed);
+            const n = parseCustomContentWidth(seed);
+            if (n !== null) onChange(String(n));
+          } else {
+            setIsCustom(false);
+            onChange(v as ContentWidthPreset);
+          }
+        }}
+      >
+        <SelectTrigger id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {CONTENT_WIDTHS.map((w) => (
+            <SelectItem key={w} value={w}>
+              {w}
+            </SelectItem>
+          ))}
+          <SelectItem value={CUSTOM_WIDTH_OPTION}>custom (px)</SelectItem>
+        </SelectContent>
+      </Select>
+      {isCustom && (
+        <div className="space-y-1">
+          <Input
+            id={`${id}-custom`}
+            type="number"
+            inputMode="numeric"
+            min={MIN_CUSTOM_CONTENT_WIDTH_PX}
+            max={MAX_CUSTOM_CONTENT_WIDTH_PX}
+            step={1}
+            placeholder="e.g. 1200"
+            value={customDraft}
+            onChange={(e) => {
+              const next = e.target.value;
+              setCustomDraft(next);
+              const n = parseCustomContentWidth(next);
+              if (n !== null) onChange(String(n));
+            }}
+            onBlur={() => {
+              // On blur, snap the committed value to a safe default if the
+              // input is empty/invalid so we never persist an invalid value.
+              if (parseCustomContentWidth(customDraft) === null) {
+                onChange(
+                  normalizeContentWidth(
+                    customDraft,
+                    DEFAULT_APPEARANCE.frontendContentWidth,
+                  ),
+                );
+              }
+            }}
+            aria-invalid={showError || undefined}
+          />
+          <p
+            className={
+              showError
+                ? "text-xs text-destructive"
+                : "text-xs text-muted-foreground"
+            }
+          >
+            {showError
+              ? `Enter a whole number between ${MIN_CUSTOM_CONTENT_WIDTH_PX} and ${MAX_CUSTOM_CONTENT_WIDTH_PX}.`
+              : `Max-width in pixels. Layout stays responsive and centered (width: 100%, mx-auto).`}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const headerSettings =
     HeaderSettingsSchema.safeParse(settings?.headerSettings).data ??
@@ -209,9 +327,18 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [theme, setTheme] = useState<Theme>(
     (settings?.theme as Theme | undefined) ?? DEFAULT_APPEARANCE.theme,
   );
-  const [contentWidth, setContentWidth] = useState<ContentWidth>(
-    (settings?.contentWidth as ContentWidth | undefined) ??
-      DEFAULT_APPEARANCE.contentWidth,
+  const [frontendContentWidth, setFrontendContentWidth] =
+    useState<ContentWidth>(
+      normalizeContentWidth(
+        settings?.frontendContentWidth,
+        DEFAULT_APPEARANCE.frontendContentWidth,
+      ),
+    );
+  const [backendContentWidth, setBackendContentWidth] = useState<ContentWidth>(
+    normalizeContentWidth(
+      settings?.backendContentWidth,
+      DEFAULT_APPEARANCE.backendContentWidth,
+    ),
   );
   const [fontPreset, setFontPreset] = useState<FontPreset>(
     (settings?.fontPreset as FontPreset | undefined) ??
@@ -230,12 +357,20 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     () =>
       resolveAppearance({
         theme,
-        contentWidth,
+        frontendContentWidth,
+        backendContentWidth,
         fontPreset,
         radiusPreset,
         shadowPreset,
       }),
-    [theme, contentWidth, fontPreset, radiusPreset, shadowPreset],
+    [
+      theme,
+      frontendContentWidth,
+      backendContentWidth,
+      fontPreset,
+      radiusPreset,
+      shadowPreset,
+    ],
   );
 
   const [isPending, startTransition] = useTransition();
@@ -273,7 +408,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         maxUploadSizeBytes: (parseInt(maxUploadMB, 10) || 50) * MB,
         maxBatchUploadSizeBytes: (parseInt(maxBatchUploadMB, 10) || 500) * MB,
         theme,
-        contentWidth,
+        frontendContentWidth,
+        backendContentWidth,
         fontPreset,
         radiusPreset,
         shadowPreset,
@@ -555,24 +691,19 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="appearance-width">Content Width</Label>
-              <Select
-                value={contentWidth}
-                onValueChange={(v) => setContentWidth(v as ContentWidth)}
-              >
-                <SelectTrigger id="appearance-width">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CONTENT_WIDTHS.map((w) => (
-                    <SelectItem key={w} value={w}>
-                      {w}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ContentWidthField
+              id="appearance-frontend-width"
+              label="Frontend Content Width"
+              value={frontendContentWidth}
+              onChange={setFrontendContentWidth}
+            />
+
+            <ContentWidthField
+              id="appearance-backend-width"
+              label="Backend Content Width"
+              value={backendContentWidth}
+              onChange={setBackendContentWidth}
+            />
 
             <div className="space-y-1.5">
               <Label htmlFor="appearance-font">Font Preset</Label>
@@ -671,7 +802,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                     Secondary
                   </button>
                   <span className="text-xs text-muted-foreground">
-                    container: {previewAppearance.containerMaxWidth}
+                    frontend: {previewAppearance.frontendContainerMaxWidth} /
+                    backend: {previewAppearance.backendContainerMaxWidth}
                   </span>
                 </div>
               </div>

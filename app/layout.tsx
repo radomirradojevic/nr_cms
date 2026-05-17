@@ -314,10 +314,7 @@ export default async function RootLayout({
                 : {}),
             }}
           >
-            <div
-              className="mx-auto w-full px-4"
-              style={{ maxWidth: "var(--content-max-width)" }}
-            >
+            <div className="site-content-container mx-auto w-full px-4">
               {children}
             </div>
           </div>
@@ -332,7 +329,7 @@ export default async function RootLayout({
             }}
           >
             {(settings.footerContent || settings.footerSettings.copyright) && (
-              <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+              <div className="site-content-container mx-auto flex w-full flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                 {settings.footerContent && (
                   <div
                     className="cms-content max-w-none text-sm [&_a]:underline [&_a]:hover:text-foreground"

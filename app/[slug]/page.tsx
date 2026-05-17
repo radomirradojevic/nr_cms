@@ -75,7 +75,7 @@ export default async function PublicContentPage({ params }: Props) {
 
   return (
     <div className="flex flex-1 justify-center px-6 py-16">
-      <main className="w-full max-w-5xl space-y-8">
+      <main className="w-full space-y-8">
         {row.contentType === "blog_post" && (
           <header className="space-y-4">
             {row.coverImage && (

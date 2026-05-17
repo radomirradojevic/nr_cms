@@ -20,7 +20,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex flex-col flex-1">
+    <div className="dashboard-content-root flex flex-col flex-1">
       {children}
       <Toaster richColors closeButton />
     </div>
