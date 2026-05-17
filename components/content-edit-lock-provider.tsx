@@ -17,7 +17,7 @@ import {
   TAKEOVER_GRACE_SECONDS,
   type LockHolder,
 } from "@/lib/content-locks";
-import { type Role } from "@/lib/roles";
+import { hasRole, type Role } from "@/lib/roles";
 
 type LockState =
   | { kind: "loading" }
@@ -31,6 +31,17 @@ type LockContextValue = {
   contentVersion: number;
   /** True only when this user actively owns the lock. */
   isEditor: boolean;
+  /**
+   * True when the current user (admin) is permitted to force-take the lock
+   * from the current holder (a non-admin). False otherwise.
+   */
+  canTakeOver: boolean;
+  /** In-flight state for the takeover request, surfaced to the banner. */
+  takeoverPending: boolean;
+  /** Last takeover error message, if any (e.g. another admin holds it). */
+  takeoverError: string | null;
+  /** Trigger admin force-takeover. No-op if `canTakeOver` is false. */
+  takeOver: () => Promise<void>;
   /**
    * Update the in-memory content version after a successful save by this
    * editor, so the next save sends the up-to-date `expectedVersion` and
@@ -103,10 +114,9 @@ export function ContentEditLockProvider({
   // Latest state, accessible inside event listeners without re-binding them.
   const stateRef = useRef<LockState>({ kind: "loading" });
 
-  // currentUserRoles is intentionally accepted but unused at the moment:
-  // admin takeover UI was removed per spec (no user may take over while
-  // the current editor remains on the page).
-  void currentUserRoles;
+  const isAdmin = hasRole(currentUserRoles, "admin");
+  const [takeoverPending, setTakeoverPending] = useState(false);
+  const [takeoverError, setTakeoverError] = useState<string | null>(null);
 
   const clearHeartbeat = useCallback(() => {
     if (heartbeatTimer.current) {
@@ -410,6 +420,67 @@ export function ContentEditLockProvider({
       clientId,
       contentVersion,
       isEditor: state.kind === "owner",
+      canTakeOver:
+        isAdmin &&
+        state.kind === "locked" &&
+        state.holder.userRole !== "admin" &&
+        !takeoverPending,
+      takeoverPending,
+      takeoverError,
+      takeOver: async () => {
+        if (
+          !isAdmin ||
+          stateRef.current.kind !== "locked" ||
+          stateRef.current.holder.userRole === "admin"
+        ) {
+          return;
+        }
+        setTakeoverPending(true);
+        setTakeoverError(null);
+        try {
+          const res = await fetch(
+            `/api/content-locks/${encodeURIComponent(contentId)}/takeover`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ clientId }),
+              credentials: "same-origin",
+            },
+          );
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+            holder?: LockHolder;
+          };
+          if (res.ok && json.ok) {
+            // Reload so the editor remounts with fresh content from the DB
+            // (the previous editor may have saved since this admin first
+            // loaded the page). The post-reload acquire reclaims the lock
+            // because it matches user_id + session_id of the takeover row.
+            if (typeof window !== "undefined") {
+              window.location.reload();
+            }
+            return;
+          }
+          if (res.status === 409 && json.error === "ADMIN_HELD") {
+            setTakeoverError(
+              "Another admin is currently editing this content. Contact them to release the lock.",
+            );
+          } else {
+            setTakeoverError(
+              json.error ?? `Takeover failed (HTTP ${res.status}).`,
+            );
+          }
+        } catch (err) {
+          setTakeoverError(
+            err instanceof Error
+              ? err.message
+              : "Network error during takeover.",
+          );
+        } finally {
+          setTakeoverPending(false);
+        }
+      },
       syncVersionAfterSave: (v: number) => {
         setContentVersion(v);
         setState((prev) =>
@@ -417,7 +488,15 @@ export function ContentEditLockProvider({
         );
       },
     }),
-    [state, clientId, contentVersion],
+    [
+      state,
+      clientId,
+      contentVersion,
+      isAdmin,
+      takeoverPending,
+      takeoverError,
+      contentId,
+    ],
   );
 
   // Constants reference (silences unused warning in some lint configs).
@@ -433,7 +512,8 @@ export function ContentEditLockProvider({
 }
 
 function LockBanner() {
-  const { state } = useContentEditLock();
+  const { state, canTakeOver, takeOver, takeoverPending, takeoverError } =
+    useContentEditLock();
   if (state.kind === "owner") {
     return (
       <div className="mb-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-200">
@@ -450,13 +530,38 @@ function LockBanner() {
   }
   if (state.kind === "locked") {
     return (
-      <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
-        Currently being edited by{" "}
-        <strong>{state.holder.userDisplayName}</strong> ({state.holder.userRole}
-        ). Last activity{" "}
-        {new Date(state.holder.lastHeartbeatAt).toLocaleTimeString()}. You can
-        view but not save changes. Wait until the current editor closes the
-        page.
+      <div className="mb-3 flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          Currently being edited by{" "}
+          <strong>{state.holder.userDisplayName}</strong> (
+          {state.holder.userRole}). Last activity{" "}
+          {new Date(state.holder.lastHeartbeatAt).toLocaleTimeString()}. You can
+          view but not save changes. Wait until the current editor closes the
+          page.
+          {takeoverError ? (
+            <div className="mt-1 text-xs text-destructive">{takeoverError}</div>
+          ) : null}
+        </div>
+        {canTakeOver ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                typeof window !== "undefined" &&
+                !window.confirm(
+                  `Force-take editing from ${state.holder.userDisplayName}? Their unsaved changes will be lost.`,
+                )
+              ) {
+                return;
+              }
+              void takeOver();
+            }}
+            disabled={takeoverPending}
+            className="shrink-0 rounded-md border border-amber-600/60 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {takeoverPending ? "Taking over…" : "Take over editing session"}
+          </button>
+        ) : null}
       </div>
     );
   }
