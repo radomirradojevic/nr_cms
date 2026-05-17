@@ -30,6 +30,16 @@ export const CONTENT_WIDTHS = [
   "ultra-wide",
 ] as const;
 
+/**
+ * Bounds for custom numeric content width values (pixels).
+ * Mirror the regex in the Postgres CHECK constraint (see migration
+ * `0017_custom_content_width.sql`) and the Zod schema in
+ * `lib/global-settings.ts`. Allow up to 5 digits (max 99999) at the DB
+ * level; app-level validation tightens the upper bound to `MAX_CUSTOM_CONTENT_WIDTH_PX`.
+ */
+export const MIN_CUSTOM_CONTENT_WIDTH_PX = 1;
+export const MAX_CUSTOM_CONTENT_WIDTH_PX = 10_000;
+
 export const FONT_PRESETS = [
   "system",
   "sans",
@@ -50,20 +60,38 @@ export const RADIUS_PRESETS = [
 export const SHADOW_PRESETS = ["none", "soft", "medium", "strong"] as const;
 
 export type Theme = (typeof THEMES)[number];
-export type ContentWidth = (typeof CONTENT_WIDTHS)[number];
+export type ContentWidthPreset = (typeof CONTENT_WIDTHS)[number];
+/**
+ * A content width value is either one of the semantic presets in
+ * `CONTENT_WIDTHS` OR a positive integer-as-string representing the
+ * `max-width` in pixels (e.g. `"900"`). Custom values are always stored
+ * as plain digit strings (no `"px"` suffix) so the DB CHECK constraint
+ * stays simple. Use `parseCustomContentWidth` / `normalizeContentWidth`
+ * to validate untrusted input.
+ */
+export type ContentWidth = ContentWidthPreset | string;
 export type FontPreset = (typeof FONT_PRESETS)[number];
 export type RadiusPreset = (typeof RADIUS_PRESETS)[number];
 export type ShadowPreset = (typeof SHADOW_PRESETS)[number];
 
 export const DEFAULT_THEME: Theme = "default";
-export const DEFAULT_CONTENT_WIDTH: ContentWidth = "contained";
+/**
+ * @deprecated Prefer `DEFAULT_FRONTEND_CONTENT_WIDTH` /
+ * `DEFAULT_BACKEND_CONTENT_WIDTH`. Kept as a shared fallback used by both.
+ */
+export const DEFAULT_CONTENT_WIDTH: ContentWidthPreset = "contained";
+export const DEFAULT_FRONTEND_CONTENT_WIDTH: ContentWidthPreset = "contained";
+export const DEFAULT_BACKEND_CONTENT_WIDTH: ContentWidthPreset = "contained";
 export const DEFAULT_FONT_PRESET: FontPreset = "system";
 export const DEFAULT_RADIUS_PRESET: RadiusPreset = "medium";
 export const DEFAULT_SHADOW_PRESET: ShadowPreset = "soft";
 
 export type AppearanceSettings = {
   theme: Theme;
-  contentWidth: ContentWidth;
+  /** Max content width applied to public-facing layouts (pages, blog posts). */
+  frontendContentWidth: ContentWidth;
+  /** Max content width applied to admin/dashboard layouts. */
+  backendContentWidth: ContentWidth;
   fontPreset: FontPreset;
   radiusPreset: RadiusPreset;
   shadowPreset: ShadowPreset;
@@ -71,7 +99,8 @@ export type AppearanceSettings = {
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   theme: DEFAULT_THEME,
-  contentWidth: DEFAULT_CONTENT_WIDTH,
+  frontendContentWidth: DEFAULT_FRONTEND_CONTENT_WIDTH,
+  backendContentWidth: DEFAULT_BACKEND_CONTENT_WIDTH,
   fontPreset: DEFAULT_FONT_PRESET,
   radiusPreset: DEFAULT_RADIUS_PRESET,
   shadowPreset: DEFAULT_SHADOW_PRESET,
@@ -279,13 +308,77 @@ const THEME_PALETTES: Record<Theme, { dark: boolean; vars: Palette }> = {
 
 // ─── Content width ──────────────────────────────────────────────────────────
 
-const CONTENT_WIDTH_VALUES: Record<ContentWidth, string> = {
+const CONTENT_WIDTH_VALUES: Record<ContentWidthPreset, string> = {
   "full-width": "100%",
   contained: "72rem",
   narrow: "56rem",
   wide: "90rem",
   "ultra-wide": "110rem",
 };
+
+/** Type guard: is the value one of the predefined preset keys? */
+export function isContentWidthPreset(
+  value: unknown,
+): value is ContentWidthPreset {
+  return (
+    typeof value === "string" &&
+    (CONTENT_WIDTHS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * Parse a user-supplied custom width. Accepts plain digit strings
+ * (`"900"`), numbers, or strings with a trailing `px` (`"900px"`,
+ * `"900 px"`). Returns a clamped positive integer, or `null` when the
+ * input is not a valid positive numeric width.
+ */
+export function parseCustomContentWidth(value: unknown): number | null {
+  let n: number | null = null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    n = Math.trunc(value);
+  } else if (typeof value === "string") {
+    const trimmed = value
+      .trim()
+      .toLowerCase()
+      .replace(/\s*px$/, "");
+    if (/^\d+$/.test(trimmed)) {
+      n = parseInt(trimmed, 10);
+    }
+  }
+  if (n === null || !Number.isFinite(n)) return null;
+  if (n < MIN_CUSTOM_CONTENT_WIDTH_PX) return null;
+  if (n > MAX_CUSTOM_CONTENT_WIDTH_PX) return null;
+  return n;
+}
+
+/** Returns true when `value` is a valid preset OR a valid custom width. */
+export function isValidContentWidth(value: unknown): value is ContentWidth {
+  if (isContentWidthPreset(value)) return true;
+  return parseCustomContentWidth(value) !== null;
+}
+
+/**
+ * Coerce arbitrary input into a canonical stored representation:
+ * either a preset key, or a digit-only string for custom widths.
+ * Falls back to `fallback` when the value is invalid.
+ */
+export function normalizeContentWidth(
+  value: unknown,
+  fallback: ContentWidth,
+): ContentWidth {
+  if (isContentWidthPreset(value)) return value;
+  const n = parseCustomContentWidth(value);
+  if (n !== null) return String(n);
+  return fallback;
+}
+
+/** Map a `ContentWidth` value (preset OR custom px) to its CSS length string. */
+export function getContentWidthValue(width: ContentWidth): string {
+  if (isContentWidthPreset(width)) return CONTENT_WIDTH_VALUES[width];
+  const n = parseCustomContentWidth(width);
+  if (n !== null) return `${n}px`;
+  return CONTENT_WIDTH_VALUES[DEFAULT_CONTENT_WIDTH];
+}
 
 // ─── Fonts ──────────────────────────────────────────────────────────────────
 
@@ -443,8 +536,10 @@ export type ResolvedAppearance = {
   htmlClass: string;
   /** Flat map of CSS variable names → values, applied as inline style on the root element. */
   cssVars: Record<string, string>;
-  /** Max content width; mirrors `--content-max-width` so callers can read it directly. */
-  containerMaxWidth: string;
+  /** Max content width applied to frontend layouts; mirrors `--frontend-content-max-width`. */
+  frontendContainerMaxWidth: string;
+  /** Max content width applied to backend (dashboard) layouts; mirrors `--backend-content-max-width`. */
+  backendContainerMaxWidth: string;
   /** Optional `<link>` tags for remote font presets. */
   fontLinks: FontLink[];
 };
@@ -454,7 +549,10 @@ export function resolveAppearance(
 ): ResolvedAppearance {
   const s: AppearanceSettings = {
     theme: settings?.theme ?? DEFAULT_THEME,
-    contentWidth: settings?.contentWidth ?? DEFAULT_CONTENT_WIDTH,
+    frontendContentWidth:
+      settings?.frontendContentWidth ?? DEFAULT_FRONTEND_CONTENT_WIDTH,
+    backendContentWidth:
+      settings?.backendContentWidth ?? DEFAULT_BACKEND_CONTENT_WIDTH,
     fontPreset: settings?.fontPreset ?? DEFAULT_FONT_PRESET,
     radiusPreset: settings?.radiusPreset ?? DEFAULT_RADIUS_PRESET,
     shadowPreset: settings?.shadowPreset ?? DEFAULT_SHADOW_PRESET,
@@ -467,22 +565,31 @@ export function resolveAppearance(
     SHADOW_VALUES[s.shadowPreset] ?? SHADOW_VALUES[DEFAULT_SHADOW_PRESET];
   const radius =
     RADIUS_VALUES[s.radiusPreset] ?? RADIUS_VALUES[DEFAULT_RADIUS_PRESET];
-  const containerMaxWidth =
-    CONTENT_WIDTH_VALUES[s.contentWidth] ??
-    CONTENT_WIDTH_VALUES[DEFAULT_CONTENT_WIDTH];
+  const frontendContainerMaxWidth = getContentWidthValue(
+    s.frontendContentWidth,
+  );
+  const backendContainerMaxWidth = getContentWidthValue(s.backendContentWidth);
 
+  // We emit BOTH width vars on the root element. `--content-max-width` is
+  // resolved per-subtree in CSS (see `app/globals.css`): frontend by default,
+  // backend when the dashboard layout marker (`.dashboard-content-root`) is
+  // present. We deliberately do NOT set `--content-max-width` here, so the
+  // CSS rule can switch between the two without being shadowed by an inline
+  // style on `<html>`.
   const cssVars: Record<string, string> = {
     ...themeEntry.vars,
     ...fontConfig.vars,
     ...shadowVars,
     "--radius": radius,
-    "--content-max-width": containerMaxWidth,
+    "--frontend-content-max-width": frontendContainerMaxWidth,
+    "--backend-content-max-width": backendContainerMaxWidth,
   };
 
   return {
     htmlClass: themeEntry.dark ? "dark" : "",
     cssVars,
-    containerMaxWidth,
+    frontendContainerMaxWidth,
+    backendContainerMaxWidth,
     fontLinks: fontConfig.links,
   };
 }

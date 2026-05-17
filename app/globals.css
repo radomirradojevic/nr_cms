@@ -98,6 +98,14 @@
    */
   --nav-hover-bg: var(--accent);
   --nav-hover-foreground: var(--accent-foreground);
+  /* Content width — defaults to the frontend value. The dashboard layout
+     marks its outer wrapper with `.dashboard-content-root`, and the
+     `:has()` rule below switches to the backend value for that subtree.
+     Both `--frontend-content-max-width` and `--backend-content-max-width`
+     are emitted on `<html>` by `resolveAppearance()` (lib/appearance.ts). */
+  --frontend-content-max-width: 72rem;
+  --backend-content-max-width: 72rem;
+  --content-max-width: var(--frontend-content-max-width);
 }
 
 .dark {
@@ -134,6 +142,14 @@
   --sidebar-ring: oklch(0.556 0 0);
   --nav-hover-bg: var(--accent);
   --nav-hover-foreground: var(--accent-foreground);
+}
+
+.site-content-container {
+  max-width: var(--content-max-width);
+}
+
+html:has(.dashboard-content-root) {
+  --content-max-width: var(--backend-content-max-width);
 }
 
 @layer base {
