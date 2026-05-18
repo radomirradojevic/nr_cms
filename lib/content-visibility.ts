@@ -48,13 +48,11 @@ export function parseVisibility(value: unknown): ContentVisibility {
 /**
  * Normalize visibility input from the editor form before persisting:
  * - Strip the implicit `admin` role (never stored).
- * - When `public` is true, clear `roles` for a cleaner DB state.
  * - Deduplicate.
  */
 export function sanitizeVisibilityInput(value: unknown): ContentVisibility {
   const parsed = parseVisibility(value);
-  if (parsed.public) return { public: true, roles: [] };
-  return { public: false, roles: parsed.roles };
+  return { public: parsed.public, roles: parsed.roles };
 }
 
 // ─── Authorization check ─────────────────────────────────────────────────────
