@@ -8,7 +8,7 @@ import type { JSONContent } from "@tiptap/react";
 
 import { db } from "@/db";
 import { content, topMenuItems } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import {
   clearHomepageFlag,
@@ -29,6 +29,12 @@ import {
 } from "@/lib/content-visibility";
 import { slugify } from "@/lib/utils";
 import { tiptapExtensions } from "./_editors/tiptap-extensions";
+import {
+  isLockedBy,
+  logLockEvent,
+  updateContentWithVersion,
+  getContentVersion,
+} from "@/data/content-locks";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -149,6 +155,11 @@ const updateSchema = z.object({
   status: z.enum(["published", "unpublished", "archived"]).optional(),
   homepage: z.boolean().optional(),
   visibility: visibilitySchema,
+  /** Optimistic concurrency version loaded by the editor. */
+  expectedVersion: z.number().int().min(1).optional(),
+  /** Lock ownership (per-tab client id) — when present, the server
+   * enforces that the caller still holds the edit lock. */
+  lockClientId: z.string().min(1).max(128).optional(),
   ...commentFlagFields,
   ...baseFields,
 });
@@ -292,6 +303,27 @@ export async function updateContent(input: UpdateContentInput) {
     return { error: "Slug is already in use." };
   }
 
+  // ─── Edit-lock ownership check ─────────────────────────────────────────
+  // The save is rejected if the caller no longer owns the edit lock
+  // (admin takeover, lease expired, etc). Skipped when no lockClientId
+  // was provided (back-compat for callers that don't participate in the
+  // locking system yet — those still get the version guard below).
+  if (data.lockClientId) {
+    const stillOwns = await isLockedBy({
+      contentId: target.id,
+      userId: actor.userId,
+      sessionId: (await auth()).sessionId ?? "",
+      clientId: data.lockClientId,
+    });
+    if (!stillOwns) {
+      return {
+        error:
+          "Your editing session was ended (another editor took over or your lock expired).",
+        code: "LOCK_LOST" as const,
+      };
+    }
+  }
+
   // Status changes need publish permission
   let nextStatus = target.status as "published" | "unpublished" | "archived";
   let nextPublishedAt = target.publishedAt;
@@ -343,42 +375,78 @@ export async function updateContent(input: UpdateContentInput) {
         .where(eq(content.homepage, true));
     }
     const isBlogPost = target.contentType === "blog_post";
-    await db
-      .update(content)
-      .set({
-        categoryId: data.categoryId,
-        title: data.title,
-        slug,
-        content: html,
-        contentJson: data.contentJson as object,
-        metaTitle: data.metaTitle ?? null,
-        metaDescription: data.metaDescription ?? null,
-        excerpt: data.excerpt ?? null,
-        coverImage: data.coverImage ?? null,
-        status: nextStatus,
-        publishedAt: nextPublishedAt,
-        homepage,
-        ...(isBlogPost
-          ? {
-              enableComments:
-                typeof data.enableComments === "boolean"
-                  ? data.enableComments
-                  : target.enableComments,
-              autoPublishComments:
-                typeof data.autoPublishComments === "boolean"
-                  ? data.autoPublishComments
-                  : target.autoPublishComments,
-              allowAnonymousComments:
-                typeof data.allowAnonymousComments === "boolean"
-                  ? data.allowAnonymousComments
-                  : target.allowAnonymousComments,
-            }
-          : {}),
-        ...(data.visibility
-          ? { visibility: sanitizeVisibilityInput(data.visibility) }
-          : {}),
-      })
-      .where(eq(content.id, data.id));
+    // ─── Version-guarded UPDATE ───────────────────────────────────────────
+    // If the editor passed an expectedVersion, use the optimistic
+    // concurrency helper. On a mismatch, log and return a structured
+    // STALE_CONTENT error so the client can prompt the user.
+    const updatePayload = {
+      categoryId: data.categoryId,
+      title: data.title,
+      slug,
+      content: html,
+      contentJson: data.contentJson as object,
+      metaTitle: data.metaTitle ?? null,
+      metaDescription: data.metaDescription ?? null,
+      excerpt: data.excerpt ?? null,
+      coverImage: data.coverImage ?? null,
+      status: nextStatus,
+      publishedAt: nextPublishedAt,
+      homepage,
+      ...(isBlogPost
+        ? {
+            enableComments:
+              typeof data.enableComments === "boolean"
+                ? data.enableComments
+                : target.enableComments,
+            autoPublishComments:
+              typeof data.autoPublishComments === "boolean"
+                ? data.autoPublishComments
+                : target.autoPublishComments,
+            allowAnonymousComments:
+              typeof data.allowAnonymousComments === "boolean"
+                ? data.allowAnonymousComments
+                : target.allowAnonymousComments,
+          }
+        : {}),
+      ...(data.visibility
+        ? { visibility: sanitizeVisibilityInput(data.visibility) }
+        : {}),
+    } as const;
+
+    let newVersion: number;
+    if (typeof data.expectedVersion === "number") {
+      const result = await updateContentWithVersion(
+        data.id,
+        data.expectedVersion,
+        updatePayload,
+      );
+      if (result === null) {
+        const currentVersion = await getContentVersion(data.id);
+        await logLockEvent({
+          contentId: data.id,
+          userId: actor.userId,
+          event: "save_rejected_stale",
+          metadata: {
+            expectedVersion: data.expectedVersion,
+            currentVersion,
+          },
+        });
+        return {
+          error:
+            "This content was changed by someone else after you opened it. Reload to get the latest version.",
+          code: "STALE_CONTENT" as const,
+          currentVersion,
+        };
+      }
+      newVersion = result;
+    } else {
+      await db
+        .update(content)
+        .set({ ...updatePayload, version: sql`${content.version} + 1` })
+        .where(eq(content.id, data.id));
+      const v = await getContentVersion(data.id);
+      newVersion = v ?? 1;
+    }
 
     revalidatePath("/dashboard/content");
     revalidatePath(`/dashboard/content/${data.id}/edit`);
@@ -403,7 +471,14 @@ export async function updateContent(input: UpdateContentInput) {
       revalidatePath(`/${slug}`);
       if (slug !== target.slug) revalidatePath(`/${target.slug}`);
     }
-    return { success: true };
+    // ─── Lock is intentionally NOT released here ─────────────────────────
+    // The editor must keep the edit lock while they remain on the edit
+    // page, even after a successful Save. The lock is released only when
+    // the editor explicitly exits the page (Save and close → client
+    // navigates away → provider unmount → release; or Cancel → same).
+    // Releasing on every Save would allow a waiting user to grab the lock
+    // mid-edit and trigger a stale-takeover popup for the current editor.
+    return { success: true, version: newVersion };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("unique") || msg.includes("duplicate")) {

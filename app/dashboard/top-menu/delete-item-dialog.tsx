@@ -20,9 +20,17 @@ type Props = {
   item: { id: string; label: string };
   childCount?: number;
   onSuccess?: () => void;
+  disabled?: boolean;
+  clientId?: string;
 };
 
-export function DeleteItemDialog({ item, childCount = 0, onSuccess }: Props) {
+export function DeleteItemDialog({
+  item,
+  childCount = 0,
+  onSuccess,
+  disabled,
+  clientId,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -30,7 +38,7 @@ export function DeleteItemDialog({ item, childCount = 0, onSuccess }: Props) {
   async function handleDelete() {
     setLoading(true);
     setServerError(null);
-    const result = await deleteMenuItem({ id: item.id });
+    const result = await deleteMenuItem({ id: item.id }, clientId);
     setLoading(false);
     if ("error" in result && result.error) {
       setServerError(result.error);
@@ -49,7 +57,7 @@ export function DeleteItemDialog({ item, childCount = 0, onSuccess }: Props) {
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" disabled={disabled}>
           <Trash2 className="h-4 w-4 text-destructive" />
           <span className="sr-only">Delete</span>
         </Button>

@@ -13,9 +13,18 @@ type Props = {
   depth: number;
   indent: number;
   onMutated: () => void;
+  disabled?: boolean;
+  clientId?: string;
 };
 
-export function MenuTreeRow({ item, depth, indent, onMutated }: Props) {
+export function MenuTreeRow({
+  item,
+  depth,
+  indent,
+  onMutated,
+  disabled,
+  clientId,
+}: Props) {
   const {
     attributes,
     listeners,
@@ -23,7 +32,11 @@ export function MenuTreeRow({ item, depth, indent, onMutated }: Props) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id, data: { kind: "tree" } });
+  } = useSortable({
+    id: item.id,
+    data: { kind: "tree" },
+    disabled,
+  });
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -44,8 +57,9 @@ export function MenuTreeRow({ item, depth, indent, onMutated }: Props) {
     >
       <button
         type="button"
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Drag handle"
+        disabled={disabled}
         {...attributes}
         {...listeners}
       >
@@ -91,10 +105,14 @@ export function MenuTreeRow({ item, depth, indent, onMutated }: Props) {
             categoryId: item.categoryId,
           }}
           onSuccess={onMutated}
+          disabled={disabled}
+          clientId={clientId}
         />
         <DeleteItemDialog
           item={{ id: item.id, label: item.label }}
           onSuccess={onMutated}
+          disabled={disabled}
+          clientId={clientId}
         />
       </div>
     </li>
