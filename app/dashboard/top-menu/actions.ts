@@ -8,6 +8,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { topMenuItems } from "@/db/schema";
 import { getRoles, hasRole } from "@/lib/roles";
+import { requireAdminSectionLock } from "@/lib/admin-section-locks-actions";
 import {
   TOP_MENU_TAG,
   getMaxOrder,
@@ -88,8 +89,13 @@ export type CreateMenuItemInput = z.infer<typeof createSchema>;
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
-export async function createMenuItem(input: CreateMenuItemInput) {
+export async function createMenuItem(
+  input: CreateMenuItemInput,
+  clientId?: string,
+) {
   if (!(await requireAdmin())) return { error: "Forbidden." };
+  const lockError = await requireAdminSectionLock("top-menu", clientId);
+  if (lockError) return lockError;
 
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -157,8 +163,13 @@ const updateSchema = z.object({
 
 export type UpdateMenuItemInput = z.infer<typeof updateSchema>;
 
-export async function updateMenuItem(input: UpdateMenuItemInput) {
+export async function updateMenuItem(
+  input: UpdateMenuItemInput,
+  clientId?: string,
+) {
   if (!(await requireAdmin())) return { error: "Forbidden." };
+  const lockError = await requireAdminSectionLock("top-menu", clientId);
+  if (lockError) return lockError;
 
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -210,8 +221,10 @@ const reorderSchema = z.object({
 
 export type ReorderMenuInput = z.infer<typeof reorderSchema>;
 
-export async function reorderMenu(input: ReorderMenuInput) {
+export async function reorderMenu(input: ReorderMenuInput, clientId?: string) {
   if (!(await requireAdmin())) return { error: "Forbidden." };
+  const lockError = await requireAdminSectionLock("top-menu", clientId);
+  if (lockError) return lockError;
 
   const parsed = reorderSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -275,8 +288,10 @@ export async function reorderMenu(input: ReorderMenuInput) {
 
 const deleteSchema = z.object({ id: z.string().uuid() });
 
-export async function deleteMenuItem(input: { id: string }) {
+export async function deleteMenuItem(input: { id: string }, clientId?: string) {
   if (!(await requireAdmin())) return { error: "Forbidden." };
+  const lockError = await requireAdminSectionLock("top-menu", clientId);
+  if (lockError) return lockError;
 
   const parsed = deleteSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid id." };

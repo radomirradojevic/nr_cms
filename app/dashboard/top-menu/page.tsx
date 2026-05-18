@@ -6,6 +6,7 @@ import {
   listPickableContent,
   listBlogCategories,
 } from "@/data/top-menu";
+import { AdminSectionLockProvider } from "@/components/admin-section-lock-provider";
 import { TopMenuBuilder } from "./top-menu-builder";
 
 export default async function TopMenuPage() {
@@ -33,11 +34,13 @@ export default async function TopMenuPage() {
         </p>
       </div>
 
-      <TopMenuBuilder
-        initialTree={tree}
-        pickable={pickable}
-        categories={categories}
-      />
+      <AdminSectionLockProvider sectionKey="top-menu" currentUserId={user!.id}>
+        <TopMenuBuilder
+          initialTree={tree}
+          pickable={pickable}
+          categories={categories}
+        />
+      </AdminSectionLockProvider>
     </div>
   );
 }

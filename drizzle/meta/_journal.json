@@ -141,6 +141,13 @@
       "when": 1781116800000,
       "tag": "0020_content_edit_locks",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1781203200000,
+      "tag": "0021_admin_section_locks",
+      "breakpoints": true
     }
   ]
 }
