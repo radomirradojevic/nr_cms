@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { hasRole, getRoles, type Role } from "@/lib/roles";
 import { UsersFilters } from "./_components/users-filters";
 import { LockUserButton } from "./[userId]/lock-user-button";
+import { ForceSignOutButton } from "./[userId]/force-signout-button";
 
 const roleBadgeVariant: Record<
   Role,
@@ -68,6 +69,7 @@ export default async function UsersPage({
   )
     ? Number(params.perPage)
     : 10;
+  const presenceFilter = params.presence ?? "all";
   const page = Math.max(1, Number(params.page) || 1);
 
   // Fetch users from Clerk — use query param for username/email text search
@@ -76,6 +78,28 @@ export default async function UsersPage({
     limit: 500,
     ...(search ? { query: search } : {}),
   });
+
+  // Determine real online presence by checking Clerk for an active session per user.
+  // `User.lastActiveAt` from Clerk only has day-level precision, so it cannot be
+  // used to detect "currently logged in". The Backend Sessions API requires a
+  // userId/clientId scope, so we query per-user in parallel.
+  const onlineFlags = await Promise.all(
+    fetched.map(async (u) => {
+      try {
+        const { data: sessions } = await client.sessions.getSessionList({
+          userId: u.id,
+          status: "active",
+          limit: 1,
+        });
+        return [u.id, sessions.length > 0] as const;
+      } catch {
+        return [u.id, false] as const;
+      }
+    }),
+  );
+  const onlineUserIds = new Set(
+    onlineFlags.filter(([, online]) => online).map(([id]) => id),
+  );
 
   // Filter by status
   const byStatus =
@@ -86,13 +110,21 @@ export default async function UsersPage({
         : fetched;
 
   // Filter by role (publicMetadata — done in-memory)
-  const filtered =
+  const byRole =
     roleFilter !== "all"
       ? byStatus.filter((u) => {
           const roles = getRoles(u.publicMetadata);
           return roles.includes(roleFilter as Role);
         })
       : byStatus;
+
+  // Filter by presence (online / offline)
+  const filtered =
+    presenceFilter === "online"
+      ? byRole.filter((u) => onlineUserIds.has(u.id))
+      : presenceFilter === "offline"
+        ? byRole.filter((u) => !onlineUserIds.has(u.id))
+        : byRole;
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -107,6 +139,7 @@ export default async function UsersPage({
   if (search) baseParams.set("search", search);
   if (statusFilter !== "all") baseParams.set("status", statusFilter);
   if (roleFilter !== "all") baseParams.set("role", roleFilter);
+  if (presenceFilter !== "all") baseParams.set("presence", presenceFilter);
   if (perPage !== 10) baseParams.set("perPage", String(perPage));
 
   return (
@@ -127,6 +160,7 @@ export default async function UsersPage({
             <TableHead>Email</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Roles</TableHead>
+            <TableHead>Presence</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -134,7 +168,7 @@ export default async function UsersPage({
           {paginated.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={6}
                 className="text-center text-muted-foreground py-8"
               >
                 No users found.
@@ -148,6 +182,7 @@ export default async function UsersPage({
                 "—";
               const email = user.primaryEmailAddress?.emailAddress ?? "—";
               const roles = getRoles(user.publicMetadata);
+              const isOnline = onlineUserIds.has(user.id);
 
               return (
                 <TableRow key={user.id}>
@@ -167,8 +202,24 @@ export default async function UsersPage({
                       ))}
                     </div>
                   </TableCell>
+                  <TableCell>
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className={`h-2 w-2 rounded-full shrink-0 ${
+                          isOnline ? "bg-green-500" : "bg-muted-foreground/40"
+                        }`}
+                      />
+                      <span className="text-sm">
+                        {isOnline ? "Online" : "Offline"}
+                      </span>
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <ForceSignOutButton
+                        userId={user.id}
+                        disabled={user.id === caller?.id || !isOnline}
+                      />
                       <LockUserButton
                         userId={user.id}
                         isLocked={user.locked ?? false}

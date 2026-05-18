@@ -53,6 +53,7 @@ export function UsersFilters() {
   const search = searchParams.get("search") ?? "";
   const status = searchParams.get("status") ?? "all";
   const role = searchParams.get("role") ?? "all";
+  const presence = searchParams.get("presence") ?? "all";
   const perPage = searchParams.get("perPage") ?? "10";
 
   return (
@@ -95,6 +96,20 @@ export function UsersFilters() {
               {r.charAt(0).toUpperCase() + r.slice(1)}
             </SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={presence}
+        onValueChange={(val) => updateFilter({ presence: val })}
+      >
+        <SelectTrigger className="w-36">
+          <SelectValue placeholder="Presence" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All users</SelectItem>
+          <SelectItem value="online">Online</SelectItem>
+          <SelectItem value="offline">Offline</SelectItem>
         </SelectContent>
       </Select>
 
