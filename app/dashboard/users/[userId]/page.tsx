@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { hasRole, getRoles, type Role } from "@/lib/roles";
 import { EditUserDialog } from "@/app/dashboard/users/[userId]/edit-user-dialog";
 import { LockUserButton } from "@/app/dashboard/users/[userId]/lock-user-button";
+import { ForceSignOutButton } from "@/app/dashboard/users/[userId]/force-signout-button";
 import { DeleteUserButton } from "@/app/dashboard/users/[userId]/delete-user-button";
 
 const roleBadgeVariant: Record<
@@ -33,6 +34,21 @@ export default async function UserDetailPage({ params }: Props) {
   const client = await clerkClient();
   const user = await client.users.getUser(targetUserId);
 
+  // Determine real online presence by checking Clerk for an active session.
+  // `User.lastActiveAt` only has day-level precision, so it cannot be used to
+  // detect "currently logged in".
+  let isOnline = false;
+  try {
+    const { data: sessions } = await client.sessions.getSessionList({
+      userId: user.id,
+      status: "active",
+      limit: 1,
+    });
+    isOnline = sessions.length > 0;
+  } catch {
+    isOnline = false;
+  }
+
   const displayName =
     (user.username ??
       [user.firstName, user.lastName].filter(Boolean).join(" ")) ||
@@ -55,6 +71,10 @@ export default async function UserDetailPage({ params }: Props) {
           <h1 className="text-2xl font-semibold">User Details</h1>
         </div>
         <div className="flex items-center gap-2">
+          <ForceSignOutButton
+            userId={user.id}
+            disabled={user.id === caller?.id || !isOnline}
+          />
           <LockUserButton userId={user.id} isLocked={user.locked ?? false} />
           <EditUserDialog userId={user.id} currentRoles={roles} />
           <DeleteUserButton userId={user.id} />
@@ -71,6 +91,19 @@ export default async function UserDetailPage({ params }: Props) {
             <Badge variant={user.locked ? "destructive" : "secondary"}>
               {user.locked ? "Locked" : "Active"}
             </Badge>
+          }
+        />
+        <Row
+          label="Presence"
+          value={
+            <span className="flex items-center gap-1.5">
+              <span
+                className={`h-2 w-2 rounded-full shrink-0 ${
+                  isOnline ? "bg-green-500" : "bg-muted-foreground/40"
+                }`}
+              />
+              <span className="text-sm">{isOnline ? "Online" : "Offline"}</span>
+            </span>
           }
         />
         <Row
