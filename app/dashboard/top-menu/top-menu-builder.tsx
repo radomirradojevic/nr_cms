@@ -39,6 +39,7 @@ import { MenuTreeRow } from "./menu-tree-row";
 import { AddItemDialog } from "./add-item-dialog";
 import { AddCategoryDialog } from "./add-category-dialog";
 import { createMenuItem, reorderMenu } from "./actions";
+import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
 
 const INDENT = 24;
 
@@ -50,6 +51,8 @@ type Props = {
 
 export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
   const router = useRouter();
+  const lock = useAdminSectionLock();
+  const canEdit = lock.isEditor;
   const [tree, setTree] = useState<TopMenuTreeNode[]>(initialTree);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -100,6 +103,7 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
   }
 
   function handleDragStart(e: DragStartEvent) {
+    if (!canEdit) return;
     const id = String(e.active.id);
     setActiveId(id);
     setError(null);
@@ -123,6 +127,8 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
     setOverId(null);
     setOffsetX(0);
 
+    if (!canEdit) return;
+
     // ── Picker → tree: create new content-linked menu item
     if (dropActiveData?.kind === "picker" && dropActiveData.contentId) {
       let parentId: string | null = null;
@@ -130,11 +136,14 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
         const overItem = flat.find((f) => f.id === dropOver);
         if (overItem) parentId = overItem.parentId;
       }
-      const result = await createMenuItem({
-        kind: "content",
-        contentId: dropActiveData.contentId,
-        parentId,
-      });
+      const result = await createMenuItem(
+        {
+          kind: "content",
+          contentId: dropActiveData.contentId,
+          parentId,
+        },
+        lock.clientId,
+      );
       if ("error" in result && result.error) {
         setError(result.error);
       } else {
@@ -163,7 +172,7 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
     // Optimistic UI: rebuild tree from flat
     setTree(rebuildTree(withProjection));
 
-    const result = await reorderMenu({ updates });
+    const result = await reorderMenu({ updates }, lock.clientId);
     if ("error" in result && result.error) {
       setError(result.error);
       // rollback
@@ -203,8 +212,15 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
                 parentId={null}
                 categories={categories}
                 onSuccess={refresh}
+                disabled={!canEdit}
+                clientId={lock.clientId}
               />
-              <AddItemDialog parentId={null} onSuccess={refresh} />
+              <AddItemDialog
+                parentId={null}
+                onSuccess={refresh}
+                disabled={!canEdit}
+                clientId={lock.clientId}
+              />
             </div>
           </div>
 
@@ -239,6 +255,8 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
                     depth={displayDepth}
                     indent={INDENT}
                     onMutated={refresh}
+                    disabled={!canEdit}
+                    clientId={lock.clientId}
                   />
                 );
               })}

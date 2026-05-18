@@ -115,6 +115,7 @@ export async function listContent(
         visibility: content.visibility,
         createdAt: content.createdAt,
         updatedAt: content.updatedAt,
+        version: content.version,
         categoryName: contentCategories.name,
       })
       .from(content)
