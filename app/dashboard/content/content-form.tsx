@@ -506,28 +506,13 @@ export function ContentForm({
                 </div>
               </label>
               {VISIBILITY_ROLES.map((role) => (
-                <label
-                  key={role}
-                  className="flex items-center gap-3 pl-1"
-                  data-disabled={visibilityPublic || undefined}
-                >
+                <label key={role} className="flex items-center gap-3 pl-1">
                   <Checkbox
                     id={`visibility-${role}`}
-                    checked={
-                      !visibilityPublic && visibilityRoles.includes(role)
-                    }
-                    disabled={visibilityPublic}
+                    checked={visibilityRoles.includes(role)}
                     onCheckedChange={(v) => toggleVisibilityRole(role, !!v)}
                   />
-                  <span
-                    className={
-                      visibilityPublic
-                        ? "text-sm text-muted-foreground capitalize"
-                        : "text-sm capitalize"
-                    }
-                  >
-                    {role}
-                  </span>
+                  <span className="text-sm capitalize">{role}</span>
                 </label>
               ))}
               <label className="flex items-center gap-3 pl-1">
