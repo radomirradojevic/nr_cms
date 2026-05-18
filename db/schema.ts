@@ -555,3 +555,59 @@ export const contentEditLockAudit = pgTable(
     ),
   ],
 );
+
+// ─── Admin section edit locks ──────────────────────────────────────────────
+// Same collaborative edit-locking pattern as `content_edit_locks`, but keyed
+// by a string `section_key` so it can be applied to admin singleton pages
+// (e.g. `global-settings`, `top-menu`) that are not row-scoped.
+// See .github/instructions/cms-content-edit-locking.instructions.md
+export const adminSectionLocks = pgTable(
+  "admin_section_locks",
+  {
+    sectionKey: text("section_key").primaryKey(),
+    userId: text("user_id").notNull(),
+    userDisplayName: text("user_display_name").notNull(),
+    userRole: text("user_role").notNull(),
+    sessionId: text("session_id").notNull(),
+    clientId: text("client_id").notNull(),
+    acquiredAt: timestamp("acquired_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    leaseExpiresAt: timestamp("lease_expires_at", {
+      withTimezone: true,
+    }).notNull(),
+    takenOverBy: text("taken_over_by"),
+  },
+  (table) => [
+    index("admin_section_locks_user_id_idx").on(table.userId),
+    index("admin_section_locks_lease_expires_at_idx").on(table.leaseExpiresAt),
+  ],
+);
+
+export const adminSectionLockAudit = pgTable(
+  "admin_section_lock_audit",
+  {
+    id: bigint("id", { mode: "number" })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    sectionKey: text("section_key").notNull(),
+    userId: text("user_id").notNull(),
+    event: text("event").notNull(),
+    previousUserId: text("previous_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    metadata: jsonb("metadata"),
+  },
+  (table) => [
+    index("admin_section_lock_audit_section_key_idx").on(table.sectionKey),
+    index("admin_section_lock_audit_created_at_idx").on(table.createdAt),
+    check(
+      "admin_section_lock_audit_event_check",
+      sql`${table.event} IN ('acquired','refreshed','released','expired','force_taken','save_rejected_stale')`,
+    ),
+  ],
+);

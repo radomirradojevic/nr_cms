@@ -43,9 +43,11 @@ type Props = {
     categoryId: string | null;
   };
   onSuccess?: () => void;
+  disabled?: boolean;
+  clientId?: string;
 };
 
-export function EditItemDialog({ item, onSuccess }: Props) {
+export function EditItemDialog({ item, onSuccess, disabled, clientId }: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -79,12 +81,15 @@ export function EditItemDialog({ item, onSuccess }: Props) {
 
   async function onSubmit(values: FormValues) {
     setServerError(null);
-    const result = await updateMenuItem({
-      id: item.id,
-      label: values.label,
-      target: values.target,
-      ...(isContentLinked ? {} : { url: values.url }),
-    });
+    const result = await updateMenuItem(
+      {
+        id: item.id,
+        label: values.label,
+        target: values.target,
+        ...(isContentLinked ? {} : { url: values.url }),
+      },
+      clientId,
+    );
     if ("error" in result && result.error) {
       setServerError(result.error);
       return;
@@ -109,7 +114,7 @@ export function EditItemDialog({ item, onSuccess }: Props) {
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" disabled={disabled}>
           <Pencil className="h-4 w-4" />
           <span className="sr-only">Edit</span>
         </Button>

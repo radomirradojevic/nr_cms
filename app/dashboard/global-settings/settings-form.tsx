@@ -61,6 +61,7 @@ import {
 } from "@/lib/appearance";
 import { LogoPickerDialog } from "./logo-picker-dialog";
 import { FooterContentEditor } from "./footer-content-editor";
+import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
 
 interface GlowFieldsProps {
   idPrefix: string;
@@ -501,6 +502,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   );
 
   const [isPending, startTransition] = useTransition();
+  const lock = useAdminSectionLock();
+  const canSave = lock.isEditor;
 
   const maxSessionMinutesNum = parseInt(maxSessionMinutes, 10);
   const idleLogoutMinutesNum = parseInt(idleLogoutMinutesInput, 10);
@@ -514,6 +517,12 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSave) {
+      toast.error(
+        "You do not currently hold the edit lock. Another admin is editing these settings.",
+      );
+      return;
+    }
     const parsedMax = clampMinutes(
       maxSessionMinutes,
       MIN_MAX_SESSION_MINUTES,
@@ -531,44 +540,47 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       return;
     }
     startTransition(async () => {
-      const result = await updateGlobalSettings({
-        siteName,
-        siteLogoFileId: logoFileId,
-        headerContent: headerContent || null,
-        footerContent: footerContent || null,
-        headerSettings: {
-          showLogo: headerShowLogo,
-          showSiteName: headerShowSiteName,
-          sticky: headerSticky,
-          background: headerBackground || undefined,
-          glow: headerGlow,
+      const result = await updateGlobalSettings(
+        {
+          siteName,
+          siteLogoFileId: logoFileId,
+          headerContent: headerContent || null,
+          footerContent: footerContent || null,
+          headerSettings: {
+            showLogo: headerShowLogo,
+            showSiteName: headerShowSiteName,
+            sticky: headerSticky,
+            background: headerBackground || undefined,
+            glow: headerGlow,
+          },
+          footerSettings: {
+            showLogo: footerShowLogo,
+            copyright: footerCopyright || undefined,
+            sticky: footerSticky,
+            background: footerBackground || undefined,
+            glow: footerGlow,
+          },
+          stickyHeaderHeight: Math.max(
+            0,
+            Math.min(400, parseInt(stickyHeaderHeight, 10) || 0),
+          ),
+          stickyFooterHeight: Math.max(
+            0,
+            Math.min(400, parseInt(stickyFooterHeight, 10) || 0),
+          ),
+          maxUploadSizeBytes: (parseInt(maxUploadMB, 10) || 50) * MB,
+          maxBatchUploadSizeBytes: (parseInt(maxBatchUploadMB, 10) || 500) * MB,
+          theme,
+          frontendContentWidth,
+          backendContentWidth,
+          fontPreset,
+          radiusPreset,
+          shadowPreset,
+          maxSessionDurationMinutes: parsedMax,
+          idleLogoutMinutes: parsedIdle,
         },
-        footerSettings: {
-          showLogo: footerShowLogo,
-          copyright: footerCopyright || undefined,
-          sticky: footerSticky,
-          background: footerBackground || undefined,
-          glow: footerGlow,
-        },
-        stickyHeaderHeight: Math.max(
-          0,
-          Math.min(400, parseInt(stickyHeaderHeight, 10) || 0),
-        ),
-        stickyFooterHeight: Math.max(
-          0,
-          Math.min(400, parseInt(stickyFooterHeight, 10) || 0),
-        ),
-        maxUploadSizeBytes: (parseInt(maxUploadMB, 10) || 50) * MB,
-        maxBatchUploadSizeBytes: (parseInt(maxBatchUploadMB, 10) || 500) * MB,
-        theme,
-        frontendContentWidth,
-        backendContentWidth,
-        fontPreset,
-        radiusPreset,
-        shadowPreset,
-        maxSessionDurationMinutes: parsedMax,
-        idleLogoutMinutes: parsedIdle,
-      });
+        lock.clientId,
+      );
 
       if ("error" in result) {
         toast.error(result.error);
@@ -1000,7 +1012,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       />
 
       <div>
-        <Button type="submit" disabled={isPending || !sessionSecurityValid}>
+        <Button
+          type="submit"
+          disabled={isPending || !sessionSecurityValid || !canSave}
+        >
           {isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>

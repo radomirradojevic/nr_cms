@@ -11,11 +11,13 @@ import {
   type UpdateGlobalSettingsInput,
 } from "@/lib/global-settings";
 import { updateGlobalSettings as updateGlobalSettingsRow } from "@/data/global-settings";
+import { requireAdminSectionLock } from "@/lib/admin-section-locks-actions";
 
 export type UpdateGlobalSettingsResult = { success: true } | { error: string };
 
 export async function updateGlobalSettings(
   raw: unknown,
+  clientId?: string,
 ): Promise<UpdateGlobalSettingsResult> {
   const { userId } = await auth();
   if (!userId) return { error: "Unauthorized." };
@@ -23,6 +25,9 @@ export async function updateGlobalSettings(
   const user = await currentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) return { error: "Forbidden." };
+
+  const lockError = await requireAdminSectionLock("global-settings", clientId);
+  if (lockError) return lockError;
 
   const parsed = UpdateGlobalSettingsSchema.safeParse(raw);
   if (!parsed.success) {

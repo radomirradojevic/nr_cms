@@ -51,9 +51,16 @@ type FormValues = z.infer<typeof formSchema>;
 type Props = {
   parentId: string | null;
   onSuccess?: () => void;
+  disabled?: boolean;
+  clientId?: string;
 };
 
-export function AddItemDialog({ parentId, onSuccess }: Props) {
+export function AddItemDialog({
+  parentId,
+  onSuccess,
+  disabled,
+  clientId,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -64,13 +71,16 @@ export function AddItemDialog({ parentId, onSuccess }: Props) {
 
   async function onSubmit(values: FormValues) {
     setServerError(null);
-    const result = await createMenuItem({
-      kind: "custom",
-      label: values.label,
-      url: values.url,
-      target: values.target,
-      parentId,
-    });
+    const result = await createMenuItem(
+      {
+        kind: "custom",
+        label: values.label,
+        url: values.url,
+        target: values.target,
+        parentId,
+      },
+      clientId,
+    );
     if ("error" in result && result.error) {
       setServerError(result.error);
       return;
@@ -92,7 +102,7 @@ export function AddItemDialog({ parentId, onSuccess }: Props) {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" disabled={disabled}>
           <Plus className="mr-2 h-4 w-4" />
           Add custom link
         </Button>

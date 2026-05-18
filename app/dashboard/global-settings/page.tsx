@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { hasRole, getRoles } from "@/lib/roles";
 import { getRawGlobalSettings } from "@/data/global-settings";
 import { getFileByIdUnchecked } from "@/data/files";
+import { AdminSectionLockProvider } from "@/components/admin-section-lock-provider";
 import { SettingsForm } from "./settings-form";
 
 export default async function GlobalSettingsPage() {
@@ -26,7 +27,12 @@ export default async function GlobalSettingsPage() {
           Manage site-wide configuration. Admin access only.
         </p>
       </div>
-      <SettingsForm settings={settings} initialLogoFile={initialLogoFile} />
+      <AdminSectionLockProvider
+        sectionKey="global-settings"
+        currentUserId={user!.id}
+      >
+        <SettingsForm settings={settings} initialLogoFile={initialLogoFile} />
+      </AdminSectionLockProvider>
     </div>
   );
 }

@@ -46,9 +46,17 @@ type Props = {
   parentId: string | null;
   categories: BlogCategoryPickerItem[];
   onSuccess?: () => void;
+  disabled?: boolean;
+  clientId?: string;
 };
 
-export function AddCategoryDialog({ parentId, categories, onSuccess }: Props) {
+export function AddCategoryDialog({
+  parentId,
+  categories,
+  onSuccess,
+  disabled,
+  clientId,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -59,13 +67,16 @@ export function AddCategoryDialog({ parentId, categories, onSuccess }: Props) {
 
   async function onSubmit(values: FormValues) {
     setServerError(null);
-    const result = await createMenuItem({
-      kind: "category",
-      categoryId: values.categoryId,
-      label: values.label?.trim() ? values.label.trim() : undefined,
-      target: values.target,
-      parentId,
-    });
+    const result = await createMenuItem(
+      {
+        kind: "category",
+        categoryId: values.categoryId,
+        label: values.label?.trim() ? values.label.trim() : undefined,
+        target: values.target,
+        parentId,
+      },
+      clientId,
+    );
     if ("error" in result && result.error) {
       setServerError(result.error);
       return;
@@ -87,7 +98,7 @@ export function AddCategoryDialog({ parentId, categories, onSuccess }: Props) {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" disabled={disabled}>
           <FolderTree className="mr-2 h-4 w-4" />
           Add blog category
         </Button>
