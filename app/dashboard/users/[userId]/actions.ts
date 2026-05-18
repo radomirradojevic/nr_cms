@@ -83,6 +83,42 @@ export async function unlockUser(
   return { success: true };
 }
 
+export async function forceSignOutUser(
+  userId: string,
+): Promise<{ success?: boolean; revoked?: number; error?: string }> {
+  const { callerId, error: authError } = await requireAdmin();
+  if (authError || !callerId) return { error: authError ?? "Unauthorized." };
+
+  if (!userId || typeof userId !== "string")
+    return { error: "Invalid user ID." };
+  if (userId === callerId)
+    return { error: "You cannot force sign out your own account." };
+
+  const client = await clerkClient();
+
+  // Fetch all active sessions for the user and revoke each.
+  const { data: sessions } = await client.sessions.getSessionList({
+    userId,
+    status: "active",
+    limit: 100,
+  });
+
+  const results = await Promise.allSettled(
+    sessions.map((s) => client.sessions.revokeSession(s.id)),
+  );
+  const revoked = results.filter((r) => r.status === "fulfilled").length;
+  const failed = results.length - revoked;
+
+  revalidatePath(`/dashboard/users/${userId}`);
+  revalidatePath("/dashboard/users");
+
+  if (failed > 0 && revoked === 0) {
+    return { error: "Failed to revoke active sessions." };
+  }
+
+  return { success: true, revoked };
+}
+
 export async function deleteUser(
   userId: string,
 ): Promise<{ success?: boolean; error?: string }> {
