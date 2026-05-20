@@ -84,7 +84,7 @@ function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
           onCheckedChange={(enabled) => onChange({ ...value, enabled })}
         />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor={colorId}>Glow Color</Label>
           <div className="flex items-center gap-2">
