@@ -51,7 +51,8 @@ export type BlockName =
   | "Hero"
   | "RawHtml"
   | "Gallery"
-  | "Form";
+  | "Form"
+  | "FormSubmissions";
 
 type Capabilities = {
   typography: boolean;
@@ -162,6 +163,16 @@ export const blockStyleCapabilities: Record<BlockName, Capabilities> = {
   },
   Form: {
     typography: true,
+    colors: true,
+    spacing: true,
+    layout: true,
+    effects: true,
+    background: true,
+    responsive: true,
+    animation: true,
+  },
+  FormSubmissions: {
+    typography: false,
     colors: true,
     spacing: true,
     layout: true,
