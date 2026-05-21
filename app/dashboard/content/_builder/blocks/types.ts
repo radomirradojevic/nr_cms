@@ -40,6 +40,14 @@ export type GalleryProps = StyledProps & {
   galleryName: string;
 };
 export type FormProps = StyledProps & { formId: string; formName: string };
+export type FormSubmissionsProps = StyledProps & {
+  formId: string;
+  displayMode: "table" | "card";
+  pageSize?: number;
+  sortField?: string;
+  sortOrder?: "asc" | "desc";
+  hideId?: boolean;
+};
 
 export const blockNames = [
   "Section",
@@ -52,6 +60,7 @@ export const blockNames = [
   "RawHtml",
   "Gallery",
   "Form",
+  "FormSubmissions",
 ] as const;
 
 export type BlockName = (typeof blockNames)[number];
@@ -117,4 +126,12 @@ export const defaults = {
     formId: "",
     formName: "",
   } satisfies FormProps,
+  FormSubmissions: {
+    formId: "",
+    displayMode: "table" as const,
+    pageSize: 10,
+    sortField: "created_at",
+    sortOrder: "desc" as const,
+    hideId: true,
+  } satisfies FormSubmissionsProps,
 };
