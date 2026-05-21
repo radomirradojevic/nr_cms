@@ -4,8 +4,8 @@ import { getFormSubmissions } from "@/data/form-submissions";
 
 // Validation schema for query params
 const QuerySchema = z.object({
-  page: z.string().default("1").pipe(z.coerce.number().min(1)),
-  pageSize: z.string().default("10").pipe(z.coerce.number().min(5).max(100)),
+  page: z.coerce.number().min(1).default(1),
+  pageSize: z.coerce.number().min(5).max(100).default(10),
   sortField: z.string().default("created_at"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
@@ -43,7 +43,7 @@ export async function GET(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Invalid query parameters", details: error.errors },
+        { error: "Invalid query parameters", details: error.issues },
         { status: 400 },
       );
     }
