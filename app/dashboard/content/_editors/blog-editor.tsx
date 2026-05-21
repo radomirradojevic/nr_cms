@@ -20,6 +20,7 @@ import {
   Video as VideoIcon,
   LayoutGrid,
   FormInput,
+  ClipboardList,
   Link as LinkIcon,
   Undo,
   Redo,
@@ -33,6 +34,7 @@ import { ImageInsertDialog } from "./image-insert-dialog";
 import { VideoInsertDialog } from "./video-insert-dialog";
 import { GallerySelectDialog } from "./gallery-select-dialog";
 import { FormSelectDialog } from "./form-select-dialog";
+import { FormSubmissionsSelectDialog } from "./form-submissions-select-dialog";
 import {
   Dialog,
   DialogContent,
@@ -71,24 +73,28 @@ export function BlogEditor({
   registerGetValue,
   onChange,
 }: Props) {
+  const [initialContent] = useState<JSONContent>(
+    () => defaultValue ?? emptyTiptapJson,
+  );
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [formSubmissionsDialogOpen, setFormSubmissionsDialogOpen] =
+    useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
 
-  const initialContentRef = useRef<JSONContent>(
-    defaultValue ?? emptyTiptapJson,
-  );
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const editor = useEditor({
     extensions: tiptapExtensions,
-    content: initialContentRef.current,
+    content: initialContent,
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -110,12 +116,10 @@ export function BlogEditor({
 
   // Register the value getter exactly once — the parent reads from this
   // at submit time without subscribing to per-keystroke updates.
-  const registerRef = useRef(registerGetValue);
-  registerRef.current = registerGetValue;
   useEffect(() => {
     if (!editor) return;
-    registerRef.current?.(() => editor.getJSON());
-  }, [editor]);
+    registerGetValue?.(() => editor.getJSON());
+  }, [editor, registerGetValue]);
 
   if (!editor) return null;
 
@@ -344,6 +348,15 @@ export function BlogEditor({
               <FormInput className="h-4 w-4" />
             </Btn>
           )}
+          {!htmlMode && (
+            <Btn
+              tooltip="Insert form submissions"
+              active={false}
+              onClick={() => setFormSubmissionsDialogOpen(true)}
+            >
+              <ClipboardList className="h-4 w-4" />
+            </Btn>
+          )}
         </TooltipProvider>
       </div>
       {htmlMode ? (
@@ -401,6 +414,23 @@ export function BlogEditor({
         onOpenChange={setFormDialogOpen}
         onInsert={({ formId, formName }) => {
           editor!.chain().focus().setCmsForm({ formId, formName }).run();
+        }}
+      />
+      <FormSubmissionsSelectDialog
+        open={formSubmissionsDialogOpen}
+        onOpenChange={setFormSubmissionsDialogOpen}
+        onInsert={({ formId, formName, displayMode, pageSize, hideId }) => {
+          editor!
+            .chain()
+            .focus()
+            .setCmsFormSubmissions({
+              formId,
+              formName,
+              displayMode,
+              pageSize,
+              hideId,
+            })
+            .run();
         }}
       />
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
