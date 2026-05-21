@@ -404,6 +404,12 @@ html:has(.dashboard-content-root) {
   background: var(--muted);
   font-weight: 600;
 }
+.cms-content .cms-embedded-form-submissions :where(table) {
+  margin: 0;
+}
+.cms-content .cms-embedded-form-submissions :where(th, td) {
+  border: 0;
+}
 /* Visual feedback when an image (or any node) is selected in the editor.
    ProseMirror toggles the `.ProseMirror-selectednode` class on the DOM
    node corresponding to the currently selected NodeSelection. */
