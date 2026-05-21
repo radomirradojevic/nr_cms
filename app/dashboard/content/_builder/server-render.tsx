@@ -66,6 +66,16 @@ export const defaultStaticRegistry: StaticRegistry = {
       {typeof formName === "string" && formName ? `: ${formName}` : ""}
     </div>
   ),
+  // Synchronous client-safe placeholder. The RSC entry overrides this with
+  // the async `FormSubmissionsStatic` that fetches and renders real submissions.
+  FormSubmissions: ({
+    formId,
+  }: Record<string, unknown> & { children?: ReactNode }) => (
+    <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+      Form Submissions
+      {typeof formId === "string" && formId ? ` (${formId.slice(0, 8)})` : ""}
+    </div>
+  ),
 };
 
 function resolvedName(node: SerializedNode): string {

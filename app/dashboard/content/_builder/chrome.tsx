@@ -14,6 +14,7 @@ import {
   FileCode2,
   Images,
   FormInput,
+  Database,
   Trash2,
   Undo2,
   Redo2,
@@ -53,6 +54,11 @@ const items: Array<{
     name: "Form",
     label: "Form",
     icon: <FormInput className="h-4 w-4" />,
+  },
+  {
+    name: "FormSubmissions",
+    label: "Form Submissions",
+    icon: <Database className="h-4 w-4" />,
   },
 ];
 

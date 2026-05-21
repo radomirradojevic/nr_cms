@@ -39,6 +39,7 @@ import {
   type ButtonProps,
   type ColumnsProps,
   type FormProps,
+  type FormSubmissionsProps,
   type GalleryProps,
   type HeadingProps,
   type HeroProps,
@@ -975,6 +976,158 @@ function FormSettings() {
   );
 }
 
+/* ===================== Form Submissions ===================== */
+
+export function FormSubmissions({
+  formId,
+  displayMode = "table",
+  pageSize = 10,
+  style,
+}: FormSubmissionsProps) {
+  return (
+    <NodeWrap style={style}>
+      {!formId ? (
+        <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <FormInput className="mx-auto mb-2 h-6 w-6" />
+          Form Submissions placeholder — pick a form in the block settings.
+        </div>
+      ) : (
+        <div className="my-4 rounded-md border bg-card p-3">
+          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <FormInput className="h-3.5 w-3.5" />
+            <span className="font-medium">Form Submissions</span>
+            <span>· {displayMode} view</span>
+          </div>
+          <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2 text-center">
+            Submissions will be displayed here on the public page.
+          </div>
+        </div>
+      )}
+    </NodeWrap>
+  );
+}
+FormSubmissions.craft = {
+  displayName: "Form Submissions",
+  props: defaults.FormSubmissions,
+  related: { settings: FormSubmissionsSettings },
+};
+
+function FormSubmissionsSettings() {
+  const {
+    actions: { setProp },
+    formId,
+    displayMode,
+    pageSize,
+    hideId,
+  } = useNode((n) => ({
+    formId: (n.data.props as FormSubmissionsProps).formId,
+    displayMode: (n.data.props as FormSubmissionsProps).displayMode,
+    pageSize: (n.data.props as FormSubmissionsProps).pageSize ?? 10,
+    hideId: (n.data.props as FormSubmissionsProps).hideId ?? true,
+  }));
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  return (
+    <>
+      <Field label="Select Form">
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          {formId ? (
+            <>
+              <p className="truncate text-xs text-muted-foreground">{formId}</p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">No form selected.</p>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 w-full"
+          onClick={() => setPickerOpen(true)}
+        >
+          <FormInput className="h-4 w-4" />
+          {formId ? "Change form" : "Choose form"}
+        </Button>
+        {formId ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-1 w-full"
+            onClick={() =>
+              setProp((p: FormSubmissionsProps) => {
+                p.formId = "";
+              })
+            }
+          >
+            Clear selection
+          </Button>
+        ) : null}
+      </Field>
+
+      <Field label="Display Mode">
+        <Select
+          value={displayMode}
+          onValueChange={(v) =>
+            setProp((p: FormSubmissionsProps) => {
+              p.displayMode = v as "table" | "card";
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="table">Table</SelectItem>
+            <SelectItem value="card">Card</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <Field label="Page Size">
+        <Input
+          type="number"
+          min={5}
+          max={100}
+          value={pageSize}
+          onChange={(e) =>
+            setProp((p: FormSubmissionsProps) => {
+              p.pageSize = Math.min(
+                Math.max(parseInt(e.target.value, 10) || 10, 5),
+                100,
+              );
+            })
+          }
+        />
+      </Field>
+
+      <Field label="Hide ID">
+        <Switch
+          checked={!!hideId}
+          onCheckedChange={(v) =>
+            setProp((p: FormSubmissionsProps) => {
+              p.hideId = v;
+            })
+          }
+        />
+      </Field>
+
+      <FormSelectDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onInsert={({ formId: nextId }) => {
+          setProp((p: FormSubmissionsProps) => {
+            p.formId = nextId;
+          });
+        }}
+      />
+
+      <BlockSettingsPanel blockName="Form" />
+    </>
+  );
+}
+
 /* ===================== Resolver ===================== */
 
 export const resolver = {
@@ -991,6 +1144,7 @@ export const resolver = {
   RawHtml,
   Gallery,
   Form,
+  FormSubmissions,
 };
 
 /** Re-export for convenience in chrome / page-editor. */
