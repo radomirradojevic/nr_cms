@@ -556,6 +556,62 @@ export const contentEditLockAudit = pgTable(
   ],
 );
 
+// ─── Form edit locks ────────────────────────────────────────────────────────
+// Form Builder forms are admin-only, so this mirrors admin section locking:
+// one active short-lived lease per form, without takeover between admins.
+// See .github/instructions/cms-content-edit-locking.instructions.md
+export const formEditLocks = pgTable(
+  "form_edit_locks",
+  {
+    formId: uuid("form_id")
+      .primaryKey()
+      .references(() => forms.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    userDisplayName: text("user_display_name").notNull(),
+    userRole: text("user_role").notNull(),
+    sessionId: text("session_id").notNull(),
+    clientId: text("client_id").notNull(),
+    acquiredAt: timestamp("acquired_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    leaseExpiresAt: timestamp("lease_expires_at", {
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    index("form_edit_locks_user_id_idx").on(table.userId),
+    index("form_edit_locks_lease_expires_at_idx").on(table.leaseExpiresAt),
+  ],
+);
+
+export const formEditLockAudit = pgTable(
+  "form_edit_lock_audit",
+  {
+    id: bigint("id", { mode: "number" })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    formId: uuid("form_id").notNull(),
+    userId: text("user_id").notNull(),
+    event: text("event").notNull(),
+    previousUserId: text("previous_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    metadata: jsonb("metadata"),
+  },
+  (table) => [
+    index("form_edit_lock_audit_form_id_idx").on(table.formId),
+    index("form_edit_lock_audit_created_at_idx").on(table.createdAt),
+    check(
+      "form_edit_lock_audit_event_check",
+      sql`${table.event} IN ('acquired','refreshed','released','expired','save_rejected_stale')`,
+    ),
+  ],
+);
+
 // ─── Admin section edit locks ──────────────────────────────────────────────
 // Same collaborative edit-locking pattern as `content_edit_locks`, but keyed
 // by a string `section_key` so it can be applied to admin singleton pages

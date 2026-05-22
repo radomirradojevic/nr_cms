@@ -6,6 +6,7 @@ import { ArrowLeft, Inbox } from "lucide-react";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getFormById } from "@/data/forms";
 import { Button } from "@/components/ui/button";
+import { FormEditLockProvider } from "@/components/form-edit-lock-provider";
 import { FormEditor } from "./form-editor";
 
 export default async function FormEditPage({
@@ -48,11 +49,13 @@ export default async function FormEditPage({
         </Button>
       </div>
 
-      <FormEditor
-        form={detail.form}
-        fields={detail.fields}
-        settings={detail.settings}
-      />
+      <FormEditLockProvider formId={id} currentUserId={userId}>
+        <FormEditor
+          form={detail.form}
+          fields={detail.fields}
+          settings={detail.settings}
+        />
+      </FormEditLockProvider>
     </div>
   );
 }

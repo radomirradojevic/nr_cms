@@ -30,16 +30,53 @@ import {
   type FormStatus,
   type SubmissionStatus,
 } from "@/data/forms";
+import { isLockedBy as isFormLockedBy, logLockEvent } from "@/data/form-locks";
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
-async function requireAdmin(): Promise<{ userId: string } | null> {
-  const { userId } = await auth();
-  if (!userId) return null;
+async function requireAdmin(): Promise<{
+  userId: string;
+  sessionId: string;
+} | null> {
+  const { userId, sessionId } = await auth();
+  if (!userId || !sessionId) return null;
   const user = await currentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) return null;
-  return { userId };
+  return { userId, sessionId };
+}
+
+async function requireFormLock(
+  formId: string,
+  caller: { userId: string; sessionId: string },
+  lockClientId: string | null | undefined,
+) {
+  if (!lockClientId) {
+    return {
+      error: "Your edit lock is not active. Reload the form and try again.",
+      code: "LOCK_LOST" as const,
+    };
+  }
+  const locked = await isFormLockedBy({
+    formId,
+    userId: caller.userId,
+    sessionId: caller.sessionId,
+    clientId: lockClientId,
+  });
+  if (!locked) {
+    await logLockEvent({
+      formId,
+      userId: caller.userId,
+      event: "save_rejected_stale",
+      metadata: { sessionId: caller.sessionId, clientId: lockClientId },
+    });
+    return {
+      error:
+        "Your edit lock expired or was released. Reload the form before saving.",
+      code: "LOCK_LOST" as const,
+    };
+  }
+  return null;
 }
 
 function bumpForm(id: string) {
@@ -63,6 +100,7 @@ const updateSchema = z.object({
   description: z.string().trim().max(1000).optional().nullable(),
   submitLabel: z.string().trim().min(1).max(60).optional(),
   successMessage: z.string().trim().min(1).max(2000).optional(),
+  lockClientId: z.string().min(1).max(128).optional(),
 });
 
 const fieldKeyRe = /^[a-z][a-z0-9_]*$/;
@@ -112,6 +150,7 @@ const fieldSchema = z.object({
 const saveFieldsSchema = z.object({
   formId: z.string().uuid(),
   fields: z.array(fieldSchema).max(100),
+  lockClientId: z.string().min(1).max(128).optional(),
 });
 
 const settingsSchema = z.object({
@@ -123,9 +162,13 @@ const settingsSchema = z.object({
   emailTemplate: z.string().max(20000),
   redirectUrl: z.string().max(2000).optional().nullable(),
   enableTurnstile: z.boolean(),
+  lockClientId: z.string().min(1).max(128).optional(),
 });
 
 const idSchema = z.object({ id: z.string().uuid() });
+const lockedIdSchema = idSchema.extend({
+  lockClientId: z.string().min(1).max(128).optional(),
+});
 const subStatusSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(["new", "read", "spam"]),
@@ -161,7 +204,15 @@ export async function updateForm(input: z.input<typeof updateSchema>) {
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   try {
-    const { id, ...patch } = parsed.data;
+    const lockError = await requireFormLock(
+      parsed.data.id,
+      caller,
+      parsed.data.lockClientId,
+    );
+    if (lockError) return lockError;
+
+    const { id, lockClientId: _lockClientId, ...patch } = parsed.data;
+    void _lockClientId;
     const row = await updateFormRow(id, patch, caller);
     if (!row) return { error: "Form not found." };
     bumpForm(id);
@@ -177,6 +228,12 @@ export async function saveFormFields(input: z.input<typeof saveFieldsSchema>) {
   if (!caller) return { error: "Forbidden." };
   const parsed = saveFieldsSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const lockError = await requireFormLock(
+    parsed.data.formId,
+    caller,
+    parsed.data.lockClientId,
+  );
+  if (lockError) return lockError;
 
   // Reject duplicate field_keys explicitly.
   const seen = new Set<string>();
@@ -217,6 +274,12 @@ export async function saveFormSettings(input: z.input<typeof settingsSchema>) {
   if (!caller) return { error: "Forbidden." };
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const lockError = await requireFormLock(
+    parsed.data.formId,
+    caller,
+    parsed.data.lockClientId,
+  );
+  if (lockError) return lockError;
 
   // Reject cross-origin redirect URLs (must be relative path or same-origin).
   if (parsed.data.redirectUrl) {
@@ -259,11 +322,17 @@ export async function saveFormSettings(input: z.input<typeof settingsSchema>) {
   }
 }
 
-export async function publishForm(input: z.input<typeof idSchema>) {
+export async function publishForm(input: z.input<typeof lockedIdSchema>) {
   const caller = await requireAdmin();
   if (!caller) return { error: "Forbidden." };
-  const parsed = idSchema.safeParse(input);
+  const parsed = lockedIdSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid id." };
+  const lockError = await requireFormLock(
+    parsed.data.id,
+    caller,
+    parsed.data.lockClientId,
+  );
+  if (lockError) return lockError;
 
   // Sanity check: form must have ≥ 1 field.
   const detail = await getFormById(parsed.data.id);
@@ -276,11 +345,17 @@ export async function publishForm(input: z.input<typeof idSchema>) {
   return { success: true as const };
 }
 
-export async function unpublishForm(input: z.input<typeof idSchema>) {
+export async function unpublishForm(input: z.input<typeof lockedIdSchema>) {
   const caller = await requireAdmin();
   if (!caller) return { error: "Forbidden." };
-  const parsed = idSchema.safeParse(input);
+  const parsed = lockedIdSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid id." };
+  const lockError = await requireFormLock(
+    parsed.data.id,
+    caller,
+    parsed.data.lockClientId,
+  );
+  if (lockError) return lockError;
   await unpublishFormRow(parsed.data.id, caller);
   bumpForm(parsed.data.id);
   return { success: true as const };
