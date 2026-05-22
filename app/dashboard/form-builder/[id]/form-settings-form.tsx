@@ -6,6 +6,7 @@ import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useFormEditLock } from "@/components/form-edit-lock-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -30,6 +31,7 @@ type Props = {
 
 export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
   const router = useRouter();
+  const lock = useFormEditLock();
   const [busy, startSave] = useTransition();
   const [enableEmail, setEnableEmail] = useState(
     initialSettings.enableEmailNotifications,
@@ -80,6 +82,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
     startSave(async () => {
       const res = await saveFormSettings({
         formId,
+        lockClientId: lock.clientId,
         enableEmailNotifications: enableEmail,
         notificationRecipients: recipients,
         notificationSubject: subject.trim() || "New form submission",
@@ -110,6 +113,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
           <Switch
             checked={enableTurnstile}
             onCheckedChange={setEnableTurnstile}
+            disabled={!lock.isEditor}
           />
         </div>
       </div>
@@ -122,7 +126,11 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
               Send an email to one or more recipients on every new submission.
             </p>
           </div>
-          <Switch checked={enableEmail} onCheckedChange={setEnableEmail} />
+          <Switch
+            checked={enableEmail}
+            onCheckedChange={setEnableEmail}
+            disabled={!lock.isEditor}
+          />
         </div>
 
         {enableEmail && (
@@ -187,6 +195,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
                       }
                       className="text-muted-foreground hover:text-destructive"
                       aria-label={`Remove ${r}`}
+                      disabled={!lock.isEditor}
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -199,6 +208,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
                   value={newRecipient}
                   onChange={(e) => setNewRecipient(e.target.value)}
                   placeholder="recipient@example.com"
+                  disabled={!lock.isEditor}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -206,7 +216,12 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
                     }
                   }}
                 />
-                <Button type="button" variant="outline" onClick={addRecipient}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addRecipient}
+                  disabled={!lock.isEditor}
+                >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -218,15 +233,16 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 maxLength={255}
+                disabled={!lock.isEditor}
               />
             </div>
 
             <div className="space-y-1">
               <Label className="text-xs">
-                Reply-to (use submitter's email field)
+                Reply-to (use submitter&apos;s email field)
               </Label>
               <Select value={replyToField} onValueChange={setReplyToField}>
-                <SelectTrigger>
+                <SelectTrigger disabled={!lock.isEditor}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -248,6 +264,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
                 onChange={(e) => setTemplate(e.target.value)}
                 maxLength={20000}
                 className="font-mono text-xs"
+                disabled={!lock.isEditor}
               />
               <p className="text-[10px] text-muted-foreground">
                 Use <code>{`{{field_key}}`}</code> tokens (interpolated as plain
@@ -269,11 +286,12 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
           value={redirectUrl}
           onChange={(e) => setRedirectUrl(e.target.value)}
           placeholder="/thanks"
+          disabled={!lock.isEditor}
         />
       </div>
 
       <div>
-        <Button onClick={save} disabled={busy}>
+        <Button onClick={save} disabled={busy || !lock.isEditor}>
           {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           <Save className="mr-2 h-4 w-4" /> Save settings
         </Button>

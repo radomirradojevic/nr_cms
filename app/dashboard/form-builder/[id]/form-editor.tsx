@@ -6,6 +6,7 @@ import { Loader2, Send, EyeOff, Save, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useFormEditLock } from "@/components/form-edit-lock-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +26,7 @@ type Tab = "meta" | "fields" | "settings" | "embed";
 
 export function FormEditor({ form, fields, settings }: Props) {
   const router = useRouter();
+  const lock = useFormEditLock();
   const [tab, setTab] = useState<Tab>("fields");
   const [name, setName] = useState(form.name);
   const [description, setDescription] = useState(form.description ?? "");
@@ -41,6 +43,7 @@ export function FormEditor({ form, fields, settings }: Props) {
         description: description || null,
         submitLabel,
         successMessage,
+        lockClientId: lock.clientId,
       });
       if ("error" in res && res.error) {
         toast.error(res.error);
@@ -53,7 +56,7 @@ export function FormEditor({ form, fields, settings }: Props) {
 
   function handlePublish() {
     startBusy(async () => {
-      const res = await publishForm({ id: form.id });
+      const res = await publishForm({ id: form.id, lockClientId: lock.clientId });
       if ("error" in res && res.error) {
         toast.error(res.error);
         return;
@@ -65,7 +68,10 @@ export function FormEditor({ form, fields, settings }: Props) {
 
   function handleUnpublish() {
     startBusy(async () => {
-      const res = await unpublishForm({ id: form.id });
+      const res = await unpublishForm({
+        id: form.id,
+        lockClientId: lock.clientId,
+      });
       if ("error" in res && res.error) {
         toast.error(res.error);
         return;
@@ -110,12 +116,16 @@ export function FormEditor({ form, fields, settings }: Props) {
         ))}
         <div className="ml-auto flex items-center gap-2">
           {form.status === "published" ? (
-            <Button variant="outline" onClick={handleUnpublish} disabled={busy}>
+            <Button
+              variant="outline"
+              onClick={handleUnpublish}
+              disabled={busy || !lock.isEditor}
+            >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <EyeOff className="mr-2 h-4 w-4" /> Unpublish
             </Button>
           ) : (
-            <Button onClick={handlePublish} disabled={busy}>
+            <Button onClick={handlePublish} disabled={busy || !lock.isEditor}>
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Send className="mr-2 h-4 w-4" /> Publish
             </Button>
@@ -131,6 +141,7 @@ export function FormEditor({ form, fields, settings }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
+              disabled={!lock.isEditor}
             />
           </div>
           <div className="space-y-1">
@@ -140,6 +151,7 @@ export function FormEditor({ form, fields, settings }: Props) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={1000}
+              disabled={!lock.isEditor}
             />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -149,6 +161,7 @@ export function FormEditor({ form, fields, settings }: Props) {
                 value={submitLabel}
                 onChange={(e) => setSubmitLabel(e.target.value)}
                 maxLength={60}
+                disabled={!lock.isEditor}
               />
             </div>
             <div className="space-y-1">
@@ -157,11 +170,12 @@ export function FormEditor({ form, fields, settings }: Props) {
                 value={successMessage}
                 onChange={(e) => setSuccessMessage(e.target.value)}
                 maxLength={2000}
+                disabled={!lock.isEditor}
               />
             </div>
           </div>
           <div>
-            <Button onClick={saveMeta} disabled={savingMeta}>
+            <Button onClick={saveMeta} disabled={savingMeta || !lock.isEditor}>
               {savingMeta && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" /> Save
             </Button>
