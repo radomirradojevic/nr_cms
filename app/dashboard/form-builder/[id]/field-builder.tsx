@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { useFormEditLock } from "@/components/form-edit-lock-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -135,6 +136,7 @@ type Props = {
 
 export function FieldBuilder({ formId, initialFields }: Props) {
   const router = useRouter();
+  const lock = useFormEditLock();
   const [fields, setFields] = useState<EditableField[]>(
     initialFields.map(fromRow),
   );
@@ -221,6 +223,7 @@ export function FieldBuilder({ formId, initialFields }: Props) {
     startSave(async () => {
       const res = await saveFormFields({
         formId,
+        lockClientId: lock.clientId,
         fields: fields.map((f, i) => ({
           id: f.id,
           fieldKey: f.fieldKey,
@@ -257,6 +260,7 @@ export function FieldBuilder({ formId, initialFields }: Props) {
             key={t}
             type="button"
             onClick={() => addField(t)}
+            disabled={!lock.isEditor}
             className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
           >
             <span className="text-muted-foreground">{FIELD_ICONS[t]}</span>
@@ -269,7 +273,7 @@ export function FieldBuilder({ formId, initialFields }: Props) {
       <div className="rounded-md border">
         <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2">
           <p className="text-sm font-medium">Fields ({fields.length})</p>
-          <Button onClick={save} size="sm" disabled={pending}>
+          <Button onClick={save} size="sm" disabled={pending || !lock.isEditor}>
             {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Save className="mr-2 h-4 w-4" /> Save fields
           </Button>
@@ -298,6 +302,7 @@ export function FieldBuilder({ formId, initialFields }: Props) {
                     selected={selectedIdx === idx}
                     onSelect={() => setSelectedIdx(idx)}
                     onRemove={() => removeAt(idx)}
+                    disabled={!lock.isEditor}
                   />
                 ))}
               </div>
@@ -316,6 +321,7 @@ export function FieldBuilder({ formId, initialFields }: Props) {
           <FieldConfig
             field={selected}
             onChange={(patch) => updateAt(selectedIdx, patch)}
+            disabled={!lock.isEditor}
           />
         )}
       </div>
@@ -329,12 +335,14 @@ function FieldRow({
   selected,
   onSelect,
   onRemove,
+  disabled,
 }: {
   sortableId: string;
   field: EditableField;
   selected: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  disabled: boolean;
 }) {
   const {
     attributes,
@@ -385,6 +393,7 @@ function FieldRow({
         size="icon"
         className="h-7 w-7"
         onClick={onRemove}
+        disabled={disabled}
       >
         <Trash2 className="h-4 w-4" />
       </Button>
@@ -395,9 +404,11 @@ function FieldRow({
 function FieldConfig({
   field,
   onChange,
+  disabled,
 }: {
   field: EditableField;
   onChange: (patch: Partial<EditableField>) => void;
+  disabled: boolean;
 }) {
   const isChoice =
     field.fieldType === "select" ||
@@ -428,6 +439,7 @@ function FieldConfig({
           value={field.label}
           onChange={(e) => onChange({ label: e.target.value })}
           maxLength={200}
+          disabled={disabled}
         />
       </div>
 
@@ -444,6 +456,7 @@ function FieldConfig({
             })
           }
           className="font-mono text-xs"
+          disabled={disabled}
         />
         <p className="text-[10px] text-muted-foreground">
           Lowercase letters, digits, underscores. Used in submissions and emails
@@ -457,6 +470,7 @@ function FieldConfig({
           value={field.placeholder}
           onChange={(e) => onChange({ placeholder: e.target.value })}
           maxLength={200}
+          disabled={disabled}
         />
       </div>
 
@@ -467,6 +481,7 @@ function FieldConfig({
           value={field.helpText}
           onChange={(e) => onChange({ helpText: e.target.value })}
           maxLength={500}
+          disabled={disabled}
         />
       </div>
 
@@ -475,6 +490,7 @@ function FieldConfig({
         <Switch
           checked={field.required}
           onCheckedChange={(c) => onChange({ required: c })}
+          disabled={disabled}
         />
       </div>
 
@@ -492,6 +508,7 @@ function FieldConfig({
                     e.target.value === "" ? undefined : Number(e.target.value),
                 })
               }
+              disabled={disabled}
             />
           </div>
           <div className="space-y-1">
@@ -506,6 +523,7 @@ function FieldConfig({
                     e.target.value === "" ? undefined : Number(e.target.value),
                 })
               }
+              disabled={disabled}
             />
           </div>
         </div>
@@ -524,6 +542,7 @@ function FieldConfig({
                     e.target.value === "" ? undefined : Number(e.target.value),
                 })
               }
+              disabled={disabled}
             />
           </div>
           <div className="space-y-1">
@@ -537,6 +556,7 @@ function FieldConfig({
                     e.target.value === "" ? undefined : Number(e.target.value),
                 })
               }
+              disabled={disabled}
             />
           </div>
         </div>
@@ -559,6 +579,7 @@ function FieldConfig({
                     .filter(Boolean),
                 })
               }
+              disabled={disabled}
             />
           </div>
           <div className="space-y-1">
@@ -573,6 +594,7 @@ function FieldConfig({
                     e.target.value === "" ? undefined : Number(e.target.value),
                 })
               }
+              disabled={disabled}
             />
           </div>
         </>
@@ -592,6 +614,7 @@ function FieldConfig({
                   setChoices(next);
                 }}
                 className="font-mono text-xs"
+                disabled={disabled}
               />
               <Input
                 placeholder="label"
@@ -601,6 +624,7 @@ function FieldConfig({
                   next[i] = { ...c, label: e.target.value };
                   setChoices(next);
                 }}
+                disabled={disabled}
               />
               <Button
                 type="button"
@@ -608,6 +632,7 @@ function FieldConfig({
                 size="icon"
                 className="h-7 w-7 shrink-0"
                 onClick={() => setChoices(arr.filter((_, j) => j !== i))}
+                disabled={disabled}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -617,6 +642,7 @@ function FieldConfig({
             type="button"
             variant="outline"
             size="sm"
+            disabled={disabled}
             onClick={() => {
               const arr = field.options.choices ?? [];
               setChoices([
