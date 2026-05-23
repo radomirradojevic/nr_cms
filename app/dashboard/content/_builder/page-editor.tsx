@@ -126,7 +126,7 @@ export function PageEditor({
   }
 
   return (
-    <div className="overflow-hidden rounded-md border">
+    <div className="rounded-md border">
       <Editor key={remountKey} resolver={resolver}>
         <Inner
           initialJson={editorJson}
@@ -259,19 +259,21 @@ function Inner({
         </div>
       ) : (
         <div className="grid grid-cols-[200px_1fr_280px]">
-          <aside className="space-y-4 border-r p-3">
-            <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Add blocks
-              </h4>
-              <BlocksPalette />
-            </div>
-            <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Layers
-              </h4>
-              <div className="rounded border">
-                <LayersPanel />
+          <aside className="sticky top-[calc(var(--sticky-header-h,0px)+0.75rem)] max-h-[calc(100dvh-var(--sticky-header-h,0px)-1.5rem)] self-start overflow-y-auto border-r p-3">
+            <div className="space-y-4">
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Add blocks
+                </h4>
+                <BlocksPalette />
+              </div>
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Layers
+                </h4>
+                <div className="rounded border">
+                  <LayersPanel />
+                </div>
               </div>
             </div>
           </aside>
