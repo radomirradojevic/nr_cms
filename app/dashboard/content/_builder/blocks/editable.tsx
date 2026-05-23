@@ -980,8 +980,8 @@ function FormSettings() {
 
 export function FormSubmissions({
   formId,
+  formName,
   displayMode = "table",
-  pageSize = 10,
   style,
 }: FormSubmissionsProps) {
   return (
@@ -996,6 +996,9 @@ export function FormSubmissions({
           <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
             <FormInput className="h-3.5 w-3.5" />
             <span className="font-medium">Form Submissions</span>
+            {formName ? (
+              <span className="min-w-0 truncate">· {formName}</span>
+            ) : null}
             <span>· {displayMode} view</span>
           </div>
           <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2 text-center">
@@ -1016,11 +1019,13 @@ function FormSubmissionsSettings() {
   const {
     actions: { setProp },
     formId,
+    formName,
     displayMode,
     pageSize,
     hideId,
   } = useNode((n) => ({
     formId: (n.data.props as FormSubmissionsProps).formId,
+    formName: (n.data.props as FormSubmissionsProps).formName,
     displayMode: (n.data.props as FormSubmissionsProps).displayMode,
     pageSize: (n.data.props as FormSubmissionsProps).pageSize ?? 10,
     hideId: (n.data.props as FormSubmissionsProps).hideId ?? true,
@@ -1033,6 +1038,7 @@ function FormSubmissionsSettings() {
         <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
           {formId ? (
             <>
+              <p className="font-medium">{formName || "(untitled)"}</p>
               <p className="truncate text-xs text-muted-foreground">{formId}</p>
             </>
           ) : (
@@ -1058,6 +1064,7 @@ function FormSubmissionsSettings() {
             onClick={() =>
               setProp((p: FormSubmissionsProps) => {
                 p.formId = "";
+                p.formName = "";
               })
             }
           >
@@ -1116,9 +1123,10 @@ function FormSubmissionsSettings() {
       <FormSelectDialog
         open={pickerOpen}
         onOpenChange={setPickerOpen}
-        onInsert={({ formId: nextId }) => {
+        onInsert={({ formId: nextId, formName: nextName }) => {
           setProp((p: FormSubmissionsProps) => {
             p.formId = nextId;
+            p.formName = nextName;
           });
         }}
       />

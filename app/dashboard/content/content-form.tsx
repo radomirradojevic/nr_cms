@@ -328,11 +328,11 @@ export function ContentForm({
         disabled={lockBlocksSave}
         className={
           lockBlocksSave
-            ? "grid grid-cols-1 lg:grid-cols-3 gap-6 opacity-70 pointer-events-none"
-            : "grid grid-cols-1 lg:grid-cols-3 gap-6"
+            ? "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24%)] gap-6 opacity-70 pointer-events-none"
+            : "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24%)] gap-6"
         }
       >
-        <div className="lg:col-span-2 space-y-4">
+        <div className="min-w-0 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
@@ -435,7 +435,7 @@ export function ContentForm({
           </div>
         </div>
 
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-lg border p-4 space-y-4">
             <h3 className="text-sm font-semibold">Publishing</h3>
             {canChooseStatus ? (
