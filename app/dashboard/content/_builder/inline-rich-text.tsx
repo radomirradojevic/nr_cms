@@ -247,8 +247,9 @@ export function InlineRichText({
             // from CSS rules higher up the tree.
             style={{
               position: "fixed",
-              top: Math.max(8, toolbarPos.top - 40),
+              top: toolbarPos.top,
               left: toolbarPos.left,
+              transform: "translateY(calc(-100% - 8px))",
               zIndex: 50,
               color: "var(--popover-foreground)",
               opacity: 1,
