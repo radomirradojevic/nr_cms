@@ -221,9 +221,25 @@ export function SiteTopMenuMobile({
 
   /* Prevent body scroll while open */
   useEffect(() => {
-    document.body.style.overflow = isOpen ? "hidden" : "";
+    const { body, documentElement } = document;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyOverscrollBehavior = body.style.overscrollBehavior;
+    const previousHtmlOverflow = documentElement.style.overflow;
+    const previousHtmlOverscrollBehavior =
+      documentElement.style.overscrollBehavior;
+
+    if (isOpen) {
+      body.style.overflow = "hidden";
+      body.style.overscrollBehavior = "none";
+      documentElement.style.overflow = "hidden";
+      documentElement.style.overscrollBehavior = "none";
+    }
+
     return () => {
-      document.body.style.overflow = "";
+      body.style.overflow = previousBodyOverflow;
+      body.style.overscrollBehavior = previousBodyOverscrollBehavior;
+      documentElement.style.overflow = previousHtmlOverflow;
+      documentElement.style.overscrollBehavior = previousHtmlOverscrollBehavior;
     };
   }, [isOpen]);
 
@@ -288,9 +304,10 @@ export function SiteTopMenuMobile({
         aria-modal="false"
         aria-label="Site navigation"
         className={cn(
-          "absolute right-0 top-[calc(100%+8px)] z-50",
+          "fixed right-3 top-[calc(var(--header-h)+0.5rem)] z-[70]",
           "w-72 max-w-[calc(100vw-1.5rem)]",
-          "max-h-[calc(100svh-5rem)] overflow-y-auto",
+          "flex max-h-[calc(100vh-var(--header-h)-1rem)] min-h-0 flex-col overflow-hidden",
+          "max-h-[calc(100dvh-var(--header-h)-1rem)]",
           "rounded-lg border border-border bg-background shadow-xl",
           "origin-top-right transition-all duration-200 ease-out",
           isOpen
@@ -298,7 +315,10 @@ export function SiteTopMenuMobile({
             : "scale-95 opacity-0 -translate-y-1 pointer-events-none",
         )}
       >
-        <nav aria-label="Site navigation">
+        <nav
+          aria-label="Site navigation"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]"
+        >
           {/* Site nav section */}
           {hasSiteNav && (
             <ul className="p-2 space-y-0.5">
