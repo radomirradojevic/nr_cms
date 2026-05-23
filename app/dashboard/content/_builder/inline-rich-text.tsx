@@ -43,7 +43,40 @@ type Props = {
   /** Render as a single line (suppresses paragraph margins, used for headings/buttons). */
   singleLine?: boolean;
   placeholder?: string;
+  /**
+   * When present, paragraph alignment is controlled by the parent block style
+   * instead of TipTap paragraph attrs. Used by Text blocks so the inline
+   * toolbar and Properties panel share one source of truth.
+   */
+  blockTextAlign?: TextAlignValue;
+  onBlockTextAlignChange?: (value: TextAlignValue) => void;
 };
+
+type TextAlignValue = "left" | "center" | "right" | "justify" | undefined;
+
+function stripParagraphTextAlign(value: JSONContent): JSONContent {
+  let changed = false;
+
+  function visit(node: JSONContent): JSONContent {
+    const next: JSONContent = { ...node };
+    if (next.attrs && "textAlign" in next.attrs) {
+      const attrs = { ...next.attrs };
+      delete attrs.textAlign;
+      next.attrs = Object.keys(attrs).length > 0 ? attrs : undefined;
+      changed = true;
+    }
+    if (next.content) {
+      const content = next.content.map(visit);
+      if (content.some((child, index) => child !== next.content?.[index])) {
+        next.content = content;
+      }
+    }
+    return next;
+  }
+
+  const next = visit(value);
+  return changed ? next : value;
+}
 
 /**
  * Tiptap-backed inline rich-text editor used inside builder blocks.
@@ -55,6 +88,8 @@ export function InlineRichText({
   className,
   singleLine,
   placeholder,
+  blockTextAlign,
+  onBlockTextAlignChange,
 }: Props) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
@@ -107,10 +142,43 @@ export function InlineRichText({
   useEffect(() => {
     if (!editor) return;
     const current = editor.getJSON();
-    if (value && JSON.stringify(current) !== JSON.stringify(value)) {
-      editor.commands.setContent(value, { emitUpdate: false });
+    const nextValue =
+      value && onBlockTextAlignChange && blockTextAlign !== undefined
+        ? stripParagraphTextAlign(value)
+        : value;
+    if (nextValue && JSON.stringify(current) !== JSON.stringify(nextValue)) {
+      editor.commands.setContent(nextValue, { emitUpdate: false });
     }
-  }, [value, editor]);
+    if (
+      value &&
+      nextValue &&
+      nextValue !== value &&
+      JSON.stringify(nextValue) !== JSON.stringify(value)
+    ) {
+      onChange(nextValue);
+    }
+  }, [value, editor, onChange, onBlockTextAlignChange, blockTextAlign]);
+
+  function applyTextAlign(value: Exclude<TextAlignValue, undefined>) {
+    if (onBlockTextAlignChange) {
+      const current = editor!.getJSON();
+      const next = stripParagraphTextAlign(current);
+      if (next !== current) {
+        editor!.commands.setContent(next, { emitUpdate: false });
+        onChange(next);
+      }
+      onBlockTextAlignChange(value);
+      editor!.commands.focus();
+      return;
+    }
+    editor!.chain().focus().setTextAlign(value).run();
+  }
+
+  function alignActive(value: Exclude<TextAlignValue, undefined>) {
+    return onBlockTextAlignChange
+      ? blockTextAlign === value
+      : editor!.isActive({ textAlign: value });
+  }
 
   const toolbarVisible = !!editor && (selected || focused);
 
@@ -212,34 +280,30 @@ export function InlineRichText({
             </BtnInline>
             <span className="mx-1 h-4 w-px bg-border" />
             <BtnInline
-              active={editor.isActive({ textAlign: "left" })}
-              onClick={() => editor.chain().focus().setTextAlign("left").run()}
+              active={alignActive("left")}
+              onClick={() => applyTextAlign("left")}
               title="Align left"
             >
               <AlignLeft className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
-              active={editor.isActive({ textAlign: "center" })}
-              onClick={() =>
-                editor.chain().focus().setTextAlign("center").run()
-              }
+              active={alignActive("center")}
+              onClick={() => applyTextAlign("center")}
               title="Align center"
             >
               <AlignCenter className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
-              active={editor.isActive({ textAlign: "right" })}
-              onClick={() => editor.chain().focus().setTextAlign("right").run()}
+              active={alignActive("right")}
+              onClick={() => applyTextAlign("right")}
               title="Align right"
             >
               <AlignRight className="h-3.5 w-3.5" />
             </BtnInline>
             {!singleLine && (
               <BtnInline
-                active={editor.isActive({ textAlign: "justify" })}
-                onClick={() =>
-                  editor.chain().focus().setTextAlign("justify").run()
-                }
+                active={alignActive("justify")}
+                onClick={() => applyTextAlign("justify")}
                 title="Justify"
               >
                 <AlignJustify className="h-3.5 w-3.5" />
