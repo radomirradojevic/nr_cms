@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -68,6 +68,24 @@ type Props = {
   onChange?: (value: JSONContent) => void;
 };
 
+const inactiveToolbarState = {
+  heading1: false,
+  heading2: false,
+  heading3: false,
+  bold: false,
+  italic: false,
+  strike: false,
+  underline: false,
+  bulletList: false,
+  orderedList: false,
+  blockquote: false,
+  link: false,
+  alignLeft: false,
+  alignCenter: false,
+  alignRight: false,
+  alignJustify: false,
+};
+
 export function BlogEditor({
   defaultValue,
   registerGetValue,
@@ -113,6 +131,32 @@ export function BlogEditor({
       onChangeRef.current?.(editor.getJSON());
     },
   });
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor }) => {
+      if (!editor) {
+        return inactiveToolbarState;
+      }
+
+      return {
+        heading1: editor.isActive("heading", { level: 1 }),
+        heading2: editor.isActive("heading", { level: 2 }),
+        heading3: editor.isActive("heading", { level: 3 }),
+        bold: editor.isActive("bold"),
+        italic: editor.isActive("italic"),
+        strike: editor.isActive("strike"),
+        underline: editor.isActive("underline"),
+        bulletList: editor.isActive("bulletList"),
+        orderedList: editor.isActive("orderedList"),
+        blockquote: editor.isActive("blockquote"),
+        link: editor.isActive("link"),
+        alignLeft: editor.isActive({ textAlign: "left" }),
+        alignCenter: editor.isActive({ textAlign: "center" }),
+        alignRight: editor.isActive({ textAlign: "right" }),
+        alignJustify: editor.isActive({ textAlign: "justify" }),
+      };
+    },
+  }) ?? inactiveToolbarState;
 
   // Register the value getter exactly once — the parent reads from this
   // at submit time without subscribing to per-keystroke updates.
@@ -166,7 +210,7 @@ export function BlogEditor({
             <>
               <Btn
                 tooltip="Heading 1"
-                active={editor.isActive("heading", { level: 1 })}
+                active={toolbarState.heading1}
                 onClick={() =>
                   editor.chain().focus().toggleHeading({ level: 1 }).run()
                 }
@@ -175,7 +219,7 @@ export function BlogEditor({
               </Btn>
               <Btn
                 tooltip="Heading 2"
-                active={editor.isActive("heading", { level: 2 })}
+                active={toolbarState.heading2}
                 onClick={() =>
                   editor.chain().focus().toggleHeading({ level: 2 }).run()
                 }
@@ -184,7 +228,7 @@ export function BlogEditor({
               </Btn>
               <Btn
                 tooltip="Heading 3"
-                active={editor.isActive("heading", { level: 3 })}
+                active={toolbarState.heading3}
                 onClick={() =>
                   editor.chain().focus().toggleHeading({ level: 3 }).run()
                 }
@@ -194,28 +238,28 @@ export function BlogEditor({
               <Sep />
               <Btn
                 tooltip="Bold"
-                active={editor.isActive("bold")}
+                active={toolbarState.bold}
                 onClick={() => editor.chain().focus().toggleBold().run()}
               >
                 <Bold className="h-4 w-4" />
               </Btn>
               <Btn
                 tooltip="Italic"
-                active={editor.isActive("italic")}
+                active={toolbarState.italic}
                 onClick={() => editor.chain().focus().toggleItalic().run()}
               >
                 <Italic className="h-4 w-4" />
               </Btn>
               <Btn
                 tooltip="Strikethrough"
-                active={editor.isActive("strike")}
+                active={toolbarState.strike}
                 onClick={() => editor.chain().focus().toggleStrike().run()}
               >
                 <Strikethrough className="h-4 w-4" />
               </Btn>
               <Btn
                 tooltip="Underline"
-                active={editor.isActive("underline")}
+                active={toolbarState.underline}
                 onClick={() => editor.chain().focus().toggleUnderline().run()}
               >
                 <Underline className="h-4 w-4" />
@@ -223,21 +267,21 @@ export function BlogEditor({
               <Sep />
               <Btn
                 tooltip="Bullet list"
-                active={editor.isActive("bulletList")}
+                active={toolbarState.bulletList}
                 onClick={() => editor.chain().focus().toggleBulletList().run()}
               >
                 <List className="h-4 w-4" />
               </Btn>
               <Btn
                 tooltip="Ordered list"
-                active={editor.isActive("orderedList")}
+                active={toolbarState.orderedList}
                 onClick={() => editor.chain().focus().toggleOrderedList().run()}
               >
                 <ListOrdered className="h-4 w-4" />
               </Btn>
               <Btn
                 tooltip="Blockquote"
-                active={editor.isActive("blockquote")}
+                active={toolbarState.blockquote}
                 onClick={() => editor.chain().focus().toggleBlockquote().run()}
               >
                 <Quote className="h-4 w-4" />
@@ -245,7 +289,7 @@ export function BlogEditor({
               <Sep />
               <Btn
                 tooltip="Insert / edit link"
-                active={editor.isActive("link")}
+                active={toolbarState.link}
                 onClick={setLink}
               >
                 <LinkIcon className="h-4 w-4" />
@@ -253,7 +297,7 @@ export function BlogEditor({
               <Sep />
               <Btn
                 tooltip="Align left"
-                active={editor.isActive({ textAlign: "left" })}
+                active={toolbarState.alignLeft}
                 onClick={() =>
                   editor.chain().focus().setTextAlign("left").run()
                 }
@@ -262,7 +306,7 @@ export function BlogEditor({
               </Btn>
               <Btn
                 tooltip="Align center"
-                active={editor.isActive({ textAlign: "center" })}
+                active={toolbarState.alignCenter}
                 onClick={() =>
                   editor.chain().focus().setTextAlign("center").run()
                 }
@@ -271,7 +315,7 @@ export function BlogEditor({
               </Btn>
               <Btn
                 tooltip="Align right"
-                active={editor.isActive({ textAlign: "right" })}
+                active={toolbarState.alignRight}
                 onClick={() =>
                   editor.chain().focus().setTextAlign("right").run()
                 }
@@ -280,7 +324,7 @@ export function BlogEditor({
               </Btn>
               <Btn
                 tooltip="Justify"
-                active={editor.isActive({ textAlign: "justify" })}
+                active={toolbarState.alignJustify}
                 onClick={() =>
                   editor.chain().focus().setTextAlign("justify").run()
                 }
@@ -459,7 +503,7 @@ export function BlogEditor({
             />
           </div>
           <DialogFooter>
-            {editor.isActive("link") && (
+            {toolbarState.link && (
               <Button type="button" variant="outline" onClick={removeLink}>
                 Remove link
               </Button>
@@ -497,6 +541,7 @@ function Btn({
       type="button"
       variant={active ? "default" : "ghost"}
       size="sm"
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
       className="h-8 w-8 p-0"
     >

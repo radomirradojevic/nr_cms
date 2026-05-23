@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -42,9 +43,12 @@ export function LogoPickerDialog({
   // Reset & load when dialog opens.
   useEffect(() => {
     if (!open) return;
-    setPickedId(selectedId);
-    setSearch("");
-    runFetch(0, true, "");
+    const timeout = setTimeout(() => {
+      setPickedId(selectedId);
+      setSearch("");
+      runFetch(0, true, "");
+    }, 0);
+    return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -91,6 +95,9 @@ export function LogoPickerDialog({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Choose Logo from File Manager</DialogTitle>
+          <DialogDescription className="sr-only">
+            Search image files and choose one to use as the site logo.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="relative">
