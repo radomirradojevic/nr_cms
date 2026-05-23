@@ -250,6 +250,29 @@ html:has(.dashboard-content-root) {
 .site-footer {
   border-top: var(--footer-glow-border-top, 0 solid transparent);
   box-shadow: var(--footer-glow-shadow, none);
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+  overflow-wrap: anywhere;
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+.site-footer .cms-content {
+  max-width: 100%;
+}
+
+.site-footer .cms-content :where(p, ul, ol, div) {
+  max-width: 100%;
+}
+
+.site-footer .cms-content :where(p, div) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.site-footer .cms-content :where(a, span) {
+  max-width: 100%;
 }
 
 /* Rich-text content styling — shared between:
