@@ -50,9 +50,16 @@ type Props = {
    */
   blockTextAlign?: TextAlignValue;
   onBlockTextAlignChange?: (value: TextAlignValue) => void;
+  blockInlineStyle?: InlineStyleValue;
+  onBlockInlineStyleChange?: (value: InlineStyleValue) => void;
 };
 
 type TextAlignValue = "left" | "center" | "right" | "justify" | undefined;
+type InlineStyleValue = {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+};
 
 function stripParagraphTextAlign(value: JSONContent): JSONContent {
   let changed = false;
@@ -90,6 +97,8 @@ export function InlineRichText({
   placeholder,
   blockTextAlign,
   onBlockTextAlignChange,
+  blockInlineStyle,
+  onBlockInlineStyleChange,
 }: Props) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
@@ -180,6 +189,35 @@ export function InlineRichText({
       : editor!.isActive({ textAlign: value });
   }
 
+  function inlineStyleActive(value: keyof InlineStyleValue) {
+    if (onBlockInlineStyleChange) {
+      return !!blockInlineStyle?.[value];
+    }
+    return editor!.isActive(value === "underline" ? "underline" : value);
+  }
+
+  function applyInlineStyle(value: keyof InlineStyleValue) {
+    if (onBlockInlineStyleChange) {
+      const next = {
+        ...blockInlineStyle,
+        [value]: !blockInlineStyle?.[value],
+      };
+      onBlockInlineStyleChange(next);
+      editor!.commands.focus();
+      return;
+    }
+
+    if (value === "bold") {
+      editor!.chain().focus().toggleBold().run();
+      return;
+    }
+    if (value === "italic") {
+      editor!.chain().focus().toggleItalic().run();
+      return;
+    }
+    editor!.chain().focus().toggleUnderline().run();
+  }
+
   const toolbarVisible = !!editor && (selected || focused);
 
   // Track the content wrapper's viewport position so the portal-rendered
@@ -259,22 +297,22 @@ export function InlineRichText({
             onClick={(e) => e.stopPropagation()}
           >
             <BtnInline
-              active={editor.isActive("bold")}
-              onClick={() => editor.chain().focus().toggleBold().run()}
+              active={inlineStyleActive("bold")}
+              onClick={() => applyInlineStyle("bold")}
               title="Bold"
             >
               <Bold className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
-              active={editor.isActive("italic")}
-              onClick={() => editor.chain().focus().toggleItalic().run()}
+              active={inlineStyleActive("italic")}
+              onClick={() => applyInlineStyle("italic")}
               title="Italic"
             >
               <Italic className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
-              active={editor.isActive("underline")}
-              onClick={() => editor.chain().focus().toggleUnderline().run()}
+              active={inlineStyleActive("underline")}
+              onClick={() => applyInlineStyle("underline")}
               title="Underline"
             >
               <UnderlineIcon className="h-3.5 w-3.5" />

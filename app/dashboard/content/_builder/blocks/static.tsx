@@ -261,6 +261,12 @@ export function ButtonStatic({ label, href, style }: ButtonProps) {
 
 export function HeroStatic({ title, subtitle, style }: HeroProps) {
   const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
+  const inlineTitle = hasTextAlignStyle(style)
+    ? stripInlineTextAlign(title)
+    : title;
+  const inlineSubtitle = hasTextAlignStyle(style)
+    ? stripInlineTextAlign(subtitle)
+    : subtitle;
   return (
     <>
       {responsiveStyleEl}
@@ -273,11 +279,13 @@ export function HeroStatic({ title, subtitle, style }: HeroProps) {
       >
         <h1
           className="text-4xl font-bold tracking-tight"
-          dangerouslySetInnerHTML={{ __html: renderInlineHtml(title) }}
+          dangerouslySetInnerHTML={{ __html: renderInlineHtml(inlineTitle) }}
         />
         <div
           className="mt-4 text-lg text-muted-foreground [&_p]:my-1"
-          dangerouslySetInnerHTML={{ __html: renderInlineHtml(subtitle) }}
+          dangerouslySetInnerHTML={{
+            __html: renderInlineHtml(inlineSubtitle),
+          }}
         />
       </section>
     </>

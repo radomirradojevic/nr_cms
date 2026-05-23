@@ -46,6 +46,7 @@ import {
   type ImageProps,
   type RawHtmlProps,
   type SectionProps,
+  type StyledProps,
   type TextProps,
 } from "./types";
 import type { BlockStyle, TypographyStyle, Viewport } from "./style/types";
@@ -394,10 +395,7 @@ function cleanupEmptyBlockStyle(style: BlockStyle) {
   for (const viewport of ["tablet", "mobile"] as const) {
     const override = responsive[viewport];
     if (!override) continue;
-    if (
-      override.typography &&
-      Object.keys(override.typography).length === 0
-    ) {
+    if (override.typography && Object.keys(override.typography).length === 0) {
       delete override.typography;
     }
     if (Object.keys(override).length === 0) {
@@ -409,8 +407,8 @@ function cleanupEmptyBlockStyle(style: BlockStyle) {
   }
 }
 
-function setTextBlockAlign(
-  props: TextProps,
+function setBlockTextAlign(
+  props: StyledProps,
   viewport: Viewport,
   value: TypographyStyle["textAlign"],
 ) {
@@ -446,12 +444,68 @@ function resolvedTextAlign(
     : undefined;
 }
 
+function isBoldFontWeight(value: TypographyStyle["fontWeight"]): boolean {
+  if (!value) return false;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 600;
+}
+
+function resolvedInlineStyle(
+  style: BlockStyle | undefined,
+  viewport: Viewport,
+): { bold: boolean; italic: boolean; underline: boolean } {
+  const cssStyle = applyBlockStyle(style, viewport).style;
+  return {
+    bold: isBoldFontWeight(
+      cssStyle.fontWeight as TypographyStyle["fontWeight"],
+    ),
+    italic: cssStyle.fontStyle === "italic",
+    underline: cssStyle.textDecoration === "underline",
+  };
+}
+
+function setBlockInlineStyle(
+  props: StyledProps,
+  viewport: Viewport,
+  value: { bold?: boolean; italic?: boolean; underline?: boolean },
+) {
+  if (!props.style) props.style = {};
+
+  let typography: TypographyStyle;
+  if (viewport === "desktop") {
+    if (!props.style.typography) props.style.typography = {};
+    typography = props.style.typography;
+  } else {
+    if (!props.style.responsive) props.style.responsive = {};
+    if (!props.style.responsive[viewport])
+      props.style.responsive[viewport] = {};
+    const override = props.style.responsive[viewport];
+    if (!override.typography) override.typography = {};
+    typography = override.typography;
+  }
+
+  if (value.bold) typography.fontWeight = "700";
+  else if (viewport === "desktop") delete typography.fontWeight;
+  else typography.fontWeight = "400";
+
+  if (value.italic) typography.fontStyle = "italic";
+  else if (viewport === "desktop") delete typography.fontStyle;
+  else typography.fontStyle = "normal";
+
+  if (value.underline) typography.textDecoration = "underline";
+  else if (viewport === "desktop") delete typography.textDecoration;
+  else typography.textDecoration = "none";
+
+  cleanupEmptyBlockStyle(props.style);
+}
+
 export function Text({ content, style }: TextProps) {
   const {
     actions: { setProp },
   } = useNode();
   const { viewport } = useViewport();
   const blockTextAlign = resolvedTextAlign(style, viewport);
+  const blockInlineStyle = resolvedInlineStyle(style, viewport);
   return (
     <NodeWrap style={style}>
       <div className="my-3 leading-relaxed [&_p]:my-2 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6">
@@ -465,7 +519,13 @@ export function Text({ content, style }: TextProps) {
           blockTextAlign={blockTextAlign}
           onBlockTextAlignChange={(value) =>
             setProp((p: TextProps) => {
-              setTextBlockAlign(p, viewport, value);
+              setBlockTextAlign(p, viewport, value);
+            })
+          }
+          blockInlineStyle={blockInlineStyle}
+          onBlockInlineStyleChange={(value) =>
+            setProp((p: TextProps) => {
+              setBlockInlineStyle(p, viewport, value);
             })
           }
         />
@@ -494,13 +554,14 @@ export function ImageBlock({
   style,
 }: ImageProps) {
   return (
-    <NodeWrap style={style}>
+    <NodeWrap>
       <ImageStatic
         src={src}
         alt={alt}
         sizing={sizing}
         width={width}
         height={height}
+        style={style}
       />
     </NodeWrap>
   );
@@ -681,9 +742,20 @@ export function Hero({ title, subtitle, style }: HeroProps) {
   const {
     actions: { setProp },
   } = useNode();
+  const { viewport } = useViewport();
+  const { style: cssStyle, className: bbClass } = useBlockStyleShell(style);
+  const blockTextAlign = resolvedTextAlign(style, viewport);
   return (
-    <NodeWrap style={style}>
-      <section className="my-8 rounded-lg border bg-card p-12 text-center">
+    <NodeWrap>
+      <section
+        style={cssStyle}
+        className={cn(
+          "my-8 rounded-lg border bg-card p-12",
+          bbClass,
+          !blockTextAlign && "text-center",
+          blockTextAlign && "[&_.ProseMirror_p]:!text-inherit",
+        )}
+      >
         <h1 className="text-4xl font-bold tracking-tight">
           <InlineRichText
             singleLine
@@ -766,6 +838,7 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
     images: GalleryPickerPreviewImage[];
   } | null>(null);
   const [, startPreview] = useTransition();
+  const { style: cssStyle, className: bbClass } = useBlockStyleShell(style);
 
   useEffect(() => {
     if (!galleryId) {
@@ -788,14 +861,23 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
   }, [galleryId]);
 
   return (
-    <NodeWrap style={style}>
+    <NodeWrap>
       {!galleryId ? (
-        <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+        <div
+          style={cssStyle}
+          className={cn(
+            "my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground",
+            bbClass,
+          )}
+        >
           <Images className="mx-auto mb-2 h-6 w-6" />
           Gallery placeholder — pick a gallery in the block settings.
         </div>
       ) : preview ? (
-        <div className="my-4 rounded-md border bg-card p-3">
+        <div
+          style={cssStyle}
+          className={cn("my-4 rounded-md border bg-card p-3", bbClass)}
+        >
           <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
             <Images className="h-3.5 w-3.5" />
             <span className="font-medium">{preview.name}</span>
@@ -820,7 +902,13 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
           )}
         </div>
       ) : (
-        <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+        <div
+          style={cssStyle}
+          className={cn(
+            "my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground",
+            bbClass,
+          )}
+        >
           Loading gallery{galleryName ? ` "${galleryName}"` : ""}…
         </div>
       )}
