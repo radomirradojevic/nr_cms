@@ -110,7 +110,7 @@ export default async function RootLayout({
           />
         ))}
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full min-h-dvh flex flex-col overflow-x-hidden">
         <ClerkProvider appearance={{ theme: shadcn }}>
           <SessionSecurityProvider
             maxSessionDurationMinutes={
@@ -321,7 +321,9 @@ export default async function RootLayout({
                   ? { paddingTop: `${stickyHeaderH}px` }
                   : {}),
                 ...(footerIsSticky && stickyFooterH > 0
-                  ? { paddingBottom: `${stickyFooterH}px` }
+                  ? {
+                      paddingBottom: `calc(${stickyFooterH}px + env(safe-area-inset-bottom, 0px))`,
+                    }
                   : {}),
               }}
             >
@@ -331,27 +333,29 @@ export default async function RootLayout({
             </div>
             <footer
               className={cn(
-                "site-footer bg-background mt-auto px-6 py-8 text-sm text-muted-foreground",
+                "site-footer bg-background mt-auto px-4 py-8 text-sm text-muted-foreground sm:px-6",
                 footerIsSticky && "sticky bottom-0 z-50",
               )}
               style={{
-                ...(stickyFooterH > 0 ? { height: `${stickyFooterH}px` } : {}),
+                ...(stickyFooterH > 0
+                  ? { minHeight: `${stickyFooterH}px` }
+                  : {}),
                 ...(footerBg ? { backgroundColor: footerBg } : {}),
               }}
             >
               {(settings.footerContent ||
                 settings.footerSettings.copyright) && (
-                <div className="site-content-container mx-auto flex w-full flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                <div className="site-content-container mx-auto flex w-full min-w-0 flex-col gap-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-6">
                   {settings.footerContent && (
                     <div
-                      className="cms-content max-w-none text-sm [&_a]:underline [&_a]:hover:text-foreground"
+                      className="cms-content min-w-0 max-w-full text-sm [&_a]:underline [&_a]:hover:text-foreground"
                       dangerouslySetInnerHTML={{
                         __html: settings.footerContent,
                       }}
                     />
                   )}
                   {settings.footerSettings.copyright && (
-                    <div className="sm:text-right shrink-0">
+                    <div className="min-w-0 max-w-full break-words sm:shrink-0 sm:text-right">
                       <span>{settings.footerSettings.copyright}</span>
                     </div>
                   )}
