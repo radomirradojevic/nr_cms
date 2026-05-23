@@ -6,6 +6,7 @@ import type { FormSubmissionsProps } from "../types";
  */
 export const FormSubmissionsPropsSchema = z.object({
   formId: z.string().uuid("Invalid form ID").optional().default(""),
+  formName: z.string().optional().default(""),
   displayMode: z.enum(["table", "card"]).optional().default("table"),
   pageSize: z
     .number()
