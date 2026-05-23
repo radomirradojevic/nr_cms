@@ -1,5 +1,5 @@
 import type { ReactNode, CSSProperties } from "react";
-import { renderInlineHtml } from "../render-inline";
+import { renderInlineHtml, stripInlineTextAlign } from "../render-inline";
 import type {
   ButtonProps,
   ColumnsProps,
@@ -50,6 +50,14 @@ function resolveShell(style: BlockStyle | undefined): {
     shellClass: cn(className, css ? scope : null),
     responsiveStyleEl,
   };
+}
+
+function hasTextAlignStyle(style: BlockStyle | undefined): boolean {
+  return !!(
+    style?.typography?.textAlign ||
+    style?.responsive?.tablet?.typography?.textAlign ||
+    style?.responsive?.mobile?.typography?.textAlign
+  );
 }
 
 export function RootStatic({ children }: { children?: ReactNode }) {
@@ -123,6 +131,9 @@ export function HeadingStatic({ content, level, style }: HeadingProps) {
 
 export function TextStatic({ content, style }: TextProps) {
   const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
+  const inlineContent = hasTextAlignStyle(style)
+    ? stripInlineTextAlign(content)
+    : content;
   return (
     <>
       {responsiveStyleEl}
@@ -132,7 +143,9 @@ export function TextStatic({ content, style }: TextProps) {
           "my-3 leading-relaxed [&_p]:my-2 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6",
           shellClass,
         )}
-        dangerouslySetInnerHTML={{ __html: renderInlineHtml(content) }}
+        dangerouslySetInnerHTML={{
+          __html: renderInlineHtml(inlineContent),
+        }}
       />
     </>
   );

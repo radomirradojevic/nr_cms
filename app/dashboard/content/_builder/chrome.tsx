@@ -148,14 +148,10 @@ export function SettingsPanel() {
 /* ===================== Toolbar ===================== */
 
 export function Toolbar({
-  width,
-  onWidthChange,
   onToggleSource,
   sourceMode,
   onRemountWithJson,
 }: {
-  width: "sm" | "md" | "lg";
-  onWidthChange: (w: "sm" | "md" | "lg") => void;
   onToggleSource: () => void;
   sourceMode: boolean;
   /**
@@ -284,18 +280,6 @@ export function Toolbar({
         <Trash2 className="h-4 w-4" />
       </Button>
       <div className="ml-auto flex items-center gap-1">
-        <span className="mr-1 text-xs text-muted-foreground">Preview:</span>
-        {(["sm", "md", "lg"] as const).map((w) => (
-          <Button
-            key={w}
-            type="button"
-            size="sm"
-            variant={width === w ? "default" : "outline"}
-            onClick={() => onWidthChange(w)}
-          >
-            {w === "sm" ? "Mobile" : w === "md" ? "Tablet" : "Desktop"}
-          </Button>
-        ))}
         <Button
           type="button"
           size="sm"

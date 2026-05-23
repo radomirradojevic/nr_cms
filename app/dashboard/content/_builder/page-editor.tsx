@@ -59,11 +59,7 @@ type Props = {
   appearance?: AppearanceSettings;
 };
 
-const widthClass = {
-  sm: "max-w-sm",
-  md: "max-w-2xl",
-  lg: "max-w-5xl",
-} as const;
+const desktopPreviewWidthClass = "max-w-5xl";
 
 export function PageEditor({
   defaultValue,
@@ -153,7 +149,6 @@ function Inner({
   onRemountWithJson: (json: string) => void;
   appearance?: AppearanceSettings;
 }) {
-  const [width, setWidth] = useState<"sm" | "md" | "lg">("lg");
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [sourceMode, setSourceMode] = useState(false);
   const [sourceHtml, setSourceHtml] = useState("");
@@ -242,8 +237,6 @@ function Inner({
   return (
     <ViewportProvider value={viewport}>
       <Toolbar
-        width={width}
-        onWidthChange={setWidth}
         sourceMode={sourceMode}
         onToggleSource={sourceMode ? exitSourceMode : enterSourceMode}
         onRemountWithJson={onRemountWithJson}
@@ -311,7 +304,7 @@ function Inner({
             <div
               className={cn(
                 "mx-auto rounded-md bg-background shadow transition-[max-width]",
-                viewport === "desktop" ? widthClass[width] : null,
+                viewport === "desktop" ? desktopPreviewWidthClass : null,
                 resolvedAppearance.htmlClass,
               )}
               style={{
@@ -327,7 +320,7 @@ function Inner({
             </div>
           </main>
 
-          <aside className="border-l">
+          <aside className="sticky top-[calc(var(--sticky-header-h,0px)+0.75rem)] max-h-[calc(100dvh-var(--sticky-header-h,0px)-1.5rem)] self-start overflow-y-auto border-l">
             <SettingsPanel />
           </aside>
         </div>
