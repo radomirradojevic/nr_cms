@@ -46,7 +46,6 @@ import {
   type ImageProps,
   type RawHtmlProps,
   type SectionProps,
-  type StyledProps,
   type TextProps,
 } from "./types";
 import type { BlockStyle, TypographyStyle, Viewport } from "./style/types";
@@ -386,27 +385,6 @@ function HeadingSettings() {
 
 /* ===================== Text ===================== */
 
-function cleanupEmptyBlockStyle(style: BlockStyle) {
-  if (style.typography && Object.keys(style.typography).length === 0) {
-    delete style.typography;
-  }
-  const responsive = style.responsive;
-  if (!responsive) return;
-  for (const viewport of ["tablet", "mobile"] as const) {
-    const override = responsive[viewport];
-    if (!override) continue;
-    if (override.typography && Object.keys(override.typography).length === 0) {
-      delete override.typography;
-    }
-    if (Object.keys(override).length === 0) {
-      delete responsive[viewport];
-    }
-  }
-  if (Object.keys(responsive).length === 0) {
-    delete style.responsive;
-  }
-}
-
 function resolvedTextAlign(
   style: BlockStyle | undefined,
   viewport: Viewport,
@@ -420,67 +398,10 @@ function resolvedTextAlign(
     : undefined;
 }
 
-function isBoldFontWeight(value: TypographyStyle["fontWeight"]): boolean {
-  if (!value) return false;
-  const numeric = Number(value);
-  return Number.isFinite(numeric) && numeric >= 600;
-}
-
-function resolvedInlineStyle(
-  style: BlockStyle | undefined,
-  viewport: Viewport,
-): { bold: boolean; italic: boolean; underline: boolean } {
-  const cssStyle = applyBlockStyle(style, viewport).style;
-  return {
-    bold: isBoldFontWeight(
-      cssStyle.fontWeight as TypographyStyle["fontWeight"],
-    ),
-    italic: cssStyle.fontStyle === "italic",
-    underline: cssStyle.textDecoration === "underline",
-  };
-}
-
-function setBlockInlineStyle(
-  props: StyledProps,
-  viewport: Viewport,
-  value: { bold?: boolean; italic?: boolean; underline?: boolean },
-) {
-  if (!props.style) props.style = {};
-
-  let typography: TypographyStyle;
-  if (viewport === "desktop") {
-    if (!props.style.typography) props.style.typography = {};
-    typography = props.style.typography;
-  } else {
-    if (!props.style.responsive) props.style.responsive = {};
-    if (!props.style.responsive[viewport])
-      props.style.responsive[viewport] = {};
-    const override = props.style.responsive[viewport];
-    if (!override.typography) override.typography = {};
-    typography = override.typography;
-  }
-
-  if (value.bold) typography.fontWeight = "700";
-  else if (viewport === "desktop") delete typography.fontWeight;
-  else typography.fontWeight = "400";
-
-  if (value.italic) typography.fontStyle = "italic";
-  else if (viewport === "desktop") delete typography.fontStyle;
-  else typography.fontStyle = "normal";
-
-  if (value.underline) typography.textDecoration = "underline";
-  else if (viewport === "desktop") delete typography.textDecoration;
-  else typography.textDecoration = "none";
-
-  cleanupEmptyBlockStyle(props.style);
-}
-
 export function Text({ content, style }: TextProps) {
   const {
     actions: { setProp },
   } = useNode();
-  const { viewport } = useViewport();
-  const blockInlineStyle = resolvedInlineStyle(style, viewport);
   return (
     <NodeWrap style={style}>
       <div className="my-3 leading-relaxed [&_p]:my-2 [&_li>p]:my-0 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6">
@@ -489,12 +410,6 @@ export function Text({ content, style }: TextProps) {
           onChange={(v) =>
             setProp((p: TextProps) => {
               p.content = v;
-            })
-          }
-          blockInlineStyle={blockInlineStyle}
-          onBlockInlineStyleChange={(value) =>
-            setProp((p: TextProps) => {
-              setBlockInlineStyle(p, viewport, value);
             })
           }
         />
