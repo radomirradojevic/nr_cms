@@ -33,6 +33,8 @@ import {
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: "insert" | "edit";
+  initialValues?: VideoDialogValues | null;
   onInsert: (args: {
     src: string;
     provider: VideoProvider;
@@ -51,36 +53,66 @@ const SIZE_PRESETS: { label: string; value: string }[] = [
   { label: "Custom\u2026", value: "custom" },
 ];
 
-export function VideoInsertDialog({ open, onOpenChange, onInsert }: Props) {
-  const [tab, setTab] = useState<"youtube" | "file">("youtube");
-  const [youtubeUrl, setYoutubeUrl] = useState("");
+type VideoDialogValues = {
+  src: string;
+  provider: VideoProvider;
+  width?: string | null;
+  height?: string | null;
+};
+
+function presetFromWidth(width?: string | null): string {
+  const normalized = width?.trim();
+  if (!normalized) return "100%";
+  return SIZE_PRESETS.some((preset) => preset.value === normalized)
+    ? normalized
+    : "custom";
+}
+
+function fileIdFromSrc(src: string): string | null {
+  const match = src.match(/^\/api\/files\/([^/?#]+)/);
+  return match?.[1] ?? null;
+}
+
+export function VideoInsertDialog({
+  open,
+  onOpenChange,
+  mode = "insert",
+  initialValues,
+  onInsert,
+}: Props) {
+  const initialProvider = initialValues?.provider ?? "youtube";
+  const initialWidth = initialValues?.width ?? null;
+  const initialHeight = initialValues?.height ?? null;
+  const initialSizePreset = presetFromWidth(initialWidth);
+
+  const [tab, setTab] = useState<"youtube" | "file">(initialProvider);
+  const [youtubeUrl, setYoutubeUrl] = useState(
+    initialProvider === "youtube" ? (initialValues?.src ?? "") : "",
+  );
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
 
-  const [sizePreset, setSizePreset] = useState<string>("100%");
-  const [customWidth, setCustomWidth] = useState("");
-  const [customHeight, setCustomHeight] = useState("");
+  const [sizePreset, setSizePreset] = useState<string>(initialSizePreset);
+  const [customWidth, setCustomWidth] = useState(
+    initialSizePreset === "custom" ? (initialWidth ?? "") : "",
+  );
+  const [customHeight, setCustomHeight] = useState(initialHeight ?? "");
 
   const [search, setSearch] = useState("");
   const [files, setFiles] = useState<FileRow[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialProvider === "file" && initialValues?.src
+      ? fileIdFromSrc(initialValues.src)
+      : null,
+  );
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (open) {
-      setTab("youtube");
-      setYoutubeUrl("");
-      setYoutubeError(null);
-      setSizePreset("100%");
-      setCustomWidth("");
-      setCustomHeight("");
-      setSearch("");
-      setSelectedId(null);
       runFetch(0, true, "");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -138,9 +170,15 @@ export function VideoInsertDialog({ open, onOpenChange, onInsert }: Props) {
     }
     if (!selectedId) return;
     const file = files.find((f) => f.id === selectedId);
-    if (!file) return;
+    const src =
+      file?.id === selectedId
+        ? `/api/files/${file.id}`
+        : initialValues?.provider === "file" && initialValues.src
+          ? initialValues.src
+          : null;
+    if (!src) return;
     onInsert({
-      src: `/api/files/${file.id}`,
+      src,
       provider: "file",
       ...size,
     });
@@ -155,10 +193,13 @@ export function VideoInsertDialog({ open, onOpenChange, onInsert }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Insert video</DialogTitle>
+          <DialogTitle>
+            {mode === "edit" ? "Edit video" : "Insert video"}
+          </DialogTitle>
           <DialogDescription>
-            Embed a YouTube video or pick an uploaded video from the File
-            Manager.
+            {mode === "edit"
+              ? "Update this video's source and display size."
+              : "Embed a YouTube video or pick an uploaded video from the File Manager."}
           </DialogDescription>
         </DialogHeader>
 
@@ -336,7 +377,7 @@ export function VideoInsertDialog({ open, onOpenChange, onInsert }: Props) {
             Cancel
           </Button>
           <Button type="button" onClick={handleInsert} disabled={!canInsert}>
-            Insert
+            {mode === "edit" ? "Save changes" : "Insert"}
           </Button>
         </DialogFooter>
       </DialogContent>

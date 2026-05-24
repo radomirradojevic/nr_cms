@@ -557,6 +557,17 @@ html:has(.dashboard-content-root) {
   box-shadow: 0 0 0 1px var(--background);
 }
 
+/* In the editor, embedded videos are editable blocks rather than active
+   players. Let clicks pass through the media element so ProseMirror can select
+   the video node; public `.cms-content` videos remain playable. */
+.ProseMirror :where(.tiptap-video iframe, .tiptap-video video) {
+  pointer-events: none;
+}
+
+.ProseMirror :where(.tiptap-video) {
+  cursor: pointer;
+}
+
 /* Craft.js Layers panel — add hover feedback on each layer header.
    Default state (unselected) has a transparent background and inherited
    text color, so hovering produced no visible change. We highlight the

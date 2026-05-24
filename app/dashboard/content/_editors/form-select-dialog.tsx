@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { FormInput, Search } from "lucide-react";
 
 import {
@@ -21,26 +21,46 @@ import { fetchFormsForPicker } from "@/app/dashboard/form-builder/actions";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: "insert" | "edit";
+  initialValues?: FormDialogValues | null;
   onInsert: (form: { formId: string; formName: string }) => void;
 };
 
 type Row = { id: string; name: string; slug: string };
 
-export function FormSelectDialog({ open, onOpenChange, onInsert }: Props) {
+type FormDialogValues = {
+  formId: string;
+  formName?: string | null;
+};
+
+export function FormSelectDialog({
+  open,
+  onOpenChange,
+  mode = "insert",
+  initialValues,
+  onInsert,
+}: Props) {
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialValues?.formId ?? null,
+  );
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const runFetch = useCallback((q: string) => {
+    startTransition(async () => {
+      const res = await fetchFormsForPicker({ search: q || undefined });
+      if ("error" in res) return;
+      setRows(res.rows);
+    });
+  }, []);
+
   useEffect(() => {
     if (open) {
-      setSearch("");
-      setSelectedId(null);
       runFetch("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, runFetch]);
 
   useEffect(() => {
     if (!open) return;
@@ -52,19 +72,15 @@ export function FormSelectDialog({ open, onOpenChange, onInsert }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  function runFetch(q: string) {
-    startTransition(async () => {
-      const res = await fetchFormsForPicker({ search: q || undefined });
-      if ("error" in res) return;
-      setRows(res.rows);
-    });
-  }
-
   function handleInsert() {
     if (!selectedId) return;
     const f = rows.find((r) => r.id === selectedId);
-    if (!f) return;
-    onInsert({ formId: f.id, formName: f.name });
+    const formName =
+      f?.name ??
+      (initialValues?.formId === selectedId
+        ? (initialValues.formName ?? "")
+        : "");
+    onInsert({ formId: selectedId, formName });
     onOpenChange(false);
   }
 
@@ -72,9 +88,13 @@ export function FormSelectDialog({ open, onOpenChange, onInsert }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Insert form</DialogTitle>
+          <DialogTitle>
+            {mode === "edit" ? "Edit form" : "Insert form"}
+          </DialogTitle>
           <DialogDescription>
-            Pick a published form. Only published forms appear here.
+            {mode === "edit"
+              ? "Choose which published form this embedded block should render."
+              : "Pick a published form. Only published forms appear here."}
           </DialogDescription>
         </DialogHeader>
 
@@ -140,7 +160,7 @@ export function FormSelectDialog({ open, onOpenChange, onInsert }: Props) {
             Cancel
           </Button>
           <Button type="button" onClick={handleInsert} disabled={!selectedId}>
-            Insert
+            {mode === "edit" ? "Save changes" : "Insert"}
           </Button>
         </DialogFooter>
       </DialogContent>

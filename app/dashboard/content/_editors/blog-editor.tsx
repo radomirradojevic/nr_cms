@@ -1,7 +1,8 @@
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
-import type { JSONContent } from "@tiptap/react";
+import type { Editor, JSONContent } from "@tiptap/react";
+import { NodeSelection } from "@tiptap/pm/state";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,7 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
+  Pencil,
 } from "lucide-react";
 import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
 import { TableMenu } from "./table-menu";
@@ -53,6 +55,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTiptapToolbarState } from "./tiptap-toolbar-state";
+import type { VideoProvider } from "./video-extension";
 
 type Props = {
   /**
@@ -70,6 +73,43 @@ type Props = {
   onChange?: (value: JSONContent) => void;
 };
 
+type VideoDialogValues = {
+  src: string;
+  provider: VideoProvider;
+  width?: string | null;
+  height?: string | null;
+};
+
+type EditingVideo = {
+  pos: number;
+  values: VideoDialogValues;
+};
+
+type GalleryDialogValues = {
+  galleryId: string;
+  galleryName?: string | null;
+};
+
+type FormDialogValues = {
+  formId: string;
+  formName?: string | null;
+};
+
+type FormSubmissionsDialogValues = {
+  formId: string;
+  formName?: string | null;
+  displayMode: "table" | "card";
+  pageSize: number;
+  hideId: boolean;
+};
+
+type EditingNode<T> = {
+  pos: number;
+  values: T;
+};
+
+type EditableEmbedType = "video" | "gallery" | "cmsForm" | "cmsFormSubmissions";
+
 export function BlogEditor({
   defaultValue,
   registerGetValue,
@@ -82,10 +122,22 @@ export function BlogEditor({
   const [htmlSource, setHtmlSource] = useState("");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [editingVideo, setEditingVideo] = useState<EditingVideo | null>(null);
+  const [embedOverlay, setEmbedOverlay] = useState<{
+    type: EditableEmbedType;
+    top: number;
+    left: number;
+  } | null>(null);
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
+  const [editingGallery, setEditingGallery] =
+    useState<EditingNode<GalleryDialogValues> | null>(null);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [editingForm, setEditingForm] =
+    useState<EditingNode<FormDialogValues> | null>(null);
   const [formSubmissionsDialogOpen, setFormSubmissionsDialogOpen] =
     useState(false);
+  const [editingFormSubmissions, setEditingFormSubmissions] =
+    useState<EditingNode<FormSubmissionsDialogValues> | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
 
@@ -124,6 +176,43 @@ export function BlogEditor({
     registerGetValue?.(() => editor.getJSON());
   }, [editor, registerGetValue]);
 
+  useEffect(() => {
+    if (!editor) return;
+
+    const syncEmbedOverlay = () => {
+      const selected = getSelectedEditableEmbed(editor);
+      if (!selected) {
+        setEmbedOverlay(null);
+        return;
+      }
+
+      const nodeElement = editor.view.nodeDOM(selected.pos);
+      if (!(nodeElement instanceof HTMLElement)) {
+        setEmbedOverlay(null);
+        return;
+      }
+
+      const editorRect = editor.view.dom.getBoundingClientRect();
+      const nodeRect = nodeElement.getBoundingClientRect();
+      setEmbedOverlay({
+        type: selected.type,
+        top: nodeRect.top - editorRect.top + 8,
+        left: nodeRect.right - editorRect.left - 40,
+      });
+    };
+
+    editor.on("selectionUpdate", syncEmbedOverlay);
+    editor.on("transaction", syncEmbedOverlay);
+    window.addEventListener("resize", syncEmbedOverlay);
+    syncEmbedOverlay();
+
+    return () => {
+      editor.off("selectionUpdate", syncEmbedOverlay);
+      editor.off("transaction", syncEmbedOverlay);
+      window.removeEventListener("resize", syncEmbedOverlay);
+    };
+  }, [editor]);
+
   if (!editor) return null;
 
   function setLink() {
@@ -159,6 +248,163 @@ export function BlogEditor({
       editor!.commands.setContent(htmlSource);
     }
     setHtmlMode((prev) => !prev);
+  }
+
+  function openVideoDialog() {
+    const selected = getSelectedVideo(editor!);
+    setEditingVideo(selected);
+    setVideoDialogOpen(true);
+  }
+
+  function openGalleryDialog() {
+    setEditingGallery(getSelectedGallery(editor!));
+    setGalleryDialogOpen(true);
+  }
+
+  function openFormDialog() {
+    setEditingForm(getSelectedForm(editor!));
+    setFormDialogOpen(true);
+  }
+
+  function openFormSubmissionsDialog() {
+    setEditingFormSubmissions(getSelectedFormSubmissions(editor!));
+    setFormSubmissionsDialogOpen(true);
+  }
+
+  function openSelectedEmbedDialog(type: EditableEmbedType) {
+    if (type === "video") {
+      openVideoDialog();
+    } else if (type === "gallery") {
+      openGalleryDialog();
+    } else if (type === "cmsForm") {
+      openFormDialog();
+    } else {
+      openFormSubmissionsDialog();
+    }
+  }
+
+  function saveVideo(values: VideoDialogValues) {
+    if (editingVideo) {
+      const updated = editor!.commands.command(({ state, tr, dispatch }) => {
+        const node = state.doc.nodeAt(editingVideo.pos);
+        if (!node || node.type.name !== "video") return false;
+
+        tr.setNodeMarkup(editingVideo.pos, undefined, {
+          src: values.src,
+          provider: values.provider,
+          width: values.width ?? null,
+          height: values.height ?? null,
+        });
+        tr.setSelection(NodeSelection.create(tr.doc, editingVideo.pos));
+        dispatch?.(tr);
+        return true;
+      });
+
+      if (updated) {
+        editor!.commands.focus();
+        setEditingVideo(null);
+        return;
+      }
+    }
+
+    editor!
+      .chain()
+      .focus()
+      .setVideo({
+        src: values.src,
+        provider: values.provider,
+        ...(values.width ? { width: values.width } : {}),
+        ...(values.height ? { height: values.height } : {}),
+      })
+      .run();
+    setEditingVideo(null);
+  }
+
+  function updateSelectedNode(
+    editing: EditingNode<Record<string, unknown>> | null,
+    typeName: string,
+    attrs: Record<string, unknown>,
+  ) {
+    if (!editing) return false;
+
+    const updated = editor!.commands.command(({ state, tr, dispatch }) => {
+      const node = state.doc.nodeAt(editing.pos);
+      if (!node || node.type.name !== typeName) return false;
+
+      tr.setNodeMarkup(editing.pos, undefined, attrs);
+      tr.setSelection(NodeSelection.create(tr.doc, editing.pos));
+      dispatch?.(tr);
+      return true;
+    });
+
+    if (updated) editor!.commands.focus();
+    return updated;
+  }
+
+  function saveGallery(values: GalleryDialogValues) {
+    const attrs = {
+      galleryId: values.galleryId,
+      galleryName: values.galleryName ?? "",
+    };
+
+    if (
+      updateSelectedNode(
+        editingGallery as EditingNode<Record<string, unknown>> | null,
+        "gallery",
+        attrs,
+      )
+    ) {
+      setEditingGallery(null);
+      return;
+    }
+
+    editor!.chain().focus().setGallery(attrs).run();
+    setEditingGallery(null);
+  }
+
+  function saveForm(values: FormDialogValues) {
+    const attrs = {
+      formId: values.formId,
+      formName: values.formName ?? "",
+    };
+
+    if (
+      updateSelectedNode(
+        editingForm as EditingNode<Record<string, unknown>> | null,
+        "cmsForm",
+        attrs,
+      )
+    ) {
+      setEditingForm(null);
+      return;
+    }
+
+    editor!.chain().focus().setCmsForm(attrs).run();
+    setEditingForm(null);
+  }
+
+  function saveFormSubmissions(values: FormSubmissionsDialogValues) {
+    const attrs = {
+      formId: values.formId,
+      formName: values.formName ?? "",
+      displayMode: values.displayMode,
+      pageSize: values.pageSize,
+      hideId: values.hideId,
+    };
+
+    if (
+      updateSelectedNode(
+        editingFormSubmissions as EditingNode<Record<string, unknown>> | null,
+        "cmsFormSubmissions",
+        attrs,
+      )
+    ) {
+      setEditingFormSubmissions(null);
+      return;
+    }
+
+    editor!.chain().focus().setCmsFormSubmissions(attrs).run();
+    setEditingFormSubmissions(null);
   }
 
   return (
@@ -328,36 +574,40 @@ export function BlogEditor({
           )}
           {!htmlMode && (
             <Btn
-              tooltip="Insert video"
-              active={false}
-              onClick={() => setVideoDialogOpen(true)}
+              tooltip={toolbarState.video ? "Edit video" : "Insert video"}
+              active={toolbarState.video}
+              onClick={openVideoDialog}
             >
               <VideoIcon className="h-4 w-4" />
             </Btn>
           )}
           {!htmlMode && (
             <Btn
-              tooltip="Insert gallery"
-              active={false}
-              onClick={() => setGalleryDialogOpen(true)}
+              tooltip={toolbarState.gallery ? "Edit gallery" : "Insert gallery"}
+              active={toolbarState.gallery}
+              onClick={openGalleryDialog}
             >
               <LayoutGrid className="h-4 w-4" />
             </Btn>
           )}
           {!htmlMode && (
             <Btn
-              tooltip="Insert form"
-              active={false}
-              onClick={() => setFormDialogOpen(true)}
+              tooltip={toolbarState.cmsForm ? "Edit form" : "Insert form"}
+              active={toolbarState.cmsForm}
+              onClick={openFormDialog}
             >
               <FormInput className="h-4 w-4" />
             </Btn>
           )}
           {!htmlMode && (
             <Btn
-              tooltip="Insert form submissions"
-              active={false}
-              onClick={() => setFormSubmissionsDialogOpen(true)}
+              tooltip={
+                toolbarState.cmsFormSubmissions
+                  ? "Edit form submissions"
+                  : "Insert form submissions"
+              }
+              active={toolbarState.cmsFormSubmissions}
+              onClick={openFormSubmissionsDialog}
             >
               <ClipboardList className="h-4 w-4" />
             </Btn>
@@ -372,7 +622,23 @@ export function BlogEditor({
           spellCheck={false}
         />
       ) : (
-        <EditorContent editor={editor} />
+        <div className="relative">
+          <EditorContent editor={editor} />
+          {embedOverlay && (
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              aria-label="Edit embedded block"
+              className="absolute z-10 h-8 w-8 border shadow-sm"
+              style={{ top: embedOverlay.top, left: embedOverlay.left }}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => openSelectedEmbedDialog(embedOverlay.type)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       )}
       <ImageInsertDialog
         open={imageDialogOpen}
@@ -392,51 +658,66 @@ export function BlogEditor({
         }}
       />
       <VideoInsertDialog
+        key={
+          videoDialogOpen
+            ? `${editingVideo ? "edit" : "insert"}-${editingVideo?.pos ?? "new"}`
+            : "closed"
+        }
         open={videoDialogOpen}
-        onOpenChange={setVideoDialogOpen}
-        onInsert={({ src, provider, width, height }) => {
-          editor!
-            .chain()
-            .focus()
-            .setVideo({
-              src,
-              provider,
-              ...(width ? { width } : {}),
-              ...(height ? { height } : {}),
-            })
-            .run();
+        onOpenChange={(open) => {
+          setVideoDialogOpen(open);
+          if (!open) setEditingVideo(null);
         }}
+        mode={editingVideo ? "edit" : "insert"}
+        initialValues={editingVideo?.values ?? null}
+        onInsert={saveVideo}
       />
       <GallerySelectDialog
+        key={
+          galleryDialogOpen
+            ? `${editingGallery ? "edit" : "insert"}-${editingGallery?.pos ?? "new"}`
+            : "closed"
+        }
         open={galleryDialogOpen}
-        onOpenChange={setGalleryDialogOpen}
-        onInsert={({ galleryId, galleryName }) => {
-          editor!.chain().focus().setGallery({ galleryId, galleryName }).run();
+        onOpenChange={(open) => {
+          setGalleryDialogOpen(open);
+          if (!open) setEditingGallery(null);
         }}
+        mode={editingGallery ? "edit" : "insert"}
+        initialValues={editingGallery?.values ?? null}
+        onInsert={saveGallery}
       />
       <FormSelectDialog
+        key={
+          formDialogOpen
+            ? `${editingForm ? "edit" : "insert"}-${editingForm?.pos ?? "new"}`
+            : "closed"
+        }
         open={formDialogOpen}
-        onOpenChange={setFormDialogOpen}
-        onInsert={({ formId, formName }) => {
-          editor!.chain().focus().setCmsForm({ formId, formName }).run();
+        onOpenChange={(open) => {
+          setFormDialogOpen(open);
+          if (!open) setEditingForm(null);
         }}
+        mode={editingForm ? "edit" : "insert"}
+        initialValues={editingForm?.values ?? null}
+        onInsert={saveForm}
       />
       <FormSubmissionsSelectDialog
+        key={
+          formSubmissionsDialogOpen
+            ? `${editingFormSubmissions ? "edit" : "insert"}-${
+                editingFormSubmissions?.pos ?? "new"
+              }`
+            : "closed"
+        }
         open={formSubmissionsDialogOpen}
-        onOpenChange={setFormSubmissionsDialogOpen}
-        onInsert={({ formId, formName, displayMode, pageSize, hideId }) => {
-          editor!
-            .chain()
-            .focus()
-            .setCmsFormSubmissions({
-              formId,
-              formName,
-              displayMode,
-              pageSize,
-              hideId,
-            })
-            .run();
+        onOpenChange={(open) => {
+          setFormSubmissionsDialogOpen(open);
+          if (!open) setEditingFormSubmissions(null);
         }}
+        mode={editingFormSubmissions ? "edit" : "insert"}
+        initialValues={editingFormSubmissions?.values ?? null}
+        onInsert={saveFormSubmissions}
       />
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent>
@@ -484,6 +765,133 @@ export function BlogEditor({
       </Dialog>
     </div>
   );
+}
+
+function getSelectedVideo(editor: Editor): EditingVideo | null {
+  const { selection } = editor.state;
+  if (!(selection instanceof NodeSelection)) return null;
+  if (selection.node.type.name !== "video") return null;
+
+  return {
+    pos: selection.from,
+    values: {
+      src:
+        typeof selection.node.attrs.src === "string"
+          ? selection.node.attrs.src
+          : "",
+      provider:
+        selection.node.attrs.provider === "youtube" ? "youtube" : "file",
+      width:
+        typeof selection.node.attrs.width === "string"
+          ? selection.node.attrs.width
+          : null,
+      height:
+        typeof selection.node.attrs.height === "string"
+          ? selection.node.attrs.height
+          : null,
+    },
+  } satisfies EditingVideo;
+}
+
+function getSelectedGallery(
+  editor: Editor,
+): EditingNode<GalleryDialogValues> | null {
+  const selection = getSelectedNode(editor, "gallery");
+  if (!selection) return null;
+
+  return {
+    pos: selection.pos,
+    values: {
+      galleryId:
+        typeof selection.attrs.galleryId === "string"
+          ? selection.attrs.galleryId
+          : "",
+      galleryName:
+        typeof selection.attrs.galleryName === "string"
+          ? selection.attrs.galleryName
+          : "",
+    },
+  };
+}
+
+function getSelectedForm(editor: Editor): EditingNode<FormDialogValues> | null {
+  const selection = getSelectedNode(editor, "cmsForm");
+  if (!selection) return null;
+
+  return {
+    pos: selection.pos,
+    values: {
+      formId:
+        typeof selection.attrs.formId === "string"
+          ? selection.attrs.formId
+          : "",
+      formName:
+        typeof selection.attrs.formName === "string"
+          ? selection.attrs.formName
+          : "",
+    },
+  };
+}
+
+function getSelectedFormSubmissions(
+  editor: Editor,
+): EditingNode<FormSubmissionsDialogValues> | null {
+  const selection = getSelectedNode(editor, "cmsFormSubmissions");
+  if (!selection) return null;
+
+  return {
+    pos: selection.pos,
+    values: {
+      formId:
+        typeof selection.attrs.formId === "string"
+          ? selection.attrs.formId
+          : "",
+      formName:
+        typeof selection.attrs.formName === "string"
+          ? selection.attrs.formName
+          : "",
+      displayMode: selection.attrs.displayMode === "card" ? "card" : "table",
+      pageSize:
+        typeof selection.attrs.pageSize === "number"
+          ? selection.attrs.pageSize
+          : 5,
+      hideId: selection.attrs.hideId !== false,
+    },
+  };
+}
+
+function getSelectedNode(editor: Editor, typeName: string) {
+  const { selection } = editor.state;
+  if (!(selection instanceof NodeSelection)) return null;
+  if (selection.node.type.name !== typeName) return null;
+
+  return {
+    pos: selection.from,
+    attrs: selection.node.attrs,
+  };
+}
+
+function getSelectedEditableEmbed(editor: Editor): {
+  pos: number;
+  type: EditableEmbedType;
+} | null {
+  const { selection } = editor.state;
+  if (!(selection instanceof NodeSelection)) return null;
+
+  const type = selection.node.type.name;
+  if (
+    type !== "video" &&
+    type !== "gallery" &&
+    type !== "cmsForm" &&
+    type !== "cmsFormSubmissions"
+  ) {
+    return null;
+  }
+
+  return {
+    pos: selection.from,
+    type,
+  };
 }
 
 function Btn({

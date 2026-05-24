@@ -22,6 +22,10 @@ export type TiptapToolbarState = {
   table: boolean;
   tableCell: boolean;
   tableHeader: boolean;
+  video: boolean;
+  gallery: boolean;
+  cmsForm: boolean;
+  cmsFormSubmissions: boolean;
 };
 
 export const inactiveTiptapToolbarState: TiptapToolbarState = {
@@ -43,6 +47,10 @@ export const inactiveTiptapToolbarState: TiptapToolbarState = {
   table: false,
   tableCell: false,
   tableHeader: false,
+  video: false,
+  gallery: false,
+  cmsForm: false,
+  cmsFormSubmissions: false,
 };
 
 function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
@@ -65,6 +73,10 @@ function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
     table: editor.isActive("table"),
     tableCell: editor.isActive("tableCell"),
     tableHeader: editor.isActive("tableHeader"),
+    video: editor.isActive("video"),
+    gallery: editor.isActive("gallery"),
+    cmsForm: editor.isActive("cmsForm"),
+    cmsFormSubmissions: editor.isActive("cmsFormSubmissions"),
   };
 }
 
