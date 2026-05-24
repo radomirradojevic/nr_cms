@@ -30,6 +30,7 @@ import {
   AlignJustify,
 } from "lucide-react";
 import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
+import { TableMenu } from "./table-menu";
 import { ImageInsertDialog } from "./image-insert-dialog";
 import { VideoInsertDialog } from "./video-insert-dialog";
 import { GallerySelectDialog } from "./gallery-select-dialog";
@@ -289,6 +290,8 @@ export function BlogEditor({
               >
                 <AlignJustify className="h-4 w-4" />
               </Btn>
+              <Sep />
+              <TableMenu editor={editor} toolbarState={toolbarState} />
               <Sep />
               <Btn
                 tooltip="Undo"

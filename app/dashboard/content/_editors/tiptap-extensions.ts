@@ -1,6 +1,7 @@
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TableKit } from "@tiptap/extension-table";
 import Typography from "@tiptap/extension-typography";
 import TextAlign from "@tiptap/extension-text-align";
 import { Video } from "./video-extension";
@@ -41,8 +42,20 @@ export const tiptapExtensions = [
   GalleryNode,
   CmsFormNode,
   CmsFormSubmissionsNode,
+  TableKit.configure({
+    table: {
+      resizable: true,
+      renderWrapper: true,
+      allowTableNodeSelection: true,
+      HTMLAttributes: {
+        class: "cms-rich-table",
+      },
+    },
+  }),
   Typography,
-  TextAlign.configure({ types: ["heading", "paragraph"] }),
+  TextAlign.configure({
+    types: ["heading", "paragraph", "tableCell", "tableHeader"],
+  }),
   Placeholder.configure({ placeholder: "Write your blog post…" }),
 ];
 
