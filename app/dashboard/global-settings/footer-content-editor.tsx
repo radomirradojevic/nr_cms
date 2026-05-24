@@ -2,7 +2,7 @@
 
 import { Mark, mergeAttributes, Node } from "@tiptap/core";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
@@ -251,10 +251,7 @@ const FooterIcon = Node.create({
       ];
     }
 
-    return [
-      tagName || "i",
-      mergeAttributes(htmlAttrs ?? {}, HTMLAttributes),
-    ];
+    return [tagName || "i", mergeAttributes(htmlAttrs ?? {}, HTMLAttributes)];
   },
 
   addNodeView() {
@@ -308,6 +305,12 @@ export function FooterContentEditor({
   const [linkUrl, setLinkUrl] = useState("");
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
+  const onChangeRef = useRef(onChange);
+  const pendingEditorHtmlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const editor = useEditor({
     extensions: footerEditorExtensions,
@@ -324,7 +327,11 @@ export function FooterContentEditor({
           "cms-content min-w-0 max-w-full min-h-[160px] text-sm caret-foreground focus:outline-none focus-visible:outline-none [&_a]:underline [&_a]:hover:text-foreground",
       },
     },
-    onUpdate: ({ editor }) => onChange(serializeFooterEditorDom(editor.view.dom)),
+    onUpdate: ({ editor }) => {
+      const next = serializeFooterEditorDom(editor.view.dom);
+      pendingEditorHtmlRef.current = next;
+      onChangeRef.current(next);
+    },
   });
 
   // Keep TipTap hydrated from the stored HTML, but do not feed raw source-mode
@@ -335,6 +342,17 @@ export function FooterContentEditor({
     if (htmlMode) return;
 
     const current = editor.getHTML();
+    if (pendingEditorHtmlRef.current) {
+      if (pendingEditorHtmlRef.current === value) {
+        pendingEditorHtmlRef.current = null;
+      } else if (
+        pendingEditorHtmlRef.current ===
+        serializeFooterEditorDom(editor.view.dom)
+      ) {
+        return;
+      }
+    }
+
     if (value !== current) {
       editor.commands.setContent(value || "", { emitUpdate: false });
     }
@@ -347,7 +365,7 @@ export function FooterContentEditor({
       setHtmlSource(value || "");
     } else {
       editor!.commands.setContent(htmlSource || "", { emitUpdate: false });
-      onChange(htmlSource);
+      onChangeRef.current(htmlSource);
     }
     setHtmlMode((prev) => !prev);
   }

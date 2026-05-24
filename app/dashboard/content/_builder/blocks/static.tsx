@@ -131,20 +131,17 @@ export function HeadingStatic({ content, level, style }: HeadingProps) {
 
 export function TextStatic({ content, style }: TextProps) {
   const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
-  const inlineContent = hasTextAlignStyle(style)
-    ? stripInlineTextAlign(content)
-    : content;
   return (
     <>
       {responsiveStyleEl}
       <div
         style={shellStyle}
         className={cn(
-          "my-3 leading-relaxed [&_p]:my-2 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6",
+          "my-3 leading-relaxed [&_p]:my-2 [&_li>p]:my-0 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6",
           shellClass,
         )}
         dangerouslySetInnerHTML={{
-          __html: renderInlineHtml(inlineContent),
+          __html: renderInlineHtml(content),
         }}
       />
     </>

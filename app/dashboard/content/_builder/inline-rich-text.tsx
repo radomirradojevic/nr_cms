@@ -43,6 +43,7 @@ type Props = {
   /** Render as a single line (suppresses paragraph margins, used for headings/buttons). */
   singleLine?: boolean;
   placeholder?: string;
+  showToolbar?: boolean;
   /**
    * When present, paragraph alignment is controlled by the parent block style
    * instead of TipTap paragraph attrs. Used by Text blocks so the inline
@@ -95,6 +96,7 @@ export function InlineRichText({
   className,
   singleLine,
   placeholder,
+  showToolbar = true,
   blockTextAlign,
   onBlockTextAlignChange,
   blockInlineStyle,
@@ -104,6 +106,8 @@ export function InlineRichText({
   const [linkUrl, setLinkUrl] = useState("");
   const [focused, setFocused] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const onChangeRef = useRef(onChange);
+  const pendingEditorJsonRef = useRef<string | null>(null);
   const [toolbarPos, setToolbarPos] = useState<{
     top: number;
     left: number;
@@ -120,6 +124,10 @@ export function InlineRichText({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const editor = useEditor({
     extensions: [
@@ -143,19 +151,33 @@ export function InlineRichText({
         "data-placeholder": placeholder ?? "",
       },
     },
-    onUpdate: ({ editor }) => onChange(editor.getJSON()),
+    onUpdate: ({ editor }) => {
+      const next = editor.getJSON();
+      pendingEditorJsonRef.current = JSON.stringify(next);
+      onChangeRef.current(next);
+    },
     onFocus: () => setFocused(true),
     onBlur: () => setFocused(false),
   });
 
   useEffect(() => {
     if (!editor) return;
-    const current = editor.getJSON();
+    const currentJson = JSON.stringify(editor.getJSON());
     const nextValue =
       value && onBlockTextAlignChange && blockTextAlign !== undefined
         ? stripParagraphTextAlign(value)
-        : value;
-    if (nextValue && JSON.stringify(current) !== JSON.stringify(nextValue)) {
+        : (value ?? emptyInlineDoc);
+    const nextJson = JSON.stringify(nextValue);
+
+    if (pendingEditorJsonRef.current) {
+      if (pendingEditorJsonRef.current === nextJson) {
+        pendingEditorJsonRef.current = null;
+      } else if (pendingEditorJsonRef.current === currentJson) {
+        return;
+      }
+    }
+
+    if (currentJson !== nextJson) {
       editor.commands.setContent(nextValue, { emitUpdate: false });
     }
     if (
@@ -164,9 +186,9 @@ export function InlineRichText({
       nextValue !== value &&
       JSON.stringify(nextValue) !== JSON.stringify(value)
     ) {
-      onChange(nextValue);
+      onChangeRef.current(nextValue);
     }
-  }, [value, editor, onChange, onBlockTextAlignChange, blockTextAlign]);
+  }, [value, editor, onBlockTextAlignChange, blockTextAlign]);
 
   function applyTextAlign(value: Exclude<TextAlignValue, undefined>) {
     if (onBlockTextAlignChange) {
@@ -218,7 +240,7 @@ export function InlineRichText({
     editor!.chain().focus().toggleUnderline().run();
   }
 
-  const toolbarVisible = !!editor && (selected || focused);
+  const toolbarVisible = showToolbar && !!editor && (selected || focused);
 
   // Track the content wrapper's viewport position so the portal-rendered
   // toolbar can sit above it. We use `position: fixed` coordinates so the

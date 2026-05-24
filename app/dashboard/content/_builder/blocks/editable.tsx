@@ -407,30 +407,6 @@ function cleanupEmptyBlockStyle(style: BlockStyle) {
   }
 }
 
-function setBlockTextAlign(
-  props: StyledProps,
-  viewport: Viewport,
-  value: TypographyStyle["textAlign"],
-) {
-  if (!props.style) props.style = {};
-
-  if (viewport === "desktop") {
-    if (!props.style.typography) props.style.typography = {};
-    if (value) props.style.typography.textAlign = value;
-    else delete props.style.typography.textAlign;
-    cleanupEmptyBlockStyle(props.style);
-    return;
-  }
-
-  if (!props.style.responsive) props.style.responsive = {};
-  if (!props.style.responsive[viewport]) props.style.responsive[viewport] = {};
-  const override = props.style.responsive[viewport];
-  if (!override.typography) override.typography = {};
-  if (value) override.typography.textAlign = value;
-  else delete override.typography.textAlign;
-  cleanupEmptyBlockStyle(props.style);
-}
-
 function resolvedTextAlign(
   style: BlockStyle | undefined,
   viewport: Viewport,
@@ -504,22 +480,16 @@ export function Text({ content, style }: TextProps) {
     actions: { setProp },
   } = useNode();
   const { viewport } = useViewport();
-  const blockTextAlign = resolvedTextAlign(style, viewport);
   const blockInlineStyle = resolvedInlineStyle(style, viewport);
   return (
     <NodeWrap style={style}>
-      <div className="my-3 leading-relaxed [&_p]:my-2 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6">
+      <div className="my-3 leading-relaxed [&_p]:my-2 [&_li>p]:my-0 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6">
         <InlineRichText
+          showToolbar={false}
           value={content ?? emptyInlineDoc}
           onChange={(v) =>
             setProp((p: TextProps) => {
               p.content = v;
-            })
-          }
-          blockTextAlign={blockTextAlign}
-          onBlockTextAlignChange={(value) =>
-            setProp((p: TextProps) => {
-              setBlockTextAlign(p, viewport, value);
             })
           }
           blockInlineStyle={blockInlineStyle}
@@ -758,6 +728,7 @@ export function Hero({ title, subtitle, style }: HeroProps) {
       >
         <h1 className="text-4xl font-bold tracking-tight">
           <InlineRichText
+            showToolbar={false}
             singleLine
             value={title ?? emptyInlineDoc}
             onChange={(v) =>
@@ -769,6 +740,7 @@ export function Hero({ title, subtitle, style }: HeroProps) {
         </h1>
         <div className="mt-4 text-lg text-muted-foreground">
           <InlineRichText
+            showToolbar={false}
             value={subtitle ?? emptyInlineDoc}
             onChange={(v) =>
               setProp((p: HeroProps) => {
