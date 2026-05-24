@@ -1,5 +1,5 @@
 import type { ReactNode, CSSProperties } from "react";
-import { renderInlineHtml, stripInlineTextAlign } from "../render-inline";
+import { renderInlineHtml } from "../render-inline";
 import type {
   ButtonProps,
   ColumnsProps,
@@ -50,14 +50,6 @@ function resolveShell(style: BlockStyle | undefined): {
     shellClass: cn(className, css ? scope : null),
     responsiveStyleEl,
   };
-}
-
-function hasTextAlignStyle(style: BlockStyle | undefined): boolean {
-  return !!(
-    style?.typography?.textAlign ||
-    style?.responsive?.tablet?.typography?.textAlign ||
-    style?.responsive?.mobile?.typography?.textAlign
-  );
 }
 
 export function RootStatic({ children }: { children?: ReactNode }) {
@@ -258,12 +250,6 @@ export function ButtonStatic({ label, href, style }: ButtonProps) {
 
 export function HeroStatic({ title, subtitle, style }: HeroProps) {
   const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
-  const inlineTitle = hasTextAlignStyle(style)
-    ? stripInlineTextAlign(title)
-    : title;
-  const inlineSubtitle = hasTextAlignStyle(style)
-    ? stripInlineTextAlign(subtitle)
-    : subtitle;
   return (
     <>
       {responsiveStyleEl}
@@ -276,12 +262,12 @@ export function HeroStatic({ title, subtitle, style }: HeroProps) {
       >
         <h1
           className="text-4xl font-bold tracking-tight"
-          dangerouslySetInnerHTML={{ __html: renderInlineHtml(inlineTitle) }}
+          dangerouslySetInnerHTML={{ __html: renderInlineHtml(title) }}
         />
         <div
           className="mt-4 text-lg text-muted-foreground [&_p]:my-1"
           dangerouslySetInnerHTML={{
-            __html: renderInlineHtml(inlineSubtitle),
+            __html: renderInlineHtml(subtitle),
           }}
         />
       </section>
