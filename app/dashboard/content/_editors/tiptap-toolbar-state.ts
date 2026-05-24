@@ -26,6 +26,7 @@ export type TiptapToolbarState = {
   gallery: boolean;
   cmsForm: boolean;
   cmsFormSubmissions: boolean;
+  layoutSection: boolean;
 };
 
 export const inactiveTiptapToolbarState: TiptapToolbarState = {
@@ -51,6 +52,7 @@ export const inactiveTiptapToolbarState: TiptapToolbarState = {
   gallery: false,
   cmsForm: false,
   cmsFormSubmissions: false,
+  layoutSection: false,
 };
 
 function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
@@ -77,6 +79,7 @@ function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
     gallery: editor.isActive("gallery"),
     cmsForm: editor.isActive("cmsForm"),
     cmsFormSubmissions: editor.isActive("cmsFormSubmissions"),
+    layoutSection: editor.isActive("layoutSection"),
   };
 }
 

@@ -20,6 +20,7 @@ import {
   Image as ImageIcon,
   Video as VideoIcon,
   LayoutGrid,
+  Columns3,
   FormInput,
   ClipboardList,
   Link as LinkIcon,
@@ -56,6 +57,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTiptapToolbarState } from "./tiptap-toolbar-state";
 import type { VideoAlignment, VideoProvider } from "./video-extension";
+import type { LayoutKind } from "./layout-extension";
 
 type Props = {
   /**
@@ -111,6 +113,20 @@ type EditingNode<T> = {
 
 type EditableEmbedType = "video" | "gallery" | "cmsForm" | "cmsFormSubmissions";
 
+const layoutOptions: Array<{
+  value: LayoutKind;
+  label: string;
+  tracks: string;
+}> = [
+  { value: "2-col", label: "2 Columns (50/50)", tracks: "1fr 1fr" },
+  { value: "3-col", label: "3 Columns", tracks: "1fr 1fr 1fr" },
+  { value: "4-col", label: "4 Columns", tracks: "1fr 1fr 1fr 1fr" },
+  { value: "70-30", label: "70/30", tracks: "7fr 3fr" },
+  { value: "30-70", label: "30/70", tracks: "3fr 7fr" },
+  { value: "60-40", label: "60/40", tracks: "6fr 4fr" },
+  { value: "40-60", label: "40/60", tracks: "4fr 6fr" },
+];
+
 export function BlogEditor({
   defaultValue,
   registerGetValue,
@@ -139,6 +155,7 @@ export function BlogEditor({
     useState(false);
   const [editingFormSubmissions, setEditingFormSubmissions] =
     useState<EditingNode<FormSubmissionsDialogValues> | null>(null);
+  const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
 
@@ -270,6 +287,11 @@ export function BlogEditor({
   function openFormSubmissionsDialog() {
     setEditingFormSubmissions(getSelectedFormSubmissions(editor!));
     setFormSubmissionsDialogOpen(true);
+  }
+
+  function insertLayout(layout: LayoutKind) {
+    editor!.chain().focus().insertLayoutSection({ layout }).run();
+    setLayoutDialogOpen(false);
   }
 
   function openSelectedEmbedDialog(type: EditableEmbedType) {
@@ -606,6 +628,15 @@ export function BlogEditor({
           )}
           {!htmlMode && (
             <Btn
+              tooltip="Insert Layout"
+              active={toolbarState.layoutSection}
+              onClick={() => setLayoutDialogOpen(true)}
+            >
+              <Columns3 className="h-4 w-4" />
+            </Btn>
+          )}
+          {!htmlMode && (
+            <Btn
               tooltip={toolbarState.video ? "Edit video" : "Insert video"}
               active={toolbarState.video}
               onClick={openVideoDialog}
@@ -752,6 +783,40 @@ export function BlogEditor({
         initialValues={editingFormSubmissions?.values ?? null}
         onInsert={saveFormSubmissions}
       />
+      <Dialog open={layoutDialogOpen} onOpenChange={setLayoutDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Insert Layout</DialogTitle>
+            <DialogDescription>
+              Choose a responsive column layout for this blog post.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {layoutOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="rounded-md border bg-background p-3 text-left transition hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => insertLayout(option.value)}
+              >
+                <span className="text-sm font-medium">{option.label}</span>
+                <span
+                  aria-hidden="true"
+                  className="mt-3 grid h-16 gap-2"
+                  style={{ gridTemplateColumns: option.tracks }}
+                >
+                  {option.tracks.split(" ").map((_, index) => (
+                    <span
+                      key={index}
+                      className="rounded-sm border border-dashed border-muted-foreground/40 bg-muted/60"
+                    />
+                  ))}
+                </span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent>
           <DialogHeader>
