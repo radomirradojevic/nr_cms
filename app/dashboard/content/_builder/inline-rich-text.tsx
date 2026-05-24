@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useTiptapToolbarState } from "@/app/dashboard/content/_editors/tiptap-toolbar-state";
 
 export const emptyInlineDoc: JSONContent = {
   type: "doc",
@@ -108,7 +109,6 @@ export function InlineRichText({
     top: number;
     left: number;
   } | null>(null);
-  const [mounted, setMounted] = useState(false);
 
   // Read selection state from the nearest Craft.js node so the toolbar can
   // stay visible whenever the surrounding block is selected (not only while
@@ -116,10 +116,6 @@ export function InlineRichText({
   const { selected } = useNode((n) => ({
     selected: n.events.selected,
   }));
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -155,6 +151,7 @@ export function InlineRichText({
     onFocus: () => setFocused(true),
     onBlur: () => setFocused(false),
   });
+  const toolbarState = useTiptapToolbarState(editor);
 
   useEffect(() => {
     if (!editor) return;
@@ -204,11 +201,19 @@ export function InlineRichText({
   function alignActive(value: Exclude<TextAlignValue, undefined>) {
     return onBlockTextAlignChange
       ? blockTextAlign === value
-      : editor!.isActive({ textAlign: value });
+      : toolbarState[
+          value === "left"
+            ? "alignLeft"
+            : value === "center"
+              ? "alignCenter"
+              : value === "right"
+                ? "alignRight"
+                : "alignJustify"
+        ];
   }
 
   function inlineStyleActive(value: keyof InlineStyleValue) {
-    return editor!.isActive(value === "underline" ? "underline" : value);
+    return toolbarState[value];
   }
 
   function applyInlineStyle(value: keyof InlineStyleValue) {
@@ -230,10 +235,8 @@ export function InlineRichText({
   // toolbar is fully isolated from any ancestor styling (color, opacity,
   // background, transforms) applied by NodeWrap or the Colors block panel.
   useLayoutEffect(() => {
-    if (!toolbarVisible) {
-      setToolbarPos(null);
-      return;
-    }
+    if (!toolbarVisible) return;
+
     const el = contentRef.current;
     if (!el) return;
     const update = () => {
@@ -273,13 +276,14 @@ export function InlineRichText({
     }
     setLinkDialogOpen(false);
   }
+  const portalRoot = typeof document === "undefined" ? null : document.body;
 
   return (
     <>
       <div ref={contentRef} className="block-content relative">
         <EditorContent editor={editor} />
       </div>
-      {mounted &&
+      {portalRoot &&
         toolbarVisible &&
         toolbarPos &&
         createPortal(
@@ -357,7 +361,7 @@ export function InlineRichText({
               <>
                 <span className="mx-1 h-4 w-px bg-border" />
                 <BtnInline
-                  active={editor.isActive("bulletList")}
+                  active={toolbarState.bulletList}
                   onClick={() =>
                     editor.chain().focus().toggleBulletList().run()
                   }
@@ -366,7 +370,7 @@ export function InlineRichText({
                   <List className="h-3.5 w-3.5" />
                 </BtnInline>
                 <BtnInline
-                  active={editor.isActive("orderedList")}
+                  active={toolbarState.orderedList}
                   onClick={() =>
                     editor.chain().focus().toggleOrderedList().run()
                   }
@@ -378,14 +382,14 @@ export function InlineRichText({
             )}
             <span className="mx-1 h-4 w-px bg-border" />
             <BtnInline
-              active={editor.isActive("link")}
+              active={toolbarState.link}
               onClick={openLinkDialog}
               title="Link"
             >
               <LinkIcon className="h-3.5 w-3.5" />
             </BtnInline>
           </div>,
-          document.body,
+          portalRoot,
         )}
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent aria-describedby={undefined} className="sm:max-w-sm">

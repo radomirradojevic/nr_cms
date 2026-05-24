@@ -43,6 +43,7 @@ import {
   Code2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTiptapToolbarState } from "@/app/dashboard/content/_editors/tiptap-toolbar-state";
 
 interface FooterContentEditorProps {
   value: string;
@@ -307,6 +308,7 @@ export function FooterContentEditor({
   const [htmlSource, setHtmlSource] = useState("");
   const onChangeRef = useRef(onChange);
   const pendingEditorHtmlRef = useRef<string | null>(null);
+  const focusVisualEditorRef = useRef(false);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -333,6 +335,7 @@ export function FooterContentEditor({
       onChangeRef.current(next);
     },
   });
+  const toolbarState = useTiptapToolbarState(editor);
 
   // Keep TipTap hydrated from the stored HTML, but do not feed raw source-mode
   // edits through TipTap on every keystroke. TipTap can normalize unsupported
@@ -341,14 +344,12 @@ export function FooterContentEditor({
     if (!editor) return;
     if (htmlMode) return;
 
-    const current = editor.getHTML();
+    const current = serializeFooterEditorDom(editor.view.dom);
     if (pendingEditorHtmlRef.current) {
       if (pendingEditorHtmlRef.current === value) {
         pendingEditorHtmlRef.current = null;
-      } else if (
-        pendingEditorHtmlRef.current ===
-        serializeFooterEditorDom(editor.view.dom)
-      ) {
+        return;
+      } else if (pendingEditorHtmlRef.current === current) {
         return;
       }
     }
@@ -358,14 +359,28 @@ export function FooterContentEditor({
     }
   }, [editor, htmlMode, value]);
 
+  useEffect(() => {
+    if (!editor || htmlMode || !focusVisualEditorRef.current) return;
+
+    focusVisualEditorRef.current = false;
+    const frame = requestAnimationFrame(() => {
+      editor.commands.focus("end");
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [editor, htmlMode]);
+
   if (!editor) return null;
 
   function toggleHtmlMode() {
     if (!htmlMode) {
       setHtmlSource(value || "");
     } else {
-      editor!.commands.setContent(htmlSource || "", { emitUpdate: false });
-      onChangeRef.current(htmlSource);
+      const nextHtml = htmlSource || "";
+      editor!.commands.setContent(nextHtml, { emitUpdate: false });
+      pendingEditorHtmlRef.current = nextHtml;
+      focusVisualEditorRef.current = true;
+      onChangeRef.current(nextHtml);
     }
     setHtmlMode((prev) => !prev);
   }
@@ -413,28 +428,28 @@ export function FooterContentEditor({
                 <Sep />
                 <Btn
                   tooltip="Bold"
-                  active={editor.isActive("bold")}
+                  active={toolbarState.bold}
                   onClick={() => editor.chain().focus().toggleBold().run()}
                 >
                   <Bold className="h-4 w-4" />
                 </Btn>
                 <Btn
                   tooltip="Italic"
-                  active={editor.isActive("italic")}
+                  active={toolbarState.italic}
                   onClick={() => editor.chain().focus().toggleItalic().run()}
                 >
                   <Italic className="h-4 w-4" />
                 </Btn>
                 <Btn
                   tooltip="Underline"
-                  active={editor.isActive("underline")}
+                  active={toolbarState.underline}
                   onClick={() => editor.chain().focus().toggleUnderline().run()}
                 >
                   <UnderlineIcon className="h-4 w-4" />
                 </Btn>
                 <Btn
                   tooltip="Strikethrough"
-                  active={editor.isActive("strike")}
+                  active={toolbarState.strike}
                   onClick={() => editor.chain().focus().toggleStrike().run()}
                 >
                   <Strikethrough className="h-4 w-4" />
@@ -442,7 +457,7 @@ export function FooterContentEditor({
                 <Sep />
                 <Btn
                   tooltip="Heading 2"
-                  active={editor.isActive("heading", { level: 2 })}
+                  active={toolbarState.heading2}
                   onClick={() =>
                     editor.chain().focus().toggleHeading({ level: 2 }).run()
                   }
@@ -451,7 +466,7 @@ export function FooterContentEditor({
                 </Btn>
                 <Btn
                   tooltip="Heading 3"
-                  active={editor.isActive("heading", { level: 3 })}
+                  active={toolbarState.heading3}
                   onClick={() =>
                     editor.chain().focus().toggleHeading({ level: 3 }).run()
                   }
@@ -461,7 +476,7 @@ export function FooterContentEditor({
                 <Sep />
                 <Btn
                   tooltip="Align left"
-                  active={editor.isActive({ textAlign: "left" })}
+                  active={toolbarState.alignLeft}
                   onClick={() =>
                     editor.chain().focus().setTextAlign("left").run()
                   }
@@ -470,7 +485,7 @@ export function FooterContentEditor({
                 </Btn>
                 <Btn
                   tooltip="Align center"
-                  active={editor.isActive({ textAlign: "center" })}
+                  active={toolbarState.alignCenter}
                   onClick={() =>
                     editor.chain().focus().setTextAlign("center").run()
                   }
@@ -479,7 +494,7 @@ export function FooterContentEditor({
                 </Btn>
                 <Btn
                   tooltip="Align right"
-                  active={editor.isActive({ textAlign: "right" })}
+                  active={toolbarState.alignRight}
                   onClick={() =>
                     editor.chain().focus().setTextAlign("right").run()
                   }
@@ -488,7 +503,7 @@ export function FooterContentEditor({
                 </Btn>
                 <Btn
                   tooltip="Justify"
-                  active={editor.isActive({ textAlign: "justify" })}
+                  active={toolbarState.alignJustify}
                   onClick={() =>
                     editor.chain().focus().setTextAlign("justify").run()
                   }
@@ -498,7 +513,7 @@ export function FooterContentEditor({
                 <Sep />
                 <Btn
                   tooltip="Bullet list"
-                  active={editor.isActive("bulletList")}
+                  active={toolbarState.bulletList}
                   onClick={() =>
                     editor.chain().focus().toggleBulletList().run()
                   }
@@ -507,7 +522,7 @@ export function FooterContentEditor({
                 </Btn>
                 <Btn
                   tooltip="Ordered list"
-                  active={editor.isActive("orderedList")}
+                  active={toolbarState.orderedList}
                   onClick={() =>
                     editor.chain().focus().toggleOrderedList().run()
                   }
@@ -517,7 +532,7 @@ export function FooterContentEditor({
                 <Sep />
                 <Btn
                   tooltip="Insert / edit link"
-                  active={editor.isActive("link")}
+                  active={toolbarState.link}
                   onClick={openLinkDialog}
                 >
                   <LinkIcon className="h-4 w-4" />
@@ -594,7 +609,7 @@ export function FooterContentEditor({
             />
           </div>
           <DialogFooter>
-            {editor.isActive("link") && (
+            {toolbarState.link && (
               <Button type="button" variant="ghost" onClick={removeLink}>
                 Remove link
               </Button>
