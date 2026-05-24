@@ -31,6 +31,7 @@ import {
   AlignRight,
   AlignJustify,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
 import { TableMenu } from "./table-menu";
@@ -145,6 +146,12 @@ export function BlogEditor({
     top: number;
     left: number;
   } | null>(null);
+  const [layoutOverlay, setLayoutOverlay] = useState<{
+    pos: number;
+    top: number;
+    left: number;
+    visible: boolean;
+  } | null>(null);
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
   const [editingGallery, setEditingGallery] =
     useState<EditingNode<GalleryDialogValues> | null>(null);
@@ -160,9 +167,13 @@ export function BlogEditor({
   const [linkUrl, setLinkUrl] = useState("");
 
   const onChangeRef = useRef(onChange);
+  const layoutOverlayRef = useRef(layoutOverlay);
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+  useEffect(() => {
+    layoutOverlayRef.current = layoutOverlay;
+  }, [layoutOverlay]);
 
   const editor = useEditor({
     extensions: tiptapExtensions,
@@ -231,6 +242,80 @@ export function BlogEditor({
     };
   }, [editor]);
 
+  useEffect(() => {
+    if (!editor) return;
+
+    const showLayoutOverlay = (layout: { pos: number } | null) => {
+      if (!layout) {
+        setLayoutOverlay((current) =>
+          current ? { ...current, visible: false } : null,
+        );
+        return;
+      }
+
+      const nodeElement = editor.view.nodeDOM(layout.pos);
+      if (!(nodeElement instanceof HTMLElement)) {
+        setLayoutOverlay((current) =>
+          current ? { ...current, visible: false } : null,
+        );
+        return;
+      }
+
+      const editorRect = editor.view.dom.getBoundingClientRect();
+      const nodeRect = nodeElement.getBoundingClientRect();
+      setLayoutOverlay({
+        pos: layout.pos,
+        top: nodeRect.top - editorRect.top + 6,
+        left: nodeRect.right - editorRect.left - 34,
+        visible: true,
+      });
+    };
+
+    const syncLayoutOverlay = () => {
+      const selected = getSelectedLayout(editor);
+      if (selected) {
+        showLayoutOverlay(selected);
+        return;
+      }
+
+      setLayoutOverlay((current) =>
+        current ? { ...current, visible: false } : null,
+      );
+    };
+
+    const handleMouseDown = (event: MouseEvent) => {
+      if (!(event.target instanceof HTMLElement)) return;
+      if (event.target.closest("[data-layout-delete-button]")) return;
+      if (!event.target.classList.contains("cms-layout-section")) return;
+
+      const layout = getLayoutFromElement(editor, event.target);
+      if (!layout) return;
+
+      event.preventDefault();
+      const tr = editor.state.tr.setSelection(
+        NodeSelection.create(editor.state.doc, layout.pos),
+      );
+      editor.view.dispatch(tr);
+    };
+
+    const handleSelectionUpdate = () => syncLayoutOverlay();
+    const handleTransaction = () => syncLayoutOverlay();
+    const handleResize = () => syncLayoutOverlay();
+
+    editor.view.dom.addEventListener("mousedown", handleMouseDown);
+    editor.on("selectionUpdate", handleSelectionUpdate);
+    editor.on("transaction", handleTransaction);
+    window.addEventListener("resize", handleResize);
+    syncLayoutOverlay();
+
+    return () => {
+      editor.view.dom.removeEventListener("mousedown", handleMouseDown);
+      editor.off("selectionUpdate", handleSelectionUpdate);
+      editor.off("transaction", handleTransaction);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [editor]);
+
   if (!editor) return null;
 
   function setLink() {
@@ -292,6 +377,61 @@ export function BlogEditor({
   function insertLayout(layout: LayoutKind) {
     editor!.chain().focus().insertLayoutSection({ layout }).run();
     setLayoutDialogOpen(false);
+  }
+
+  function deleteLayout(pos: number) {
+    const deleted = editor!.commands.command(({ state, tr, dispatch }) => {
+      const node = state.doc.nodeAt(pos);
+      if (!node || node.type.name !== "layoutSection") return false;
+
+      tr.delete(pos, pos + node.nodeSize).scrollIntoView();
+      dispatch?.(tr);
+      return true;
+    });
+
+    if (deleted) {
+      setLayoutOverlay(null);
+      editor!.commands.focus();
+    }
+  }
+
+  function showHoveredLayout(target: EventTarget | null) {
+    if (!editor || !(target instanceof Element)) return;
+    if (target.closest("[data-layout-delete-button]")) return;
+
+    const layoutElement = target.closest(".cms-layout-section");
+    const layout =
+      layoutElement instanceof HTMLElement
+        ? getLayoutFromElement(editor, layoutElement)
+        : null;
+
+    if (!layout) {
+      if (!getSelectedLayout(editor)) {
+        setLayoutOverlay((current) =>
+          current ? { ...current, visible: false } : null,
+        );
+      }
+      return;
+    }
+
+    const nodeElement = editor.view.nodeDOM(layout.pos);
+    if (!(nodeElement instanceof HTMLElement)) return;
+
+    const editorRect = editor.view.dom.getBoundingClientRect();
+    const nodeRect = nodeElement.getBoundingClientRect();
+    setLayoutOverlay({
+      pos: layout.pos,
+      top: nodeRect.top - editorRect.top + 6,
+      left: nodeRect.right - editorRect.left - 34,
+      visible: true,
+    });
+  }
+
+  function hideHoveredLayout() {
+    if (editor && getSelectedLayout(editor)) return;
+    setLayoutOverlay((current) =>
+      current ? { ...current, visible: false } : null,
+    );
   }
 
   function openSelectedEmbedDialog(type: EditableEmbedType) {
@@ -685,7 +825,11 @@ export function BlogEditor({
           spellCheck={false}
         />
       ) : (
-        <div className="relative">
+        <div
+          className="relative"
+          onMouseMove={(event) => showHoveredLayout(event.target)}
+          onMouseLeave={hideHoveredLayout}
+        >
           <EditorContent editor={editor} />
           {embedOverlay && (
             <Button
@@ -701,6 +845,43 @@ export function BlogEditor({
               <Pencil className="h-4 w-4" />
             </Button>
           )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  aria-label="Delete layout block"
+                  data-layout-delete-button
+                  className="pointer-events-auto absolute z-30 h-7 w-7 border bg-background/95 text-muted-foreground shadow-sm transition-opacity hover:text-destructive"
+                  style={{
+                    top: layoutOverlay?.top ?? 0,
+                    left: layoutOverlay?.left ?? 0,
+                    opacity: layoutOverlay?.visible ? 1 : 0,
+                    visibility: layoutOverlay?.visible ? "visible" : "hidden",
+                  }}
+                  onMouseEnter={() => {
+                    const current = layoutOverlayRef.current;
+                    if (!current) return;
+                    setLayoutOverlay({ ...current, visible: true });
+                  }}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!layoutOverlayRef.current?.visible) return;
+                    deleteLayout(layoutOverlayRef.current.pos);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete layout</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       )}
       <ImageInsertDialog
@@ -973,6 +1154,31 @@ function getSelectedNode(editor: Editor, typeName: string) {
     pos: selection.from,
     attrs: selection.node.attrs,
   };
+}
+
+function getSelectedLayout(editor: Editor): { pos: number } | null {
+  const selection = getSelectedNode(editor, "layoutSection");
+  if (!selection) return null;
+
+  return { pos: selection.pos };
+}
+
+function getLayoutFromElement(
+  editor: Editor,
+  element: HTMLElement,
+): { pos: number } | null {
+  let found: { pos: number } | null = null;
+
+  editor.state.doc.descendants((node, pos) => {
+    if (found || node.type.name !== "layoutSection") return false;
+    if (editor.view.nodeDOM(pos) === element) {
+      found = { pos };
+      return false;
+    }
+    return true;
+  });
+
+  return found;
 }
 
 function getSelectedEditableEmbed(editor: Editor): {
