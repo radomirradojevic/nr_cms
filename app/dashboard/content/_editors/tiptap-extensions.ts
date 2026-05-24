@@ -8,6 +8,7 @@ import { Video } from "./video-extension";
 import { GalleryNode } from "./gallery-extension";
 import { CmsFormNode } from "./form-extension";
 import { CmsFormSubmissionsNode } from "./form-submissions-extension";
+import { LayoutColumn, LayoutSection } from "./layout-extension";
 
 const ImageWithSize = Image.extend({
   addAttributes() {
@@ -42,6 +43,8 @@ export const tiptapExtensions = [
   GalleryNode,
   CmsFormNode,
   CmsFormSubmissionsNode,
+  LayoutSection,
+  LayoutColumn,
   TableKit.configure({
     table: {
       resizable: true,

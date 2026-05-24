@@ -1,15 +1,25 @@
-import { Fragment } from "react";
 import { getGalleryByIdPublic } from "@/data/galleries";
-import { getPublishedFormById, type FormDetail } from "@/data/forms";
+import { getPublishedFormById } from "@/data/forms";
 import { getFormForSubmissions } from "@/data/form-submissions";
-import { GalleryGrid, type GalleryGridImage } from "@/components/gallery-grid";
-import { CmsFormRenderer } from "@/components/cms-form-renderer";
-import { FormSubmissionsRenderer } from "@/app/dashboard/content/_builder/blocks/form-submissions/renderer";
+import {
+  BlogContentEmbeds,
+  type BlogFormEmbed,
+  type BlogFormSubmissionsEmbed,
+  type BlogGalleryEmbed,
+} from "@/components/blog-content-embeds";
 
 type Props = {
   html: string;
   className?: string;
 };
+
+function hashHtml(value: string): string {
+  let hash = 0;
+  for (let index = 0; index < value.length; index++) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return `blog-content-${hash.toString(36)}`;
+}
 
 const GALLERY_OPEN_RE =
   /<div\b[^>]*\bdata-gallery-id="([0-9a-fA-F-]{36})"[^>]*>/g;
@@ -65,25 +75,6 @@ function findEmbedBlocks(
   return matches;
 }
 
-function attrValue(tag: string, name: string): string | null {
-  const pattern = new RegExp(`\\b${name}="([^"]*)"`);
-  return pattern.exec(tag)?.[1] ?? null;
-}
-
-function parseDisplayMode(value: string | null): "table" | "card" {
-  return value === "card" ? "card" : "table";
-}
-
-function parsePageSize(value: string | null): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (!Number.isFinite(parsed)) return 5;
-  return Math.min(100, Math.max(5, parsed));
-}
-
-function parseBoolean(value: string | null): boolean {
-  return value !== "false";
-}
-
 /**
  * Renders blog post HTML produced by the TipTap editor and hydrates
  * embedded gallery, form, and form-submissions placeholders into real
@@ -91,6 +82,7 @@ function parseBoolean(value: string | null): boolean {
  */
 export async function BlogContent({ html, className }: Props) {
   const safeHtml = html ?? "";
+  const scopeId = hashHtml(safeHtml);
 
   const galleryMatches = findEmbedBlocks(safeHtml, GALLERY_OPEN_RE, "gallery");
   const formMatches = findEmbedBlocks(safeHtml, FORM_OPEN_RE, "form");
@@ -138,142 +130,44 @@ export async function BlogContent({ html, className }: Props) {
         ),
       ),
     ]);
-  const galleryById = new Map(galleryEntries);
-  const formById = new Map<string, FormDetail | null>(formEntries);
-  const formSubmissionById = new Map(formSubmissionEntries);
-
-  type Segment =
-    | { type: "html"; value: string }
-    | { type: "gallery"; id: string; key: string }
-    | { type: "form"; id: string; key: string }
-    | {
-        type: "formSubmissions";
-        id: string;
-        key: string;
-        displayMode: "table" | "card";
-        pageSize: number;
-        hideId: boolean;
-      };
-  const out: Segment[] = [];
-
-  let cursor = 0;
-  matches.forEach((match, idx) => {
-    if (match.index > cursor) {
-      out.push({ type: "html", value: safeHtml.slice(cursor, match.index) });
-    }
-    if (match.kind === "gallery") {
-      out.push({
-        type: "gallery",
-        id: match.id,
-        key: `gal-${idx}-${match.id}`,
-      });
-    } else if (match.kind === "form") {
-      out.push({
-        type: "form",
-        id: match.id,
-        key: `form-${idx}-${match.id}`,
-      });
-    } else {
-      out.push({
-        type: "formSubmissions",
-        id: match.id,
-        key: `form-submissions-${idx}-${match.id}`,
-        displayMode: parseDisplayMode(
-          attrValue(match.openingTag, "data-cms-form-submissions-display-mode"),
-        ),
-        pageSize: parsePageSize(
-          attrValue(match.openingTag, "data-cms-form-submissions-page-size"),
-        ),
-        hideId: parseBoolean(
-          attrValue(match.openingTag, "data-cms-form-submissions-hide-id"),
-        ),
-      });
-    }
-    cursor = match.index + match.fullMatch.length;
-  });
-  if (cursor < safeHtml.length) {
-    out.push({ type: "html", value: safeHtml.slice(cursor) });
-  }
+  const galleries: BlogGalleryEmbed[] = galleryEntries
+    .filter(
+      (entry): entry is readonly [string, NonNullable<(typeof entry)[1]>] =>
+        Boolean(entry[1]),
+    )
+    .map(([id, gallery]) => ({
+      id,
+      name: gallery.name,
+      images: gallery.images.map((img) => ({
+        id: img.fileId,
+        src: `/api/files/${img.fileId}`,
+        alt: img.file.alt ?? img.file.title ?? img.file.filename,
+      })),
+    }));
+  const forms: BlogFormEmbed[] = formEntries.map(([id, detail]) => ({
+    id,
+    detail,
+  }));
+  const formSubmissions: BlogFormSubmissionsEmbed[] = formSubmissionEntries.map(
+    ([id, detail]) => ({
+      id,
+      fields: detail?.fields ?? null,
+    }),
+  );
 
   return (
-    <article className={className}>
-      {out.map((seg, idx) => {
-        if (seg.type === "html") {
-          return (
-            <div
-              key={`h-${idx}`}
-              dangerouslySetInnerHTML={{ __html: seg.value }}
-            />
-          );
-        }
-        if (seg.type === "gallery") {
-          const gallery = galleryById.get(seg.id) ?? null;
-          if (!gallery) {
-            return (
-              <div
-                key={seg.key}
-                className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground"
-              >
-                Gallery is unavailable.
-              </div>
-            );
-          }
-          const images: GalleryGridImage[] = gallery.images.map((img) => ({
-            id: img.fileId,
-            src: `/api/files/${img.fileId}`,
-            alt: img.file.alt ?? img.file.title ?? img.file.filename,
-          }));
-          return (
-            <Fragment key={seg.key}>
-              <GalleryGrid images={images} galleryName={gallery.name} />
-            </Fragment>
-          );
-        }
-        if (seg.type === "formSubmissions") {
-          const formData = formSubmissionById.get(seg.id) ?? null;
-          if (!formData) {
-            return (
-              <div
-                key={seg.key}
-                className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground"
-              >
-                Form submissions are unavailable.
-              </div>
-            );
-          }
-          return (
-            <Fragment key={seg.key}>
-              <div className="cms-embedded-form-submissions">
-                <FormSubmissionsRenderer
-                  formId={seg.id}
-                  displayMode={seg.displayMode}
-                  pageSize={seg.pageSize}
-                  sortField="created_at"
-                  sortOrder="desc"
-                  hideId={seg.hideId}
-                  fields={formData.fields}
-                />
-              </div>
-            </Fragment>
-          );
-        }
-        const detail = formById.get(seg.id) ?? null;
-        if (!detail) {
-          return (
-            <div
-              key={seg.key}
-              className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground"
-            >
-              Form is unavailable.
-            </div>
-          );
-        }
-        return (
-          <Fragment key={seg.key}>
-            <CmsFormRenderer form={detail} />
-          </Fragment>
-        );
-      })}
-    </article>
+    <>
+      <article
+        data-blog-content-root={scopeId}
+        className={className}
+        dangerouslySetInnerHTML={{ __html: safeHtml }}
+      />
+      <BlogContentEmbeds
+        scopeId={scopeId}
+        galleries={galleries}
+        forms={forms}
+        formSubmissions={formSubmissions}
+      />
+    </>
   );
 }
