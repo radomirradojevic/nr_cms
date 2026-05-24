@@ -471,24 +471,77 @@ html:has(.dashboard-content-root) {
   text-align: center;
   margin-top: 0.5rem;
 }
+:where(.ProseMirror, .cms-content) :where(.tableWrapper) {
+  max-width: 100%;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
 :where(.ProseMirror, .cms-content) :where(table) {
   width: 100%;
+  min-width: 28rem;
   border-collapse: collapse;
+  table-layout: fixed;
   margin: 0.75rem 0;
+  overflow: hidden;
   color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
+  box-shadow: var(--shadow-xs);
+}
+:where(.ProseMirror, .cms-content) :where(.tableWrapper table) {
+  margin: 0;
 }
 :where(.ProseMirror, .cms-content) :where(th, td) {
   border: 1px solid var(--border);
   padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;
+  background: color-mix(in oklch, var(--background) 96%, var(--muted));
+  overflow-wrap: anywhere;
 }
-:where(.ProseMirror, .cms-content) :where(thead th) {
+:where(.ProseMirror, .cms-content) :where(th > *, td > *) {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+:where(.ProseMirror, .cms-content) :where(th, thead th) {
   background: var(--muted);
   font-weight: 600;
 }
+.ProseMirror :where(.selectedCell)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in oklch, var(--primary) 18%, transparent);
+}
+.ProseMirror :where(th, td) {
+  position: relative;
+}
+.ProseMirror :where(.column-resize-handle) {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -2px;
+  z-index: 4;
+  width: 4px;
+  pointer-events: none;
+  background: var(--primary);
+}
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
 .cms-content .cms-embedded-form-submissions :where(table) {
   margin: 0;
+  min-width: 0;
+  table-layout: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 .cms-content .cms-embedded-form-submissions :where(th, td) {
   border: 0;

@@ -19,6 +19,9 @@ export type TiptapToolbarState = {
   alignCenter: boolean;
   alignRight: boolean;
   alignJustify: boolean;
+  table: boolean;
+  tableCell: boolean;
+  tableHeader: boolean;
 };
 
 export const inactiveTiptapToolbarState: TiptapToolbarState = {
@@ -37,6 +40,9 @@ export const inactiveTiptapToolbarState: TiptapToolbarState = {
   alignCenter: false,
   alignRight: false,
   alignJustify: false,
+  table: false,
+  tableCell: false,
+  tableHeader: false,
 };
 
 function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
@@ -56,6 +62,9 @@ function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
     alignCenter: editor.isActive({ textAlign: "center" }),
     alignRight: editor.isActive({ textAlign: "right" }),
     alignJustify: editor.isActive({ textAlign: "justify" }),
+    table: editor.isActive("table"),
+    tableCell: editor.isActive("tableCell"),
+    tableHeader: editor.isActive("tableHeader"),
   };
 }
 
