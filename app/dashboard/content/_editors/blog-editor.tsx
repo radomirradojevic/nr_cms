@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useTiptapToolbarState } from "./tiptap-toolbar-state";
 
 type Props = {
   /**
@@ -66,24 +67,6 @@ type Props = {
   registerGetValue?: (getValue: () => JSONContent) => void;
   /** Optional notifier; do NOT use to drive parent state on every keystroke. */
   onChange?: (value: JSONContent) => void;
-};
-
-const inactiveToolbarState = {
-  heading1: false,
-  heading2: false,
-  heading3: false,
-  bold: false,
-  italic: false,
-  strike: false,
-  underline: false,
-  bulletList: false,
-  orderedList: false,
-  blockquote: false,
-  link: false,
-  alignLeft: false,
-  alignCenter: false,
-  alignRight: false,
-  alignJustify: false,
 };
 
 export function BlogEditor({
@@ -131,32 +114,7 @@ export function BlogEditor({
       onChangeRef.current?.(editor.getJSON());
     },
   });
-  const toolbarState = useEditorState({
-    editor,
-    selector: ({ editor }) => {
-      if (!editor) {
-        return inactiveToolbarState;
-      }
-
-      return {
-        heading1: editor.isActive("heading", { level: 1 }),
-        heading2: editor.isActive("heading", { level: 2 }),
-        heading3: editor.isActive("heading", { level: 3 }),
-        bold: editor.isActive("bold"),
-        italic: editor.isActive("italic"),
-        strike: editor.isActive("strike"),
-        underline: editor.isActive("underline"),
-        bulletList: editor.isActive("bulletList"),
-        orderedList: editor.isActive("orderedList"),
-        blockquote: editor.isActive("blockquote"),
-        link: editor.isActive("link"),
-        alignLeft: editor.isActive({ textAlign: "left" }),
-        alignCenter: editor.isActive({ textAlign: "center" }),
-        alignRight: editor.isActive({ textAlign: "right" }),
-        alignJustify: editor.isActive({ textAlign: "justify" }),
-      };
-    },
-  }) ?? inactiveToolbarState;
+  const toolbarState = useTiptapToolbarState(editor);
 
   // Register the value getter exactly once — the parent reads from this
   // at submit time without subscribing to per-keystroke updates.

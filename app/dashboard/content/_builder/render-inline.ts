@@ -17,6 +17,30 @@ const renderExtensions = [
   TextAlign.configure({ types: ["paragraph"] }),
 ];
 
+export function stripInlineTextAlign(
+  value: JSONContent | null | undefined,
+): JSONContent | null | undefined {
+  if (!value) return value;
+  let changed = false;
+
+  function visit(node: JSONContent): JSONContent {
+    const next: JSONContent = { ...node };
+    if (next.attrs && "textAlign" in next.attrs) {
+      const attrs = { ...next.attrs };
+      delete attrs.textAlign;
+      next.attrs = Object.keys(attrs).length > 0 ? attrs : undefined;
+      changed = true;
+    }
+    if (next.content) {
+      next.content = next.content.map(visit);
+    }
+    return next;
+  }
+
+  const next = visit(value);
+  return changed ? next : value;
+}
+
 /**
  * Render Tiptap JSON to a sanitized HTML string. Safe for both server
  * (RSC renderer) and client (preview). Returns "" for null/empty docs.
