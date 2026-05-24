@@ -18,10 +18,8 @@ declare module "@tiptap/core" {
  * blog post renderer (see `components/blog-content.tsx`) hydrates with a
  * real `<GalleryGrid>` (thumbnails + lightbox).
  *
- * Inside the editor itself, the placeholder shows a small badge so authors
- * can see that a gallery has been inserted. Real previews are intentionally
- * kept out of the editor to avoid pulling client-side gallery fetches into
- * the WYSIWYG.
+ * Inside the editor itself, a React NodeView renders an editor-safe visual
+ * preview. The saved HTML remains this stable placeholder for public hydration.
  */
 export const GalleryNode = Node.create({
   name: "gallery",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { ImageIcon, Search } from "lucide-react";
 
 import {
@@ -22,29 +22,57 @@ import type { GalleryListItem } from "@/data/galleries";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: "insert" | "edit";
+  initialValues?: GalleryDialogValues | null;
   onInsert: (gallery: { galleryId: string; galleryName: string }) => void;
 };
 
 const PAGE_SIZE = 12;
 
-export function GallerySelectDialog({ open, onOpenChange, onInsert }: Props) {
+type GalleryDialogValues = {
+  galleryId: string;
+  galleryName?: string | null;
+};
+
+export function GallerySelectDialog({
+  open,
+  onOpenChange,
+  mode = "insert",
+  initialValues,
+  onInsert,
+}: Props) {
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<GalleryListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialValues?.galleryId ?? null,
+  );
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset state when opened.
+  const runFetch = useCallback(
+    (nextOffset: number, replace: boolean, q: string) => {
+      startTransition(async () => {
+        const res = await fetchGalleries({
+          search: q || undefined,
+          limit: PAGE_SIZE,
+          offset: nextOffset,
+        });
+        if ("error" in res) return;
+        setTotal(res.total);
+        setRows((prev) => (replace ? res.rows : [...prev, ...res.rows]));
+        setOffset(nextOffset + res.rows.length);
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     if (open) {
-      setSearch("");
-      setSelectedId(null);
       runFetch(0, true, "");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, runFetch]);
 
   // Debounced search.
   useEffect(() => {
@@ -59,25 +87,15 @@ export function GallerySelectDialog({ open, onOpenChange, onInsert }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  function runFetch(nextOffset: number, replace: boolean, q: string) {
-    startTransition(async () => {
-      const res = await fetchGalleries({
-        search: q || undefined,
-        limit: PAGE_SIZE,
-        offset: nextOffset,
-      });
-      if ("error" in res) return;
-      setTotal(res.total);
-      setRows((prev) => (replace ? res.rows : [...prev, ...res.rows]));
-      setOffset(nextOffset + res.rows.length);
-    });
-  }
-
   function handleInsert() {
     if (!selectedId) return;
     const gallery = rows.find((r) => r.id === selectedId);
-    if (!gallery) return;
-    onInsert({ galleryId: gallery.id, galleryName: gallery.name });
+    const galleryName =
+      gallery?.name ??
+      (initialValues?.galleryId === selectedId
+        ? (initialValues.galleryName ?? "")
+        : "");
+    onInsert({ galleryId: selectedId, galleryName });
     onOpenChange(false);
   }
 
@@ -87,10 +105,13 @@ export function GallerySelectDialog({ open, onOpenChange, onInsert }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Insert gallery</DialogTitle>
+          <DialogTitle>
+            {mode === "edit" ? "Edit gallery" : "Insert gallery"}
+          </DialogTitle>
           <DialogDescription>
-            Pick an existing gallery from the Gallery Manager. Its images will
-            render as a responsive thumbnail grid in the post.
+            {mode === "edit"
+              ? "Choose which gallery this embedded block should render."
+              : "Pick an existing gallery from the Gallery Manager. Its images will render as a responsive thumbnail grid in the post."}
           </DialogDescription>
         </DialogHeader>
 
@@ -190,7 +211,7 @@ export function GallerySelectDialog({ open, onOpenChange, onInsert }: Props) {
             Cancel
           </Button>
           <Button type="button" onClick={handleInsert} disabled={!selectedId}>
-            Insert
+            {mode === "edit" ? "Save changes" : "Insert"}
           </Button>
         </DialogFooter>
       </DialogContent>

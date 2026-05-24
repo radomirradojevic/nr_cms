@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 
 export type VideoProvider = "youtube" | "file";
+export type VideoAlignment = "left" | "center" | "right";
 
 export interface VideoOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -14,6 +15,7 @@ declare module "@tiptap/core" {
         provider: VideoProvider;
         width?: string | null;
         height?: string | null;
+        alignment?: VideoAlignment | null;
       }) => ReturnType;
     };
   }
@@ -26,6 +28,12 @@ function normalizeSize(value: unknown): string | null {
   // Allow bare numbers (interpreted as px) or any CSS length/percent.
   if (/^\d+(\.\d+)?$/.test(v)) return `${v}px`;
   return v;
+}
+
+function normalizeAlignment(value: unknown): VideoAlignment {
+  return value === "left" || value === "right" || value === "center"
+    ? value
+    : "center";
 }
 
 export function extractYouTubeId(url: string): string | null {
@@ -80,6 +88,12 @@ export const Video = Node.create<VideoOptions>({
         parseHTML: (el) => el.getAttribute("data-height"),
         renderHTML: () => ({}),
       },
+      alignment: {
+        default: "center",
+        parseHTML: (el) =>
+          normalizeAlignment(el.getAttribute("data-alignment")),
+        renderHTML: () => ({}),
+      },
     };
   },
 
@@ -95,6 +109,7 @@ export const Video = Node.create<VideoOptions>({
             provider: "youtube",
             width: node.getAttribute("data-width"),
             height: node.getAttribute("data-height"),
+            alignment: node.getAttribute("data-alignment"),
           };
         },
       },
@@ -108,6 +123,7 @@ export const Video = Node.create<VideoOptions>({
             provider: "file",
             width: node.getAttribute("data-width"),
             height: node.getAttribute("data-height"),
+            alignment: node.getAttribute("data-alignment"),
           };
         },
       },
@@ -120,6 +136,7 @@ export const Video = Node.create<VideoOptions>({
             provider: "youtube",
             width: node.getAttribute("width"),
             height: node.getAttribute("height"),
+            alignment: node.getAttribute("data-alignment"),
           };
         },
       },
@@ -132,6 +149,7 @@ export const Video = Node.create<VideoOptions>({
             provider: "file",
             width: node.getAttribute("width"),
             height: node.getAttribute("height"),
+            alignment: node.getAttribute("data-alignment"),
           };
         },
       },
@@ -147,44 +165,52 @@ export const Video = Node.create<VideoOptions>({
       (node.attrs.src as string) ?? (HTMLAttributes.src as string) ?? "";
     const width = normalizeSize(node.attrs.width ?? HTMLAttributes.width);
     const height = normalizeSize(node.attrs.height ?? HTMLAttributes.height);
+    const alignment = normalizeAlignment(
+      node.attrs.alignment ?? HTMLAttributes.alignment,
+    );
+    const alignmentClass: Record<VideoAlignment, string> = {
+      left: "justify-start",
+      center: "justify-center",
+      right: "justify-end",
+    };
 
     if (provider === "youtube") {
-      const wrapperStyle = [
+      const mediaStyle = [
         "position:relative",
         `width:${width ?? "100%"}`,
         height ? `height:${height}` : "aspect-ratio:16/9",
         "max-width:100%",
-        "margin:1em auto",
         "background:#000",
       ].join(";");
       return [
         "div",
         {
-          class: "tiptap-video tiptap-video-youtube",
-          style: wrapperStyle,
+          class: `tiptap-video tiptap-video-youtube flex ${alignmentClass[alignment]}`,
           ...(width ? { "data-width": width } : {}),
           ...(height ? { "data-height": height } : {}),
+          "data-alignment": alignment,
         },
         [
-          "iframe",
-          mergeAttributes(this.options.HTMLAttributes, {
-            src,
-            "data-video-provider": "youtube",
-            frameborder: "0",
-            allow:
-              "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
-            allowfullscreen: "true",
-            style: "position:absolute;inset:0;width:100%;height:100%;border:0;",
-          }),
+          "div",
+          { class: "tiptap-video-frame", style: mediaStyle },
+          [
+            "iframe",
+            mergeAttributes(this.options.HTMLAttributes, {
+              src,
+              "data-video-provider": "youtube",
+              frameborder: "0",
+              allow:
+                "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
+              allowfullscreen: "true",
+              style:
+                "position:absolute;inset:0;width:100%;height:100%;border:0;",
+            }),
+          ],
         ],
       ];
     }
 
-    const wrapperStyle = [
-      `width:${width ?? "100%"}`,
-      "max-width:100%",
-      "margin:1em auto",
-    ].join(";");
+    const mediaStyle = [`width:${width ?? "100%"}`, "max-width:100%"].join(";");
     const videoStyle = [
       "width:100%",
       height ? `height:${height}` : "height:auto",
@@ -193,19 +219,23 @@ export const Video = Node.create<VideoOptions>({
     return [
       "div",
       {
-        class: "tiptap-video tiptap-video-file",
-        style: wrapperStyle,
+        class: `tiptap-video tiptap-video-file flex ${alignmentClass[alignment]}`,
         ...(width ? { "data-width": width } : {}),
         ...(height ? { "data-height": height } : {}),
+        "data-alignment": alignment,
       },
       [
-        "video",
-        mergeAttributes(this.options.HTMLAttributes, {
-          src,
-          "data-video-provider": "file",
-          controls: "true",
-          style: videoStyle,
-        }),
+        "div",
+        { class: "tiptap-video-frame", style: mediaStyle },
+        [
+          "video",
+          mergeAttributes(this.options.HTMLAttributes, {
+            src,
+            "data-video-provider": "file",
+            controls: "true",
+            style: videoStyle,
+          }),
+        ],
       ],
     ];
   },

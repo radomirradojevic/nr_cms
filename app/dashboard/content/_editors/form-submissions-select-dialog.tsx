@@ -31,6 +31,8 @@ type DisplayMode = "table" | "card";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: "insert" | "edit";
+  initialValues?: FormSubmissionsDialogValues | null;
   onInsert: (form: {
     formId: string;
     formName: string;
@@ -42,15 +44,27 @@ type Props = {
 
 type Row = { id: string; name: string; slug: string };
 
+type FormSubmissionsDialogValues = {
+  formId: string;
+  formName?: string | null;
+  displayMode?: DisplayMode;
+  pageSize?: number;
+  hideId?: boolean;
+};
+
 export function FormSubmissionsSelectDialog({
   open,
   onOpenChange,
+  mode = "insert",
+  initialValues,
   onInsert,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open ? (
         <FormSubmissionsSelectDialogContent
+          mode={mode}
+          initialValues={initialValues}
           onOpenChange={onOpenChange}
           onInsert={onInsert}
         />
@@ -60,15 +74,23 @@ export function FormSubmissionsSelectDialog({
 }
 
 function FormSubmissionsSelectDialogContent({
+  mode,
+  initialValues,
   onOpenChange,
   onInsert,
-}: Pick<Props, "onOpenChange" | "onInsert">) {
+}: Pick<Props, "mode" | "initialValues" | "onOpenChange" | "onInsert">) {
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [displayMode, setDisplayMode] = useState<DisplayMode>("table");
-  const [pageSize, setPageSize] = useState("5");
-  const [hideId, setHideId] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialValues?.formId ?? null,
+  );
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(
+    initialValues?.displayMode ?? "table",
+  );
+  const [pageSize, setPageSize] = useState(
+    String(initialValues?.pageSize ?? 5),
+  );
+  const [hideId, setHideId] = useState(initialValues?.hideId ?? true);
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,16 +111,20 @@ function FormSubmissionsSelectDialogContent({
   function normalizedPageSize() {
     const parsed = Number.parseInt(pageSize, 10);
     if (!Number.isFinite(parsed)) return 5;
-    return Math.min(100, Math.max(5, parsed));
+    return Math.min(100, Math.max(1, parsed));
   }
 
   function handleInsert() {
     if (!selectedId) return;
     const form = rows.find((r) => r.id === selectedId);
-    if (!form) return;
+    const formName =
+      form?.name ??
+      (initialValues?.formId === selectedId
+        ? (initialValues.formName ?? "")
+        : "");
     onInsert({
-      formId: form.id,
-      formName: form.name,
+      formId: selectedId,
+      formName,
       displayMode,
       pageSize: normalizedPageSize(),
       hideId,
@@ -109,9 +135,15 @@ function FormSubmissionsSelectDialogContent({
   return (
     <DialogContent className="max-w-2xl">
       <DialogHeader>
-        <DialogTitle>Insert form submissions</DialogTitle>
+        <DialogTitle>
+          {mode === "edit"
+            ? "Edit form submissions"
+            : "Insert form submissions"}
+        </DialogTitle>
         <DialogDescription>
-          Pick a published form and choose how its submissions should render.
+          {mode === "edit"
+            ? "Update the source form and how its submissions should render."
+            : "Pick a published form and choose how its submissions should render."}
         </DialogDescription>
       </DialogHeader>
 
@@ -193,7 +225,7 @@ function FormSubmissionsSelectDialogContent({
             <Input
               id="form-submissions-page-size"
               type="number"
-              min={5}
+              min={1}
               max={100}
               value={pageSize}
               onChange={(e) => setPageSize(e.target.value)}
@@ -220,7 +252,7 @@ function FormSubmissionsSelectDialogContent({
         </Button>
         <Button type="button" onClick={handleInsert} disabled={!selectedId}>
           <ClipboardList className="h-4 w-4" />
-          Insert
+          {mode === "edit" ? "Save changes" : "Insert"}
         </Button>
       </DialogFooter>
     </DialogContent>

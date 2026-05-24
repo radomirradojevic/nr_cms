@@ -60,7 +60,7 @@ export async function getFormSubmissions(
   }: FormSubmissionsPaginationOptions = {},
 ) {
   // Validate inputs
-  const validPageSize = Math.min(Math.max(pageSize, 5), 100);
+  const validPageSize = Math.min(Math.max(pageSize, 1), 100);
   const validPage = Math.max(page, 1);
   const offset = (validPage - 1) * validPageSize;
 

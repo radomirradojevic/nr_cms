@@ -21,6 +21,13 @@ import type { FileRow } from "@/data/files";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: "insert" | "edit";
+  initialValues?: {
+    src?: string | null;
+    alt?: string | null;
+    width?: string | null;
+    height?: string | null;
+  } | null;
   onInsert: (args: {
     src: string;
     alt: string;
@@ -31,31 +38,53 @@ type Props = {
 
 const PAGE_SIZE = 24;
 
-export function ImageInsertDialog({ open, onOpenChange, onInsert }: Props) {
-  const [url, setUrl] = useState("");
-  const [alt, setAlt] = useState("");
-  const [width, setWidth] = useState("");
-  const [height, setHeight] = useState("");
+function fileIdFromApiSrc(src: string | null | undefined): string | null {
+  if (!src) return null;
+  const match = src.trim().match(/^\/api\/files\/([^/?#]+)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+export function ImageInsertDialog(props: Props) {
+  const { open, mode = "insert", initialValues } = props;
+  const instanceKey = open
+    ? [
+        mode,
+        initialValues?.src ?? "",
+        initialValues?.alt ?? "",
+        initialValues?.width ?? "",
+        initialValues?.height ?? "",
+      ].join("|")
+    : "closed";
+
+  return <ImageInsertDialogInner key={instanceKey} {...props} />;
+}
+
+function ImageInsertDialogInner({
+  open,
+  onOpenChange,
+  mode = "insert",
+  initialValues,
+  onInsert,
+}: Props) {
+  const [url, setUrl] = useState(() => initialValues?.src ?? "");
+  const [alt, setAlt] = useState(() => initialValues?.alt ?? "");
+  const [width, setWidth] = useState(() => initialValues?.width ?? "");
+  const [height, setHeight] = useState(() => initialValues?.height ?? "");
   const [search, setSearch] = useState("");
   const [files, setFiles] = useState<FileRow[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    fileIdFromApiSrc(initialValues?.src),
+  );
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset internal state whenever dialog is opened.
+  // Fetch the initial File Manager page whenever a fresh dialog instance opens.
   useEffect(() => {
     if (open) {
-      setUrl("");
-      setAlt("");
-      setWidth("");
-      setHeight("");
-      setSearch("");
-      setSelectedId(null);
       runFetch(0, true, "");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Debounced search.
@@ -108,9 +137,13 @@ export function ImageInsertDialog({ open, onOpenChange, onInsert }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Insert image</DialogTitle>
+          <DialogTitle>
+            {mode === "edit" ? "Edit image" : "Insert image"}
+          </DialogTitle>
           <DialogDescription>
-            Paste a direct image URL or pick an image from the File Manager.
+            {mode === "edit"
+              ? "Update the image URL, alt text, or dimensions."
+              : "Paste a direct image URL or pick an image from the File Manager."}
           </DialogDescription>
         </DialogHeader>
 
@@ -241,7 +274,7 @@ export function ImageInsertDialog({ open, onOpenChange, onInsert }: Props) {
             Cancel
           </Button>
           <Button type="button" onClick={handleInsert} disabled={!canInsert}>
-            Insert
+            {mode === "edit" ? "Save changes" : "Insert"}
           </Button>
         </DialogFooter>
       </DialogContent>

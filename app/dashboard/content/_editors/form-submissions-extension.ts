@@ -22,7 +22,7 @@ function parsePageSize(value: unknown): number {
   const parsed =
     typeof value === "number" ? value : Number.parseInt(String(value), 10);
   if (!Number.isFinite(parsed)) return 5;
-  return Math.min(100, Math.max(5, parsed));
+  return Math.min(100, Math.max(1, parsed));
 }
 
 function parseBoolean(value: unknown): boolean {
