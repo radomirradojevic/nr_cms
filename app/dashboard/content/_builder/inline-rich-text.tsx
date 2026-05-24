@@ -51,8 +51,6 @@ type Props = {
    */
   blockTextAlign?: TextAlignValue;
   onBlockTextAlignChange?: (value: TextAlignValue) => void;
-  blockInlineStyle?: InlineStyleValue;
-  onBlockInlineStyleChange?: (value: InlineStyleValue) => void;
 };
 
 type TextAlignValue = "left" | "center" | "right" | "justify" | undefined;
@@ -99,8 +97,6 @@ export function InlineRichText({
   showToolbar = true,
   blockTextAlign,
   onBlockTextAlignChange,
-  blockInlineStyle,
-  onBlockInlineStyleChange,
 }: Props) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
@@ -212,23 +208,10 @@ export function InlineRichText({
   }
 
   function inlineStyleActive(value: keyof InlineStyleValue) {
-    if (onBlockInlineStyleChange) {
-      return !!blockInlineStyle?.[value];
-    }
     return editor!.isActive(value === "underline" ? "underline" : value);
   }
 
   function applyInlineStyle(value: keyof InlineStyleValue) {
-    if (onBlockInlineStyleChange) {
-      const next = {
-        ...blockInlineStyle,
-        [value]: !blockInlineStyle?.[value],
-      };
-      onBlockInlineStyleChange(next);
-      editor!.commands.focus();
-      return;
-    }
-
     if (value === "bold") {
       editor!.chain().focus().toggleBold().run();
       return;
