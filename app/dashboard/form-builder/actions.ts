@@ -475,6 +475,65 @@ export async function fetchFormPreview(input: { id: string }) {
   } as const;
 }
 
+export async function fetchFormEditorPreview(input: { id: string }) {
+  const caller = await requireAdmin();
+  if (!caller) return { error: "Forbidden." } as const;
+  const parsed = idSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid id." } as const;
+
+  const detail = await getFormById(parsed.data.id);
+  if (!detail) return { error: "Not found." } as const;
+
+  return {
+    success: true as const,
+    form: {
+      id: detail.form.id,
+      name: detail.form.name,
+      submitLabel: detail.form.submitLabel,
+    },
+    fields: detail.fields,
+  };
+}
+
+export async function fetchFormSubmissionsEditorPreview(input: {
+  formId: string;
+  limit?: number;
+}) {
+  const caller = await requireAdmin();
+  if (!caller) return { error: "Forbidden." } as const;
+  const parsed = z
+    .object({
+      formId: z.string().uuid(),
+      limit: z.number().int().min(1).max(5).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) return { error: "Invalid input." } as const;
+
+  const detail = await getFormById(parsed.data.formId);
+  if (!detail) return { error: "Form not found." } as const;
+
+  const limit = parsed.data.limit ?? 3;
+  const { rows, total } = await listSubmissions({
+    formId: parsed.data.formId,
+    limit,
+    offset: 0,
+  });
+  const sourceRows = rows.length > 0 ? rows : buildMockSubmissions(detail.fields);
+
+  return {
+    success: true as const,
+    formName: detail.form.name,
+    fields: detail.fields,
+    submissions: sourceRows.slice(0, limit).map((row) => ({
+      id: row.id,
+      data: (row.data ?? {}) as Record<string, unknown>,
+      createdAt: row.createdAt.toISOString(),
+    })),
+    total,
+    usingMock: rows.length === 0,
+  };
+}
+
 export async function fetchFormsList(input: {
   search?: string;
   status?: FormStatus;
@@ -607,4 +666,57 @@ function csvSerialize(v: unknown): string {
     return JSON.stringify(o);
   }
   return String(v);
+}
+
+function buildMockSubmissions(fields: FormFieldRow[]) {
+  const previewFields = fields.slice(0, 4);
+  const now = Date.now();
+
+  return [0, 1, 2].map((rowIndex) => ({
+    id: `preview-${rowIndex + 1}`,
+    data: Object.fromEntries(
+      previewFields.map((field, fieldIndex) => [
+        field.fieldKey,
+        mockValueForField(field, rowIndex, fieldIndex),
+      ]),
+    ),
+    createdAt: new Date(now - rowIndex * 60 * 60 * 1000),
+  }));
+}
+
+function mockValueForField(
+  field: FormFieldRow,
+  rowIndex: number,
+  fieldIndex: number,
+) {
+  const choices = ((field.options ?? {}) as {
+    choices?: { value: string; label: string }[];
+  }).choices;
+
+  switch (field.fieldType) {
+    case "email":
+      return `person${rowIndex + 1}@example.com`;
+    case "phone":
+      return `555-010${rowIndex}`;
+    case "number":
+      return rowIndex + fieldIndex + 1;
+    case "date":
+      return new Date(Date.now() - rowIndex * 86400000)
+        .toISOString()
+        .slice(0, 10);
+    case "select":
+    case "radio":
+      return choices?.[rowIndex % Math.max(choices.length, 1)]?.label ?? "Option";
+    case "checkbox":
+      return choices && choices.length > 0
+        ? [choices[rowIndex % choices.length]?.label ?? "Selected"]
+        : rowIndex % 2 === 0;
+    case "textarea":
+      return `Sample ${field.label.toLowerCase()} response`;
+    case "file":
+      return { originalName: "sample-upload.pdf", size: 24576 };
+    case "text":
+    default:
+      return `${field.label} ${rowIndex + 1}`;
+  }
 }

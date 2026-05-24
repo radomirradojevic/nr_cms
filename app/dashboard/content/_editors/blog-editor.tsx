@@ -33,7 +33,8 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
+import { emptyTiptapJson } from "./tiptap-extensions";
+import { tiptapClientExtensions } from "./tiptap-client-extensions";
 import { TableMenu } from "./table-menu";
 import { ImageInsertDialog } from "./image-insert-dialog";
 import { VideoInsertDialog } from "./video-insert-dialog";
@@ -216,7 +217,7 @@ export function BlogEditor({
   }, [layoutOverlay]);
 
   const editor = useEditor({
-    extensions: tiptapExtensions,
+    extensions: tiptapClientExtensions,
     content: initialContent,
     immediatelyRender: false,
     editorProps: {
