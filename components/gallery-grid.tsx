@@ -54,7 +54,7 @@ export function GalleryGrid({ images, galleryName, className }: Props) {
             type="button"
             onClick={() => setActiveIndex(idx)}
             className={cn(
-              "group relative aspect-square overflow-hidden rounded-md border bg-muted",
+              "group relative block aspect-square w-full overflow-hidden rounded-md border bg-muted p-0 leading-none",
               "focus:outline-none focus:ring-2 focus:ring-primary",
             )}
             aria-label={img.alt || `Open image ${idx + 1}`}
@@ -65,7 +65,7 @@ export function GalleryGrid({ images, galleryName, className }: Props) {
               alt={img.alt}
               loading="lazy"
               className={cn(
-                "block m-0 h-full w-full object-cover transition-transform duration-300",
+                "absolute inset-0 m-0 block !h-full !w-full !max-w-none !object-cover transition-transform duration-300",
                 "group-hover:scale-105",
               )}
             />
