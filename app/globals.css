@@ -568,6 +568,16 @@ html:has(.dashboard-content-root) {
   cursor: pointer;
 }
 
+:where(.ProseMirror, .cms-content) :where(.tiptap-video) {
+  width: 100%;
+  max-width: 100%;
+  margin: 1em 0;
+}
+
+:where(.ProseMirror, .cms-content) :where(.tiptap-video-frame) {
+  max-width: 100%;
+}
+
 /* Craft.js Layers panel — add hover feedback on each layer header.
    Default state (unselected) has a transparent background and inherited
    text color, so hovering produced no visible change. We highlight the

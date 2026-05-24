@@ -27,6 +27,7 @@ import type { FileRow } from "@/data/files";
 import {
   extractYouTubeId,
   youTubeEmbedUrl,
+  type VideoAlignment,
   type VideoProvider,
 } from "./video-extension";
 
@@ -40,7 +41,9 @@ type Props = {
     provider: VideoProvider;
     width?: string;
     height?: string;
+    alignment?: VideoAlignment;
   }) => void;
+  onAlignmentChange?: (alignment: VideoAlignment) => void;
 };
 
 const PAGE_SIZE = 24;
@@ -58,6 +61,7 @@ type VideoDialogValues = {
   provider: VideoProvider;
   width?: string | null;
   height?: string | null;
+  alignment?: VideoAlignment | null;
 };
 
 function presetFromWidth(width?: string | null): string {
@@ -79,11 +83,13 @@ export function VideoInsertDialog({
   mode = "insert",
   initialValues,
   onInsert,
+  onAlignmentChange,
 }: Props) {
   const initialProvider = initialValues?.provider ?? "youtube";
   const initialWidth = initialValues?.width ?? null;
   const initialHeight = initialValues?.height ?? null;
   const initialSizePreset = presetFromWidth(initialWidth);
+  const initialAlignment = initialValues?.alignment ?? "center";
 
   const [tab, setTab] = useState<"youtube" | "file">(initialProvider);
   const [youtubeUrl, setYoutubeUrl] = useState(
@@ -96,6 +102,7 @@ export function VideoInsertDialog({
     initialSizePreset === "custom" ? (initialWidth ?? "") : "",
   );
   const [customHeight, setCustomHeight] = useState(initialHeight ?? "");
+  const [alignment, setAlignment] = useState<VideoAlignment>(initialAlignment);
 
   const [search, setSearch] = useState("");
   const [files, setFiles] = useState<FileRow[]>([]);
@@ -163,6 +170,7 @@ export function VideoInsertDialog({
       onInsert({
         src: youTubeEmbedUrl(id),
         provider: "youtube",
+        alignment,
         ...size,
       });
       onOpenChange(false);
@@ -180,6 +188,7 @@ export function VideoInsertDialog({
     onInsert({
       src,
       provider: "file",
+      alignment,
       ...size,
     });
     onOpenChange(false);
@@ -198,7 +207,7 @@ export function VideoInsertDialog({
           </DialogTitle>
           <DialogDescription>
             {mode === "edit"
-              ? "Update this video's source and display size."
+              ? "Update this video's source, display size, and alignment."
               : "Embed a YouTube video or pick an uploaded video from the File Manager."}
           </DialogDescription>
         </DialogHeader>
@@ -366,6 +375,27 @@ export function VideoInsertDialog({
             Bare numbers are treated as pixels. Leave height empty to keep the
             video&apos;s aspect ratio.
           </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="video-alignment">Alignment</Label>
+          <Select
+            value={alignment}
+            onValueChange={(value) => {
+              const next = value as VideoAlignment;
+              setAlignment(next);
+              if (mode === "edit") onAlignmentChange?.(next);
+            }}
+          >
+            <SelectTrigger id="video-alignment" className="w-full">
+              <SelectValue placeholder="Select alignment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="left">Left</SelectItem>
+              <SelectItem value="center">Center</SelectItem>
+              <SelectItem value="right">Right</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <DialogFooter>
