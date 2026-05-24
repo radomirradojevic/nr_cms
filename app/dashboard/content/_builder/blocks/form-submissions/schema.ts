@@ -10,7 +10,7 @@ export const FormSubmissionsPropsSchema = z.object({
   displayMode: z.enum(["table", "card"]).optional().default("table"),
   pageSize: z
     .number()
-    .min(5, "Page size must be at least 5")
+    .min(1, "Page size must be at least 1")
     .max(100, "Page size must be at most 100")
     .optional()
     .default(10),

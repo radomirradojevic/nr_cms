@@ -51,7 +51,7 @@ function parseDisplayMode(value: string | null): "table" | "card" {
 function parsePageSize(value: string | null): number {
   const parsed = Number.parseInt(value ?? "", 10);
   if (!Number.isFinite(parsed)) return 5;
-  return Math.min(100, Math.max(5, parsed));
+  return Math.min(100, Math.max(1, parsed));
 }
 
 function parseBoolean(value: string | null): boolean {
