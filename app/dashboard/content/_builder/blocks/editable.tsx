@@ -485,7 +485,6 @@ export function Text({ content, style }: TextProps) {
     <NodeWrap style={style}>
       <div className="my-3 leading-relaxed [&_p]:my-2 [&_li>p]:my-0 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6">
         <InlineRichText
-          showToolbar={false}
           value={content ?? emptyInlineDoc}
           onChange={(v) =>
             setProp((p: TextProps) => {
@@ -728,7 +727,6 @@ export function Hero({ title, subtitle, style }: HeroProps) {
       >
         <h1 className="text-4xl font-bold tracking-tight">
           <InlineRichText
-            showToolbar={false}
             singleLine
             value={title ?? emptyInlineDoc}
             onChange={(v) =>
@@ -740,7 +738,6 @@ export function Hero({ title, subtitle, style }: HeroProps) {
         </h1>
         <div className="mt-4 text-lg text-muted-foreground">
           <InlineRichText
-            showToolbar={false}
             value={subtitle ?? emptyInlineDoc}
             onChange={(v) =>
               setProp((p: HeroProps) => {
