@@ -49,6 +49,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -89,6 +99,13 @@ type EditingVideo = {
   values: VideoDialogValues;
 };
 
+type ImageDialogValues = {
+  src: string;
+  alt?: string | null;
+  width?: string | null;
+  height?: string | null;
+};
+
 type GalleryDialogValues = {
   galleryId: string;
   galleryName?: string | null;
@@ -112,7 +129,20 @@ type EditingNode<T> = {
   values: T;
 };
 
-type EditableEmbedType = "video" | "gallery" | "cmsForm" | "cmsFormSubmissions";
+type EditableEmbedType =
+  | "image"
+  | "video"
+  | "gallery"
+  | "cmsForm"
+  | "cmsFormSubmissions";
+
+const editableEmbedLabels: Record<EditableEmbedType, string> = {
+  image: "Image",
+  video: "Video",
+  gallery: "Gallery",
+  cmsForm: "Form",
+  cmsFormSubmissions: "Form Submission",
+};
 
 const layoutOptions: Array<{
   value: LayoutKind;
@@ -139,12 +169,19 @@ export function BlogEditor({
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [editingImage, setEditingImage] =
+    useState<EditingNode<ImageDialogValues> | null>(null);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState<EditingVideo | null>(null);
   const [embedOverlay, setEmbedOverlay] = useState<{
+    pos: number;
     type: EditableEmbedType;
     top: number;
     left: number;
+  } | null>(null);
+  const [deletingEmbed, setDeletingEmbed] = useState<{
+    pos: number;
+    type: EditableEmbedType;
   } | null>(null);
   const [layoutOverlay, setLayoutOverlay] = useState<{
     pos: number;
@@ -152,6 +189,9 @@ export function BlogEditor({
     left: number;
     visible: boolean;
   } | null>(null);
+  const [deletingLayoutPos, setDeletingLayoutPos] = useState<number | null>(
+    null,
+  );
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
   const [editingGallery, setEditingGallery] =
     useState<EditingNode<GalleryDialogValues> | null>(null);
@@ -224,9 +264,10 @@ export function BlogEditor({
       const editorRect = editor.view.dom.getBoundingClientRect();
       const nodeRect = nodeElement.getBoundingClientRect();
       setEmbedOverlay({
+        pos: selected.pos,
         type: selected.type,
         top: nodeRect.top - editorRect.top + 8,
-        left: nodeRect.right - editorRect.left - 40,
+        left: nodeRect.right - editorRect.left - 76,
       });
     };
 
@@ -359,6 +400,11 @@ export function BlogEditor({
     setVideoDialogOpen(true);
   }
 
+  function openImageDialog() {
+    setEditingImage(getSelectedImage(editor!));
+    setImageDialogOpen(true);
+  }
+
   function openGalleryDialog() {
     setEditingGallery(getSelectedGallery(editor!));
     setGalleryDialogOpen(true);
@@ -393,6 +439,31 @@ export function BlogEditor({
       setLayoutOverlay(null);
       editor!.commands.focus();
     }
+    setDeletingLayoutPos(null);
+  }
+
+  function requestEmbedDelete(embed: { pos: number; type: EditableEmbedType }) {
+    setDeletingEmbed(embed);
+  }
+
+  function confirmEmbedDelete() {
+    if (!deletingEmbed) return;
+
+    const deleted = editor!.commands.command(({ state, tr, dispatch }) => {
+      const node = state.doc.nodeAt(deletingEmbed.pos);
+      if (!node || node.type.name !== deletingEmbed.type) return false;
+
+      tr.delete(deletingEmbed.pos, deletingEmbed.pos + node.nodeSize);
+      tr.scrollIntoView();
+      dispatch?.(tr);
+      return true;
+    });
+
+    if (deleted) {
+      setEmbedOverlay(null);
+      editor!.commands.focus();
+    }
+    setDeletingEmbed(null);
   }
 
   function showHoveredLayout(target: EventTarget | null) {
@@ -435,7 +506,9 @@ export function BlogEditor({
   }
 
   function openSelectedEmbedDialog(type: EditableEmbedType) {
-    if (type === "video") {
+    if (type === "image") {
+      openImageDialog();
+    } else if (type === "video") {
       openVideoDialog();
     } else if (type === "gallery") {
       openGalleryDialog();
@@ -444,6 +517,33 @@ export function BlogEditor({
     } else {
       openFormSubmissionsDialog();
     }
+  }
+
+  function saveImage(values: ImageDialogValues) {
+    const attrs: Record<string, unknown> = {
+      src: values.src,
+      alt: values.alt || undefined,
+      ...(values.width ? { width: values.width } : {}),
+      ...(values.height ? { height: values.height } : {}),
+    };
+
+    if (
+      updateSelectedNode(
+        editingImage as EditingNode<Record<string, unknown>> | null,
+        "image",
+        attrs,
+      )
+    ) {
+      setEditingImage(null);
+      return;
+    }
+
+    editor!
+      .chain()
+      .focus()
+      .setImage(attrs as unknown as { src: string })
+      .run();
+    setEditingImage(null);
   }
 
   function saveVideo(values: VideoDialogValues) {
@@ -761,7 +861,10 @@ export function BlogEditor({
             <Btn
               tooltip="Insert image"
               active={false}
-              onClick={() => setImageDialogOpen(true)}
+              onClick={() => {
+                setEditingImage(null);
+                setImageDialogOpen(true);
+              }}
             >
               <ImageIcon className="h-4 w-4" />
             </Btn>
@@ -832,18 +935,49 @@ export function BlogEditor({
         >
           <EditorContent editor={editor} />
           {embedOverlay && (
-            <Button
-              type="button"
-              size="icon"
-              variant="secondary"
-              aria-label="Edit embedded block"
-              className="absolute z-10 h-8 w-8 border shadow-sm"
-              style={{ top: embedOverlay.top, left: embedOverlay.left }}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => openSelectedEmbedDialog(embedOverlay.type)}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <div
+                className="absolute z-10 flex overflow-hidden rounded-lg border bg-background shadow-sm"
+                style={{ top: embedOverlay.top, left: embedOverlay.left }}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      aria-label={`Edit ${editableEmbedLabels[embedOverlay.type]}`}
+                      className="h-8 w-8 rounded-none border-0 shadow-none"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => openSelectedEmbedDialog(embedOverlay.type)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Edit {editableEmbedLabels[embedOverlay.type]}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      aria-label={`Delete ${editableEmbedLabels[embedOverlay.type]}`}
+                      className="h-8 w-8 rounded-none border-0 border-l border-border text-muted-foreground shadow-none hover:text-destructive"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => requestEmbedDelete(embedOverlay)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Delete {editableEmbedLabels[embedOverlay.type]}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
           )}
           <TooltipProvider>
             <Tooltip>
@@ -873,7 +1007,7 @@ export function BlogEditor({
                   onClick={(event) => {
                     event.stopPropagation();
                     if (!layoutOverlayRef.current?.visible) return;
-                    deleteLayout(layoutOverlayRef.current.pos);
+                    setDeletingLayoutPos(layoutOverlayRef.current.pos);
                   }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -885,21 +1019,19 @@ export function BlogEditor({
         </div>
       )}
       <ImageInsertDialog
+        key={
+          imageDialogOpen
+            ? `${editingImage ? "edit" : "insert"}-${editingImage?.pos ?? "new"}`
+            : "image-closed"
+        }
         open={imageDialogOpen}
-        onOpenChange={setImageDialogOpen}
-        onInsert={({ src, alt, width, height }) => {
-          const imageAttrs: Record<string, unknown> = {
-            src,
-            alt: alt || undefined,
-            ...(width ? { width } : {}),
-            ...(height ? { height } : {}),
-          };
-          editor!
-            .chain()
-            .focus()
-            .setImage(imageAttrs as unknown as { src: string })
-            .run();
+        onOpenChange={(open) => {
+          setImageDialogOpen(open);
+          if (!open) setEditingImage(null);
         }}
+        mode={editingImage ? "edit" : "insert"}
+        initialValues={editingImage?.values ?? null}
+        onInsert={saveImage}
       />
       <VideoInsertDialog
         key={
@@ -1042,6 +1174,60 @@ export function BlogEditor({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={deletingEmbed !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingEmbed(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete embedded block?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this{" "}
+              {deletingEmbed
+                ? editableEmbedLabels[deletingEmbed.type]
+                : "embedded block"}
+              ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmEmbedDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={deletingLayoutPos !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingLayoutPos(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete layout?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this Layout?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deletingLayoutPos !== null) deleteLayout(deletingLayoutPos);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1076,6 +1262,31 @@ function getSelectedVideo(editor: Editor): EditingVideo | null {
           : "center",
     },
   } satisfies EditingVideo;
+}
+
+function getSelectedImage(
+  editor: Editor,
+): EditingNode<ImageDialogValues> | null {
+  const selection = getSelectedNode(editor, "image");
+  if (!selection) return null;
+
+  return {
+    pos: selection.pos,
+    values: {
+      src: typeof selection.attrs.src === "string" ? selection.attrs.src : "",
+      alt: typeof selection.attrs.alt === "string" ? selection.attrs.alt : "",
+      width:
+        typeof selection.attrs.width === "string" ||
+        typeof selection.attrs.width === "number"
+          ? String(selection.attrs.width)
+          : "",
+      height:
+        typeof selection.attrs.height === "string" ||
+        typeof selection.attrs.height === "number"
+          ? String(selection.attrs.height)
+          : "",
+    },
+  };
 }
 
 function getSelectedGallery(
@@ -1190,6 +1401,7 @@ function getSelectedEditableEmbed(editor: Editor): {
 
   const type = selection.node.type.name;
   if (
+    type !== "image" &&
     type !== "video" &&
     type !== "gallery" &&
     type !== "cmsForm" &&
