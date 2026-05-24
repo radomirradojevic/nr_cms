@@ -1136,13 +1136,13 @@ function FormSubmissionsSettings() {
       <Field label="Page Size">
         <Input
           type="number"
-          min={5}
+          min={1}
           max={100}
           value={pageSize}
           onChange={(e) =>
             setProp((p: FormSubmissionsProps) => {
               p.pageSize = Math.min(
-                Math.max(parseInt(e.target.value, 10) || 10, 5),
+                Math.max(parseInt(e.target.value, 10) || 10, 1),
                 100,
               );
             })

@@ -111,7 +111,7 @@ function FormSubmissionsSelectDialogContent({
   function normalizedPageSize() {
     const parsed = Number.parseInt(pageSize, 10);
     if (!Number.isFinite(parsed)) return 5;
-    return Math.min(100, Math.max(5, parsed));
+    return Math.min(100, Math.max(1, parsed));
   }
 
   function handleInsert() {
@@ -225,7 +225,7 @@ function FormSubmissionsSelectDialogContent({
             <Input
               id="form-submissions-page-size"
               type="number"
-              min={5}
+              min={1}
               max={100}
               value={pageSize}
               onChange={(e) => setPageSize(e.target.value)}
