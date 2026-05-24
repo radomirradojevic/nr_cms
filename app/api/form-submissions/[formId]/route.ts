@@ -5,7 +5,7 @@ import { getFormSubmissions } from "@/data/form-submissions";
 // Validation schema for query params
 const QuerySchema = z.object({
   page: z.coerce.number().min(1).default(1),
-  pageSize: z.coerce.number().min(5).max(100).default(10),
+  pageSize: z.coerce.number().min(1).max(100).default(10),
   sortField: z.string().default("created_at"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });

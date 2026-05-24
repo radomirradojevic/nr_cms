@@ -471,24 +471,148 @@ html:has(.dashboard-content-root) {
   text-align: center;
   margin-top: 0.5rem;
 }
+:where(.ProseMirror, .cms-content) :where(.cms-layout-section) {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+  max-width: 100%;
+  margin: 1rem 0;
+}
+:where(.ProseMirror, .cms-content)
+  :where(.cms-layout-section[data-layout="2-col"]) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+:where(.ProseMirror, .cms-content)
+  :where(.cms-layout-section[data-layout="3-col"]) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+:where(.ProseMirror, .cms-content)
+  :where(.cms-layout-section[data-layout="4-col"]) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+:where(.ProseMirror, .cms-content)
+  :where(.cms-layout-section[data-layout="70-30"]) {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+}
+:where(.ProseMirror, .cms-content)
+  :where(.cms-layout-section[data-layout="30-70"]) {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
+}
+:where(.ProseMirror, .cms-content)
+  :where(.cms-layout-section[data-layout="60-40"]) {
+  grid-template-columns: minmax(0, 6fr) minmax(0, 4fr);
+}
+:where(.ProseMirror, .cms-content)
+  :where(.cms-layout-section[data-layout="40-60"]) {
+  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+}
+:where(.ProseMirror, .cms-content) :where(.cms-layout-column) {
+  min-width: 0;
+  max-width: 100%;
+}
+.ProseMirror :where(.cms-layout-section) {
+  border-radius: 0.375rem;
+  outline: 1px dashed color-mix(in oklch, var(--border) 70%, transparent);
+  outline-offset: 4px;
+  transition:
+    outline-color 120ms ease,
+    outline-width 120ms ease;
+}
+.ProseMirror :where(.cms-layout-section:hover) {
+  outline: 2px solid color-mix(in oklch, var(--primary) 55%, transparent);
+}
+.ProseMirror :where(.cms-layout-section.ProseMirror-selectednode) {
+  outline: 2px solid var(--primary);
+}
+.ProseMirror :where(.cms-layout-column) {
+  min-height: 5rem;
+  border-radius: 0.375rem;
+  background: color-mix(in oklch, var(--muted) 30%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklch, var(--border) 80%, transparent);
+  padding: 0.75rem;
+}
+.ProseMirror :where(.cms-layout-column > p.is-empty:first-child)::before {
+  content: "Add content";
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+@media (max-width: 767px) {
+  :where(.ProseMirror, .cms-content) :where(.cms-layout-section) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+:where(.ProseMirror, .cms-content) :where(.tableWrapper) {
+  max-width: 100%;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
 :where(.ProseMirror, .cms-content) :where(table) {
   width: 100%;
+  min-width: 28rem;
   border-collapse: collapse;
+  table-layout: fixed;
   margin: 0.75rem 0;
+  overflow: hidden;
   color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
+  box-shadow: var(--shadow-xs);
+}
+:where(.ProseMirror, .cms-content) :where(.tableWrapper table) {
+  margin: 0;
 }
 :where(.ProseMirror, .cms-content) :where(th, td) {
   border: 1px solid var(--border);
   padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;
+  background: color-mix(in oklch, var(--background) 96%, var(--muted));
+  overflow-wrap: anywhere;
 }
-:where(.ProseMirror, .cms-content) :where(thead th) {
+:where(.ProseMirror, .cms-content) :where(th > *, td > *) {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+:where(.ProseMirror, .cms-content) :where(th, thead th) {
   background: var(--muted);
   font-weight: 600;
 }
+.ProseMirror :where(.selectedCell)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in oklch, var(--primary) 18%, transparent);
+}
+.ProseMirror :where(th, td) {
+  position: relative;
+}
+.ProseMirror :where(.column-resize-handle) {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -2px;
+  z-index: 4;
+  width: 4px;
+  pointer-events: none;
+  background: var(--primary);
+}
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
 .cms-content .cms-embedded-form-submissions :where(table) {
   margin: 0;
+  min-width: 0;
+  table-layout: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 .cms-content .cms-embedded-form-submissions :where(th, td) {
   border: 0;
@@ -502,6 +626,27 @@ html:has(.dashboard-content-root) {
   outline-offset: 2px;
   border-radius: 0.375rem;
   box-shadow: 0 0 0 1px var(--background);
+}
+
+/* In the editor, embedded videos are editable blocks rather than active
+   players. Let clicks pass through the media element so ProseMirror can select
+   the video node; public `.cms-content` videos remain playable. */
+.ProseMirror :where(.tiptap-video iframe, .tiptap-video video) {
+  pointer-events: none;
+}
+
+.ProseMirror :where(.tiptap-video) {
+  cursor: pointer;
+}
+
+:where(.ProseMirror, .cms-content) :where(.tiptap-video) {
+  width: 100%;
+  max-width: 100%;
+  margin: 1em 0;
+}
+
+:where(.ProseMirror, .cms-content) :where(.tiptap-video-frame) {
+  max-width: 100%;
 }
 
 /* Craft.js Layers panel — add hover feedback on each layer header.

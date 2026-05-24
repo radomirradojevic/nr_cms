@@ -1,7 +1,8 @@
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
-import type { JSONContent } from "@tiptap/react";
+import type { Editor, JSONContent } from "@tiptap/react";
+import { NodeSelection } from "@tiptap/pm/state";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import {
   Image as ImageIcon,
   Video as VideoIcon,
   LayoutGrid,
+  Columns3,
   FormInput,
   ClipboardList,
   Link as LinkIcon,
@@ -28,8 +30,12 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
+  Pencil,
+  Trash2,
 } from "lucide-react";
-import { tiptapExtensions, emptyTiptapJson } from "./tiptap-extensions";
+import { emptyTiptapJson } from "./tiptap-extensions";
+import { tiptapClientExtensions } from "./tiptap-client-extensions";
+import { TableMenu } from "./table-menu";
 import { ImageInsertDialog } from "./image-insert-dialog";
 import { VideoInsertDialog } from "./video-insert-dialog";
 import { GallerySelectDialog } from "./gallery-select-dialog";
@@ -44,6 +50,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -52,6 +68,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTiptapToolbarState } from "./tiptap-toolbar-state";
+import type { VideoAlignment, VideoProvider } from "./video-extension";
+import type { LayoutKind } from "./layout-extension";
 
 type Props = {
   /**
@@ -69,6 +87,78 @@ type Props = {
   onChange?: (value: JSONContent) => void;
 };
 
+type VideoDialogValues = {
+  src: string;
+  provider: VideoProvider;
+  width?: string | null;
+  height?: string | null;
+  alignment?: VideoAlignment | null;
+};
+
+type EditingVideo = {
+  pos: number;
+  values: VideoDialogValues;
+};
+
+type ImageDialogValues = {
+  src: string;
+  alt?: string | null;
+  width?: string | null;
+  height?: string | null;
+};
+
+type GalleryDialogValues = {
+  galleryId: string;
+  galleryName?: string | null;
+};
+
+type FormDialogValues = {
+  formId: string;
+  formName?: string | null;
+};
+
+type FormSubmissionsDialogValues = {
+  formId: string;
+  formName?: string | null;
+  displayMode: "table" | "card";
+  pageSize: number;
+  hideId: boolean;
+};
+
+type EditingNode<T> = {
+  pos: number;
+  values: T;
+};
+
+type EditableEmbedType =
+  | "image"
+  | "video"
+  | "gallery"
+  | "cmsForm"
+  | "cmsFormSubmissions";
+
+const editableEmbedLabels: Record<EditableEmbedType, string> = {
+  image: "Image",
+  video: "Video",
+  gallery: "Gallery",
+  cmsForm: "Form",
+  cmsFormSubmissions: "Form Submission",
+};
+
+const layoutOptions: Array<{
+  value: LayoutKind;
+  label: string;
+  tracks: string;
+}> = [
+  { value: "2-col", label: "2 Columns (50/50)", tracks: "1fr 1fr" },
+  { value: "3-col", label: "3 Columns", tracks: "1fr 1fr 1fr" },
+  { value: "4-col", label: "4 Columns", tracks: "1fr 1fr 1fr 1fr" },
+  { value: "70-30", label: "70/30", tracks: "7fr 3fr" },
+  { value: "30-70", label: "30/70", tracks: "3fr 7fr" },
+  { value: "60-40", label: "60/40", tracks: "6fr 4fr" },
+  { value: "40-60", label: "40/60", tracks: "4fr 6fr" },
+];
+
 export function BlogEditor({
   defaultValue,
   registerGetValue,
@@ -80,21 +170,54 @@ export function BlogEditor({
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [editingImage, setEditingImage] =
+    useState<EditingNode<ImageDialogValues> | null>(null);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [editingVideo, setEditingVideo] = useState<EditingVideo | null>(null);
+  const [embedOverlay, setEmbedOverlay] = useState<{
+    pos: number;
+    type: EditableEmbedType;
+    top: number;
+    left: number;
+  } | null>(null);
+  const [deletingEmbed, setDeletingEmbed] = useState<{
+    pos: number;
+    type: EditableEmbedType;
+  } | null>(null);
+  const [layoutOverlay, setLayoutOverlay] = useState<{
+    pos: number;
+    top: number;
+    left: number;
+    visible: boolean;
+  } | null>(null);
+  const [deletingLayoutPos, setDeletingLayoutPos] = useState<number | null>(
+    null,
+  );
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
+  const [editingGallery, setEditingGallery] =
+    useState<EditingNode<GalleryDialogValues> | null>(null);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [editingForm, setEditingForm] =
+    useState<EditingNode<FormDialogValues> | null>(null);
   const [formSubmissionsDialogOpen, setFormSubmissionsDialogOpen] =
     useState(false);
+  const [editingFormSubmissions, setEditingFormSubmissions] =
+    useState<EditingNode<FormSubmissionsDialogValues> | null>(null);
+  const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
 
   const onChangeRef = useRef(onChange);
+  const layoutOverlayRef = useRef(layoutOverlay);
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+  useEffect(() => {
+    layoutOverlayRef.current = layoutOverlay;
+  }, [layoutOverlay]);
 
   const editor = useEditor({
-    extensions: tiptapExtensions,
+    extensions: tiptapClientExtensions,
     content: initialContent,
     immediatelyRender: false,
     editorProps: {
@@ -122,6 +245,118 @@ export function BlogEditor({
     if (!editor) return;
     registerGetValue?.(() => editor.getJSON());
   }, [editor, registerGetValue]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const syncEmbedOverlay = () => {
+      const selected = getSelectedEditableEmbed(editor);
+      if (!selected) {
+        setEmbedOverlay(null);
+        return;
+      }
+
+      const nodeElement = editor.view.nodeDOM(selected.pos);
+      if (!(nodeElement instanceof HTMLElement)) {
+        setEmbedOverlay(null);
+        return;
+      }
+
+      const editorRect = editor.view.dom.getBoundingClientRect();
+      const nodeRect = nodeElement.getBoundingClientRect();
+      setEmbedOverlay({
+        pos: selected.pos,
+        type: selected.type,
+        top: nodeRect.top - editorRect.top + 8,
+        left: nodeRect.right - editorRect.left - 76,
+      });
+    };
+
+    editor.on("selectionUpdate", syncEmbedOverlay);
+    editor.on("transaction", syncEmbedOverlay);
+    window.addEventListener("resize", syncEmbedOverlay);
+    syncEmbedOverlay();
+
+    return () => {
+      editor.off("selectionUpdate", syncEmbedOverlay);
+      editor.off("transaction", syncEmbedOverlay);
+      window.removeEventListener("resize", syncEmbedOverlay);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const showLayoutOverlay = (layout: { pos: number } | null) => {
+      if (!layout) {
+        setLayoutOverlay((current) =>
+          current ? { ...current, visible: false } : null,
+        );
+        return;
+      }
+
+      const nodeElement = editor.view.nodeDOM(layout.pos);
+      if (!(nodeElement instanceof HTMLElement)) {
+        setLayoutOverlay((current) =>
+          current ? { ...current, visible: false } : null,
+        );
+        return;
+      }
+
+      const editorRect = editor.view.dom.getBoundingClientRect();
+      const nodeRect = nodeElement.getBoundingClientRect();
+      setLayoutOverlay({
+        pos: layout.pos,
+        top: nodeRect.top - editorRect.top + 6,
+        left: nodeRect.right - editorRect.left - 34,
+        visible: true,
+      });
+    };
+
+    const syncLayoutOverlay = () => {
+      const selected = getSelectedLayout(editor);
+      if (selected) {
+        showLayoutOverlay(selected);
+        return;
+      }
+
+      setLayoutOverlay((current) =>
+        current ? { ...current, visible: false } : null,
+      );
+    };
+
+    const handleMouseDown = (event: MouseEvent) => {
+      if (!(event.target instanceof HTMLElement)) return;
+      if (event.target.closest("[data-layout-delete-button]")) return;
+      if (!event.target.classList.contains("cms-layout-section")) return;
+
+      const layout = getLayoutFromElement(editor, event.target);
+      if (!layout) return;
+
+      event.preventDefault();
+      const tr = editor.state.tr.setSelection(
+        NodeSelection.create(editor.state.doc, layout.pos),
+      );
+      editor.view.dispatch(tr);
+    };
+
+    const handleSelectionUpdate = () => syncLayoutOverlay();
+    const handleTransaction = () => syncLayoutOverlay();
+    const handleResize = () => syncLayoutOverlay();
+
+    editor.view.dom.addEventListener("mousedown", handleMouseDown);
+    editor.on("selectionUpdate", handleSelectionUpdate);
+    editor.on("transaction", handleTransaction);
+    window.addEventListener("resize", handleResize);
+    syncLayoutOverlay();
+
+    return () => {
+      editor.view.dom.removeEventListener("mousedown", handleMouseDown);
+      editor.off("selectionUpdate", handleSelectionUpdate);
+      editor.off("transaction", handleTransaction);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [editor]);
 
   if (!editor) return null;
 
@@ -158,6 +393,313 @@ export function BlogEditor({
       editor!.commands.setContent(htmlSource);
     }
     setHtmlMode((prev) => !prev);
+  }
+
+  function openVideoDialog() {
+    const selected = getSelectedVideo(editor!);
+    setEditingVideo(selected);
+    setVideoDialogOpen(true);
+  }
+
+  function openImageDialog() {
+    setEditingImage(getSelectedImage(editor!));
+    setImageDialogOpen(true);
+  }
+
+  function openGalleryDialog() {
+    setEditingGallery(getSelectedGallery(editor!));
+    setGalleryDialogOpen(true);
+  }
+
+  function openFormDialog() {
+    setEditingForm(getSelectedForm(editor!));
+    setFormDialogOpen(true);
+  }
+
+  function openFormSubmissionsDialog() {
+    setEditingFormSubmissions(getSelectedFormSubmissions(editor!));
+    setFormSubmissionsDialogOpen(true);
+  }
+
+  function insertLayout(layout: LayoutKind) {
+    editor!.chain().focus().insertLayoutSection({ layout }).run();
+    setLayoutDialogOpen(false);
+  }
+
+  function deleteLayout(pos: number) {
+    const deleted = editor!.commands.command(({ state, tr, dispatch }) => {
+      const node = state.doc.nodeAt(pos);
+      if (!node || node.type.name !== "layoutSection") return false;
+
+      tr.delete(pos, pos + node.nodeSize).scrollIntoView();
+      dispatch?.(tr);
+      return true;
+    });
+
+    if (deleted) {
+      setLayoutOverlay(null);
+      editor!.commands.focus();
+    }
+    setDeletingLayoutPos(null);
+  }
+
+  function requestEmbedDelete(embed: { pos: number; type: EditableEmbedType }) {
+    setDeletingEmbed(embed);
+  }
+
+  function confirmEmbedDelete() {
+    if (!deletingEmbed) return;
+
+    const deleted = editor!.commands.command(({ state, tr, dispatch }) => {
+      const node = state.doc.nodeAt(deletingEmbed.pos);
+      if (!node || node.type.name !== deletingEmbed.type) return false;
+
+      tr.delete(deletingEmbed.pos, deletingEmbed.pos + node.nodeSize);
+      tr.scrollIntoView();
+      dispatch?.(tr);
+      return true;
+    });
+
+    if (deleted) {
+      setEmbedOverlay(null);
+      editor!.commands.focus();
+    }
+    setDeletingEmbed(null);
+  }
+
+  function showHoveredLayout(target: EventTarget | null) {
+    if (!editor || !(target instanceof Element)) return;
+    if (target.closest("[data-layout-delete-button]")) return;
+
+    const layoutElement = target.closest(".cms-layout-section");
+    const layout =
+      layoutElement instanceof HTMLElement
+        ? getLayoutFromElement(editor, layoutElement)
+        : null;
+
+    if (!layout) {
+      if (!getSelectedLayout(editor)) {
+        setLayoutOverlay((current) =>
+          current ? { ...current, visible: false } : null,
+        );
+      }
+      return;
+    }
+
+    const nodeElement = editor.view.nodeDOM(layout.pos);
+    if (!(nodeElement instanceof HTMLElement)) return;
+
+    const editorRect = editor.view.dom.getBoundingClientRect();
+    const nodeRect = nodeElement.getBoundingClientRect();
+    setLayoutOverlay({
+      pos: layout.pos,
+      top: nodeRect.top - editorRect.top + 6,
+      left: nodeRect.right - editorRect.left - 34,
+      visible: true,
+    });
+  }
+
+  function hideHoveredLayout() {
+    if (editor && getSelectedLayout(editor)) return;
+    setLayoutOverlay((current) =>
+      current ? { ...current, visible: false } : null,
+    );
+  }
+
+  function openSelectedEmbedDialog(type: EditableEmbedType) {
+    if (type === "image") {
+      openImageDialog();
+    } else if (type === "video") {
+      openVideoDialog();
+    } else if (type === "gallery") {
+      openGalleryDialog();
+    } else if (type === "cmsForm") {
+      openFormDialog();
+    } else {
+      openFormSubmissionsDialog();
+    }
+  }
+
+  function saveImage(values: ImageDialogValues) {
+    const attrs: Record<string, unknown> = {
+      src: values.src,
+      alt: values.alt || undefined,
+      ...(values.width ? { width: values.width } : {}),
+      ...(values.height ? { height: values.height } : {}),
+    };
+
+    if (
+      updateSelectedNode(
+        editingImage as EditingNode<Record<string, unknown>> | null,
+        "image",
+        attrs,
+      )
+    ) {
+      setEditingImage(null);
+      return;
+    }
+
+    editor!
+      .chain()
+      .focus()
+      .setImage(attrs as unknown as { src: string })
+      .run();
+    setEditingImage(null);
+  }
+
+  function saveVideo(values: VideoDialogValues) {
+    if (editingVideo) {
+      const updated = editor!.commands.command(({ state, tr, dispatch }) => {
+        const node = state.doc.nodeAt(editingVideo.pos);
+        if (!node || node.type.name !== "video") return false;
+
+        tr.setNodeMarkup(editingVideo.pos, undefined, {
+          src: values.src,
+          provider: values.provider,
+          width: values.width ?? null,
+          height: values.height ?? null,
+          alignment: values.alignment ?? "center",
+        });
+        tr.setSelection(NodeSelection.create(tr.doc, editingVideo.pos));
+        dispatch?.(tr);
+        return true;
+      });
+
+      if (updated) {
+        editor!.commands.focus();
+        setEditingVideo(null);
+        return;
+      }
+    }
+
+    editor!
+      .chain()
+      .focus()
+      .setVideo({
+        src: values.src,
+        provider: values.provider,
+        ...(values.width ? { width: values.width } : {}),
+        ...(values.height ? { height: values.height } : {}),
+        alignment: values.alignment ?? "center",
+      })
+      .run();
+    setEditingVideo(null);
+  }
+
+  function updateEditingVideoAlignment(alignment: VideoAlignment) {
+    if (!editingVideo) return;
+
+    editor!.commands.command(({ state, tr, dispatch }) => {
+      const node = state.doc.nodeAt(editingVideo.pos);
+      if (!node || node.type.name !== "video") return false;
+
+      tr.setNodeMarkup(editingVideo.pos, undefined, {
+        ...node.attrs,
+        alignment,
+      });
+      tr.setSelection(NodeSelection.create(tr.doc, editingVideo.pos));
+      dispatch?.(tr);
+      return true;
+    });
+
+    setEditingVideo((current) =>
+      current
+        ? {
+            ...current,
+            values: {
+              ...current.values,
+              alignment,
+            },
+          }
+        : current,
+    );
+  }
+
+  function updateSelectedNode(
+    editing: EditingNode<Record<string, unknown>> | null,
+    typeName: string,
+    attrs: Record<string, unknown>,
+  ) {
+    if (!editing) return false;
+
+    const updated = editor!.commands.command(({ state, tr, dispatch }) => {
+      const node = state.doc.nodeAt(editing.pos);
+      if (!node || node.type.name !== typeName) return false;
+
+      tr.setNodeMarkup(editing.pos, undefined, attrs);
+      tr.setSelection(NodeSelection.create(tr.doc, editing.pos));
+      dispatch?.(tr);
+      return true;
+    });
+
+    if (updated) editor!.commands.focus();
+    return updated;
+  }
+
+  function saveGallery(values: GalleryDialogValues) {
+    const attrs = {
+      galleryId: values.galleryId,
+      galleryName: values.galleryName ?? "",
+    };
+
+    if (
+      updateSelectedNode(
+        editingGallery as EditingNode<Record<string, unknown>> | null,
+        "gallery",
+        attrs,
+      )
+    ) {
+      setEditingGallery(null);
+      return;
+    }
+
+    editor!.chain().focus().setGallery(attrs).run();
+    setEditingGallery(null);
+  }
+
+  function saveForm(values: FormDialogValues) {
+    const attrs = {
+      formId: values.formId,
+      formName: values.formName ?? "",
+    };
+
+    if (
+      updateSelectedNode(
+        editingForm as EditingNode<Record<string, unknown>> | null,
+        "cmsForm",
+        attrs,
+      )
+    ) {
+      setEditingForm(null);
+      return;
+    }
+
+    editor!.chain().focus().setCmsForm(attrs).run();
+    setEditingForm(null);
+  }
+
+  function saveFormSubmissions(values: FormSubmissionsDialogValues) {
+    const attrs = {
+      formId: values.formId,
+      formName: values.formName ?? "",
+      displayMode: values.displayMode,
+      pageSize: values.pageSize,
+      hideId: values.hideId,
+    };
+
+    if (
+      updateSelectedNode(
+        editingFormSubmissions as EditingNode<Record<string, unknown>> | null,
+        "cmsFormSubmissions",
+        attrs,
+      )
+    ) {
+      setEditingFormSubmissions(null);
+      return;
+    }
+
+    editor!.chain().focus().setCmsFormSubmissions(attrs).run();
+    setEditingFormSubmissions(null);
   }
 
   return (
@@ -290,6 +832,8 @@ export function BlogEditor({
                 <AlignJustify className="h-4 w-4" />
               </Btn>
               <Sep />
+              <TableMenu editor={editor} toolbarState={toolbarState} />
+              <Sep />
               <Btn
                 tooltip="Undo"
                 active={false}
@@ -318,43 +862,59 @@ export function BlogEditor({
             <Btn
               tooltip="Insert image"
               active={false}
-              onClick={() => setImageDialogOpen(true)}
+              onClick={() => {
+                setEditingImage(null);
+                setImageDialogOpen(true);
+              }}
             >
               <ImageIcon className="h-4 w-4" />
             </Btn>
           )}
           {!htmlMode && (
             <Btn
-              tooltip="Insert video"
-              active={false}
-              onClick={() => setVideoDialogOpen(true)}
+              tooltip="Insert Layout"
+              active={toolbarState.layoutSection}
+              onClick={() => setLayoutDialogOpen(true)}
+            >
+              <Columns3 className="h-4 w-4" />
+            </Btn>
+          )}
+          {!htmlMode && (
+            <Btn
+              tooltip={toolbarState.video ? "Edit video" : "Insert video"}
+              active={toolbarState.video}
+              onClick={openVideoDialog}
             >
               <VideoIcon className="h-4 w-4" />
             </Btn>
           )}
           {!htmlMode && (
             <Btn
-              tooltip="Insert gallery"
-              active={false}
-              onClick={() => setGalleryDialogOpen(true)}
+              tooltip={toolbarState.gallery ? "Edit gallery" : "Insert gallery"}
+              active={toolbarState.gallery}
+              onClick={openGalleryDialog}
             >
               <LayoutGrid className="h-4 w-4" />
             </Btn>
           )}
           {!htmlMode && (
             <Btn
-              tooltip="Insert form"
-              active={false}
-              onClick={() => setFormDialogOpen(true)}
+              tooltip={toolbarState.cmsForm ? "Edit form" : "Insert form"}
+              active={toolbarState.cmsForm}
+              onClick={openFormDialog}
             >
               <FormInput className="h-4 w-4" />
             </Btn>
           )}
           {!htmlMode && (
             <Btn
-              tooltip="Insert form submissions"
-              active={false}
-              onClick={() => setFormSubmissionsDialogOpen(true)}
+              tooltip={
+                toolbarState.cmsFormSubmissions
+                  ? "Edit form submissions"
+                  : "Insert form submissions"
+              }
+              active={toolbarState.cmsFormSubmissions}
+              onClick={openFormSubmissionsDialog}
             >
               <ClipboardList className="h-4 w-4" />
             </Btn>
@@ -369,72 +929,208 @@ export function BlogEditor({
           spellCheck={false}
         />
       ) : (
-        <EditorContent editor={editor} />
+        <div
+          className="relative"
+          onMouseMove={(event) => showHoveredLayout(event.target)}
+          onMouseLeave={hideHoveredLayout}
+        >
+          <EditorContent editor={editor} />
+          {embedOverlay && (
+            <TooltipProvider>
+              <div
+                className="absolute z-10 flex overflow-hidden rounded-lg border bg-background shadow-sm"
+                style={{ top: embedOverlay.top, left: embedOverlay.left }}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      aria-label={`Edit ${editableEmbedLabels[embedOverlay.type]}`}
+                      className="h-8 w-8 rounded-none border-0 shadow-none"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => openSelectedEmbedDialog(embedOverlay.type)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Edit {editableEmbedLabels[embedOverlay.type]}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      aria-label={`Delete ${editableEmbedLabels[embedOverlay.type]}`}
+                      className="h-8 w-8 rounded-none border-0 border-l border-border text-muted-foreground shadow-none hover:text-destructive"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => requestEmbedDelete(embedOverlay)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Delete {editableEmbedLabels[embedOverlay.type]}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
+          )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  aria-label="Delete layout block"
+                  data-layout-delete-button
+                  className="pointer-events-auto absolute z-30 h-7 w-7 border bg-background/95 text-muted-foreground shadow-sm transition-opacity hover:text-destructive"
+                  style={{
+                    top: layoutOverlay?.top ?? 0,
+                    left: layoutOverlay?.left ?? 0,
+                    opacity: layoutOverlay?.visible ? 1 : 0,
+                    visibility: layoutOverlay?.visible ? "visible" : "hidden",
+                  }}
+                  onMouseEnter={() => {
+                    const current = layoutOverlayRef.current;
+                    if (!current) return;
+                    setLayoutOverlay({ ...current, visible: true });
+                  }}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!layoutOverlayRef.current?.visible) return;
+                    setDeletingLayoutPos(layoutOverlayRef.current.pos);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete layout</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       )}
       <ImageInsertDialog
+        key={
+          imageDialogOpen
+            ? `${editingImage ? "edit" : "insert"}-${editingImage?.pos ?? "new"}`
+            : "image-closed"
+        }
         open={imageDialogOpen}
-        onOpenChange={setImageDialogOpen}
-        onInsert={({ src, alt, width, height }) => {
-          const imageAttrs: Record<string, unknown> = {
-            src,
-            alt: alt || undefined,
-            ...(width ? { width } : {}),
-            ...(height ? { height } : {}),
-          };
-          editor!
-            .chain()
-            .focus()
-            .setImage(imageAttrs as unknown as { src: string })
-            .run();
+        onOpenChange={(open) => {
+          setImageDialogOpen(open);
+          if (!open) setEditingImage(null);
         }}
+        mode={editingImage ? "edit" : "insert"}
+        initialValues={editingImage?.values ?? null}
+        onInsert={saveImage}
       />
       <VideoInsertDialog
+        key={
+          videoDialogOpen
+            ? `${editingVideo ? "edit" : "insert"}-${editingVideo?.pos ?? "new"}`
+            : "video-closed"
+        }
         open={videoDialogOpen}
-        onOpenChange={setVideoDialogOpen}
-        onInsert={({ src, provider, width, height }) => {
-          editor!
-            .chain()
-            .focus()
-            .setVideo({
-              src,
-              provider,
-              ...(width ? { width } : {}),
-              ...(height ? { height } : {}),
-            })
-            .run();
+        onOpenChange={(open) => {
+          setVideoDialogOpen(open);
+          if (!open) setEditingVideo(null);
         }}
+        mode={editingVideo ? "edit" : "insert"}
+        initialValues={editingVideo?.values ?? null}
+        onInsert={saveVideo}
+        onAlignmentChange={updateEditingVideoAlignment}
       />
       <GallerySelectDialog
+        key={
+          galleryDialogOpen
+            ? `${editingGallery ? "edit" : "insert"}-${editingGallery?.pos ?? "new"}`
+            : "gallery-closed"
+        }
         open={galleryDialogOpen}
-        onOpenChange={setGalleryDialogOpen}
-        onInsert={({ galleryId, galleryName }) => {
-          editor!.chain().focus().setGallery({ galleryId, galleryName }).run();
+        onOpenChange={(open) => {
+          setGalleryDialogOpen(open);
+          if (!open) setEditingGallery(null);
         }}
+        mode={editingGallery ? "edit" : "insert"}
+        initialValues={editingGallery?.values ?? null}
+        onInsert={saveGallery}
       />
       <FormSelectDialog
+        key={
+          formDialogOpen
+            ? `${editingForm ? "edit" : "insert"}-${editingForm?.pos ?? "new"}`
+            : "form-closed"
+        }
         open={formDialogOpen}
-        onOpenChange={setFormDialogOpen}
-        onInsert={({ formId, formName }) => {
-          editor!.chain().focus().setCmsForm({ formId, formName }).run();
+        onOpenChange={(open) => {
+          setFormDialogOpen(open);
+          if (!open) setEditingForm(null);
         }}
+        mode={editingForm ? "edit" : "insert"}
+        initialValues={editingForm?.values ?? null}
+        onInsert={saveForm}
       />
       <FormSubmissionsSelectDialog
+        key={
+          formSubmissionsDialogOpen
+            ? `${editingFormSubmissions ? "edit" : "insert"}-${
+                editingFormSubmissions?.pos ?? "new"
+              }`
+            : "form-submissions-closed"
+        }
         open={formSubmissionsDialogOpen}
-        onOpenChange={setFormSubmissionsDialogOpen}
-        onInsert={({ formId, formName, displayMode, pageSize, hideId }) => {
-          editor!
-            .chain()
-            .focus()
-            .setCmsFormSubmissions({
-              formId,
-              formName,
-              displayMode,
-              pageSize,
-              hideId,
-            })
-            .run();
+        onOpenChange={(open) => {
+          setFormSubmissionsDialogOpen(open);
+          if (!open) setEditingFormSubmissions(null);
         }}
+        mode={editingFormSubmissions ? "edit" : "insert"}
+        initialValues={editingFormSubmissions?.values ?? null}
+        onInsert={saveFormSubmissions}
       />
+      <Dialog open={layoutDialogOpen} onOpenChange={setLayoutDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Insert Layout</DialogTitle>
+            <DialogDescription>
+              Choose a responsive column layout for this blog post.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {layoutOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="rounded-md border bg-background p-3 text-left transition hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => insertLayout(option.value)}
+              >
+                <span className="text-sm font-medium">{option.label}</span>
+                <span
+                  aria-hidden="true"
+                  className="mt-3 grid h-16 gap-2"
+                  style={{ gridTemplateColumns: option.tracks }}
+                >
+                  {option.tracks.split(" ").map((_, index) => (
+                    <span
+                      key={index}
+                      className="rounded-sm border border-dashed border-muted-foreground/40 bg-muted/60"
+                    />
+                  ))}
+                </span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -479,8 +1175,246 @@ export function BlogEditor({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={deletingEmbed !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingEmbed(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete embedded block?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this{" "}
+              {deletingEmbed
+                ? editableEmbedLabels[deletingEmbed.type]
+                : "embedded block"}
+              ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmEmbedDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={deletingLayoutPos !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingLayoutPos(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete layout?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this Layout?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deletingLayoutPos !== null) deleteLayout(deletingLayoutPos);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+function getSelectedVideo(editor: Editor): EditingVideo | null {
+  const { selection } = editor.state;
+  if (!(selection instanceof NodeSelection)) return null;
+  if (selection.node.type.name !== "video") return null;
+
+  return {
+    pos: selection.from,
+    values: {
+      src:
+        typeof selection.node.attrs.src === "string"
+          ? selection.node.attrs.src
+          : "",
+      provider:
+        selection.node.attrs.provider === "youtube" ? "youtube" : "file",
+      width:
+        typeof selection.node.attrs.width === "string"
+          ? selection.node.attrs.width
+          : null,
+      height:
+        typeof selection.node.attrs.height === "string"
+          ? selection.node.attrs.height
+          : null,
+      alignment:
+        selection.node.attrs.alignment === "left" ||
+        selection.node.attrs.alignment === "right" ||
+        selection.node.attrs.alignment === "center"
+          ? selection.node.attrs.alignment
+          : "center",
+    },
+  } satisfies EditingVideo;
+}
+
+function getSelectedImage(
+  editor: Editor,
+): EditingNode<ImageDialogValues> | null {
+  const selection = getSelectedNode(editor, "image");
+  if (!selection) return null;
+
+  return {
+    pos: selection.pos,
+    values: {
+      src: typeof selection.attrs.src === "string" ? selection.attrs.src : "",
+      alt: typeof selection.attrs.alt === "string" ? selection.attrs.alt : "",
+      width:
+        typeof selection.attrs.width === "string" ||
+        typeof selection.attrs.width === "number"
+          ? String(selection.attrs.width)
+          : "",
+      height:
+        typeof selection.attrs.height === "string" ||
+        typeof selection.attrs.height === "number"
+          ? String(selection.attrs.height)
+          : "",
+    },
+  };
+}
+
+function getSelectedGallery(
+  editor: Editor,
+): EditingNode<GalleryDialogValues> | null {
+  const selection = getSelectedNode(editor, "gallery");
+  if (!selection) return null;
+
+  return {
+    pos: selection.pos,
+    values: {
+      galleryId:
+        typeof selection.attrs.galleryId === "string"
+          ? selection.attrs.galleryId
+          : "",
+      galleryName:
+        typeof selection.attrs.galleryName === "string"
+          ? selection.attrs.galleryName
+          : "",
+    },
+  };
+}
+
+function getSelectedForm(editor: Editor): EditingNode<FormDialogValues> | null {
+  const selection = getSelectedNode(editor, "cmsForm");
+  if (!selection) return null;
+
+  return {
+    pos: selection.pos,
+    values: {
+      formId:
+        typeof selection.attrs.formId === "string"
+          ? selection.attrs.formId
+          : "",
+      formName:
+        typeof selection.attrs.formName === "string"
+          ? selection.attrs.formName
+          : "",
+    },
+  };
+}
+
+function getSelectedFormSubmissions(
+  editor: Editor,
+): EditingNode<FormSubmissionsDialogValues> | null {
+  const selection = getSelectedNode(editor, "cmsFormSubmissions");
+  if (!selection) return null;
+
+  return {
+    pos: selection.pos,
+    values: {
+      formId:
+        typeof selection.attrs.formId === "string"
+          ? selection.attrs.formId
+          : "",
+      formName:
+        typeof selection.attrs.formName === "string"
+          ? selection.attrs.formName
+          : "",
+      displayMode: selection.attrs.displayMode === "card" ? "card" : "table",
+      pageSize:
+        typeof selection.attrs.pageSize === "number"
+          ? selection.attrs.pageSize
+          : 5,
+      hideId: selection.attrs.hideId !== false,
+    },
+  };
+}
+
+function getSelectedNode(editor: Editor, typeName: string) {
+  const { selection } = editor.state;
+  if (!(selection instanceof NodeSelection)) return null;
+  if (selection.node.type.name !== typeName) return null;
+
+  return {
+    pos: selection.from,
+    attrs: selection.node.attrs,
+  };
+}
+
+function getSelectedLayout(editor: Editor): { pos: number } | null {
+  const selection = getSelectedNode(editor, "layoutSection");
+  if (!selection) return null;
+
+  return { pos: selection.pos };
+}
+
+function getLayoutFromElement(
+  editor: Editor,
+  element: HTMLElement,
+): { pos: number } | null {
+  let found: { pos: number } | null = null;
+
+  editor.state.doc.descendants((node, pos) => {
+    if (found || node.type.name !== "layoutSection") return false;
+    if (editor.view.nodeDOM(pos) === element) {
+      found = { pos };
+      return false;
+    }
+    return true;
+  });
+
+  return found;
+}
+
+function getSelectedEditableEmbed(editor: Editor): {
+  pos: number;
+  type: EditableEmbedType;
+} | null {
+  const { selection } = editor.state;
+  if (!(selection instanceof NodeSelection)) return null;
+
+  const type = selection.node.type.name;
+  if (
+    type !== "image" &&
+    type !== "video" &&
+    type !== "gallery" &&
+    type !== "cmsForm" &&
+    type !== "cmsFormSubmissions"
+  ) {
+    return null;
+  }
+
+  return {
+    pos: selection.from,
+    type,
+  };
 }
 
 function Btn({
