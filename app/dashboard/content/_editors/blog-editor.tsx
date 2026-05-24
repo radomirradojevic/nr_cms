@@ -55,7 +55,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTiptapToolbarState } from "./tiptap-toolbar-state";
-import type { VideoProvider } from "./video-extension";
+import type { VideoAlignment, VideoProvider } from "./video-extension";
 
 type Props = {
   /**
@@ -78,6 +78,7 @@ type VideoDialogValues = {
   provider: VideoProvider;
   width?: string | null;
   height?: string | null;
+  alignment?: VideoAlignment | null;
 };
 
 type EditingVideo = {
@@ -294,6 +295,7 @@ export function BlogEditor({
           provider: values.provider,
           width: values.width ?? null,
           height: values.height ?? null,
+          alignment: values.alignment ?? "center",
         });
         tr.setSelection(NodeSelection.create(tr.doc, editingVideo.pos));
         dispatch?.(tr);
@@ -315,9 +317,39 @@ export function BlogEditor({
         provider: values.provider,
         ...(values.width ? { width: values.width } : {}),
         ...(values.height ? { height: values.height } : {}),
+        alignment: values.alignment ?? "center",
       })
       .run();
     setEditingVideo(null);
+  }
+
+  function updateEditingVideoAlignment(alignment: VideoAlignment) {
+    if (!editingVideo) return;
+
+    editor!.commands.command(({ state, tr, dispatch }) => {
+      const node = state.doc.nodeAt(editingVideo.pos);
+      if (!node || node.type.name !== "video") return false;
+
+      tr.setNodeMarkup(editingVideo.pos, undefined, {
+        ...node.attrs,
+        alignment,
+      });
+      tr.setSelection(NodeSelection.create(tr.doc, editingVideo.pos));
+      dispatch?.(tr);
+      return true;
+    });
+
+    setEditingVideo((current) =>
+      current
+        ? {
+            ...current,
+            values: {
+              ...current.values,
+              alignment,
+            },
+          }
+        : current,
+    );
   }
 
   function updateSelectedNode(
@@ -661,7 +693,7 @@ export function BlogEditor({
         key={
           videoDialogOpen
             ? `${editingVideo ? "edit" : "insert"}-${editingVideo?.pos ?? "new"}`
-            : "closed"
+            : "video-closed"
         }
         open={videoDialogOpen}
         onOpenChange={(open) => {
@@ -671,12 +703,13 @@ export function BlogEditor({
         mode={editingVideo ? "edit" : "insert"}
         initialValues={editingVideo?.values ?? null}
         onInsert={saveVideo}
+        onAlignmentChange={updateEditingVideoAlignment}
       />
       <GallerySelectDialog
         key={
           galleryDialogOpen
             ? `${editingGallery ? "edit" : "insert"}-${editingGallery?.pos ?? "new"}`
-            : "closed"
+            : "gallery-closed"
         }
         open={galleryDialogOpen}
         onOpenChange={(open) => {
@@ -691,7 +724,7 @@ export function BlogEditor({
         key={
           formDialogOpen
             ? `${editingForm ? "edit" : "insert"}-${editingForm?.pos ?? "new"}`
-            : "closed"
+            : "form-closed"
         }
         open={formDialogOpen}
         onOpenChange={(open) => {
@@ -708,7 +741,7 @@ export function BlogEditor({
             ? `${editingFormSubmissions ? "edit" : "insert"}-${
                 editingFormSubmissions?.pos ?? "new"
               }`
-            : "closed"
+            : "form-submissions-closed"
         }
         open={formSubmissionsDialogOpen}
         onOpenChange={(open) => {
@@ -789,6 +822,12 @@ function getSelectedVideo(editor: Editor): EditingVideo | null {
         typeof selection.node.attrs.height === "string"
           ? selection.node.attrs.height
           : null,
+      alignment:
+        selection.node.attrs.alignment === "left" ||
+        selection.node.attrs.alignment === "right" ||
+        selection.node.attrs.alignment === "center"
+          ? selection.node.attrs.alignment
+          : "center",
     },
   } satisfies EditingVideo;
 }
