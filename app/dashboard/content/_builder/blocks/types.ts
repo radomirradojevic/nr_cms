@@ -42,6 +42,7 @@ export type GalleryProps = StyledProps & {
 export type FormProps = StyledProps & { formId: string; formName: string };
 export type FormSubmissionsProps = StyledProps & {
   formId: string;
+  formName: string;
   displayMode: "table" | "card";
   pageSize?: number;
   sortField?: string;
@@ -128,6 +129,7 @@ export const defaults = {
   } satisfies FormProps,
   FormSubmissions: {
     formId: "",
+    formName: "",
     displayMode: "table" as const,
     pageSize: 10,
     sortField: "created_at",

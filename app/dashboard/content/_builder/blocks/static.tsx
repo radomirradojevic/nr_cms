@@ -129,10 +129,12 @@ export function TextStatic({ content, style }: TextProps) {
       <div
         style={shellStyle}
         className={cn(
-          "my-3 leading-relaxed [&_p]:my-2 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6",
+          "my-3 leading-relaxed [&_p]:my-2 [&_li>p]:my-0 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6",
           shellClass,
         )}
-        dangerouslySetInnerHTML={{ __html: renderInlineHtml(content) }}
+        dangerouslySetInnerHTML={{
+          __html: renderInlineHtml(content),
+        }}
       />
     </>
   );
@@ -264,7 +266,9 @@ export function HeroStatic({ title, subtitle, style }: HeroProps) {
         />
         <div
           className="mt-4 text-lg text-muted-foreground [&_p]:my-1"
-          dangerouslySetInnerHTML={{ __html: renderInlineHtml(subtitle) }}
+          dangerouslySetInnerHTML={{
+            __html: renderInlineHtml(subtitle),
+          }}
         />
       </section>
     </>

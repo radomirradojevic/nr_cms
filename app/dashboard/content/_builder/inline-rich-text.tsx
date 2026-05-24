@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useTiptapToolbarState } from "@/app/dashboard/content/_editors/tiptap-toolbar-state";
 
 export const emptyInlineDoc: JSONContent = {
   type: "doc",
@@ -43,7 +44,46 @@ type Props = {
   /** Render as a single line (suppresses paragraph margins, used for headings/buttons). */
   singleLine?: boolean;
   placeholder?: string;
+  showToolbar?: boolean;
+  /**
+   * When present, paragraph alignment is controlled by the parent block style
+   * instead of TipTap paragraph attrs. Used by Text blocks so the inline
+   * toolbar and Properties panel share one source of truth.
+   */
+  blockTextAlign?: TextAlignValue;
+  onBlockTextAlignChange?: (value: TextAlignValue) => void;
 };
+
+type TextAlignValue = "left" | "center" | "right" | "justify" | undefined;
+type InlineStyleValue = {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+};
+
+function stripParagraphTextAlign(value: JSONContent): JSONContent {
+  let changed = false;
+
+  function visit(node: JSONContent): JSONContent {
+    const next: JSONContent = { ...node };
+    if (next.attrs && "textAlign" in next.attrs) {
+      const attrs = { ...next.attrs };
+      delete attrs.textAlign;
+      next.attrs = Object.keys(attrs).length > 0 ? attrs : undefined;
+      changed = true;
+    }
+    if (next.content) {
+      const content = next.content.map(visit);
+      if (content.some((child, index) => child !== next.content?.[index])) {
+        next.content = content;
+      }
+    }
+    return next;
+  }
+
+  const next = visit(value);
+  return changed ? next : value;
+}
 
 /**
  * Tiptap-backed inline rich-text editor used inside builder blocks.
@@ -55,16 +95,20 @@ export function InlineRichText({
   className,
   singleLine,
   placeholder,
+  showToolbar = true,
+  blockTextAlign,
+  onBlockTextAlignChange,
 }: Props) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [focused, setFocused] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const onChangeRef = useRef(onChange);
+  const pendingEditorJsonRef = useRef<string | null>(null);
   const [toolbarPos, setToolbarPos] = useState<{
     top: number;
     left: number;
   } | null>(null);
-  const [mounted, setMounted] = useState(false);
 
   // Read selection state from the nearest Craft.js node so the toolbar can
   // stay visible whenever the surrounding block is selected (not only while
@@ -74,8 +118,8 @@ export function InlineRichText({
   }));
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const editor = useEditor({
     extensions: [
@@ -99,30 +143,100 @@ export function InlineRichText({
         "data-placeholder": placeholder ?? "",
       },
     },
-    onUpdate: ({ editor }) => onChange(editor.getJSON()),
+    onUpdate: ({ editor }) => {
+      const next = editor.getJSON();
+      pendingEditorJsonRef.current = JSON.stringify(next);
+      onChangeRef.current(next);
+    },
     onFocus: () => setFocused(true),
     onBlur: () => setFocused(false),
   });
+  const toolbarState = useTiptapToolbarState(editor);
 
   useEffect(() => {
     if (!editor) return;
-    const current = editor.getJSON();
-    if (value && JSON.stringify(current) !== JSON.stringify(value)) {
-      editor.commands.setContent(value, { emitUpdate: false });
-    }
-  }, [value, editor]);
+    const currentJson = JSON.stringify(editor.getJSON());
+    const nextValue =
+      value && onBlockTextAlignChange && blockTextAlign !== undefined
+        ? stripParagraphTextAlign(value)
+        : (value ?? emptyInlineDoc);
+    const nextJson = JSON.stringify(nextValue);
 
-  const toolbarVisible = !!editor && (selected || focused);
+    if (pendingEditorJsonRef.current) {
+      if (pendingEditorJsonRef.current === nextJson) {
+        pendingEditorJsonRef.current = null;
+      } else if (pendingEditorJsonRef.current === currentJson) {
+        return;
+      }
+    }
+
+    if (currentJson !== nextJson) {
+      editor.commands.setContent(nextValue, { emitUpdate: false });
+    }
+    if (
+      value &&
+      nextValue &&
+      nextValue !== value &&
+      JSON.stringify(nextValue) !== JSON.stringify(value)
+    ) {
+      onChangeRef.current(nextValue);
+    }
+  }, [value, editor, onBlockTextAlignChange, blockTextAlign]);
+
+  function applyTextAlign(value: Exclude<TextAlignValue, undefined>) {
+    if (onBlockTextAlignChange) {
+      const current = editor!.getJSON();
+      const next = stripParagraphTextAlign(current);
+      if (next !== current) {
+        editor!.commands.setContent(next, { emitUpdate: false });
+        onChange(next);
+      }
+      onBlockTextAlignChange(value);
+      editor!.commands.focus();
+      return;
+    }
+    editor!.chain().focus().setTextAlign(value).run();
+  }
+
+  function alignActive(value: Exclude<TextAlignValue, undefined>) {
+    return onBlockTextAlignChange
+      ? blockTextAlign === value
+      : toolbarState[
+          value === "left"
+            ? "alignLeft"
+            : value === "center"
+              ? "alignCenter"
+              : value === "right"
+                ? "alignRight"
+                : "alignJustify"
+        ];
+  }
+
+  function inlineStyleActive(value: keyof InlineStyleValue) {
+    return toolbarState[value];
+  }
+
+  function applyInlineStyle(value: keyof InlineStyleValue) {
+    if (value === "bold") {
+      editor!.chain().focus().toggleBold().run();
+      return;
+    }
+    if (value === "italic") {
+      editor!.chain().focus().toggleItalic().run();
+      return;
+    }
+    editor!.chain().focus().toggleUnderline().run();
+  }
+
+  const toolbarVisible = showToolbar && !!editor && (selected || focused);
 
   // Track the content wrapper's viewport position so the portal-rendered
   // toolbar can sit above it. We use `position: fixed` coordinates so the
   // toolbar is fully isolated from any ancestor styling (color, opacity,
   // background, transforms) applied by NodeWrap or the Colors block panel.
   useLayoutEffect(() => {
-    if (!toolbarVisible) {
-      setToolbarPos(null);
-      return;
-    }
+    if (!toolbarVisible) return;
+
     const el = contentRef.current;
     if (!el) return;
     const update = () => {
@@ -162,13 +276,14 @@ export function InlineRichText({
     }
     setLinkDialogOpen(false);
   }
+  const portalRoot = typeof document === "undefined" ? null : document.body;
 
   return (
     <>
       <div ref={contentRef} className="block-content relative">
         <EditorContent editor={editor} />
       </div>
-      {mounted &&
+      {portalRoot &&
         toolbarVisible &&
         toolbarPos &&
         createPortal(
@@ -179,8 +294,9 @@ export function InlineRichText({
             // from CSS rules higher up the tree.
             style={{
               position: "fixed",
-              top: Math.max(8, toolbarPos.top - 40),
+              top: toolbarPos.top,
               left: toolbarPos.left,
+              transform: "translateY(calc(-100% - 8px))",
               zIndex: 50,
               color: "var(--popover-foreground)",
               opacity: 1,
@@ -190,56 +306,52 @@ export function InlineRichText({
             onClick={(e) => e.stopPropagation()}
           >
             <BtnInline
-              active={editor.isActive("bold")}
-              onClick={() => editor.chain().focus().toggleBold().run()}
+              active={inlineStyleActive("bold")}
+              onClick={() => applyInlineStyle("bold")}
               title="Bold"
             >
               <Bold className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
-              active={editor.isActive("italic")}
-              onClick={() => editor.chain().focus().toggleItalic().run()}
+              active={inlineStyleActive("italic")}
+              onClick={() => applyInlineStyle("italic")}
               title="Italic"
             >
               <Italic className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
-              active={editor.isActive("underline")}
-              onClick={() => editor.chain().focus().toggleUnderline().run()}
+              active={inlineStyleActive("underline")}
+              onClick={() => applyInlineStyle("underline")}
               title="Underline"
             >
               <UnderlineIcon className="h-3.5 w-3.5" />
             </BtnInline>
             <span className="mx-1 h-4 w-px bg-border" />
             <BtnInline
-              active={editor.isActive({ textAlign: "left" })}
-              onClick={() => editor.chain().focus().setTextAlign("left").run()}
+              active={alignActive("left")}
+              onClick={() => applyTextAlign("left")}
               title="Align left"
             >
               <AlignLeft className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
-              active={editor.isActive({ textAlign: "center" })}
-              onClick={() =>
-                editor.chain().focus().setTextAlign("center").run()
-              }
+              active={alignActive("center")}
+              onClick={() => applyTextAlign("center")}
               title="Align center"
             >
               <AlignCenter className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
-              active={editor.isActive({ textAlign: "right" })}
-              onClick={() => editor.chain().focus().setTextAlign("right").run()}
+              active={alignActive("right")}
+              onClick={() => applyTextAlign("right")}
               title="Align right"
             >
               <AlignRight className="h-3.5 w-3.5" />
             </BtnInline>
             {!singleLine && (
               <BtnInline
-                active={editor.isActive({ textAlign: "justify" })}
-                onClick={() =>
-                  editor.chain().focus().setTextAlign("justify").run()
-                }
+                active={alignActive("justify")}
+                onClick={() => applyTextAlign("justify")}
                 title="Justify"
               >
                 <AlignJustify className="h-3.5 w-3.5" />
@@ -249,7 +361,7 @@ export function InlineRichText({
               <>
                 <span className="mx-1 h-4 w-px bg-border" />
                 <BtnInline
-                  active={editor.isActive("bulletList")}
+                  active={toolbarState.bulletList}
                   onClick={() =>
                     editor.chain().focus().toggleBulletList().run()
                   }
@@ -258,7 +370,7 @@ export function InlineRichText({
                   <List className="h-3.5 w-3.5" />
                 </BtnInline>
                 <BtnInline
-                  active={editor.isActive("orderedList")}
+                  active={toolbarState.orderedList}
                   onClick={() =>
                     editor.chain().focus().toggleOrderedList().run()
                   }
@@ -270,14 +382,14 @@ export function InlineRichText({
             )}
             <span className="mx-1 h-4 w-px bg-border" />
             <BtnInline
-              active={editor.isActive("link")}
+              active={toolbarState.link}
               onClick={openLinkDialog}
               title="Link"
             >
               <LinkIcon className="h-3.5 w-3.5" />
             </BtnInline>
           </div>,
-          document.body,
+          portalRoot,
         )}
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent aria-describedby={undefined} className="sm:max-w-sm">
