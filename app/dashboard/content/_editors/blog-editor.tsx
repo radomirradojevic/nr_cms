@@ -783,8 +783,8 @@ export function BlogEditor({
   }
 
   return (
-    <div className="rounded-md border">
-      <div className="flex flex-wrap items-center gap-1 border-b p-2">
+    <div className="relative rounded-md border">
+      <div className="sticky top-[var(--sticky-header-h,0px)] z-30 flex flex-wrap items-center gap-1 border-b bg-background/95 p-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <TooltipProvider delayDuration={500}>
           {!htmlMode && (
             <>
