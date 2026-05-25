@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { randomUUID } from "node:crypto";
 import { fileTypeFromBuffer } from "file-type";
-import DOMPurify from "isomorphic-dompurify";
 import { getRoles } from "@/lib/roles";
+import { sanitizeSvgMarkup } from "@/lib/content-sanitizer";
 import {
   ALLOWED_MIME,
   extFromMime,
@@ -122,9 +122,7 @@ export async function POST(req: NextRequest) {
 
       // Sanitize SVG before writing to disk.
       if (mime === "image/svg+xml") {
-        const sanitized = DOMPurify.sanitize(buffer.toString("utf8"), {
-          USE_PROFILES: { svg: true, svgFilters: true },
-        });
+        const sanitized = sanitizeSvgMarkup(buffer.toString("utf8"));
         buffer = Buffer.from(sanitized, "utf8");
       }
 

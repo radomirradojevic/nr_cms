@@ -3,10 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { headers } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { fileTypeFromBuffer } from "file-type";
-import DOMPurify from "isomorphic-dompurify";
 
 import { getPublishedFormById } from "@/data/forms";
 import { insertFile } from "@/data/files";
+import { sanitizeSvgMarkup } from "@/lib/content-sanitizer";
 import {
   MAX_FILE_SIZE,
   extFromMime,
@@ -146,9 +146,7 @@ export async function POST(
     }
 
     if (mime === "image/svg+xml") {
-      const sanitized = DOMPurify.sanitize(buffer.toString("utf8"), {
-        USE_PROFILES: { svg: true, svgFilters: true },
-      });
+      const sanitized = sanitizeSvgMarkup(buffer.toString("utf8"));
       buffer = Buffer.from(sanitized, "utf8");
     }
 
