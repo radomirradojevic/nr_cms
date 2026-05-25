@@ -327,15 +327,18 @@ export function Toolbar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
+    <div className="sticky top-[var(--sticky-header-h,0px)] z-30 flex min-h-[var(--builder-toolbar-h,49px)] flex-wrap items-center gap-2 border-b bg-background/95 px-3 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <Button
         type="button"
         size="sm"
         variant="outline"
         disabled={!canUndo}
         onClick={() => actions.history.undo()}
+        aria-label="Undo"
+        title="Undo"
       >
         <Undo2 className="h-4 w-4" />
+        <span className="hidden sm:inline">Undo</span>
       </Button>
       <Button
         type="button"
@@ -343,8 +346,11 @@ export function Toolbar({
         variant="outline"
         disabled={!canRedo}
         onClick={() => actions.history.redo()}
+        aria-label="Redo"
+        title="Redo"
       >
         <Redo2 className="h-4 w-4" />
+        <span className="hidden sm:inline">Redo</span>
       </Button>
       <Button
         type="button"
@@ -352,8 +358,11 @@ export function Toolbar({
         variant="outline"
         disabled={!selectedId || !isDeletable}
         onClick={handleDelete}
+        aria-label="Delete"
+        title="Delete"
       >
         <Trash2 className="h-4 w-4" />
+        <span className="hidden sm:inline">Delete</span>
       </Button>
       <div className="ml-auto flex items-center gap-1">
         <Button
@@ -362,6 +371,8 @@ export function Toolbar({
           variant={sourceMode ? "default" : "outline"}
           onClick={onToggleSource}
           className="ml-2"
+          aria-label={sourceMode ? "Visual" : "Source"}
+          title={sourceMode ? "Visual" : "Source"}
         >
           {sourceMode ? "Visual" : "Source"}
         </Button>
@@ -411,7 +422,6 @@ export function ChangeWatcher({
       const json = query.serialize();
       if (perf) {
         const dt = performance.now() - t0;
-        // eslint-disable-next-line no-console
         console.log(
           `[page-editor] serialize ${dt.toFixed(1)}ms, size=${json.length}B, events=${eventCount}`,
         );
@@ -436,7 +446,6 @@ export function ChangeWatcher({
           // Throttled "store is busy" log every 1s.
           const now = performance.now();
           if (now - lastLog > 1000) {
-            // eslint-disable-next-line no-console
             console.log(
               `[page-editor] store busy: ${eventCount} events in last ${(now - lastLog).toFixed(0)}ms`,
             );

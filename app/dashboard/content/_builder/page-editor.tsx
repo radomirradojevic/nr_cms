@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Editor, Frame, Element, useEditor } from "@craftjs/core";
 import dynamic from "next/dynamic";
 import { resolver, Root } from "./blocks/editable";
@@ -93,16 +93,13 @@ export function PageEditor({
     })(),
   );
 
-  // Register the getter exactly once on mount.
-  const registerRef = useRef(registerGetValue);
-  registerRef.current = registerGetValue;
-  useMemo(() => {
-    registerRef.current?.(() => ({
+  // Register a getter that always reads the latest serialized nodes.
+  useEffect(() => {
+    registerGetValue?.(() => ({
       version: 1,
       nodes: latestNodesRef.current,
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [registerGetValue]);
 
   function handleRemountWithJson(json: string) {
     setEditorJson(json);
@@ -122,7 +119,10 @@ export function PageEditor({
   }
 
   return (
-    <div className="rounded-md border">
+    <div
+      className="rounded-md border"
+      style={{ "--builder-toolbar-h": "49px" } as React.CSSProperties}
+    >
       <Editor key={remountKey} resolver={resolver}>
         <Inner
           initialJson={editorJson}
@@ -252,7 +252,7 @@ function Inner({
         </div>
       ) : (
         <div className="grid grid-cols-[200px_1fr_280px]">
-          <aside className="sticky top-[calc(var(--sticky-header-h,0px)+0.75rem)] max-h-[calc(100dvh-var(--sticky-header-h,0px)-1.5rem)] self-start overflow-y-auto border-r p-3">
+          <aside className="sticky top-[calc(var(--sticky-header-h,0px)+var(--builder-toolbar-h,49px))] max-h-[calc(100dvh-var(--sticky-header-h,0px)-var(--builder-toolbar-h,49px))] self-start overflow-y-auto border-r p-3">
             <div className="space-y-4">
               <div>
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -320,7 +320,7 @@ function Inner({
             </div>
           </main>
 
-          <aside className="sticky top-[calc(var(--sticky-header-h,0px)+0.75rem)] max-h-[calc(100dvh-var(--sticky-header-h,0px)-1.5rem)] self-start overflow-y-auto border-l">
+          <aside className="sticky top-[calc(var(--sticky-header-h,0px)+var(--builder-toolbar-h,49px))] max-h-[calc(100dvh-var(--sticky-header-h,0px)-var(--builder-toolbar-h,49px))] self-start overflow-y-auto border-l">
             <SettingsPanel />
           </aside>
         </div>
