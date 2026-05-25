@@ -3,6 +3,10 @@ import type {
   VideoAlignment,
   VideoProvider,
 } from "@/app/dashboard/content/_editors/video-shared";
+import type {
+  LayoutGap,
+  LayoutKind,
+} from "@/app/dashboard/content/_editors/layout-presets";
 import type { BlockStyle } from "./style/types";
 
 /**
@@ -15,6 +19,10 @@ export type StyledProps = { style?: BlockStyle };
 export type RootProps = Record<string, never>;
 export type SectionProps = StyledProps & { padded?: boolean };
 export type ColumnsProps = StyledProps & { gap?: "sm" | "md" | "lg" };
+export type LayoutProps = StyledProps & {
+  preset?: LayoutKind;
+  gap?: LayoutGap;
+};
 export type HeadingProps = StyledProps & {
   content: JSONContent;
   level: "1" | "2" | "3";
@@ -63,6 +71,7 @@ export type FormSubmissionsProps = StyledProps & {
 
 export const blockNames = [
   "Section",
+  "Layout",
   "Columns",
   "Heading",
   "Text",
@@ -85,6 +94,7 @@ export const emptyDoc: JSONContent = {
 
 export const defaults = {
   Section: { padded: true } satisfies SectionProps,
+  Layout: { preset: "2-col", gap: "md" } satisfies LayoutProps,
   Columns: { gap: "md" } satisfies ColumnsProps,
   Heading: {
     level: "2" as const,

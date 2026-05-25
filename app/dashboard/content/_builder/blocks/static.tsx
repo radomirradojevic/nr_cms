@@ -6,6 +6,7 @@ import type {
   HeadingProps,
   HeroProps,
   ImageProps,
+  LayoutProps,
   RawHtmlProps,
   SectionProps,
   TextProps,
@@ -19,6 +20,10 @@ import {
 import type { BlockStyle } from "./style/types";
 import { cn } from "@/lib/utils";
 import { VideoEmbed } from "@/app/dashboard/content/_editors/video-embed";
+import {
+  getLayoutPreset,
+  layoutGapOptions,
+} from "@/app/dashboard/content/_editors/layout-presets";
 
 /**
  * Pure JSX renderers for every block. These are imported by both the
@@ -99,6 +104,31 @@ export function ColumnsStatic({
       >
         {children}
       </div>
+    </>
+  );
+}
+
+export function LayoutStatic({
+  preset,
+  gap,
+  style,
+  children,
+}: LayoutProps & { children?: ReactNode }) {
+  const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
+  const layoutPreset = getLayoutPreset(preset);
+  const gapClass =
+    layoutGapOptions.find((option) => option.value === (gap ?? "md"))
+      ?.className ?? "gap-6";
+  return (
+    <>
+      {responsiveStyleEl}
+      <section
+        style={shellStyle}
+        className={cn("cms-builder-layout my-6 grid", gapClass, shellClass)}
+        data-layout-preset={layoutPreset.value}
+      >
+        {children}
+      </section>
     </>
   );
 }
