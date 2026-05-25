@@ -54,7 +54,8 @@ export type BlockName =
   | "Gallery"
   | "Video"
   | "Form"
-  | "FormSubmissions";
+  | "FormSubmissions"
+  | "Table";
 
 type Capabilities = {
   typography: boolean;
@@ -196,6 +197,16 @@ export const blockStyleCapabilities: Record<BlockName, Capabilities> = {
   },
   FormSubmissions: {
     typography: false,
+    colors: true,
+    spacing: true,
+    layout: true,
+    effects: true,
+    background: true,
+    responsive: true,
+    animation: true,
+  },
+  Table: {
+    typography: true,
     colors: true,
     spacing: true,
     layout: true,
