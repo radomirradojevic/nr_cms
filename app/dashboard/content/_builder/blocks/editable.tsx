@@ -1,9 +1,22 @@
 "use client";
 
-import { useEffect, useState, useTransition, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { useNode, useEditor, Element } from "@craftjs/core";
+import { EditorContent, useEditor as useTiptapEditor } from "@tiptap/react";
 import { Button } from "@/components/ui/button";
-import { Film, ImageIcon, Images, FormInput } from "lucide-react";
+import {
+  Film,
+  ImageIcon,
+  Images,
+  FormInput,
+  Table as TableIcon,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,6 +50,7 @@ import {
   LayoutStatic,
   RawHtmlStatic,
   SectionStatic,
+  TableStatic,
   TextStatic,
   VideoStatic,
 } from "./static";
@@ -53,6 +67,7 @@ import {
   type LayoutProps,
   type RawHtmlProps,
   type SectionProps,
+  type TableProps,
   type TextProps,
   type VideoProps,
 } from "./types";
@@ -68,6 +83,10 @@ import { applyBlockStyle } from "./style/serialize";
 import { useViewport } from "./panel/viewport-context";
 import { BlockSettingsPanel } from "./panel/BlockSettingsPanel";
 import { cn } from "@/lib/utils";
+import { TableMenu } from "@/app/dashboard/content/_editors/table-menu";
+import { useTiptapToolbarState } from "@/app/dashboard/content/_editors/tiptap-toolbar-state";
+import { tiptapClientExtensions } from "@/app/dashboard/content/_editors/tiptap-client-extensions";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 /**
  * Editor-side helper: read the current `style` envelope from a Craft.js
@@ -597,6 +616,88 @@ Text.craft = {
 
 function TextSettings() {
   return <BlockSettingsPanel blockName="Text" />;
+}
+
+/* ===================== Table ===================== */
+
+export function TableBlock({ content, style }: TableProps) {
+  const {
+    actions: { setProp },
+    selected,
+  } = useNode((n) => ({
+    selected: n.events.selected,
+  }));
+  const [focused, setFocused] = useState(false);
+  const onChangeJsonRef = useRef<string | null>(null);
+
+  const editor = useTiptapEditor({
+    extensions: tiptapClientExtensions,
+    content: content ?? defaults.Table.content,
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class:
+          "min-h-[7rem] rounded-md border border-dashed border-muted-foreground/25 bg-background p-3 focus:outline-none",
+      },
+    },
+    onUpdate: ({ editor }) => {
+      const next = editor.getJSON();
+      onChangeJsonRef.current = JSON.stringify(next);
+      setProp((p: TableProps) => {
+        p.content = next;
+      });
+    },
+    onFocus: () => setFocused(true),
+    onBlur: () => setFocused(false),
+  });
+  const toolbarState = useTiptapToolbarState(editor);
+
+  useEffect(() => {
+    if (!editor) return;
+    const nextContent = content ?? defaults.Table.content;
+    const nextJson = JSON.stringify(nextContent);
+    if (onChangeJsonRef.current === nextJson) {
+      onChangeJsonRef.current = null;
+      return;
+    }
+    if (JSON.stringify(editor.getJSON()) !== nextJson) {
+      editor.commands.setContent(nextContent, { emitUpdate: false });
+    }
+  }, [content, editor]);
+
+  return (
+    <NodeWrap style={style}>
+      <div className="cms-content my-4 max-w-none">
+        {editor && (selected || focused || toolbarState.table) ? (
+          <div
+            className="mb-2 flex items-center gap-1 rounded-md border bg-popover p-1 text-popover-foreground shadow-sm"
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            <TooltipProvider delayDuration={500}>
+              <TableMenu editor={editor} toolbarState={toolbarState} />
+            </TooltipProvider>
+          </div>
+        ) : null}
+        {editor ? (
+          <EditorContent editor={editor} />
+        ) : (
+          <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+            <TableIcon className="mx-auto mb-2 h-6 w-6" />
+            Loading table...
+          </div>
+        )}
+      </div>
+    </NodeWrap>
+  );
+}
+TableBlock.craft = {
+  displayName: "Table",
+  props: defaults.Table,
+  related: { settings: TableSettings },
+};
+
+function TableSettings() {
+  return <BlockSettingsPanel blockName="Table" />;
 }
 
 /* ===================== Image ===================== */
@@ -1466,6 +1567,7 @@ export const resolver = {
   Video,
   Form,
   FormSubmissions,
+  Table: TableBlock,
 };
 
 /** Re-export for convenience in chrome / page-editor. */
@@ -1479,4 +1581,5 @@ void HeroStatic;
 void LayoutStatic;
 void TextStatic;
 void SectionStatic;
+void TableStatic;
 void VideoStatic;
