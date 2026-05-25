@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Eye,
   FolderTree,
@@ -169,11 +170,21 @@ export function ContentForm({
     if (!slugTouched) setSlug(slugify(v));
   }
 
-  function submit(shouldClose = true) {
+  const savedToastMessage =
+    contentType === "page"
+      ? "Page saved successfully"
+      : "Blog post saved successfully";
+
+  function failSave(message: string, showToast: boolean) {
+    setError(message);
+    if (showToast) toast.error(message);
+  }
+
+  function submit(shouldClose = true, showToast = false) {
     setError(null);
-    if (!title.trim()) return setError("Title is required.");
-    if (!slug.trim()) return setError("Slug is required.");
-    if (!categoryId) return setError("Category is required.");
+    if (!title.trim()) return failSave("Title is required.", showToast);
+    if (!slug.trim()) return failSave("Slug is required.", showToast);
+    if (!categoryId) return failSave("Category is required.", showToast);
 
     // Pull the freshest value directly from the editor (uncontrolled).
     // Falls back to the ref if the editor hasn't registered yet.
@@ -198,66 +209,74 @@ export function ContentForm({
     };
 
     startTransition(async () => {
-      if (mode === "create") {
-        const input: CreateContentInput = {
-          ...base,
-          contentType,
-          ...(canChooseStatus ? { status } : {}),
-          ...(isAdmin && contentType === "page" ? { homepage } : {}),
-          visibility: { public: visibilityPublic, roles: visibilityRoles },
-          ...(contentType === "blog_post"
-            ? {
-                enableComments,
-                autoPublishComments,
-                allowAnonymousComments,
-              }
-            : {}),
-        };
-        const r = await createContent(input);
-        if (r.error) setError(r.error);
-        else if (shouldClose) router.push("/dashboard/content");
-      } else {
-        const input: UpdateContentInput = {
-          ...base,
-          id: initial!.id,
-          ...(canChooseStatus ? { status } : {}),
-          ...(isAdmin && contentType === "page" ? { homepage } : {}),
-          visibility: { public: visibilityPublic, roles: visibilityRoles },
-          ...(contentType === "blog_post"
-            ? {
-                enableComments,
-                autoPublishComments,
-                allowAnonymousComments,
-              }
-            : {}),
-          ...(lock
-            ? {
-                lockClientId: lock.clientId,
-                expectedVersion: lock.contentVersion,
-              }
-            : {}),
-        };
-        const r = await updateContent(input);
-        if (r.error) {
-          setError(r.error);
-          if ("code" in r && r.code === "STALE_CONTENT") {
-            setStaleVersion(
-              "currentVersion" in r && typeof r.currentVersion === "number"
-                ? r.currentVersion
-                : null,
-            );
+      try {
+        if (mode === "create") {
+          const input: CreateContentInput = {
+            ...base,
+            contentType,
+            ...(canChooseStatus ? { status } : {}),
+            ...(isAdmin && contentType === "page" ? { homepage } : {}),
+            visibility: { public: visibilityPublic, roles: visibilityRoles },
+            ...(contentType === "blog_post"
+              ? {
+                  enableComments,
+                  autoPublishComments,
+                  allowAnonymousComments,
+                }
+              : {}),
+          };
+          const r = await createContent(input);
+          if (r.error) failSave(r.error, showToast);
+          else {
+            if (showToast) toast.success(savedToastMessage);
+            if (shouldClose) router.push("/dashboard/content");
           }
         } else {
-          // Sync the bumped version back into the lock provider so the
-          // NEXT save from this same session sends the up-to-date
-          // expectedVersion and isn't rejected as stale.
-          if (lock && typeof r.version === "number") {
-            lock.syncVersionAfterSave(r.version);
+          const input: UpdateContentInput = {
+            ...base,
+            id: initial!.id,
+            ...(canChooseStatus ? { status } : {}),
+            ...(isAdmin && contentType === "page" ? { homepage } : {}),
+            visibility: { public: visibilityPublic, roles: visibilityRoles },
+            ...(contentType === "blog_post"
+              ? {
+                  enableComments,
+                  autoPublishComments,
+                  allowAnonymousComments,
+                }
+              : {}),
+            ...(lock
+              ? {
+                  lockClientId: lock.clientId,
+                  expectedVersion: lock.contentVersion,
+                }
+              : {}),
+          };
+          const r = await updateContent(input);
+          if (r.error) {
+            failSave(r.error, showToast);
+            if ("code" in r && r.code === "STALE_CONTENT") {
+              setStaleVersion(
+                "currentVersion" in r && typeof r.currentVersion === "number"
+                  ? r.currentVersion
+                  : null,
+              );
+            }
+          } else {
+            // Sync the bumped version back into the lock provider so the
+            // NEXT save from this same session sends the up-to-date
+            // expectedVersion and isn't rejected as stale.
+            if (lock && typeof r.version === "number") {
+              lock.syncVersionAfterSave(r.version);
+            }
+            setError(null);
+            setStaleVersion(null);
+            if (showToast) toast.success(savedToastMessage);
+            if (shouldClose) router.push("/dashboard/content");
           }
-          setError(null);
-          setStaleVersion(null);
-          if (shouldClose) router.push("/dashboard/content");
         }
+      } catch {
+        failSave("Save failed. Please try again.", showToast);
       }
     });
   }
@@ -486,7 +505,7 @@ export function ContentForm({
           ) : (
             <>
               <Button
-                onClick={() => submit(false)}
+                onClick={() => submit(false, true)}
                 disabled={pending || lockBlocksSave}
                 title={
                   lockBlocksSave
