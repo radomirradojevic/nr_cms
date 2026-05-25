@@ -817,6 +817,11 @@ html:has(.dashboard-content-root) {
   content: "";
 }
 
+.ProseMirror-focused.cms-table-block-editor
+  > p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+}
+
 /* =========================================================================
    Page-builder block style system
    See `.github/instructions/cms-page-builder-block-properties.instructions.md`
