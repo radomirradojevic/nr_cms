@@ -6,9 +6,11 @@ import type {
   HeadingProps,
   HeroProps,
   ImageProps,
+  LayoutProps,
   RawHtmlProps,
   SectionProps,
   TextProps,
+  VideoProps,
 } from "./types";
 import {
   applyBlockStyle,
@@ -17,6 +19,11 @@ import {
 } from "./style/serialize";
 import type { BlockStyle } from "./style/types";
 import { cn } from "@/lib/utils";
+import { VideoEmbed } from "@/app/dashboard/content/_editors/video-embed";
+import {
+  getLayoutPreset,
+  layoutGapOptions,
+} from "@/app/dashboard/content/_editors/layout-presets";
 
 /**
  * Pure JSX renderers for every block. These are imported by both the
@@ -97,6 +104,31 @@ export function ColumnsStatic({
       >
         {children}
       </div>
+    </>
+  );
+}
+
+export function LayoutStatic({
+  preset,
+  gap,
+  style,
+  children,
+}: LayoutProps & { children?: ReactNode }) {
+  const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
+  const layoutPreset = getLayoutPreset(preset);
+  const gapClass =
+    layoutGapOptions.find((option) => option.value === (gap ?? "md"))
+      ?.className ?? "gap-6";
+  return (
+    <>
+      {responsiveStyleEl}
+      <section
+        style={shellStyle}
+        className={cn("cms-builder-layout my-6 grid", gapClass, shellClass)}
+        data-layout-preset={layoutPreset.value}
+      >
+        {children}
+      </section>
     </>
   );
 }
@@ -287,6 +319,31 @@ export function RawHtmlStatic({ html, style }: RawHtmlProps) {
         style={shellStyle}
         className={shellClass || undefined}
         dangerouslySetInnerHTML={{ __html: html ?? "" }}
+      />
+    </>
+  );
+}
+
+export function VideoStatic({
+  src,
+  provider,
+  width,
+  height,
+  alignment,
+  style,
+}: VideoProps) {
+  const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
+  return (
+    <>
+      {responsiveStyleEl}
+      <VideoEmbed
+        src={src}
+        provider={provider}
+        width={width}
+        height={height}
+        alignment={alignment}
+        style={shellStyle}
+        className={cn("my-4", shellClass)}
       />
     </>
   );

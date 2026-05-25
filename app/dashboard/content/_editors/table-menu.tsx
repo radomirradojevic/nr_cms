@@ -21,6 +21,11 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { TiptapToolbarState } from "./tiptap-toolbar-state";
 
@@ -85,18 +90,23 @@ export function TableMenu({ editor, toolbarState }: Props) {
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant={inTable ? "default" : "ghost"}
-          size="sm"
-          onMouseDown={(event) => event.preventDefault()}
-          className="h-8 w-8 p-0"
-          aria-label="Table"
-        >
-          <TableIcon className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant={inTable ? "default" : "ghost"}
+              size="sm"
+              onMouseDown={(event) => event.preventDefault()}
+              className="h-8 w-8 p-0"
+              aria-label="Insert table"
+            >
+              <TableIcon className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Insert table</TooltipContent>
+      </Tooltip>
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>

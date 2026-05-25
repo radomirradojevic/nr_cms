@@ -29,7 +29,7 @@ import {
   youTubeEmbedUrl,
   type VideoAlignment,
   type VideoProvider,
-} from "./video-extension";
+} from "./video-shared";
 
 type Props = {
   open: boolean;

@@ -43,6 +43,7 @@ import type {
 
 export type BlockName =
   | "Section"
+  | "Layout"
   | "Columns"
   | "Heading"
   | "Text"
@@ -51,6 +52,7 @@ export type BlockName =
   | "Hero"
   | "RawHtml"
   | "Gallery"
+  | "Video"
   | "Form"
   | "FormSubmissions";
 
@@ -70,6 +72,17 @@ type Capabilities = {
 export const blockStyleCapabilities: Record<BlockName, Capabilities> = {
   Section: {
     typography: true,
+    colors: true,
+    spacing: true,
+    layout: true,
+    effects: true,
+    background: true,
+    responsive: true,
+    animation: true,
+    flexContainer: true,
+  },
+  Layout: {
+    typography: false,
     colors: true,
     spacing: true,
     layout: true,
@@ -153,6 +166,16 @@ export const blockStyleCapabilities: Record<BlockName, Capabilities> = {
   },
   Gallery: {
     typography: true,
+    colors: true,
+    spacing: true,
+    layout: true,
+    effects: true,
+    background: true,
+    responsive: true,
+    animation: true,
+  },
+  Video: {
+    typography: false,
     colors: true,
     spacing: true,
     layout: true,

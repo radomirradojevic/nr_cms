@@ -27,13 +27,12 @@ type GalleryPreviewImage = {
   title: string;
 };
 
-type FormPreviewDetail = Awaited<
-  ReturnType<typeof fetchFormEditorPreview>
-> extends infer Result
-  ? Result extends { success: true; form: infer Form; fields: infer Fields }
-    ? { form: Form; fields: Fields }
-    : never
-  : never;
+type FormPreviewDetail =
+  Awaited<ReturnType<typeof fetchFormEditorPreview>> extends infer Result
+    ? Result extends { success: true; form: infer Form; fields: infer Fields }
+      ? { form: Form; fields: Fields }
+      : never
+    : never;
 
 type SubmissionPreview = {
   id: string;
@@ -122,7 +121,9 @@ export function GalleryPreviewNodeView({ node }: NodeViewProps) {
         <EditorEmptyPreview>{state.message}</EditorEmptyPreview>
       ) : state.images.length === 0 ? (
         <EditorEmptyPreview>
-          {state.name ? `Gallery "${state.name}" is empty.` : "Gallery is empty."}
+          {state.name
+            ? `Gallery "${state.name}" is empty.`
+            : "Gallery is empty."}
         </EditorEmptyPreview>
       ) : (
         <div
@@ -155,8 +156,23 @@ export function GalleryPreviewNodeView({ node }: NodeViewProps) {
 }
 
 export function CmsFormPreviewNodeView({ node }: NodeViewProps) {
-  const formId = attrString(node.attrs.formId);
-  const fallbackName = attrString(node.attrs.formName);
+  return (
+    <NodeViewWrapper className="tiptap-cms-form">
+      <CmsFormEditorPreview
+        formId={attrString(node.attrs.formId)}
+        formName={attrString(node.attrs.formName)}
+      />
+    </NodeViewWrapper>
+  );
+}
+
+export function CmsFormEditorPreview({
+  formId,
+  formName: fallbackName = "",
+}: {
+  formId: string;
+  formName?: string;
+}) {
   const [state, setState] = useState<
     | { status: "loading" }
     | { status: "ready"; sourceId: string; detail: FormPreviewDetail }
@@ -186,7 +202,7 @@ export function CmsFormPreviewNodeView({ node }: NodeViewProps) {
   }, [fallbackName, formId]);
 
   return (
-    <NodeViewWrapper className="tiptap-cms-form">
+    <>
       {!formId ? (
         <EditorEmptyPreview>Form preview unavailable.</EditorEmptyPreview>
       ) : state.status === "loading" || state.sourceId !== formId ? (
@@ -221,16 +237,38 @@ export function CmsFormPreviewNodeView({ node }: NodeViewProps) {
           </Button>
         </div>
       )}
-    </NodeViewWrapper>
+    </>
   );
 }
 
 export function FormSubmissionsPreviewNodeView({ node }: NodeViewProps) {
-  const formId = attrString(node.attrs.formId);
-  const fallbackName = attrString(node.attrs.formName);
-  const displayMode = node.attrs.displayMode === "card" ? "card" : "table";
-  const pageSize = Math.min(5, Math.max(1, attrNumber(node.attrs.pageSize, 5)));
-  const hideId = attrBoolean(node.attrs.hideId, true);
+  return (
+    <NodeViewWrapper className="tiptap-cms-form-submissions">
+      <FormSubmissionsEditorPreview
+        formId={attrString(node.attrs.formId)}
+        formName={attrString(node.attrs.formName)}
+        displayMode={node.attrs.displayMode === "card" ? "card" : "table"}
+        pageSize={attrNumber(node.attrs.pageSize, 5)}
+        hideId={attrBoolean(node.attrs.hideId, true)}
+      />
+    </NodeViewWrapper>
+  );
+}
+
+export function FormSubmissionsEditorPreview({
+  formId,
+  formName: fallbackName = "",
+  displayMode = "table",
+  pageSize: requestedPageSize = 5,
+  hideId = true,
+}: {
+  formId: string;
+  formName?: string;
+  displayMode?: "table" | "card";
+  pageSize?: number;
+  hideId?: boolean;
+}) {
+  const pageSize = Math.min(5, Math.max(1, requestedPageSize));
   const [state, setState] = useState<
     | { status: "loading" }
     | {
@@ -268,7 +306,7 @@ export function FormSubmissionsPreviewNodeView({ node }: NodeViewProps) {
   }, [fallbackName, formId, pageSize]);
 
   return (
-    <NodeViewWrapper className="tiptap-cms-form-submissions">
+    <>
       {!formId ? (
         <EditorEmptyPreview>
           Form submissions preview unavailable.
@@ -293,19 +331,13 @@ export function FormSubmissionsPreviewNodeView({ node }: NodeViewProps) {
             </span>
           </div>
           {displayMode === "card" ? (
-            <SubmissionsCardPreview
-              detail={state.detail}
-              hideId={hideId}
-            />
+            <SubmissionsCardPreview detail={state.detail} hideId={hideId} />
           ) : (
-            <SubmissionsTablePreview
-              detail={state.detail}
-              hideId={hideId}
-            />
+            <SubmissionsTablePreview detail={state.detail} hideId={hideId} />
           )}
         </div>
       )}
-    </NodeViewWrapper>
+    </>
   );
 }
 
@@ -319,7 +351,9 @@ function SubmissionsTablePreview({
   const columns = usePreviewColumns(detail);
 
   if (columns.length === 0 || detail.submissions.length === 0) {
-    return <EditorEmptyPreview>No submission columns to preview.</EditorEmptyPreview>;
+    return (
+      <EditorEmptyPreview>No submission columns to preview.</EditorEmptyPreview>
+    );
   }
 
   return (
@@ -412,7 +446,9 @@ function SubmissionsCardPreview({
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-              {!hideId && <span className="font-mono">{sub.id.slice(0, 8)}</span>}
+              {!hideId && (
+                <span className="font-mono">{sub.id.slice(0, 8)}</span>
+              )}
               <span>{new Date(sub.createdAt).toLocaleString()}</span>
             </div>
           </div>

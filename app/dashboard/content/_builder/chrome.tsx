@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
-import { useEditor } from "@craftjs/core";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Element, useEditor } from "@craftjs/core";
+import type { EditorState } from "@craftjs/core/lib/interfaces/editor";
+import type { NodeTree } from "@craftjs/core/lib/interfaces/nodes";
 import { Button } from "@/components/ui/button";
 import {
   Heading1,
@@ -13,6 +15,7 @@ import {
   LayoutPanelTop,
   FileCode2,
   Images,
+  Film,
   FormInput,
   Database,
   Trash2,
@@ -20,9 +23,91 @@ import {
   Redo2,
 } from "lucide-react";
 import { resolver } from "./blocks/editable";
-import { ROOT_NODE_ID } from "./types";
+import { ROOT_NODE_ID, type SerializedNode } from "./types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  getLayoutColumnCount,
+  layoutPresets,
+  type LayoutKind,
+} from "@/app/dashboard/content/_editors/layout-presets";
 
 /* ===================== Palette (left rail) ===================== */
+
+function removeNodeFromState(state: EditorState, nodeId: string) {
+  const node = state.nodes[nodeId];
+  if (!node) return;
+
+  for (const childId of node.data.nodes ?? []) {
+    removeNodeFromState(state, childId);
+  }
+
+  for (const linkedNodeId of Object.values(node.data.linkedNodes ?? {})) {
+    removeNodeFromState(state, linkedNodeId);
+  }
+
+  const parentId = node.data.parent;
+  const parent = parentId ? state.nodes[parentId] : null;
+  if (parent) {
+    parent.data.nodes = (parent.data.nodes ?? []).filter((id) => id !== nodeId);
+
+    for (const [slotId, linkedNodeId] of Object.entries(
+      parent.data.linkedNodes ?? {},
+    )) {
+      if (linkedNodeId === nodeId) delete parent.data.linkedNodes[slotId];
+    }
+  }
+
+  for (const eventSet of Object.values(state.events)) {
+    eventSet.delete(nodeId);
+  }
+
+  delete state.nodes[nodeId];
+}
+
+function syncLayoutSlotsInState(
+  state: EditorState,
+  layoutNodeId: string,
+  columnCount: number,
+  createSlotTree: (index: number) => NodeTree,
+) {
+  const layoutNode = state.nodes[layoutNodeId];
+  if (!layoutNode) return;
+
+  layoutNode.data.linkedNodes ??= {};
+
+  for (let index = 1; index <= columnCount; index += 1) {
+    const slotId = `slot-${index}`;
+    const existingNodeId = layoutNode.data.linkedNodes[slotId];
+    if (existingNodeId && state.nodes[existingNodeId]) continue;
+
+    const slotTree = createSlotTree(index);
+    const slotNode = slotTree.nodes[slotTree.rootNodeId];
+    if (!slotNode) continue;
+
+    for (const node of Object.values(slotTree.nodes)) {
+      state.nodes[node.id] = node;
+    }
+
+    slotNode.data.parent = layoutNodeId;
+    layoutNode.data.linkedNodes[slotId] = slotTree.rootNodeId;
+  }
+
+  for (const [slotId, linkedNodeId] of Object.entries(
+    layoutNode.data.linkedNodes ?? {},
+  )) {
+    const match = /^slot-(\d+)$/.exec(slotId);
+    if (!match) continue;
+
+    const slotIndex = Number(match[1]);
+    if (slotIndex > columnCount) removeNodeFromState(state, linkedNodeId);
+  }
+}
 
 const items: Array<{
   name: keyof typeof resolver;
@@ -32,6 +117,11 @@ const items: Array<{
   {
     name: "Section",
     label: "Section",
+    icon: <LayoutPanelTop className="h-4 w-4" />,
+  },
+  {
+    name: "Layout",
+    label: "LAYOUT",
     icon: <LayoutPanelTop className="h-4 w-4" />,
   },
   { name: "Columns", label: "Columns", icon: <Columns2 className="h-4 w-4" /> },
@@ -51,6 +141,11 @@ const items: Array<{
     icon: <Images className="h-4 w-4" />,
   },
   {
+    name: "Video",
+    label: "Video",
+    icon: <Film className="h-4 w-4" />,
+  },
+  {
     name: "Form",
     label: "Form",
     icon: <FormInput className="h-4 w-4" />,
@@ -64,40 +159,160 @@ const items: Array<{
 
 export function BlocksPalette() {
   const { connectors, query, actions } = useEditor();
+  const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
+  const [pendingLayoutNodeId, setPendingLayoutNodeId] = useState<string | null>(
+    null,
+  );
 
-  function addBlock(name: keyof typeof resolver) {
+  function addBlock(
+    name: keyof typeof resolver,
+    propsOverride?: Record<string, unknown>,
+    parentId = ROOT_NODE_ID,
+    index?: number,
+  ) {
     const Cmp = resolver[name] as React.ComponentType<Record<string, unknown>>;
     const props = ((resolver[name] as unknown as { craft?: { props?: object } })
       .craft?.props ?? {}) as Record<string, unknown>;
-    const tree = query.parseReactElement(<Cmp {...props} />).toNodeTree();
-    actions.addNodeTree(tree, ROOT_NODE_ID);
+    const tree = query
+      .parseReactElement(<Cmp {...props} {...propsOverride} />)
+      .toNodeTree();
+    actions.addNodeTree(tree, parentId, index);
+    return tree.rootNodeId;
+  }
+
+  function createLayoutSlotTree(index: number) {
+    return query
+      .parseReactElement(
+        <Element
+          id={`slot-${index}`}
+          is={resolver.LayoutSlot}
+          canvas
+          index={index}
+        />,
+      )
+      .toNodeTree();
+  }
+
+  function syncLayoutSlots(layoutNodeId: string, preset: LayoutKind) {
+    actions.setState((state) => {
+      syncLayoutSlotsInState(
+        state,
+        layoutNodeId,
+        getLayoutColumnCount(preset),
+        createLayoutSlotTree,
+      );
+    });
+  }
+
+  function insertLayout(preset: LayoutKind) {
+    if (pendingLayoutNodeId) {
+      actions.setState((state) => {
+        const node = state.nodes[pendingLayoutNodeId];
+        if (!node) return;
+
+        syncLayoutSlotsInState(
+          state,
+          pendingLayoutNodeId,
+          getLayoutColumnCount(preset),
+          createLayoutSlotTree,
+        );
+        node.data.props.preset = preset;
+      });
+      setPendingLayoutNodeId(null);
+    } else {
+      const layoutNodeId = addBlock("Layout", { preset });
+      syncLayoutSlots(layoutNodeId, preset);
+    }
+    setLayoutDialogOpen(false);
+  }
+
+  function handleLayoutDialogOpenChange(open: boolean) {
+    setLayoutDialogOpen(open);
+
+    if (open || !pendingLayoutNodeId) return;
+
+    actions.setState((state) => {
+      removeNodeFromState(state, pendingLayoutNodeId);
+    });
+    setPendingLayoutNodeId(null);
+  }
+
+  function handleLayoutDropped(nodeTree: { rootNodeId: string }) {
+    setPendingLayoutNodeId(nodeTree.rootNodeId);
+    syncLayoutSlots(nodeTree.rootNodeId, "2-col");
+    setLayoutDialogOpen(true);
   }
 
   return (
-    <div className="space-y-1">
-      {items.map((it) => {
-        const Cmp = resolver[it.name] as React.ComponentType<
-          Record<string, unknown>
-        >;
-        const props = ((
-          resolver[it.name] as unknown as { craft?: { props?: object } }
-        ).craft?.props ?? {}) as Record<string, unknown>;
-        return (
-          <button
-            key={it.name}
-            type="button"
-            ref={(el) => {
-              if (el) connectors.create(el, <Cmp {...props} />);
-            }}
-            onClick={() => addBlock(it.name)}
-            className="flex w-full cursor-grab items-center gap-2 rounded-md border bg-background px-2 py-2 text-left text-sm hover:bg-accent active:cursor-grabbing"
-          >
-            <span className="text-muted-foreground">{it.icon}</span>
-            <span>{it.label}</span>
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div className="space-y-1">
+        {items.map((it) => {
+          const Cmp = resolver[it.name] as React.ComponentType<
+            Record<string, unknown>
+          >;
+          const props = ((
+            resolver[it.name] as unknown as { craft?: { props?: object } }
+          ).craft?.props ?? {}) as Record<string, unknown>;
+          const isLayout = it.name === "Layout";
+          return (
+            <button
+              key={it.name}
+              type="button"
+              ref={(el) => {
+                if (!el) return;
+                connectors.create(el, <Cmp {...props} />, {
+                  onCreate: isLayout ? handleLayoutDropped : undefined,
+                });
+              }}
+              onClick={() =>
+                isLayout ? setLayoutDialogOpen(true) : addBlock(it.name)
+              }
+              className="flex w-full cursor-grab items-center gap-2 rounded-md border bg-background px-2 py-2 text-left text-sm hover:bg-accent active:cursor-grabbing"
+            >
+              <span className="text-muted-foreground">{it.icon}</span>
+              <span>{it.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <Dialog
+        open={layoutDialogOpen}
+        onOpenChange={handleLayoutDialogOpenChange}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Insert Layout</DialogTitle>
+            <DialogDescription>
+              Choose a responsive grid layout for this page section.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {layoutPresets.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="rounded-md border bg-background p-3 text-left transition hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => insertLayout(option.value)}
+              >
+                <span className="text-sm font-medium">{option.label}</span>
+                <span
+                  aria-hidden="true"
+                  className="mt-3 grid h-16 gap-2"
+                  style={{ gridTemplateColumns: option.tracks }}
+                >
+                  {Array.from({ length: option.columns }, (_, index) => (
+                    <span
+                      key={index}
+                      className="rounded-sm border border-dashed border-muted-foreground/40 bg-muted/60"
+                    />
+                  ))}
+                </span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -193,9 +408,9 @@ export function Toolbar({
     } catch {
       return;
     }
-    let tree: Record<string, any>;
+    let tree: Record<string, SerializedNode>;
     try {
-      tree = JSON.parse(serialized);
+      tree = JSON.parse(serialized) as Record<string, SerializedNode>;
     } catch {
       return;
     }
@@ -214,7 +429,7 @@ export function Toolbar({
     };
     visit(selectedId);
 
-    const parentId: string | undefined = tree[selectedId]?.parent;
+    const parentId = tree[selectedId]?.parent;
     if (parentId && tree[parentId]) {
       const parent = tree[parentId];
       if (Array.isArray(parent.nodes)) {
@@ -251,15 +466,18 @@ export function Toolbar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
+    <div className="sticky top-[var(--sticky-header-h,0px)] z-30 flex min-h-[var(--builder-toolbar-h,49px)] flex-wrap items-center gap-2 border-b bg-background/95 px-3 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <Button
         type="button"
         size="sm"
         variant="outline"
         disabled={!canUndo}
         onClick={() => actions.history.undo()}
+        aria-label="Undo"
+        title="Undo"
       >
         <Undo2 className="h-4 w-4" />
+        <span className="hidden sm:inline">Undo</span>
       </Button>
       <Button
         type="button"
@@ -267,8 +485,11 @@ export function Toolbar({
         variant="outline"
         disabled={!canRedo}
         onClick={() => actions.history.redo()}
+        aria-label="Redo"
+        title="Redo"
       >
         <Redo2 className="h-4 w-4" />
+        <span className="hidden sm:inline">Redo</span>
       </Button>
       <Button
         type="button"
@@ -276,8 +497,11 @@ export function Toolbar({
         variant="outline"
         disabled={!selectedId || !isDeletable}
         onClick={handleDelete}
+        aria-label="Delete"
+        title="Delete"
       >
         <Trash2 className="h-4 w-4" />
+        <span className="hidden sm:inline">Delete</span>
       </Button>
       <div className="ml-auto flex items-center gap-1">
         <Button
@@ -286,6 +510,8 @@ export function Toolbar({
           variant={sourceMode ? "default" : "outline"}
           onClick={onToggleSource}
           className="ml-2"
+          aria-label={sourceMode ? "Visual" : "Source"}
+          title={sourceMode ? "Visual" : "Source"}
         >
           {sourceMode ? "Visual" : "Source"}
         </Button>
@@ -312,7 +538,10 @@ export function ChangeWatcher({
 }) {
   const { query, store } = useEditor();
   const cbRef = useRef(onSerialize);
-  cbRef.current = onSerialize;
+
+  useEffect(() => {
+    cbRef.current = onSerialize;
+  }, [onSerialize]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -332,7 +561,6 @@ export function ChangeWatcher({
       const json = query.serialize();
       if (perf) {
         const dt = performance.now() - t0;
-        // eslint-disable-next-line no-console
         console.log(
           `[page-editor] serialize ${dt.toFixed(1)}ms, size=${json.length}B, events=${eventCount}`,
         );
@@ -357,7 +585,6 @@ export function ChangeWatcher({
           // Throttled "store is busy" log every 1s.
           const now = performance.now();
           if (now - lastLog > 1000) {
-            // eslint-disable-next-line no-console
             console.log(
               `[page-editor] store busy: ${eventCount} events in last ${(now - lastLog).toFixed(0)}ms`,
             );
