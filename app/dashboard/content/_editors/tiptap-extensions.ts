@@ -6,7 +6,14 @@ import Typography from "@tiptap/extension-typography";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
-import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
+import { CodeBlock } from "@tiptap/extension-code-block";
+import {
+  type EditorState,
+  NodeSelection,
+  Plugin,
+  PluginKey,
+} from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { Video } from "./video-extension";
 import { GalleryNode } from "./gallery-extension";
 import { CmsFormNode } from "./form-extension";
@@ -23,6 +30,68 @@ export const codeBlockOptions = {
     class: "cms-code-block",
   },
 };
+
+export const SelectableCodeBlock = CodeBlock.extend({
+  selectable: true,
+
+  addProseMirrorPlugins() {
+    const activeCodeBlockPlugin: Plugin<DecorationSet> =
+      new Plugin<DecorationSet>({
+        key: new PluginKey("activeCodeBlock"),
+        state: {
+          init: (_, state) => getActiveCodeBlockDecorations(state, this.name),
+          apply: (_tr, _decorations, _oldState, newState) =>
+            getActiveCodeBlockDecorations(newState, this.name),
+        },
+        props: {
+          decorations(state): DecorationSet {
+            return activeCodeBlockPlugin.getState(state) ?? DecorationSet.empty;
+          },
+        },
+      });
+
+    return [...(this.parent?.() ?? []), activeCodeBlockPlugin];
+  },
+});
+
+function getActiveCodeBlockDecorations(state: EditorState, typeName: string) {
+  const range = getActiveCodeBlockRange(state, typeName);
+  if (!range) return DecorationSet.empty;
+
+  return DecorationSet.create(state.doc, [
+    Decoration.node(range.from, range.to, {
+      class: "cms-code-block-active",
+    }),
+  ]);
+}
+
+function getActiveCodeBlockRange(
+  state: EditorState,
+  typeName: string,
+): { from: number; to: number } | null {
+  const { selection } = state;
+
+  if (selection instanceof NodeSelection) {
+    return selection.node.type.name === typeName
+      ? { from: selection.from, to: selection.to }
+      : null;
+  }
+
+  const { $from, $to } = selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name !== typeName) continue;
+    if ($to.depth < depth || $to.node(depth).type.name !== typeName) {
+      return null;
+    }
+
+    const from = $from.before(depth);
+    return $to.before(depth) === from
+      ? { from, to: from + $from.node(depth).nodeSize }
+      : null;
+  }
+
+  return null;
+}
 
 const ImageWithSize = Image.extend({
   addAttributes() {
@@ -55,7 +124,7 @@ export const tiptapExtensions = [
   }),
   TextStyle,
   Color,
-  CodeBlockLowlight.configure(codeBlockOptions),
+  SelectableCodeBlock.configure(codeBlockOptions),
   CmsIndent,
   ImageWithSize,
   Video,
