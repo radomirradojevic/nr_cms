@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEditor } from "@craftjs/core";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +21,18 @@ import {
   Redo2,
 } from "lucide-react";
 import { resolver } from "./blocks/editable";
-import { ROOT_NODE_ID } from "./types";
+import { ROOT_NODE_ID, type SerializedNode } from "./types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  layoutPresets,
+  type LayoutKind,
+} from "@/app/dashboard/content/_editors/layout-presets";
 
 /* ===================== Palette (left rail) ===================== */
 
@@ -33,6 +44,11 @@ const items: Array<{
   {
     name: "Section",
     label: "Section",
+    icon: <LayoutPanelTop className="h-4 w-4" />,
+  },
+  {
+    name: "Layout",
+    label: "LAYOUT",
     icon: <LayoutPanelTop className="h-4 w-4" />,
   },
   { name: "Columns", label: "Columns", icon: <Columns2 className="h-4 w-4" /> },
@@ -70,40 +86,94 @@ const items: Array<{
 
 export function BlocksPalette() {
   const { connectors, query, actions } = useEditor();
+  const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 
-  function addBlock(name: keyof typeof resolver) {
+  function addBlock(
+    name: keyof typeof resolver,
+    propsOverride?: Record<string, unknown>,
+  ) {
     const Cmp = resolver[name] as React.ComponentType<Record<string, unknown>>;
     const props = ((resolver[name] as unknown as { craft?: { props?: object } })
       .craft?.props ?? {}) as Record<string, unknown>;
-    const tree = query.parseReactElement(<Cmp {...props} />).toNodeTree();
+    const tree = query
+      .parseReactElement(<Cmp {...props} {...propsOverride} />)
+      .toNodeTree();
     actions.addNodeTree(tree, ROOT_NODE_ID);
   }
 
+  function insertLayout(preset: LayoutKind) {
+    addBlock("Layout", { preset });
+    setLayoutDialogOpen(false);
+  }
+
   return (
-    <div className="space-y-1">
-      {items.map((it) => {
-        const Cmp = resolver[it.name] as React.ComponentType<
-          Record<string, unknown>
-        >;
-        const props = ((
-          resolver[it.name] as unknown as { craft?: { props?: object } }
-        ).craft?.props ?? {}) as Record<string, unknown>;
-        return (
-          <button
-            key={it.name}
-            type="button"
-            ref={(el) => {
-              if (el) connectors.create(el, <Cmp {...props} />);
-            }}
-            onClick={() => addBlock(it.name)}
-            className="flex w-full cursor-grab items-center gap-2 rounded-md border bg-background px-2 py-2 text-left text-sm hover:bg-accent active:cursor-grabbing"
-          >
-            <span className="text-muted-foreground">{it.icon}</span>
-            <span>{it.label}</span>
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div className="space-y-1">
+        {items.map((it) => {
+          const Cmp = resolver[it.name] as React.ComponentType<
+            Record<string, unknown>
+          >;
+          const props = ((
+            resolver[it.name] as unknown as { craft?: { props?: object } }
+          ).craft?.props ?? {}) as Record<string, unknown>;
+          const isLayout = it.name === "Layout";
+          return (
+            <button
+              key={it.name}
+              type="button"
+              ref={(el) => {
+                if (el && !isLayout) connectors.create(el, <Cmp {...props} />);
+              }}
+              onClick={() =>
+                isLayout ? setLayoutDialogOpen(true) : addBlock(it.name)
+              }
+              className={`flex w-full items-center gap-2 rounded-md border bg-background px-2 py-2 text-left text-sm hover:bg-accent ${
+                isLayout
+                  ? "cursor-pointer"
+                  : "cursor-grab active:cursor-grabbing"
+              }`}
+            >
+              <span className="text-muted-foreground">{it.icon}</span>
+              <span>{it.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <Dialog open={layoutDialogOpen} onOpenChange={setLayoutDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Insert Layout</DialogTitle>
+            <DialogDescription>
+              Choose a responsive grid layout for this page section.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {layoutPresets.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="rounded-md border bg-background p-3 text-left transition hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => insertLayout(option.value)}
+              >
+                <span className="text-sm font-medium">{option.label}</span>
+                <span
+                  aria-hidden="true"
+                  className="mt-3 grid h-16 gap-2"
+                  style={{ gridTemplateColumns: option.tracks }}
+                >
+                  {Array.from({ length: option.columns }, (_, index) => (
+                    <span
+                      key={index}
+                      className="rounded-sm border border-dashed border-muted-foreground/40 bg-muted/60"
+                    />
+                  ))}
+                </span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -199,9 +269,9 @@ export function Toolbar({
     } catch {
       return;
     }
-    let tree: Record<string, any>;
+    let tree: Record<string, SerializedNode>;
     try {
-      tree = JSON.parse(serialized);
+      tree = JSON.parse(serialized) as Record<string, SerializedNode>;
     } catch {
       return;
     }
@@ -220,7 +290,7 @@ export function Toolbar({
     };
     visit(selectedId);
 
-    const parentId: string | undefined = tree[selectedId]?.parent;
+    const parentId = tree[selectedId]?.parent;
     if (parentId && tree[parentId]) {
       const parent = tree[parentId];
       if (Array.isArray(parent.nodes)) {
@@ -318,7 +388,10 @@ export function ChangeWatcher({
 }) {
   const { query, store } = useEditor();
   const cbRef = useRef(onSerialize);
-  cbRef.current = onSerialize;
+
+  useEffect(() => {
+    cbRef.current = onSerialize;
+  }, [onSerialize]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;

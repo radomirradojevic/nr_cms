@@ -5,6 +5,7 @@ import {
   HeadingStatic,
   HeroStatic,
   ImageStatic,
+  LayoutStatic,
   RawHtmlStatic,
   RootStatic,
   SectionStatic,
@@ -40,6 +41,9 @@ export const defaultStaticRegistry: StaticRegistry = {
   Section: SectionStatic as never,
   // Inner canvas slot of a Section — just passes children through.
   SectionSlot: ({ children }) => <>{children}</>,
+  Layout: LayoutStatic as never,
+  // Linked slots inside Layout just render their children.
+  LayoutSlot: ({ children }) => <div>{children}</div>,
   Columns: ColumnsStatic as never,
   // Column slots inside Columns just render their children.
   ColumnSlot: ({ children }) => <div>{children}</div>,

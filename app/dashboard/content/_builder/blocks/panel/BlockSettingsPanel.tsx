@@ -43,6 +43,7 @@ import type {
 
 export type BlockName =
   | "Section"
+  | "Layout"
   | "Columns"
   | "Heading"
   | "Text"
@@ -71,6 +72,17 @@ type Capabilities = {
 export const blockStyleCapabilities: Record<BlockName, Capabilities> = {
   Section: {
     typography: true,
+    colors: true,
+    spacing: true,
+    layout: true,
+    effects: true,
+    background: true,
+    responsive: true,
+    animation: true,
+    flexContainer: true,
+  },
+  Layout: {
+    typography: false,
     colors: true,
     spacing: true,
     layout: true,

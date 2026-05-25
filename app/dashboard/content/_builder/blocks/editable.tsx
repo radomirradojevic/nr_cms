@@ -34,6 +34,7 @@ import {
   HeadingStatic,
   HeroStatic,
   ImageStatic,
+  LayoutStatic,
   RawHtmlStatic,
   SectionStatic,
   TextStatic,
@@ -49,11 +50,19 @@ import {
   type HeadingProps,
   type HeroProps,
   type ImageProps,
+  type LayoutProps,
   type RawHtmlProps,
   type SectionProps,
   type TextProps,
   type VideoProps,
 } from "./types";
+import {
+  getLayoutPreset,
+  layoutGapOptions,
+  layoutPresets,
+  normalizeLayoutKind,
+  type LayoutKind,
+} from "@/app/dashboard/content/_editors/layout-presets";
 import type { BlockStyle, TypographyStyle, Viewport } from "./style/types";
 import { applyBlockStyle } from "./style/serialize";
 import { useViewport } from "./panel/viewport-context";
@@ -324,6 +333,163 @@ function ColumnsSettings() {
         </Select>
       </Field>
       <BlockSettingsPanel blockName="Columns" />
+    </>
+  );
+}
+
+/* ===================== Layout ===================== */
+
+function tracksToGridTemplate(tracks: string) {
+  return tracks
+    .split(" ")
+    .map((track) => `minmax(0, ${track})`)
+    .join(" ");
+}
+
+export function Layout({ preset, gap, style }: LayoutProps) {
+  const {
+    connectors: { connect, drag },
+    selected,
+    hovered,
+    id,
+  } = useNode((n) => ({
+    selected: n.events.selected,
+    hovered: n.events.hovered,
+  }));
+  const { viewport } = useViewport();
+  const { style: cssStyle, className: bbClass } = useBlockStyleShell(style);
+  const layoutPreset = getLayoutPreset(preset);
+  const gapClass =
+    layoutGapOptions.find((option) => option.value === (gap ?? "md"))
+      ?.className ?? "gap-6";
+  const gridTemplateColumns =
+    viewport === "desktop" ? tracksToGridTemplate(layoutPreset.tracks) : "1fr";
+  const ring = selected
+    ? "ring-2 ring-primary"
+    : hovered
+      ? "ring-1 ring-primary/40"
+      : "";
+
+  return (
+    <section
+      ref={(el) => {
+        if (el) connect(drag(el));
+      }}
+      style={{ ...cssStyle, gridTemplateColumns }}
+      className={cn(
+        "my-6 grid rounded-md border border-dashed border-muted-foreground/30 bg-muted/10 p-2 transition-shadow",
+        gapClass,
+        bbClass,
+        ring,
+      )}
+      data-layout-id={id}
+      data-layout-preset={layoutPreset.value}
+    >
+      {Array.from({ length: layoutPreset.columns }, (_, index) => (
+        <Element
+          key={index}
+          id={`slot-${index + 1}`}
+          is={LayoutSlot}
+          canvas
+          index={index + 1}
+        />
+      ))}
+    </section>
+  );
+}
+Layout.craft = {
+  displayName: "LAYOUT",
+  props: defaults.Layout,
+  related: { settings: LayoutSettings },
+};
+
+function LayoutSlot({
+  children,
+  index,
+}: {
+  children?: ReactNode;
+  index?: number;
+}) {
+  const {
+    connectors: { connect },
+  } = useNode();
+  return (
+    <div
+      ref={(el) => {
+        if (el) connect(el);
+      }}
+      className="relative min-h-[96px] min-w-0 rounded border border-dashed border-muted-foreground/25 bg-background/70 p-3"
+    >
+      {children ? (
+        <div className="space-y-2">{children}</div>
+      ) : (
+        <div className="flex min-h-[72px] items-center justify-center rounded bg-muted/30 text-center text-xs font-medium text-muted-foreground">
+          Drop blocks here
+          {index ? ` - Column ${index}` : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+LayoutSlot.craft = {
+  displayName: "Layout column",
+  rules: { canDrag: () => false },
+};
+
+function LayoutSettings() {
+  const {
+    actions: { setProp },
+    preset,
+    gap,
+  } = useNode((n) => ({
+    preset: (n.data.props as LayoutProps).preset,
+    gap: (n.data.props as LayoutProps).gap,
+  }));
+  return (
+    <>
+      <Field label="Preset">
+        <Select
+          value={normalizeLayoutKind(preset)}
+          onValueChange={(v) =>
+            setProp((p: LayoutProps) => {
+              p.preset = v as LayoutKind;
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {layoutPresets.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Gap">
+        <Select
+          value={gap ?? "md"}
+          onValueChange={(v) =>
+            setProp((p: LayoutProps) => {
+              p.gap = v as LayoutProps["gap"];
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {layoutGapOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <BlockSettingsPanel blockName="Layout" />
     </>
   );
 }
@@ -1270,6 +1436,8 @@ export const resolver = {
   Root,
   Section,
   SectionSlot,
+  Layout,
+  LayoutSlot,
   Columns,
   ColumnSlot,
   Heading,
@@ -1292,6 +1460,7 @@ export { useEditor };
 void ColumnsStatic;
 void HeadingStatic;
 void HeroStatic;
+void LayoutStatic;
 void TextStatic;
 void SectionStatic;
 void VideoStatic;
