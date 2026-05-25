@@ -1280,6 +1280,7 @@ export function FormSubmissions({
   displayMode = "table",
   pageSize = 10,
   hideId = true,
+  hideSubmitted = false,
   style,
 }: FormSubmissionsProps) {
   return (
@@ -1297,6 +1298,7 @@ export function FormSubmissions({
             displayMode={displayMode}
             pageSize={pageSize}
             hideId={hideId}
+            hideSubmitted={hideSubmitted}
           />
         </div>
       )}
@@ -1317,12 +1319,15 @@ function FormSubmissionsSettings() {
     displayMode,
     pageSize,
     hideId,
+    hideSubmitted,
   } = useNode((n) => ({
     formId: (n.data.props as FormSubmissionsProps).formId,
     formName: (n.data.props as FormSubmissionsProps).formName,
     displayMode: (n.data.props as FormSubmissionsProps).displayMode,
     pageSize: (n.data.props as FormSubmissionsProps).pageSize ?? 10,
     hideId: (n.data.props as FormSubmissionsProps).hideId ?? true,
+    hideSubmitted:
+      (n.data.props as FormSubmissionsProps).hideSubmitted ?? false,
   }));
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -1409,6 +1414,17 @@ function FormSubmissionsSettings() {
           onCheckedChange={(v) =>
             setProp((p: FormSubmissionsProps) => {
               p.hideId = v;
+            })
+          }
+        />
+      </Field>
+
+      <Field label="Hide Submitted">
+        <Switch
+          checked={!!hideSubmitted}
+          onCheckedChange={(v) =>
+            setProp((p: FormSubmissionsProps) => {
+              p.hideSubmitted = v;
             })
           }
         />

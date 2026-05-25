@@ -13,6 +13,7 @@ interface FormSubmissionsRendererProps {
   sortField: string;
   sortOrder: "asc" | "desc";
   hideId?: boolean;
+  hideSubmitted?: boolean;
   fields?: FormFieldRow[];
 }
 
@@ -35,6 +36,7 @@ export function FormSubmissionsRenderer({
   sortField,
   sortOrder,
   hideId = true,
+  hideSubmitted = false,
   fields,
 }: FormSubmissionsRendererProps) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,6 +107,7 @@ export function FormSubmissionsRenderer({
           pageSize={pageSize}
           pages={pages}
           hideId={hideId}
+          hideSubmitted={hideSubmitted}
           onPageChange={handlePageChange}
           isLoading={isLoading}
         />
@@ -117,6 +120,7 @@ export function FormSubmissionsRenderer({
           pageSize={pageSize}
           pages={pages}
           hideId={hideId}
+          hideSubmitted={hideSubmitted}
           onPageChange={handlePageChange}
           isLoading={isLoading}
         />

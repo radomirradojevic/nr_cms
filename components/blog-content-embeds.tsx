@@ -58,6 +58,10 @@ function parseBoolean(value: string | null): boolean {
   return value !== "false";
 }
 
+function parseFalseDefaultBoolean(value: string | null): boolean {
+  return value === "true";
+}
+
 export function BlogContentEmbeds({
   scopeId,
   galleries,
@@ -148,6 +152,9 @@ export function BlogContentEmbeds({
                 sortOrder="desc"
                 hideId={parseBoolean(
                   attrValue(el, "data-cms-form-submissions-hide-id"),
+                )}
+                hideSubmitted={parseFalseDefaultBoolean(
+                  attrValue(el, "data-cms-form-submissions-hide-submitted"),
                 )}
                 fields={fields}
               />

@@ -2,6 +2,7 @@
 
 import type { Editor } from "@tiptap/react";
 import { useCallback, useRef, useSyncExternalStore } from "react";
+import { getCurrentIndentLevel } from "./indent-extension";
 
 export type TiptapToolbarState = {
   heading1: boolean;
@@ -15,6 +16,9 @@ export type TiptapToolbarState = {
   orderedList: boolean;
   blockquote: boolean;
   link: boolean;
+  codeBlock: boolean;
+  textColor: string | null;
+  indentLevel: number;
   alignLeft: boolean;
   alignCenter: boolean;
   alignRight: boolean;
@@ -41,6 +45,9 @@ export const inactiveTiptapToolbarState: TiptapToolbarState = {
   orderedList: false,
   blockquote: false,
   link: false,
+  codeBlock: false,
+  textColor: null,
+  indentLevel: 0,
   alignLeft: false,
   alignCenter: false,
   alignRight: false,
@@ -68,6 +75,12 @@ function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
     orderedList: editor.isActive("orderedList"),
     blockquote: editor.isActive("blockquote"),
     link: editor.isActive("link"),
+    codeBlock: editor.isActive("codeBlock"),
+    textColor:
+      typeof editor.getAttributes("textStyle").color === "string"
+        ? editor.getAttributes("textStyle").color
+        : null,
+    indentLevel: getCurrentIndentLevel(editor),
     alignLeft: editor.isActive({ textAlign: "left" }),
     alignCenter: editor.isActive({ textAlign: "center" }),
     alignRight: editor.isActive({ textAlign: "right" }),

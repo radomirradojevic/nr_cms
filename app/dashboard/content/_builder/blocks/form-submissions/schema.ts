@@ -17,6 +17,7 @@ export const FormSubmissionsPropsSchema = z.object({
   sortField: z.string().optional().default("created_at"),
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
   hideId: z.boolean().optional().default(true),
+  hideSubmitted: z.boolean().optional().default(false),
   style: z.any().optional(),
 }) satisfies z.ZodType<FormSubmissionsProps>;
 
