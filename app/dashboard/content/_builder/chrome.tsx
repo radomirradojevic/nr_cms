@@ -13,6 +13,7 @@ import {
   LayoutPanelTop,
   FileCode2,
   Images,
+  Film,
   FormInput,
   Database,
   Trash2,
@@ -49,6 +50,11 @@ const items: Array<{
     name: "Gallery",
     label: "Gallery",
     icon: <Images className="h-4 w-4" />,
+  },
+  {
+    name: "Video",
+    label: "Video",
+    icon: <Film className="h-4 w-4" />,
   },
   {
     name: "Form",

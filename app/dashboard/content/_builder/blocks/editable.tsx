@@ -3,18 +3,22 @@
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useNode, useEditor, Element } from "@craftjs/core";
 import { Button } from "@/components/ui/button";
-import { ImageIcon, Images, FormInput } from "lucide-react";
+import { Film, ImageIcon, Images, FormInput } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePickerDialog } from "./image-picker-dialog";
 import { GallerySelectDialog } from "@/app/dashboard/content/_editors/gallery-select-dialog";
+import { VideoInsertDialog } from "@/app/dashboard/content/_editors/video-insert-dialog";
 import { FormSelectDialog } from "@/app/dashboard/content/_editors/form-select-dialog";
+import {
+  CmsFormEditorPreview,
+  FormSubmissionsEditorPreview,
+} from "@/app/dashboard/content/_editors/embed-preview-components";
 import {
   fetchGalleryPreview,
   type GalleryPickerPreviewImage,
 } from "@/app/dashboard/gallerymanager/actions";
-import { fetchFormPreview } from "@/app/dashboard/form-builder/actions";
 import {
   Select,
   SelectContent,
@@ -33,6 +37,7 @@ import {
   RawHtmlStatic,
   SectionStatic,
   TextStatic,
+  VideoStatic,
 } from "./static";
 import {
   defaults,
@@ -47,6 +52,7 @@ import {
   type RawHtmlProps,
   type SectionProps,
   type TextProps,
+  type VideoProps,
 } from "./types";
 import type { BlockStyle, TypographyStyle, Viewport } from "./style/types";
 import { applyBlockStyle } from "./style/serialize";
@@ -718,6 +724,7 @@ function RawHtmlSettings() {
 
 export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
   const [preview, setPreview] = useState<{
+    sourceId: string;
     name: string;
     images: GalleryPickerPreviewImage[];
   } | null>(null);
@@ -726,7 +733,6 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
 
   useEffect(() => {
     if (!galleryId) {
-      setPreview(null);
       return;
     }
     let cancelled = false;
@@ -736,7 +742,7 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
       if ("error" in res) {
         setPreview(null);
       } else {
-        setPreview({ name: res.name, images: res.images });
+        setPreview({ sourceId: galleryId, name: res.name, images: res.images });
       }
     });
     return () => {
@@ -757,7 +763,7 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
           <Images className="mx-auto mb-2 h-6 w-6" />
           Gallery placeholder — pick a gallery in the block settings.
         </div>
-      ) : preview ? (
+      ) : preview?.sourceId === galleryId ? (
         <div
           style={cssStyle}
           className={cn("my-4 rounded-md border bg-card p-3", bbClass)}
@@ -872,6 +878,131 @@ function GallerySettings() {
   );
 }
 
+/* ===================== Video ===================== */
+
+export function Video({
+  src,
+  provider,
+  width,
+  height,
+  alignment,
+  style,
+}: VideoProps) {
+  return (
+    <NodeWrap>
+      <div className="pointer-events-none">
+        <VideoStatic
+          src={src}
+          provider={provider}
+          width={width}
+          height={height}
+          alignment={alignment}
+          style={style}
+        />
+      </div>
+    </NodeWrap>
+  );
+}
+Video.craft = {
+  displayName: "Video",
+  props: defaults.Video,
+  related: { settings: VideoSettings },
+};
+
+function VideoSettings() {
+  const {
+    actions: { setProp },
+    src,
+    provider,
+    width,
+    height,
+    alignment,
+  } = useNode((n) => ({
+    src: (n.data.props as VideoProps).src,
+    provider: (n.data.props as VideoProps).provider,
+    width: (n.data.props as VideoProps).width,
+    height: (n.data.props as VideoProps).height,
+    alignment: (n.data.props as VideoProps).alignment,
+  }));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  return (
+    <>
+      <Field label="Selected video">
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          {src ? (
+            <>
+              <p className="font-medium capitalize">{provider}</p>
+              <p className="truncate text-xs text-muted-foreground">{src}</p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">No video selected.</p>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 w-full"
+          onClick={() => setDialogOpen(true)}
+        >
+          <Film className="h-4 w-4" />
+          {src ? "Change video" : "Choose video"}
+        </Button>
+        {src ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-1 w-full"
+            onClick={() =>
+              setProp((p: VideoProps) => {
+                p.src = "";
+                p.provider = "youtube";
+                p.width = "100%";
+                p.height = null;
+                p.alignment = "center";
+              })
+            }
+          >
+            Clear selection
+          </Button>
+        ) : null}
+      </Field>
+      <VideoInsertDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        mode={src ? "edit" : "insert"}
+        initialValues={
+          src
+            ? {
+                src,
+                provider,
+                width,
+                height,
+                alignment,
+              }
+            : null
+        }
+        onInsert={(values) => {
+          setProp((p: VideoProps) => {
+            p.src = values.src;
+            p.provider = values.provider;
+            p.width = values.width ?? null;
+            p.height = values.height ?? null;
+            p.alignment = values.alignment ?? "center";
+          });
+        }}
+        onAlignmentChange={(next) => {
+          setProp((p: VideoProps) => {
+            p.alignment = next;
+          });
+        }}
+      />
+      <BlockSettingsPanel blockName="Video" />
+    </>
+  );
+}
+
 /* ===================== Helpers ===================== */
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -886,37 +1017,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 /* ===================== Form ===================== */
 
 export function Form({ formId, formName, style }: FormProps) {
-  const [preview, setPreview] = useState<{
-    name: string;
-    fieldCount: number;
-    status: string;
-  } | null>(null);
-  const [, startPreview] = useTransition();
-
-  useEffect(() => {
-    if (!formId) {
-      setPreview(null);
-      return;
-    }
-    let cancelled = false;
-    startPreview(async () => {
-      const res = await fetchFormPreview({ id: formId });
-      if (cancelled) return;
-      if ("error" in res) {
-        setPreview(null);
-      } else {
-        setPreview({
-          name: res.name,
-          fieldCount: res.fieldCount,
-          status: res.status,
-        });
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [formId]);
-
   return (
     <NodeWrap style={style}>
       {!formId ? (
@@ -927,20 +1027,9 @@ export function Form({ formId, formName, style }: FormProps) {
             Only <strong>published</strong> forms appear in the picker.
           </p>
         </div>
-      ) : preview ? (
-        <div className="my-4 rounded-md border bg-card p-3 text-sm">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <FormInput className="h-3.5 w-3.5" />
-            <span className="font-medium">{preview.name}</span>
-            <span>
-              · {preview.fieldCount} field{preview.fieldCount === 1 ? "" : "s"}
-            </span>
-            <span>· {preview.status}</span>
-          </div>
-        </div>
       ) : (
-        <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-          Loading form{formName ? ` "${formName}"` : ""}…
+        <div className="pointer-events-none">
+          <CmsFormEditorPreview formId={formId} formName={formName} />
         </div>
       )}
     </NodeWrap>
@@ -1023,6 +1112,8 @@ export function FormSubmissions({
   formId,
   formName,
   displayMode = "table",
+  pageSize = 10,
+  hideId = true,
   style,
 }: FormSubmissionsProps) {
   return (
@@ -1033,18 +1124,14 @@ export function FormSubmissions({
           Form Submissions placeholder — pick a form in the block settings.
         </div>
       ) : (
-        <div className="my-4 rounded-md border bg-card p-3">
-          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <FormInput className="h-3.5 w-3.5" />
-            <span className="font-medium">Form Submissions</span>
-            {formName ? (
-              <span className="min-w-0 truncate">· {formName}</span>
-            ) : null}
-            <span>· {displayMode} view</span>
-          </div>
-          <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2 text-center">
-            Submissions will be displayed here on the public page.
-          </div>
+        <div className="pointer-events-none">
+          <FormSubmissionsEditorPreview
+            formId={formId}
+            formName={formName}
+            displayMode={displayMode}
+            pageSize={pageSize}
+            hideId={hideId}
+          />
         </div>
       )}
     </NodeWrap>
@@ -1192,6 +1279,7 @@ export const resolver = {
   Hero,
   RawHtml,
   Gallery,
+  Video,
   Form,
   FormSubmissions,
 };
@@ -1206,3 +1294,4 @@ void HeadingStatic;
 void HeroStatic;
 void TextStatic;
 void SectionStatic;
+void VideoStatic;

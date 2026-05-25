@@ -1,4 +1,8 @@
 import type { JSONContent } from "@tiptap/react";
+import type {
+  VideoAlignment,
+  VideoProvider,
+} from "@/app/dashboard/content/_editors/video-shared";
 import type { BlockStyle } from "./style/types";
 
 /**
@@ -39,6 +43,13 @@ export type GalleryProps = StyledProps & {
   galleryId: string;
   galleryName: string;
 };
+export type VideoProps = StyledProps & {
+  src: string;
+  provider: VideoProvider;
+  width?: string | null;
+  height?: string | null;
+  alignment?: VideoAlignment | null;
+};
 export type FormProps = StyledProps & { formId: string; formName: string };
 export type FormSubmissionsProps = StyledProps & {
   formId: string;
@@ -60,6 +71,7 @@ export const blockNames = [
   "Hero",
   "RawHtml",
   "Gallery",
+  "Video",
   "Form",
   "FormSubmissions",
 ] as const;
@@ -123,6 +135,13 @@ export const defaults = {
     galleryId: "",
     galleryName: "",
   } satisfies GalleryProps,
+  Video: {
+    src: "",
+    provider: "youtube",
+    width: "100%",
+    height: null,
+    alignment: "center",
+  } satisfies VideoProps,
   Form: {
     formId: "",
     formName: "",
