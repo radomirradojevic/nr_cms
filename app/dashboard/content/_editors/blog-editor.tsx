@@ -70,6 +70,7 @@ import { Label } from "@/components/ui/label";
 import { useTiptapToolbarState } from "./tiptap-toolbar-state";
 import type { VideoAlignment, VideoProvider } from "./video-extension";
 import type { LayoutKind } from "./layout-extension";
+import { layoutPresets } from "./layout-presets";
 
 type Props = {
   /**
@@ -144,20 +145,6 @@ const editableEmbedLabels: Record<EditableEmbedType, string> = {
   cmsForm: "Form",
   cmsFormSubmissions: "Form Submission",
 };
-
-const layoutOptions: Array<{
-  value: LayoutKind;
-  label: string;
-  tracks: string;
-}> = [
-  { value: "2-col", label: "2 Columns (50/50)", tracks: "1fr 1fr" },
-  { value: "3-col", label: "3 Columns", tracks: "1fr 1fr 1fr" },
-  { value: "4-col", label: "4 Columns", tracks: "1fr 1fr 1fr 1fr" },
-  { value: "70-30", label: "70/30", tracks: "7fr 3fr" },
-  { value: "30-70", label: "30/70", tracks: "3fr 7fr" },
-  { value: "60-40", label: "60/40", tracks: "6fr 4fr" },
-  { value: "40-60", label: "40/60", tracks: "4fr 6fr" },
-];
 
 export function BlogEditor({
   defaultValue,
@@ -1106,7 +1093,7 @@ export function BlogEditor({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
-            {layoutOptions.map((option) => (
+            {layoutPresets.map((option) => (
               <button
                 key={option.value}
                 type="button"

@@ -5,10 +5,12 @@ import {
   HeadingStatic,
   HeroStatic,
   ImageStatic,
+  LayoutStatic,
   RawHtmlStatic,
   RootStatic,
   SectionStatic,
   TextStatic,
+  VideoStatic,
 } from "./blocks/static";
 import {
   ROOT_NODE_ID,
@@ -39,6 +41,9 @@ export const defaultStaticRegistry: StaticRegistry = {
   Section: SectionStatic as never,
   // Inner canvas slot of a Section — just passes children through.
   SectionSlot: ({ children }) => <>{children}</>,
+  Layout: LayoutStatic as never,
+  // Linked slots inside Layout just render their children.
+  LayoutSlot: ({ children }) => <div>{children}</div>,
   Columns: ColumnsStatic as never,
   // Column slots inside Columns just render their children.
   ColumnSlot: ({ children }) => <div>{children}</div>,
@@ -58,6 +63,7 @@ export const defaultStaticRegistry: StaticRegistry = {
       {typeof galleryName === "string" && galleryName ? `: ${galleryName}` : ""}
     </div>
   ),
+  Video: VideoStatic as never,
   // Synchronous client-safe placeholder. The RSC entry overrides this with
   // the async `FormStatic` that fetches and renders the real form.
   Form: ({ formName }: Record<string, unknown> & { children?: ReactNode }) => (

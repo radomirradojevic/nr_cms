@@ -1,4 +1,12 @@
 import type { JSONContent } from "@tiptap/react";
+import type {
+  VideoAlignment,
+  VideoProvider,
+} from "@/app/dashboard/content/_editors/video-shared";
+import type {
+  LayoutGap,
+  LayoutKind,
+} from "@/app/dashboard/content/_editors/layout-presets";
 import type { BlockStyle } from "./style/types";
 
 /**
@@ -11,6 +19,10 @@ export type StyledProps = { style?: BlockStyle };
 export type RootProps = Record<string, never>;
 export type SectionProps = StyledProps & { padded?: boolean };
 export type ColumnsProps = StyledProps & { gap?: "sm" | "md" | "lg" };
+export type LayoutProps = StyledProps & {
+  preset?: LayoutKind;
+  gap?: LayoutGap;
+};
 export type HeadingProps = StyledProps & {
   content: JSONContent;
   level: "1" | "2" | "3";
@@ -39,6 +51,13 @@ export type GalleryProps = StyledProps & {
   galleryId: string;
   galleryName: string;
 };
+export type VideoProps = StyledProps & {
+  src: string;
+  provider: VideoProvider;
+  width?: string | null;
+  height?: string | null;
+  alignment?: VideoAlignment | null;
+};
 export type FormProps = StyledProps & { formId: string; formName: string };
 export type FormSubmissionsProps = StyledProps & {
   formId: string;
@@ -52,6 +71,7 @@ export type FormSubmissionsProps = StyledProps & {
 
 export const blockNames = [
   "Section",
+  "Layout",
   "Columns",
   "Heading",
   "Text",
@@ -60,6 +80,7 @@ export const blockNames = [
   "Hero",
   "RawHtml",
   "Gallery",
+  "Video",
   "Form",
   "FormSubmissions",
 ] as const;
@@ -73,6 +94,7 @@ export const emptyDoc: JSONContent = {
 
 export const defaults = {
   Section: { padded: true } satisfies SectionProps,
+  Layout: { preset: "2-col", gap: "md" } satisfies LayoutProps,
   Columns: { gap: "md" } satisfies ColumnsProps,
   Heading: {
     level: "2" as const,
@@ -123,6 +145,13 @@ export const defaults = {
     galleryId: "",
     galleryName: "",
   } satisfies GalleryProps,
+  Video: {
+    src: "",
+    provider: "youtube",
+    width: "100%",
+    height: null,
+    alignment: "center",
+  } satisfies VideoProps,
   Form: {
     formId: "",
     formName: "",

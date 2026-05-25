@@ -3,18 +3,22 @@
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useNode, useEditor, Element } from "@craftjs/core";
 import { Button } from "@/components/ui/button";
-import { ImageIcon, Images, FormInput } from "lucide-react";
+import { Film, ImageIcon, Images, FormInput } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePickerDialog } from "./image-picker-dialog";
 import { GallerySelectDialog } from "@/app/dashboard/content/_editors/gallery-select-dialog";
+import { VideoInsertDialog } from "@/app/dashboard/content/_editors/video-insert-dialog";
 import { FormSelectDialog } from "@/app/dashboard/content/_editors/form-select-dialog";
+import {
+  CmsFormEditorPreview,
+  FormSubmissionsEditorPreview,
+} from "@/app/dashboard/content/_editors/embed-preview-components";
 import {
   fetchGalleryPreview,
   type GalleryPickerPreviewImage,
 } from "@/app/dashboard/gallerymanager/actions";
-import { fetchFormPreview } from "@/app/dashboard/form-builder/actions";
 import {
   Select,
   SelectContent,
@@ -30,9 +34,11 @@ import {
   HeadingStatic,
   HeroStatic,
   ImageStatic,
+  LayoutStatic,
   RawHtmlStatic,
   SectionStatic,
   TextStatic,
+  VideoStatic,
 } from "./static";
 import {
   defaults,
@@ -44,10 +50,19 @@ import {
   type HeadingProps,
   type HeroProps,
   type ImageProps,
+  type LayoutProps,
   type RawHtmlProps,
   type SectionProps,
   type TextProps,
+  type VideoProps,
 } from "./types";
+import {
+  getLayoutPreset,
+  layoutGapOptions,
+  layoutPresets,
+  normalizeLayoutKind,
+  type LayoutKind,
+} from "@/app/dashboard/content/_editors/layout-presets";
 import type { BlockStyle, TypographyStyle, Viewport } from "./style/types";
 import { applyBlockStyle } from "./style/serialize";
 import { useViewport } from "./panel/viewport-context";
@@ -318,6 +333,163 @@ function ColumnsSettings() {
         </Select>
       </Field>
       <BlockSettingsPanel blockName="Columns" />
+    </>
+  );
+}
+
+/* ===================== Layout ===================== */
+
+function tracksToGridTemplate(tracks: string) {
+  return tracks
+    .split(" ")
+    .map((track) => `minmax(0, ${track})`)
+    .join(" ");
+}
+
+export function Layout({ preset, gap, style }: LayoutProps) {
+  const {
+    connectors: { connect, drag },
+    selected,
+    hovered,
+    id,
+  } = useNode((n) => ({
+    selected: n.events.selected,
+    hovered: n.events.hovered,
+  }));
+  const { viewport } = useViewport();
+  const { style: cssStyle, className: bbClass } = useBlockStyleShell(style);
+  const layoutPreset = getLayoutPreset(preset);
+  const gapClass =
+    layoutGapOptions.find((option) => option.value === (gap ?? "md"))
+      ?.className ?? "gap-6";
+  const gridTemplateColumns =
+    viewport === "desktop" ? tracksToGridTemplate(layoutPreset.tracks) : "1fr";
+  const ring = selected
+    ? "ring-2 ring-primary"
+    : hovered
+      ? "ring-1 ring-primary/40"
+      : "";
+
+  return (
+    <section
+      ref={(el) => {
+        if (el) connect(drag(el));
+      }}
+      style={{ ...cssStyle, gridTemplateColumns }}
+      className={cn(
+        "my-6 grid rounded-md border border-dashed border-muted-foreground/30 bg-muted/10 p-2 transition-shadow",
+        gapClass,
+        bbClass,
+        ring,
+      )}
+      data-layout-id={id}
+      data-layout-preset={layoutPreset.value}
+    >
+      {Array.from({ length: layoutPreset.columns }, (_, index) => (
+        <Element
+          key={index}
+          id={`slot-${index + 1}`}
+          is={LayoutSlot}
+          canvas
+          index={index + 1}
+        />
+      ))}
+    </section>
+  );
+}
+Layout.craft = {
+  displayName: "LAYOUT",
+  props: defaults.Layout,
+  related: { settings: LayoutSettings },
+};
+
+function LayoutSlot({
+  children,
+  index,
+}: {
+  children?: ReactNode;
+  index?: number;
+}) {
+  const {
+    connectors: { connect },
+  } = useNode();
+  return (
+    <div
+      ref={(el) => {
+        if (el) connect(el);
+      }}
+      className="relative min-h-[96px] min-w-0 rounded border border-dashed border-muted-foreground/25 bg-background/70 p-3"
+    >
+      {children ? (
+        <div className="space-y-2">{children}</div>
+      ) : (
+        <div className="flex min-h-[72px] items-center justify-center rounded bg-muted/30 text-center text-xs font-medium text-muted-foreground">
+          Drop blocks here
+          {index ? ` - Column ${index}` : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+LayoutSlot.craft = {
+  displayName: "Layout column",
+  rules: { canDrag: () => false },
+};
+
+function LayoutSettings() {
+  const {
+    actions: { setProp },
+    preset,
+    gap,
+  } = useNode((n) => ({
+    preset: (n.data.props as LayoutProps).preset,
+    gap: (n.data.props as LayoutProps).gap,
+  }));
+  return (
+    <>
+      <Field label="Preset">
+        <Select
+          value={normalizeLayoutKind(preset)}
+          onValueChange={(v) =>
+            setProp((p: LayoutProps) => {
+              p.preset = v as LayoutKind;
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {layoutPresets.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Gap">
+        <Select
+          value={gap ?? "md"}
+          onValueChange={(v) =>
+            setProp((p: LayoutProps) => {
+              p.gap = v as LayoutProps["gap"];
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {layoutGapOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <BlockSettingsPanel blockName="Layout" />
     </>
   );
 }
@@ -718,6 +890,7 @@ function RawHtmlSettings() {
 
 export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
   const [preview, setPreview] = useState<{
+    sourceId: string;
     name: string;
     images: GalleryPickerPreviewImage[];
   } | null>(null);
@@ -726,7 +899,6 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
 
   useEffect(() => {
     if (!galleryId) {
-      setPreview(null);
       return;
     }
     let cancelled = false;
@@ -736,7 +908,7 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
       if ("error" in res) {
         setPreview(null);
       } else {
-        setPreview({ name: res.name, images: res.images });
+        setPreview({ sourceId: galleryId, name: res.name, images: res.images });
       }
     });
     return () => {
@@ -757,7 +929,7 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
           <Images className="mx-auto mb-2 h-6 w-6" />
           Gallery placeholder — pick a gallery in the block settings.
         </div>
-      ) : preview ? (
+      ) : preview?.sourceId === galleryId ? (
         <div
           style={cssStyle}
           className={cn("my-4 rounded-md border bg-card p-3", bbClass)}
@@ -872,6 +1044,131 @@ function GallerySettings() {
   );
 }
 
+/* ===================== Video ===================== */
+
+export function Video({
+  src,
+  provider,
+  width,
+  height,
+  alignment,
+  style,
+}: VideoProps) {
+  return (
+    <NodeWrap>
+      <div className="pointer-events-none">
+        <VideoStatic
+          src={src}
+          provider={provider}
+          width={width}
+          height={height}
+          alignment={alignment}
+          style={style}
+        />
+      </div>
+    </NodeWrap>
+  );
+}
+Video.craft = {
+  displayName: "Video",
+  props: defaults.Video,
+  related: { settings: VideoSettings },
+};
+
+function VideoSettings() {
+  const {
+    actions: { setProp },
+    src,
+    provider,
+    width,
+    height,
+    alignment,
+  } = useNode((n) => ({
+    src: (n.data.props as VideoProps).src,
+    provider: (n.data.props as VideoProps).provider,
+    width: (n.data.props as VideoProps).width,
+    height: (n.data.props as VideoProps).height,
+    alignment: (n.data.props as VideoProps).alignment,
+  }));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  return (
+    <>
+      <Field label="Selected video">
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          {src ? (
+            <>
+              <p className="font-medium capitalize">{provider}</p>
+              <p className="truncate text-xs text-muted-foreground">{src}</p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">No video selected.</p>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 w-full"
+          onClick={() => setDialogOpen(true)}
+        >
+          <Film className="h-4 w-4" />
+          {src ? "Change video" : "Choose video"}
+        </Button>
+        {src ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-1 w-full"
+            onClick={() =>
+              setProp((p: VideoProps) => {
+                p.src = "";
+                p.provider = "youtube";
+                p.width = "100%";
+                p.height = null;
+                p.alignment = "center";
+              })
+            }
+          >
+            Clear selection
+          </Button>
+        ) : null}
+      </Field>
+      <VideoInsertDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        mode={src ? "edit" : "insert"}
+        initialValues={
+          src
+            ? {
+                src,
+                provider,
+                width,
+                height,
+                alignment,
+              }
+            : null
+        }
+        onInsert={(values) => {
+          setProp((p: VideoProps) => {
+            p.src = values.src;
+            p.provider = values.provider;
+            p.width = values.width ?? null;
+            p.height = values.height ?? null;
+            p.alignment = values.alignment ?? "center";
+          });
+        }}
+        onAlignmentChange={(next) => {
+          setProp((p: VideoProps) => {
+            p.alignment = next;
+          });
+        }}
+      />
+      <BlockSettingsPanel blockName="Video" />
+    </>
+  );
+}
+
 /* ===================== Helpers ===================== */
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -886,37 +1183,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 /* ===================== Form ===================== */
 
 export function Form({ formId, formName, style }: FormProps) {
-  const [preview, setPreview] = useState<{
-    name: string;
-    fieldCount: number;
-    status: string;
-  } | null>(null);
-  const [, startPreview] = useTransition();
-
-  useEffect(() => {
-    if (!formId) {
-      setPreview(null);
-      return;
-    }
-    let cancelled = false;
-    startPreview(async () => {
-      const res = await fetchFormPreview({ id: formId });
-      if (cancelled) return;
-      if ("error" in res) {
-        setPreview(null);
-      } else {
-        setPreview({
-          name: res.name,
-          fieldCount: res.fieldCount,
-          status: res.status,
-        });
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [formId]);
-
   return (
     <NodeWrap style={style}>
       {!formId ? (
@@ -927,20 +1193,9 @@ export function Form({ formId, formName, style }: FormProps) {
             Only <strong>published</strong> forms appear in the picker.
           </p>
         </div>
-      ) : preview ? (
-        <div className="my-4 rounded-md border bg-card p-3 text-sm">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <FormInput className="h-3.5 w-3.5" />
-            <span className="font-medium">{preview.name}</span>
-            <span>
-              · {preview.fieldCount} field{preview.fieldCount === 1 ? "" : "s"}
-            </span>
-            <span>· {preview.status}</span>
-          </div>
-        </div>
       ) : (
-        <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-          Loading form{formName ? ` "${formName}"` : ""}…
+        <div className="pointer-events-none">
+          <CmsFormEditorPreview formId={formId} formName={formName} />
         </div>
       )}
     </NodeWrap>
@@ -1023,6 +1278,8 @@ export function FormSubmissions({
   formId,
   formName,
   displayMode = "table",
+  pageSize = 10,
+  hideId = true,
   style,
 }: FormSubmissionsProps) {
   return (
@@ -1033,18 +1290,14 @@ export function FormSubmissions({
           Form Submissions placeholder — pick a form in the block settings.
         </div>
       ) : (
-        <div className="my-4 rounded-md border bg-card p-3">
-          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <FormInput className="h-3.5 w-3.5" />
-            <span className="font-medium">Form Submissions</span>
-            {formName ? (
-              <span className="min-w-0 truncate">· {formName}</span>
-            ) : null}
-            <span>· {displayMode} view</span>
-          </div>
-          <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2 text-center">
-            Submissions will be displayed here on the public page.
-          </div>
+        <div className="pointer-events-none">
+          <FormSubmissionsEditorPreview
+            formId={formId}
+            formName={formName}
+            displayMode={displayMode}
+            pageSize={pageSize}
+            hideId={hideId}
+          />
         </div>
       )}
     </NodeWrap>
@@ -1183,6 +1436,8 @@ export const resolver = {
   Root,
   Section,
   SectionSlot,
+  Layout,
+  LayoutSlot,
   Columns,
   ColumnSlot,
   Heading,
@@ -1192,6 +1447,7 @@ export const resolver = {
   Hero,
   RawHtml,
   Gallery,
+  Video,
   Form,
   FormSubmissions,
 };
@@ -1204,5 +1460,7 @@ export { useEditor };
 void ColumnsStatic;
 void HeadingStatic;
 void HeroStatic;
+void LayoutStatic;
 void TextStatic;
 void SectionStatic;
+void VideoStatic;

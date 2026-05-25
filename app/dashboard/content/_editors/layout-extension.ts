@@ -1,14 +1,12 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
+import {
+  getLayoutColumnCount,
+  normalizeLayoutKind,
+  type LayoutKind,
+} from "./layout-presets";
 
-export type LayoutKind =
-  | "2-col"
-  | "3-col"
-  | "4-col"
-  | "70-30"
-  | "30-70"
-  | "60-40"
-  | "40-60";
+export type { LayoutKind };
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -18,31 +16,10 @@ declare module "@tiptap/core" {
   }
 }
 
-const layoutColumnCounts: Record<LayoutKind, number> = {
-  "2-col": 2,
-  "3-col": 3,
-  "4-col": 4,
-  "70-30": 2,
-  "30-70": 2,
-  "60-40": 2,
-  "40-60": 2,
-};
-
-function normalizeLayout(value: unknown): LayoutKind {
-  return value === "3-col" ||
-    value === "4-col" ||
-    value === "70-30" ||
-    value === "30-70" ||
-    value === "60-40" ||
-    value === "40-60"
-    ? value
-    : "2-col";
-}
-
 export const LayoutSection = Node.create({
   name: "layoutSection",
   group: "block",
-  content: "layoutColumn{2,4}",
+  content: "layoutColumn{1,4}",
   defining: true,
   draggable: true,
   selectable: true,
@@ -51,9 +28,9 @@ export const LayoutSection = Node.create({
     return {
       layout: {
         default: "2-col",
-        parseHTML: (el) => normalizeLayout(el.getAttribute("data-layout")),
+        parseHTML: (el) => normalizeLayoutKind(el.getAttribute("data-layout")),
         renderHTML: (attributes) => ({
-          "data-layout": normalizeLayout(attributes.layout),
+          "data-layout": normalizeLayoutKind(attributes.layout),
         }),
       },
     };
@@ -64,7 +41,7 @@ export const LayoutSection = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const layout = normalizeLayout(HTMLAttributes["data-layout"]);
+    const layout = normalizeLayoutKind(HTMLAttributes["data-layout"]);
     return [
       "div",
       mergeAttributes(HTMLAttributes, {
@@ -80,14 +57,14 @@ export const LayoutSection = Node.create({
       insertLayoutSection:
         ({ layout }) =>
         ({ state, dispatch }) => {
-          const normalizedLayout = normalizeLayout(layout);
+          const normalizedLayout = normalizeLayoutKind(layout);
           const sectionType = state.schema.nodes.layoutSection;
           const columnType = state.schema.nodes.layoutColumn;
           const paragraphType = state.schema.nodes.paragraph;
 
           if (!sectionType || !columnType || !paragraphType) return false;
 
-          const columnCount = layoutColumnCounts[normalizedLayout];
+          const columnCount = getLayoutColumnCount(normalizedLayout);
           const columns = Array.from({ length: columnCount }, (_, index) =>
             columnType.create(
               { column: index + 1 },
