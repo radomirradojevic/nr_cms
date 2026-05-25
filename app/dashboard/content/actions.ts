@@ -3,8 +3,6 @@
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
-import { generateHTML } from "@tiptap/html";
-import type { JSONContent } from "@tiptap/react";
 
 import { db } from "@/db";
 import { content, topMenuItems } from "@/db/schema";
@@ -28,7 +26,7 @@ import {
   VISIBILITY_ROLES,
 } from "@/lib/content-visibility";
 import { slugify } from "@/lib/utils";
-import { tiptapExtensions } from "./_editors/tiptap-extensions";
+import { renderTiptapHtml } from "./_editors/render-tiptap-html";
 import {
   isLockedBy,
   logLockEvent,
@@ -106,7 +104,7 @@ function renderHtml(
     // Storing an empty string keeps the column non-null for blog posts.
     return "";
   }
-  return generateHTML(contentJson as JSONContent, tiptapExtensions);
+  return renderTiptapHtml(contentJson);
 }
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────

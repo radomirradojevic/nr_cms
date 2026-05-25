@@ -8,9 +8,13 @@ import { Button } from "@/components/ui/button";
 import {
   Bold,
   Code2,
+  FileCode2,
+  IndentDecrease,
+  IndentIncrease,
   Italic,
   List,
   ListOrdered,
+  Palette,
   Quote,
   Strikethrough,
   Underline,
@@ -67,10 +71,29 @@ import {
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useTiptapToolbarState } from "./tiptap-toolbar-state";
 import type { VideoAlignment, VideoProvider } from "./video-extension";
 import type { LayoutKind } from "./layout-extension";
 import { layoutPresets } from "./layout-presets";
+import {
+  CODE_LANGUAGES,
+  languageForTiptap,
+  normalizeCodeLanguage,
+  type CodeLanguage,
+} from "./code-languages";
+import { sanitizeTiptapHtml } from "./sanitize-tiptap-html";
 
 type Props = {
   /**
@@ -124,6 +147,7 @@ type FormSubmissionsDialogValues = {
   displayMode: "table" | "card";
   pageSize: number;
   hideId: boolean;
+  hideSubmitted: boolean;
 };
 
 type EditingNode<T> = {
@@ -145,6 +169,21 @@ const editableEmbedLabels: Record<EditableEmbedType, string> = {
   cmsForm: "Form",
   cmsFormSubmissions: "Form Submission",
 };
+
+const TEXT_COLORS = [
+  { value: "#f8fafc", label: "Snow" },
+  { value: "#cbd5e1", label: "Mist" },
+  { value: "#94a3b8", label: "Slate" },
+  { value: "#ef4444", label: "Red" },
+  { value: "#f97316", label: "Orange" },
+  { value: "#eab308", label: "Gold" },
+  { value: "#22c55e", label: "Green" },
+  { value: "#14b8a6", label: "Teal" },
+  { value: "#38bdf8", label: "Sky" },
+  { value: "#818cf8", label: "Indigo" },
+  { value: "#c084fc", label: "Violet" },
+  { value: "#f472b6", label: "Pink" },
+] as const;
 
 export function BlogEditor({
   defaultValue,
@@ -373,11 +412,45 @@ export function BlogEditor({
     setLinkDialogOpen(false);
   }
 
+  function applyTextColor(color: string) {
+    editor!.chain().focus().setColor(color).run();
+  }
+
+  function clearTextColor() {
+    editor!.chain().focus().unsetColor().run();
+  }
+
+  function toggleCodeBlock() {
+    const language = normalizeCodeLanguage(
+      editor!.getAttributes("codeBlock").language,
+    );
+
+    editor!
+      .chain()
+      .focus()
+      .toggleCodeBlock(
+        languageForTiptap(language)
+          ? { language: languageForTiptap(language)! }
+          : undefined,
+      )
+      .run();
+  }
+
+  function setCodeLanguage(language: CodeLanguage) {
+    const tiptapLanguage = languageForTiptap(language);
+
+    editor!
+      .chain()
+      .focus()
+      .setCodeBlock(tiptapLanguage ? { language: tiptapLanguage } : undefined)
+      .run();
+  }
+
   function toggleHtmlMode() {
     if (!htmlMode) {
       setHtmlSource(editor!.getHTML());
     } else {
-      editor!.commands.setContent(htmlSource);
+      editor!.commands.setContent(sanitizeTiptapHtml(htmlSource));
     }
     setHtmlMode((prev) => !prev);
   }
@@ -672,6 +745,7 @@ export function BlogEditor({
       displayMode: values.displayMode,
       pageSize: values.pageSize,
       hideId: values.hideId,
+      hideSubmitted: values.hideSubmitted,
     };
 
     if (
@@ -751,6 +825,55 @@ export function BlogEditor({
               >
                 <Underline className="h-4 w-4" />
               </Btn>
+              <Popover>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant={toolbarState.textColor ? "default" : "ghost"}
+                        size="sm"
+                        className="relative h-8 w-8 p-0"
+                        onMouseDown={(event) => event.preventDefault()}
+                      >
+                        <Palette className="h-4 w-4" />
+                        <span
+                          className="absolute bottom-1 h-1 w-4 rounded-full border border-background"
+                          style={{
+                            backgroundColor:
+                              toolbarState.textColor ?? "currentColor",
+                          }}
+                        />
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Text color</TooltipContent>
+                </Tooltip>
+                <PopoverContent align="start" className="w-56">
+                  <div className="grid grid-cols-6 gap-1">
+                    {TEXT_COLORS.map((color) => (
+                      <button
+                        key={color.value}
+                        type="button"
+                        aria-label={color.label}
+                        title={color.label}
+                        className="h-7 w-7 rounded-md border border-border ring-offset-background transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        style={{ backgroundColor: color.value }}
+                        onClick={() => applyTextColor(color.value)}
+                      />
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 w-full justify-start"
+                    onClick={clearTextColor}
+                  >
+                    Theme default
+                  </Button>
+                </PopoverContent>
+              </Popover>
               <Sep />
               <Btn
                 tooltip="Bullet list"
@@ -773,6 +896,20 @@ export function BlogEditor({
               >
                 <Quote className="h-4 w-4" />
               </Btn>
+              <Btn
+                tooltip="Decrease indent"
+                active={false}
+                onClick={() => editor.chain().focus().decreaseIndent().run()}
+              >
+                <IndentDecrease className="h-4 w-4" />
+              </Btn>
+              <Btn
+                tooltip="Increase indent"
+                active={toolbarState.indentLevel > 0}
+                onClick={() => editor.chain().focus().increaseIndent().run()}
+              >
+                <IndentIncrease className="h-4 w-4" />
+              </Btn>
               <Sep />
               <Btn
                 tooltip="Insert / edit link"
@@ -781,6 +918,39 @@ export function BlogEditor({
               >
                 <LinkIcon className="h-4 w-4" />
               </Btn>
+              <Sep />
+              <Btn
+                tooltip="Code block"
+                active={toolbarState.codeBlock}
+                onClick={toggleCodeBlock}
+              >
+                <FileCode2 className="h-4 w-4" />
+              </Btn>
+              {toolbarState.codeBlock && (
+                <Select
+                  value={normalizeCodeLanguage(
+                    editor.getAttributes("codeBlock").language,
+                  )}
+                  onValueChange={(value) =>
+                    setCodeLanguage(normalizeCodeLanguage(value))
+                  }
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="h-8 min-w-32 border-border bg-background"
+                    aria-label="Code language"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CODE_LANGUAGES.map((language) => (
+                      <SelectItem key={language.value} value={language.value}>
+                        {language.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Sep />
               <Btn
                 tooltip="Align left"
@@ -1340,6 +1510,7 @@ function getSelectedFormSubmissions(
           ? selection.attrs.pageSize
           : 5,
       hideId: selection.attrs.hideId !== false,
+      hideSubmitted: selection.attrs.hideSubmitted === true,
     },
   };
 }

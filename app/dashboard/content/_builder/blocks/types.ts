@@ -67,6 +67,7 @@ export type FormSubmissionsProps = StyledProps & {
   sortField?: string;
   sortOrder?: "asc" | "desc";
   hideId?: boolean;
+  hideSubmitted?: boolean;
 };
 
 export const blockNames = [
@@ -164,5 +165,6 @@ export const defaults = {
     sortField: "created_at",
     sortOrder: "desc" as const,
     hideId: true,
+    hideSubmitted: false,
   } satisfies FormSubmissionsProps,
 };

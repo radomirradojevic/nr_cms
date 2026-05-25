@@ -4,11 +4,25 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
 import Typography from "@tiptap/extension-typography";
 import TextAlign from "@tiptap/extension-text-align";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
+import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
 import { Video } from "./video-extension";
 import { GalleryNode } from "./gallery-extension";
 import { CmsFormNode } from "./form-extension";
 import { CmsFormSubmissionsNode } from "./form-submissions-extension";
 import { LayoutColumn, LayoutSection } from "./layout-extension";
+import { lowlight } from "./code-languages";
+import { CmsIndent } from "./indent-extension";
+
+export const codeBlockOptions = {
+  lowlight,
+  defaultLanguage: null,
+  enableTabIndentation: true,
+  HTMLAttributes: {
+    class: "cms-code-block",
+  },
+};
 
 const ImageWithSize = Image.extend({
   addAttributes() {
@@ -37,7 +51,12 @@ const ImageWithSize = Image.extend({
 export const tiptapExtensions = [
   StarterKit.configure({
     link: { openOnClick: false, autolink: true },
+    codeBlock: false,
   }),
+  TextStyle,
+  Color,
+  CodeBlockLowlight.configure(codeBlockOptions),
+  CmsIndent,
   ImageWithSize,
   Video,
   GalleryNode,

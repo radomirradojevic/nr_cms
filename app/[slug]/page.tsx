@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { getContentBySlug } from "@/data/content";
 import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
+import { renderTiptapHtml } from "@/app/dashboard/content/_editors/render-tiptap-html";
 import { BlogContent } from "@/components/blog-content";
 import { BlogComments } from "@/components/blog-comments";
 import { ContentUnauthorized } from "@/components/content-unauthorized";
@@ -120,7 +121,7 @@ export default async function PublicContentPage({ params }: Props) {
         ) : (
           <BlogContent
             className="cms-content max-w-none"
-            html={row.content ?? ""}
+            html={renderTiptapHtml(row.contentJson) || row.content || ""}
           />
         )}
         {row.contentType === "blog_post" && row.enableComments && (

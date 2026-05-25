@@ -39,6 +39,7 @@ type Props = {
     displayMode: DisplayMode;
     pageSize: number;
     hideId: boolean;
+    hideSubmitted: boolean;
   }) => void;
 };
 
@@ -50,6 +51,7 @@ type FormSubmissionsDialogValues = {
   displayMode?: DisplayMode;
   pageSize?: number;
   hideId?: boolean;
+  hideSubmitted?: boolean;
 };
 
 export function FormSubmissionsSelectDialog({
@@ -91,6 +93,9 @@ function FormSubmissionsSelectDialogContent({
     String(initialValues?.pageSize ?? 5),
   );
   const [hideId, setHideId] = useState(initialValues?.hideId ?? true);
+  const [hideSubmitted, setHideSubmitted] = useState(
+    initialValues?.hideSubmitted ?? false,
+  );
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -128,6 +133,7 @@ function FormSubmissionsSelectDialogContent({
       displayMode,
       pageSize: normalizedPageSize(),
       hideId,
+      hideSubmitted,
     });
     onOpenChange(false);
   }
@@ -203,7 +209,7 @@ function FormSubmissionsSelectDialogContent({
           )}
         </div>
 
-        <div className="grid gap-4 rounded-md border p-3 sm:grid-cols-3">
+        <div className="grid gap-4 rounded-md border p-3 sm:grid-cols-4">
           <div className="space-y-2">
             <Label>Display mode</Label>
             <Select
@@ -238,6 +244,14 @@ function FormSubmissionsSelectDialogContent({
               onCheckedChange={(checked) => setHideId(checked === true)}
             />
             <span>Hide ID</span>
+          </label>
+
+          <label className="flex items-center gap-2 self-end rounded-md border px-3 py-2 text-sm">
+            <Checkbox
+              checked={hideSubmitted}
+              onCheckedChange={(checked) => setHideSubmitted(checked === true)}
+            />
+            <span>Hide Submitted</span>
           </label>
         </div>
       </div>

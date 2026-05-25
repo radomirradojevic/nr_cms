@@ -7,6 +7,7 @@ import {
   type BlogFormSubmissionsEmbed,
   type BlogGalleryEmbed,
 } from "@/components/blog-content-embeds";
+import { sanitizeTiptapHtml } from "@/app/dashboard/content/_editors/sanitize-tiptap-html";
 
 type Props = {
   html: string;
@@ -81,7 +82,7 @@ function findEmbedBlocks(
  * React renderers.
  */
 export async function BlogContent({ html, className }: Props) {
-  const safeHtml = html ?? "";
+  const safeHtml = sanitizeTiptapHtml(html ?? "");
   const scopeId = hashHtml(safeHtml);
 
   const galleryMatches = findEmbedBlocks(safeHtml, GALLERY_OPEN_RE, "gallery");
