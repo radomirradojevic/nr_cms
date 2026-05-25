@@ -3,7 +3,15 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import {
+  Eye,
+  FolderTree,
+  ImageIcon,
+  Loader2,
+  MessageSquare,
+  Rocket,
+  Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { slugify } from "@/lib/utils";
 import { hasRole, type Role } from "@/lib/roles";
 import {
@@ -30,7 +39,7 @@ import { BlogEditor } from "./_editors/blog-editor";
 import { ImageInsertDialog } from "./_editors/image-insert-dialog";
 import { emptyTiptapJson } from "./_editors/tiptap-extensions";
 import { emptyBuilderData, type BuilderData } from "./_builder/types";
-import { ImageIcon } from "lucide-react";
+import type { PageEditorSettingsPanels } from "./_builder/page-editor";
 
 // PageEditor is heavy and uses Craft.js + CodeMirror — load client-only.
 const PageEditor = dynamic(
@@ -145,13 +154,14 @@ export function ContentForm({
   // Held in a ref (not state) so that drag/drop and keystrokes inside the
   // editor never re-render this entire form. The PageEditor / BlogEditor
   // are uncontrolled and push their latest value via `registerGetValue`.
-  const contentJsonRef = useRef<unknown>(
+  const [editorDefaultValue] = useState<unknown>(() =>
     initial?.contentJson != null
       ? JSON.parse(JSON.stringify(initial.contentJson))
       : contentType === "page"
         ? emptyBuilderData
         : emptyTiptapJson,
   );
+  const contentJsonRef = useRef<unknown>(editorDefaultValue);
   const getEditorValueRef = useRef<(() => unknown) | null>(null);
 
   function onTitleChange(v: string) {
@@ -252,6 +262,207 @@ export function ContentForm({
     });
   }
 
+  const publishingSettings = (
+    <div className="space-y-4">
+      {canChooseStatus ? (
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select
+            value={status}
+            onValueChange={(v) => setStatus(v as typeof status)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unpublished">Unpublished</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Authors create unpublished content. Ask a publisher or admin to
+          publish.
+        </p>
+      )}
+
+      {isAdmin && contentType === "page" && (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Label htmlFor="homepage" className="text-sm">
+              Set as homepage
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Only one page can be the homepage. Must be published.
+            </p>
+          </div>
+          <Switch
+            id="homepage"
+            checked={homepage}
+            onCheckedChange={setHomepage}
+            disabled={status !== "published"}
+          />
+        </div>
+      )}
+    </div>
+  );
+
+  const visibilitySettings = (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Choose who can view this content on the public site.
+      </p>
+      <div className="space-y-3">
+        <label className="flex items-start gap-3">
+          <Checkbox
+            id="visibility-public"
+            checked={visibilityPublic}
+            onCheckedChange={(v) => setVisibilityPublic(!!v)}
+            className="mt-0.5"
+          />
+          <div className="space-y-0.5">
+            <span className="text-sm font-medium">Public</span>
+            <p className="text-xs text-muted-foreground">
+              Visible to everyone, including anonymous visitors. Role selections
+              below are ignored while this is on.
+            </p>
+          </div>
+        </label>
+        {VISIBILITY_ROLES.map((role) => (
+          <label key={role} className="flex items-center gap-3 pl-1">
+            <Checkbox
+              id={`visibility-${role}`}
+              checked={visibilityRoles.includes(role)}
+              onCheckedChange={(v) => toggleVisibilityRole(role, !!v)}
+            />
+            <span className="text-sm capitalize">{role}</span>
+          </label>
+        ))}
+        <label className="flex items-center gap-3 pl-1">
+          <Checkbox id="visibility-admin" checked disabled />
+          <span className="text-sm capitalize text-muted-foreground">
+            admin
+            <span className="ml-2 text-xs">(admins always have access)</span>
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+
+  const categorySettings = (
+    <div className="space-y-4">
+      <Select value={categoryId} onValueChange={setCategoryId}>
+        <SelectTrigger>
+          <SelectValue placeholder="Select a category" />
+        </SelectTrigger>
+        <SelectContent>
+          {categories.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {categories.length === 0 && (
+        <p className="text-xs text-destructive">
+          No categories for this type. Create one in Content Categories first.
+        </p>
+      )}
+    </div>
+  );
+
+  const seoSettings = (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="meta-title">Meta title</Label>
+        <Input
+          id="meta-title"
+          value={metaTitle}
+          onChange={(e) => setMetaTitle(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="meta-desc">Meta description</Label>
+        <Textarea
+          id="meta-desc"
+          value={metaDescription}
+          onChange={(e) => setMetaDescription(e.target.value)}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+
+  const commentsSettings = (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <Label htmlFor="enable-comments" className="text-sm">
+            Enable comments
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Master switch for the comment form and list.
+          </p>
+        </div>
+        <Switch
+          id="enable-comments"
+          checked={enableComments}
+          onCheckedChange={setEnableComments}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <Label htmlFor="auto-publish-comments" className="text-sm">
+            Auto-publish comments
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Skip moderation queue for new comments.
+          </p>
+        </div>
+        <Switch
+          id="auto-publish-comments"
+          checked={autoPublishComments}
+          onCheckedChange={setAutoPublishComments}
+          disabled={!enableComments}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <Label htmlFor="allow-anon-comments" className="text-sm">
+            Allow anonymous
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Guests can comment with name + optional email.
+          </p>
+        </div>
+        <Switch
+          id="allow-anon-comments"
+          checked={allowAnonymousComments}
+          onCheckedChange={setAllowAnonymousComments}
+          disabled={!enableComments}
+        />
+      </div>
+      {mode === "edit" && initial?.id && (
+        <div className="pt-2 border-t">
+          <Button asChild variant="outline" size="sm" className="w-full">
+            <Link href={`/dashboard/content/${initial.id}/comments`}>
+              Manage comments
+            </Link>
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
+  const pageEditorSettingsPanels: PageEditorSettingsPanels = {
+    publishing: <div className="p-3">{publishingSettings}</div>,
+    visibility: <div className="p-3">{visibilitySettings}</div>,
+    category: <div className="p-3">{categorySettings}</div>,
+    seo: <div className="p-3">{seoSettings}</div>,
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -328,8 +539,12 @@ export function ContentForm({
         disabled={lockBlocksSave}
         className={
           lockBlocksSave
-            ? "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24%)] gap-6 opacity-70 pointer-events-none"
-            : "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24%)] gap-6"
+            ? contentType === "page"
+              ? "grid grid-cols-1 gap-6 opacity-70 pointer-events-none"
+              : "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24%)] gap-6 opacity-70 pointer-events-none"
+            : contentType === "page"
+              ? "grid grid-cols-1 gap-6"
+              : "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24%)] gap-6"
         }
       >
         <div className="min-w-0 space-y-4">
@@ -412,8 +627,9 @@ export function ContentForm({
             <Label>Content</Label>
             {contentType === "page" ? (
               <PageEditor
-                defaultValue={contentJsonRef.current}
+                defaultValue={editorDefaultValue}
                 appearance={appearance}
+                settingsPanels={pageEditorSettingsPanels}
                 registerGetValue={(getValue) => {
                   getEditorValueRef.current = getValue;
                 }}
@@ -423,7 +639,7 @@ export function ContentForm({
               />
             ) : (
               <BlogEditor
-                defaultValue={contentJsonRef.current as never}
+                defaultValue={editorDefaultValue as never}
                 registerGetValue={(getValue) => {
                   getEditorValueRef.current = getValue;
                 }}
@@ -435,208 +651,58 @@ export function ContentForm({
           </div>
         </div>
 
-        <aside className="min-w-0 space-y-4">
-          <div className="rounded-lg border p-4 space-y-4">
-            <h3 className="text-sm font-semibold">Publishing</h3>
-            {canChooseStatus ? (
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={status}
-                  onValueChange={(v) => setStatus(v as typeof status)}
+        {contentType === "blog_post" && (
+          <aside className="min-w-0 space-y-4 lg:sticky lg:top-[var(--sticky-header-h,0px)] lg:self-start">
+            <Tabs
+              defaultValue="publishing"
+              className="gap-0 rounded-lg border bg-background"
+            >
+              <TabsList className="m-2 grid h-auto w-auto grid-cols-3 gap-1 p-1">
+                <TabsTrigger
+                  value="publishing"
+                  className="min-w-0 px-2 text-xs"
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unpublished">Unpublished</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Authors create unpublished content. Ask a publisher or admin to
-                publish.
-              </p>
-            )}
-
-            {isAdmin && contentType === "page" && (
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="homepage" className="text-sm">
-                    Set as homepage
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Only one page can be the homepage. Must be published.
-                  </p>
-                </div>
-                <Switch
-                  id="homepage"
-                  checked={homepage}
-                  onCheckedChange={setHomepage}
-                  disabled={status !== "published"}
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-lg border p-4 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold">Visibility</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Choose who can view this content on the public site.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <label className="flex items-start gap-3">
-                <Checkbox
-                  id="visibility-public"
-                  checked={visibilityPublic}
-                  onCheckedChange={(v) => setVisibilityPublic(!!v)}
-                  className="mt-0.5"
-                />
-                <div className="space-y-0.5">
-                  <span className="text-sm font-medium">Public</span>
-                  <p className="text-xs text-muted-foreground">
-                    Visible to everyone, including anonymous visitors. Role
-                    selections below are ignored while this is on.
-                  </p>
-                </div>
-              </label>
-              {VISIBILITY_ROLES.map((role) => (
-                <label key={role} className="flex items-center gap-3 pl-1">
-                  <Checkbox
-                    id={`visibility-${role}`}
-                    checked={visibilityRoles.includes(role)}
-                    onCheckedChange={(v) => toggleVisibilityRole(role, !!v)}
-                  />
-                  <span className="text-sm capitalize">{role}</span>
-                </label>
-              ))}
-              <label className="flex items-center gap-3 pl-1">
-                <Checkbox id="visibility-admin" checked disabled />
-                <span className="text-sm capitalize text-muted-foreground">
-                  admin
-                  <span className="ml-2 text-xs">
-                    (admins always have access)
-                  </span>
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <div className="rounded-lg border p-4 space-y-4">
-            <h3 className="text-sm font-semibold">Category</h3>
-            <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {categories.length === 0 && (
-              <p className="text-xs text-destructive">
-                No categories for this type. Create one in Content Categories
-                first.
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-lg border p-4 space-y-4">
-            <h3 className="text-sm font-semibold">SEO</h3>
-            <div className="space-y-2">
-              <Label htmlFor="meta-title">Meta title</Label>
-              <Input
-                id="meta-title"
-                value={metaTitle}
-                onChange={(e) => setMetaTitle(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="meta-desc">Meta description</Label>
-              <Textarea
-                id="meta-desc"
-                value={metaDescription}
-                onChange={(e) => setMetaDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
-
-          {contentType === "blog_post" && (
-            <div className="rounded-lg border p-4 space-y-4">
-              <h3 className="text-sm font-semibold">Comments</h3>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <Label htmlFor="enable-comments" className="text-sm">
-                    Enable comments
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Master switch for the comment form and list.
-                  </p>
-                </div>
-                <Switch
-                  id="enable-comments"
-                  checked={enableComments}
-                  onCheckedChange={setEnableComments}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <Label htmlFor="auto-publish-comments" className="text-sm">
-                    Auto-publish comments
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Skip moderation queue for new comments.
-                  </p>
-                </div>
-                <Switch
-                  id="auto-publish-comments"
-                  checked={autoPublishComments}
-                  onCheckedChange={setAutoPublishComments}
-                  disabled={!enableComments}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <Label htmlFor="allow-anon-comments" className="text-sm">
-                    Allow anonymous
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Guests can comment with name + optional email.
-                  </p>
-                </div>
-                <Switch
-                  id="allow-anon-comments"
-                  checked={allowAnonymousComments}
-                  onCheckedChange={setAllowAnonymousComments}
-                  disabled={!enableComments}
-                />
-              </div>
-              {mode === "edit" && initial?.id && (
-                <div className="pt-2 border-t">
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                  >
-                    <Link href={`/dashboard/content/${initial.id}/comments`}>
-                      Manage comments
-                    </Link>
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </aside>
+                  <Rocket className="h-4 w-4" />
+                  <span className="truncate">Publishing</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="visibility"
+                  className="min-w-0 px-2 text-xs"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span className="truncate">Visibility</span>
+                </TabsTrigger>
+                <TabsTrigger value="category" className="min-w-0 px-2 text-xs">
+                  <FolderTree className="h-4 w-4" />
+                  <span className="truncate">Category</span>
+                </TabsTrigger>
+                <TabsTrigger value="seo" className="min-w-0 px-2 text-xs">
+                  <Search className="h-4 w-4" />
+                  <span className="truncate">SEO</span>
+                </TabsTrigger>
+                <TabsTrigger value="comments" className="min-w-0 px-2 text-xs">
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="truncate">Comments</span>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="publishing" className="m-0 p-4 pt-2">
+                {publishingSettings}
+              </TabsContent>
+              <TabsContent value="visibility" className="m-0 p-4 pt-2">
+                {visibilitySettings}
+              </TabsContent>
+              <TabsContent value="category" className="m-0 p-4 pt-2">
+                {categorySettings}
+              </TabsContent>
+              <TabsContent value="seo" className="m-0 p-4 pt-2">
+                {seoSettings}
+              </TabsContent>
+              <TabsContent value="comments" className="m-0 p-4 pt-2">
+                {commentsSettings}
+              </TabsContent>
+            </Tabs>
+          </aside>
+        )}
       </fieldset>
     </div>
   );
