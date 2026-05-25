@@ -209,7 +209,7 @@ function FormSubmissionsSelectDialogContent({
           )}
         </div>
 
-        <div className="grid gap-4 rounded-md border p-3 sm:grid-cols-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-4 rounded-md border p-3">
           <div className="space-y-2">
             <Label>Display mode</Label>
             <Select
@@ -238,20 +238,20 @@ function FormSubmissionsSelectDialogContent({
             />
           </div>
 
-          <label className="flex items-center gap-2 self-end rounded-md border px-3 py-2 text-sm">
+          <label className="flex min-w-0 items-center gap-2 self-end rounded-md border px-3 py-2 text-sm">
             <Checkbox
               checked={hideId}
               onCheckedChange={(checked) => setHideId(checked === true)}
             />
-            <span>Hide ID</span>
+            <span className="min-w-0 leading-snug">Hide ID</span>
           </label>
 
-          <label className="flex items-center gap-2 self-end rounded-md border px-3 py-2 text-sm">
+          <label className="flex min-w-0 items-center gap-2 self-end rounded-md border px-3 py-2 text-sm">
             <Checkbox
               checked={hideSubmitted}
               onCheckedChange={(checked) => setHideSubmitted(checked === true)}
             />
-            <span>Hide Submitted</span>
+            <span className="min-w-0 leading-snug">Hide Submitted</span>
           </label>
         </div>
       </div>
