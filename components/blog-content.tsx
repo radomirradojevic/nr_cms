@@ -7,6 +7,7 @@ import {
   type BlogFormSubmissionsEmbed,
   type BlogGalleryEmbed,
 } from "@/components/blog-content-embeds";
+import { BlogCodeCopyButtons } from "@/components/blog-code-copy-buttons";
 import { sanitizeTiptapHtml } from "@/app/dashboard/content/_editors/sanitize-tiptap-html";
 
 type Props = {
@@ -100,10 +101,14 @@ export async function BlogContent({ html, className }: Props) {
 
   if (matches.length === 0) {
     return (
-      <article
-        className={className}
-        dangerouslySetInnerHTML={{ __html: safeHtml }}
-      />
+      <>
+        <article
+          data-blog-content-root={scopeId}
+          className={className}
+          dangerouslySetInnerHTML={{ __html: safeHtml }}
+        />
+        <BlogCodeCopyButtons scopeId={scopeId} />
+      </>
     );
   }
 
@@ -163,6 +168,7 @@ export async function BlogContent({ html, className }: Props) {
         className={className}
         dangerouslySetInnerHTML={{ __html: safeHtml }}
       />
+      <BlogCodeCopyButtons scopeId={scopeId} />
       <BlogContentEmbeds
         scopeId={scopeId}
         galleries={galleries}

@@ -162,12 +162,15 @@ type EditableEmbedType =
   | "cmsForm"
   | "cmsFormSubmissions";
 
-const editableEmbedLabels: Record<EditableEmbedType, string> = {
+type SelectableEmbedType = EditableEmbedType | "codeBlock";
+
+const selectableEmbedLabels: Record<SelectableEmbedType, string> = {
   image: "Image",
   video: "Video",
   gallery: "Gallery",
   cmsForm: "Form",
   cmsFormSubmissions: "Form Submission",
+  codeBlock: "Code Block",
 };
 
 const TEXT_COLORS = [
@@ -202,13 +205,13 @@ export function BlogEditor({
   const [editingVideo, setEditingVideo] = useState<EditingVideo | null>(null);
   const [embedOverlay, setEmbedOverlay] = useState<{
     pos: number;
-    type: EditableEmbedType;
+    type: SelectableEmbedType;
     top: number;
     left: number;
   } | null>(null);
   const [deletingEmbed, setDeletingEmbed] = useState<{
     pos: number;
-    type: EditableEmbedType;
+    type: SelectableEmbedType;
   } | null>(null);
   const [layoutOverlay, setLayoutOverlay] = useState<{
     pos: number;
@@ -290,12 +293,25 @@ export function BlogEditor({
 
       const editorRect = editor.view.dom.getBoundingClientRect();
       const nodeRect = nodeElement.getBoundingClientRect();
-      setEmbedOverlay({
+      const nextOverlay = {
         pos: selected.pos,
         type: selected.type,
         top: nodeRect.top - editorRect.top + 8,
-        left: nodeRect.right - editorRect.left - 76,
-      });
+        left:
+          nodeRect.right -
+          editorRect.left -
+          (isEditableEmbedType(selected.type) ? 76 : 40),
+      };
+
+      setEmbedOverlay((current) =>
+        current &&
+        current.pos === nextOverlay.pos &&
+        current.type === nextOverlay.type &&
+        current.top === nextOverlay.top &&
+        current.left === nextOverlay.left
+          ? current
+          : nextOverlay,
+      );
     };
 
     editor.on("selectionUpdate", syncEmbedOverlay);
@@ -503,7 +519,10 @@ export function BlogEditor({
     setDeletingLayoutPos(null);
   }
 
-  function requestEmbedDelete(embed: { pos: number; type: EditableEmbedType }) {
+  function requestEmbedDelete(embed: {
+    pos: number;
+    type: SelectableEmbedType;
+  }) {
     setDeletingEmbed(embed);
   }
 
@@ -566,7 +585,7 @@ export function BlogEditor({
     );
   }
 
-  function openSelectedEmbedDialog(type: EditableEmbedType) {
+  function openSelectedEmbedDialog(type: SelectableEmbedType) {
     if (type === "image") {
       openImageDialog();
     } else if (type === "video") {
@@ -575,7 +594,7 @@ export function BlogEditor({
       openGalleryDialog();
     } else if (type === "cmsForm") {
       openFormDialog();
-    } else {
+    } else if (type === "cmsFormSubmissions") {
       openFormSubmissionsDialog();
     }
   }
@@ -1017,12 +1036,9 @@ export function BlogEditor({
           </Btn>
           {!htmlMode && (
             <Btn
-              tooltip="Insert image"
-              active={false}
-              onClick={() => {
-                setEditingImage(null);
-                setImageDialogOpen(true);
-              }}
+              tooltip={toolbarState.image ? "Edit image" : "Insert image"}
+              active={toolbarState.image}
+              onClick={openImageDialog}
             >
               <ImageIcon className="h-4 w-4" />
             </Btn>
@@ -1098,31 +1114,35 @@ export function BlogEditor({
                 className="absolute z-10 flex overflow-hidden rounded-lg border bg-background shadow-sm"
                 style={{ top: embedOverlay.top, left: embedOverlay.left }}
               >
+                {isEditableEmbedType(embedOverlay.type) && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="secondary"
+                        aria-label={`Edit ${selectableEmbedLabels[embedOverlay.type]}`}
+                        className="h-8 w-8 rounded-none border-0 shadow-none"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() =>
+                          openSelectedEmbedDialog(embedOverlay.type)
+                        }
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Edit {selectableEmbedLabels[embedOverlay.type]}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
                       size="icon"
                       variant="secondary"
-                      aria-label={`Edit ${editableEmbedLabels[embedOverlay.type]}`}
-                      className="h-8 w-8 rounded-none border-0 shadow-none"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => openSelectedEmbedDialog(embedOverlay.type)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Edit {editableEmbedLabels[embedOverlay.type]}
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="secondary"
-                      aria-label={`Delete ${editableEmbedLabels[embedOverlay.type]}`}
+                      aria-label={`Delete ${selectableEmbedLabels[embedOverlay.type]}`}
                       className="h-8 w-8 rounded-none border-0 border-l border-border text-muted-foreground shadow-none hover:text-destructive"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => requestEmbedDelete(embedOverlay)}
@@ -1131,7 +1151,7 @@ export function BlogEditor({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    Delete {editableEmbedLabels[embedOverlay.type]}
+                    Delete {selectableEmbedLabels[embedOverlay.type]}
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -1344,7 +1364,7 @@ export function BlogEditor({
             <AlertDialogDescription>
               Are you sure you want to delete this{" "}
               {deletingEmbed
-                ? editableEmbedLabels[deletingEmbed.type]
+                ? selectableEmbedLabels[deletingEmbed.type]
                 : "embedded block"}
               ?
             </AlertDialogDescription>
@@ -1553,10 +1573,13 @@ function getLayoutFromElement(
 
 function getSelectedEditableEmbed(editor: Editor): {
   pos: number;
-  type: EditableEmbedType;
+  type: SelectableEmbedType;
 } | null {
   const { selection } = editor.state;
-  if (!(selection instanceof NodeSelection)) return null;
+  if (!(selection instanceof NodeSelection)) {
+    const codeBlock = getActiveCodeBlock(editor);
+    return codeBlock ? { pos: codeBlock.pos, type: "codeBlock" } : null;
+  }
 
   const type = selection.node.type.name;
   if (
@@ -1564,7 +1587,8 @@ function getSelectedEditableEmbed(editor: Editor): {
     type !== "video" &&
     type !== "gallery" &&
     type !== "cmsForm" &&
-    type !== "cmsFormSubmissions"
+    type !== "cmsFormSubmissions" &&
+    type !== "codeBlock"
   ) {
     return null;
   }
@@ -1573,6 +1597,28 @@ function getSelectedEditableEmbed(editor: Editor): {
     pos: selection.from,
     type,
   };
+}
+
+function getActiveCodeBlock(editor: Editor): { pos: number } | null {
+  const { $from, $to } = editor.state.selection;
+
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name !== "codeBlock") continue;
+    if ($to.depth < depth || $to.node(depth).type.name !== "codeBlock") {
+      return null;
+    }
+
+    const pos = $from.before(depth);
+    return $to.before(depth) === pos ? { pos } : null;
+  }
+
+  return null;
+}
+
+function isEditableEmbedType(
+  type: SelectableEmbedType,
+): type is EditableEmbedType {
+  return type !== "codeBlock";
 }
 
 function Btn({

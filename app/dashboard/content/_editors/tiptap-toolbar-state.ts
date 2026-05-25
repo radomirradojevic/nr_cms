@@ -26,6 +26,7 @@ export type TiptapToolbarState = {
   table: boolean;
   tableCell: boolean;
   tableHeader: boolean;
+  image: boolean;
   video: boolean;
   gallery: boolean;
   cmsForm: boolean;
@@ -55,6 +56,7 @@ export const inactiveTiptapToolbarState: TiptapToolbarState = {
   table: false,
   tableCell: false,
   tableHeader: false,
+  image: false,
   video: false,
   gallery: false,
   cmsForm: false,
@@ -88,6 +90,7 @@ function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
     table: editor.isActive("table"),
     tableCell: editor.isActive("tableCell"),
     tableHeader: editor.isActive("tableHeader"),
+    image: editor.isActive("image"),
     video: editor.isActive("video"),
     gallery: editor.isActive("gallery"),
     cmsForm: editor.isActive("cmsForm"),
@@ -106,9 +109,15 @@ export function useTiptapToolbarState(
     (notify: () => void) => {
       if (!editor) return () => {};
 
+      let animationFrame: number | null = null;
       const syncToolbarState = () => {
-        versionRef.current += 1;
-        notify();
+        if (animationFrame !== null) return;
+
+        animationFrame = window.requestAnimationFrame(() => {
+          animationFrame = null;
+          versionRef.current += 1;
+          notify();
+        });
       };
 
       editor.on("selectionUpdate", syncToolbarState);
@@ -127,6 +136,9 @@ export function useTiptapToolbarState(
         editor.off("focus", syncToolbarState);
         dom.removeEventListener("mouseup", syncToolbarState);
         dom.removeEventListener("keyup", syncToolbarState);
+        if (animationFrame !== null) {
+          window.cancelAnimationFrame(animationFrame);
+        }
       };
     },
     [editor],
