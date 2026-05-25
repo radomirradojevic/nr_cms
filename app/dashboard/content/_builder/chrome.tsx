@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Element, useEditor } from "@craftjs/core";
+import dynamic from "next/dynamic";
 import type { EditorState } from "@craftjs/core/lib/interfaces/editor";
 import type { NodeTree } from "@craftjs/core/lib/interfaces/nodes";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,10 @@ import {
   Trash2,
   Undo2,
   Redo2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { resolver } from "./blocks/editable";
 import { ROOT_NODE_ID, type SerializedNode } from "./types";
@@ -33,10 +38,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import {
   getLayoutColumnCount,
   layoutPresets,
   type LayoutKind,
 } from "@/app/dashboard/content/_editors/layout-presets";
+
+const LayersPanel = dynamic(() => import("./layers"), { ssr: false });
 
 /* ===================== Palette (left rail) ===================== */
 
@@ -159,7 +173,7 @@ const items: Array<{
   },
 ];
 
-export function BlocksPalette() {
+export function BlocksPalette({ collapsed = false }: { collapsed?: boolean }) {
   const { connectors, query, actions } = useEditor();
   const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
   const [pendingLayoutNodeId, setPendingLayoutNodeId] = useState<string | null>(
@@ -246,7 +260,7 @@ export function BlocksPalette() {
   }
 
   return (
-    <>
+    <TooltipProvider>
       <div className="space-y-1">
         {items.map((it) => {
           const Cmp = resolver[it.name] as React.ComponentType<
@@ -256,10 +270,12 @@ export function BlocksPalette() {
             resolver[it.name] as unknown as { craft?: { props?: object } }
           ).craft?.props ?? {}) as Record<string, unknown>;
           const isLayout = it.name === "Layout";
-          return (
-            <button
+          const blockButton = (
+            <Button
               key={it.name}
               type="button"
+              variant="outline"
+              size={collapsed ? "icon-sm" : "sm"}
               ref={(el) => {
                 if (!el) return;
                 connectors.create(el, <Cmp {...props} />, {
@@ -269,11 +285,31 @@ export function BlocksPalette() {
               onClick={() =>
                 isLayout ? setLayoutDialogOpen(true) : addBlock(it.name)
               }
-              className="flex w-full cursor-grab items-center gap-2 rounded-md border bg-background px-2 py-2 text-left text-sm hover:bg-accent active:cursor-grabbing"
+              className={cn(
+                "w-full cursor-grab justify-start active:cursor-grabbing",
+                collapsed && "h-8 justify-center px-0",
+              )}
+              aria-label={it.label}
             >
               <span className="text-muted-foreground">{it.icon}</span>
-              <span>{it.label}</span>
-            </button>
+              <span
+                className={cn(
+                  "truncate transition-opacity duration-200",
+                  collapsed && "sr-only opacity-0",
+                )}
+              >
+                {it.label}
+              </span>
+            </Button>
+          );
+
+          return collapsed ? (
+            <Tooltip key={it.name}>
+              <TooltipTrigger asChild>{blockButton}</TooltipTrigger>
+              <TooltipContent side="right">{it.label}</TooltipContent>
+            </Tooltip>
+          ) : (
+            blockButton
           );
         })}
       </div>
@@ -314,7 +350,77 @@ export function BlocksPalette() {
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
+  );
+}
+
+export function BlocksSidebar({
+  collapsed,
+  onCollapsedChange,
+}: {
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+}) {
+  return (
+    <aside
+      className={cn(
+        "z-20 h-full self-start overflow-hidden border-r bg-background transition-[width] duration-300 ease-out",
+        collapsed ? "w-12" : "w-[220px]",
+      )}
+    >
+      <div className="flex h-full max-h-[inherit] flex-col">
+        <div className="flex h-11 items-center gap-2 border-b px-2">
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            onClick={() => onCollapsedChange(!collapsed)}
+            aria-label={
+              collapsed ? "Expand blocks sidebar" : "Collapse blocks sidebar"
+            }
+            title={collapsed ? "Expand blocks" : "Collapse blocks"}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </Button>
+          <h4
+            className={cn(
+              "text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-opacity duration-200",
+              collapsed && "pointer-events-none opacity-0",
+            )}
+          >
+            Add blocks
+          </h4>
+        </div>
+        <div
+          className={cn(
+            "min-h-0 flex-1 p-2",
+            collapsed ? "overflow-hidden px-1" : "overflow-y-auto",
+          )}
+        >
+          <div className={cn("space-y-4", collapsed && "space-y-1")}>
+            <BlocksPalette collapsed={collapsed} />
+            <div
+              className={cn(
+                "transition-opacity duration-200",
+                collapsed &&
+                  "pointer-events-none h-0 overflow-hidden opacity-0",
+              )}
+            >
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Layers
+              </h4>
+              <div className="rounded border">
+                <LayersPanel />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -368,6 +474,8 @@ export function Toolbar({
   onToggleSource,
   sourceMode,
   onRemountWithJson,
+  focusMode,
+  onToggleFocusMode,
 }: {
   onToggleSource: () => void;
   sourceMode: boolean;
@@ -377,6 +485,8 @@ export function Toolbar({
    * mutation path entirely (which crashes on certain tree states).
    */
   onRemountWithJson: (json: string) => void;
+  focusMode: boolean;
+  onToggleFocusMode: () => void;
 }) {
   const { canUndo, canRedo, actions, query, selectedId, isDeletable } =
     useEditor((state, query) => {
@@ -506,6 +616,23 @@ export function Toolbar({
         <span className="hidden sm:inline">Delete</span>
       </Button>
       <div className="ml-auto flex items-center gap-1">
+        <Button
+          type="button"
+          size="sm"
+          variant={focusMode ? "default" : "outline"}
+          onClick={onToggleFocusMode}
+          aria-label={focusMode ? "Exit focus mode" : "Focus mode"}
+          title={focusMode ? "Exit focus mode" : "Focus mode"}
+        >
+          {focusMode ? (
+            <Minimize2 className="h-4 w-4" />
+          ) : (
+            <Maximize2 className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">
+            {focusMode ? "Exit focus" : "Focus"}
+          </span>
+        </Button>
         <Button
           type="button"
           size="sm"

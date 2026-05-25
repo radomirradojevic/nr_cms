@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Editor, Frame, Element, useEditor } from "@craftjs/core";
-import dynamic from "next/dynamic";
 import { resolver, Root } from "./blocks/editable";
 import { renderTree } from "./server-render";
-import { BlocksPalette, ChangeWatcher, SettingsPanel, Toolbar } from "./chrome";
+import { BlocksSidebar, ChangeWatcher, SettingsPanel, Toolbar } from "./chrome";
 import { HtmlSourceEditor } from "./source-view";
 import {
   ROOT_NODE_ID,
@@ -23,10 +22,26 @@ import {
   type Viewport,
 } from "./blocks/panel/viewport-context";
 import { Button } from "@/components/ui/button";
-import { Monitor, Tablet, Smartphone } from "lucide-react";
+import {
+  Eye,
+  FolderTree,
+  Monitor,
+  PanelRightClose,
+  PanelRightOpen,
+  Rocket,
+  Search,
+  Settings2,
+  Smartphone,
+  Tablet,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const LayersPanel = dynamic(() => import("./layers"), { ssr: false });
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type Props = {
   /**
@@ -57,15 +72,28 @@ type Props = {
    * site exactly. Optional — defaults are used when not provided.
    */
   appearance?: AppearanceSettings;
+  settingsPanels?: PageEditorSettingsPanels;
 };
 
-const desktopPreviewWidthClass = "max-w-5xl";
+export type PageEditorSettingsTab =
+  | "properties"
+  | "publishing"
+  | "visibility"
+  | "category"
+  | "seo";
+
+export type PageEditorSettingsPanels = Partial<
+  Record<Exclude<PageEditorSettingsTab, "properties">, ReactNode>
+>;
+
+const desktopPreviewWidthClass = "w-full";
 
 export function PageEditor({
   defaultValue,
   registerGetValue,
   onChange,
   appearance,
+  settingsPanels,
 }: Props) {
   // Frame only reads `data` once on mount — derive a stable initial JSON.
   // Computed exactly once; subsequent prop changes are intentionally ignored.
@@ -130,6 +158,7 @@ export function PageEditor({
           onLatestJson={setEditorJson}
           onRemountWithJson={handleRemountWithJson}
           appearance={appearance}
+          settingsPanels={settingsPanels}
         />
       </Editor>
     </div>
@@ -142,16 +171,23 @@ function Inner({
   onLatestJson,
   onRemountWithJson,
   appearance,
+  settingsPanels,
 }: {
   initialJson: string;
   onLatestNodes: (nodes: BuilderData["nodes"]) => void;
   onLatestJson: (json: string) => void;
   onRemountWithJson: (json: string) => void;
   appearance?: AppearanceSettings;
+  settingsPanels?: PageEditorSettingsPanels;
 }) {
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [sourceMode, setSourceMode] = useState(false);
   const [sourceHtml, setSourceHtml] = useState("");
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] =
+    useState<PageEditorSettingsTab>("properties");
   const { actions, query } = useEditor();
 
   const resolvedAppearance = useMemo(
@@ -240,6 +276,8 @@ function Inner({
         sourceMode={sourceMode}
         onToggleSource={sourceMode ? exitSourceMode : enterSourceMode}
         onRemountWithJson={onRemountWithJson}
+        focusMode={focusMode}
+        onToggleFocusMode={() => setFocusMode((v) => !v)}
       />
 
       {sourceMode ? (
@@ -251,27 +289,21 @@ function Inner({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-[200px_1fr_280px]">
-          <aside className="sticky top-[calc(var(--sticky-header-h,0px)+var(--builder-toolbar-h,49px))] max-h-[calc(100dvh-var(--sticky-header-h,0px)-var(--builder-toolbar-h,49px))] self-start overflow-y-auto border-r p-3">
-            <div className="space-y-4">
-              <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Add blocks
-                </h4>
-                <BlocksPalette />
-              </div>
-              <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Layers
-                </h4>
-                <div className="rounded border">
-                  <LayersPanel />
-                </div>
-              </div>
-            </div>
-          </aside>
+        <div className="flex min-h-[calc(100dvh-var(--sticky-header-h,0px)-var(--builder-toolbar-h,49px)-2px)] items-start overflow-visible">
+          <div
+            className={cn(
+              "sticky top-[calc(var(--sticky-header-h,0px)+var(--builder-toolbar-h,49px))] h-[calc(100dvh-var(--sticky-header-h,0px)-var(--builder-toolbar-h,49px)-2px)] shrink-0 transition-[width,opacity] duration-300 ease-out",
+              focusMode && "pointer-events-none w-0 opacity-0",
+            )}
+            aria-hidden={focusMode}
+          >
+            <BlocksSidebar
+              collapsed={leftCollapsed}
+              onCollapsedChange={setLeftCollapsed}
+            />
+          </div>
 
-          <main className="overflow-auto bg-muted/20 p-6">
+          <main className="min-w-0 flex-1 bg-muted/20 p-4">
             <div className="mb-3 flex items-center justify-center gap-1">
               <Button
                 type="button"
@@ -320,13 +352,197 @@ function Inner({
             </div>
           </main>
 
-          <aside className="sticky top-[calc(var(--sticky-header-h,0px)+var(--builder-toolbar-h,49px))] max-h-[calc(100dvh-var(--sticky-header-h,0px)-var(--builder-toolbar-h,49px))] self-start overflow-y-auto border-l">
-            <SettingsPanel />
-          </aside>
+          <div
+            className={cn(
+              "sticky top-[calc(var(--sticky-header-h,0px)+var(--builder-toolbar-h,49px))] h-[calc(100dvh-var(--sticky-header-h,0px)-var(--builder-toolbar-h,49px)-2px)] shrink-0 transition-[width,opacity] duration-300 ease-out",
+              focusMode && "pointer-events-none w-0 opacity-0",
+            )}
+            aria-hidden={focusMode}
+          >
+            <RightEditorSidebar
+              activeTab={activeSettingsTab}
+              onActiveTabChange={setActiveSettingsTab}
+              collapsed={rightCollapsed}
+              onCollapsedChange={setRightCollapsed}
+              settingsPanels={settingsPanels}
+            />
+          </div>
         </div>
       )}
 
       <ChangeWatcher onSerialize={handleSerialize} />
     </ViewportProvider>
+  );
+}
+
+function RightEditorSidebar({
+  activeTab,
+  onActiveTabChange,
+  collapsed,
+  onCollapsedChange,
+  settingsPanels,
+}: {
+  activeTab: PageEditorSettingsTab;
+  onActiveTabChange: (tab: PageEditorSettingsTab) => void;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+  settingsPanels?: PageEditorSettingsPanels;
+}) {
+  const { selectedId } = useEditor((state) => {
+    return {
+      selectedId: (Array.from(state.events.selected) as string[])[0] ?? null,
+    };
+  });
+  const previousSelectedIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedId || previousSelectedIdRef.current === selectedId) return;
+
+    previousSelectedIdRef.current = selectedId;
+    onActiveTabChange("properties");
+    if (collapsed) onCollapsedChange(false);
+  }, [collapsed, onActiveTabChange, onCollapsedChange, selectedId]);
+
+  const tabs: Array<{
+    value: PageEditorSettingsTab;
+    label: string;
+    icon: ReactNode;
+    content: ReactNode;
+  }> = [
+    {
+      value: "properties",
+      label: "Properties",
+      icon: <Settings2 className="h-4 w-4" />,
+      content: <SettingsPanel />,
+    },
+    {
+      value: "publishing",
+      label: "Publishing",
+      icon: <Rocket className="h-4 w-4" />,
+      content: settingsPanels?.publishing,
+    },
+    {
+      value: "visibility",
+      label: "Visibility",
+      icon: <Eye className="h-4 w-4" />,
+      content: settingsPanels?.visibility,
+    },
+    {
+      value: "category",
+      label: "Category",
+      icon: <FolderTree className="h-4 w-4" />,
+      content: settingsPanels?.category,
+    },
+    {
+      value: "seo",
+      label: "SEO",
+      icon: <Search className="h-4 w-4" />,
+      content: settingsPanels?.seo,
+    },
+  ];
+
+  return (
+    <TooltipProvider>
+      <aside
+        className={cn(
+          "z-20 h-full self-start overflow-hidden border-l bg-background transition-[width] duration-300 ease-out",
+          collapsed ? "w-12" : "w-[380px]",
+        )}
+      >
+        <div className="flex h-full max-h-[inherit] flex-col">
+          <div className="flex h-11 items-center gap-2 border-b px-2">
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => onCollapsedChange(!collapsed)}
+              aria-label={
+                collapsed
+                  ? "Expand settings sidebar"
+                  : "Collapse settings sidebar"
+              }
+              title={collapsed ? "Expand settings" : "Collapse settings"}
+            >
+              {collapsed ? (
+                <PanelRightOpen className="h-4 w-4" />
+              ) : (
+                <PanelRightClose className="h-4 w-4" />
+              )}
+            </Button>
+            <span
+              className={cn(
+                "text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-opacity duration-200",
+                collapsed && "pointer-events-none opacity-0",
+              )}
+            >
+              Inspector
+            </span>
+          </div>
+
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) =>
+              onActiveTabChange(value as PageEditorSettingsTab)
+            }
+            orientation={collapsed ? "vertical" : "horizontal"}
+            className="min-h-0 flex-1 gap-0"
+          >
+            <TabsList
+              className={cn(
+                "m-2 h-auto w-auto shrink-0 justify-start overflow-hidden",
+                collapsed
+                  ? "grid grid-cols-1 gap-1 bg-transparent p-0"
+                  : "grid grid-cols-3 gap-1 rounded-md p-1",
+              )}
+            >
+              {tabs.map((tab) => {
+                const trigger = (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className={cn(
+                      "min-w-0 px-2 text-xs",
+                      collapsed && "h-8 px-0",
+                    )}
+                    aria-label={tab.label}
+                  >
+                    {tab.icon}
+                    <span className={cn(collapsed && "sr-only")}>
+                      {tab.label}
+                    </span>
+                  </TabsTrigger>
+                );
+
+                return collapsed ? (
+                  <Tooltip key={tab.value}>
+                    <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+                    <TooltipContent side="left">{tab.label}</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  trigger
+                );
+              })}
+            </TabsList>
+
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto transition-opacity duration-200",
+                collapsed && "pointer-events-none opacity-0",
+              )}
+            >
+              {tabs.map((tab) => (
+                <TabsContent key={tab.value} value={tab.value} className="m-0">
+                  {tab.content ?? (
+                    <p className="p-3 text-xs text-muted-foreground">
+                      No settings available.
+                    </p>
+                  )}
+                </TabsContent>
+              ))}
+            </div>
+          </Tabs>
+        </div>
+      </aside>
+    </TooltipProvider>
   );
 }
