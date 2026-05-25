@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useNode, useEditor, Element } from "@craftjs/core";
 import { EditorContent, useEditor as useTiptapEditor } from "@tiptap/react";
+import Placeholder from "@tiptap/extension-placeholder";
 import { Button } from "@/components/ui/button";
 import {
   Film,
@@ -87,6 +88,14 @@ import { TableMenu } from "@/app/dashboard/content/_editors/table-menu";
 import { useTiptapToolbarState } from "@/app/dashboard/content/_editors/tiptap-toolbar-state";
 import { tiptapClientExtensions } from "@/app/dashboard/content/_editors/tiptap-client-extensions";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
+const tableBlockExtensions = tiptapClientExtensions.map((extension) =>
+  extension.name === "placeholder"
+    ? Placeholder.configure({
+        placeholder: "Click the table icon to create or edit your table.",
+      })
+    : extension,
+);
 
 /**
  * Editor-side helper: read the current `style` envelope from a Craft.js
@@ -631,13 +640,13 @@ export function TableBlock({ content, style }: TableProps) {
   const onChangeJsonRef = useRef<string | null>(null);
 
   const editor = useTiptapEditor({
-    extensions: tiptapClientExtensions,
+    extensions: tableBlockExtensions,
     content: content ?? defaults.Table.content,
     immediatelyRender: false,
     editorProps: {
       attributes: {
         class:
-          "min-h-[7rem] rounded-md border border-dashed border-muted-foreground/25 bg-background p-3 focus:outline-none",
+          "cms-table-block-editor min-h-[7rem] rounded-md border border-dashed border-muted-foreground/25 bg-background p-3 focus:outline-none",
       },
     },
     onUpdate: ({ editor }) => {
