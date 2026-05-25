@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { FormSubmissionsTable } from "@/components/form-submissions-table";
 import { FormSubmissionsCard } from "@/components/form-submissions-card";
 import { FormSubmissionsError } from "@/components/form-submissions-error";
@@ -13,6 +13,7 @@ interface FormSubmissionsRendererProps {
   sortField: string;
   sortOrder: "asc" | "desc";
   hideId?: boolean;
+  hideSubmitted?: boolean;
   fields?: FormFieldRow[];
 }
 
@@ -35,6 +36,7 @@ export function FormSubmissionsRenderer({
   sortField,
   sortOrder,
   hideId = true,
+  hideSubmitted = false,
   fields,
 }: FormSubmissionsRendererProps) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -43,7 +45,6 @@ export function FormSubmissionsRenderer({
   const [pages, setPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch submissions for a specific page
   const fetchSubmissions = async (page: number) => {
@@ -79,6 +80,7 @@ export function FormSubmissionsRenderer({
 
   // Fetch initial submissions on mount
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSubmissions(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId, pageSize, sortField, sortOrder]);
@@ -86,8 +88,6 @@ export function FormSubmissionsRenderer({
   // Handle page change
   const handlePageChange = async (page: number) => {
     await fetchSubmissions(page);
-    // Scroll to top of submissions container
-    containerRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   if (error) {
@@ -95,7 +95,7 @@ export function FormSubmissionsRenderer({
   }
 
   return (
-    <div ref={containerRef} className="space-y-4">
+    <div className="space-y-4">
       {displayMode === "card" ? (
         <FormSubmissionsCard
           submissions={submissions}
@@ -105,6 +105,7 @@ export function FormSubmissionsRenderer({
           pageSize={pageSize}
           pages={pages}
           hideId={hideId}
+          hideSubmitted={hideSubmitted}
           onPageChange={handlePageChange}
           isLoading={isLoading}
         />
@@ -117,6 +118,7 @@ export function FormSubmissionsRenderer({
           pageSize={pageSize}
           pages={pages}
           hideId={hideId}
+          hideSubmitted={hideSubmitted}
           onPageChange={handlePageChange}
           isLoading={isLoading}
         />

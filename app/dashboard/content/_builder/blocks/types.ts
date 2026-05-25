@@ -67,7 +67,9 @@ export type FormSubmissionsProps = StyledProps & {
   sortField?: string;
   sortOrder?: "asc" | "desc";
   hideId?: boolean;
+  hideSubmitted?: boolean;
 };
+export type TableProps = StyledProps & { content: JSONContent };
 
 export const blockNames = [
   "Section",
@@ -83,6 +85,7 @@ export const blockNames = [
   "Video",
   "Form",
   "FormSubmissions",
+  "Table",
 ] as const;
 
 export type BlockName = (typeof blockNames)[number];
@@ -164,5 +167,23 @@ export const defaults = {
     sortField: "created_at",
     sortOrder: "desc" as const,
     hideId: true,
+    hideSubmitted: false,
   } satisfies FormSubmissionsProps,
+  Table: {
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: Array.from({ length: 3 }, () => ({
+            type: "tableRow",
+            content: Array.from({ length: 3 }, () => ({
+              type: "tableCell",
+              content: [{ type: "paragraph" }],
+            })),
+          })),
+        },
+      ],
+    },
+  } satisfies TableProps,
 };

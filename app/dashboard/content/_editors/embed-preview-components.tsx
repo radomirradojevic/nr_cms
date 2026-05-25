@@ -250,6 +250,7 @@ export function FormSubmissionsPreviewNodeView({ node }: NodeViewProps) {
         displayMode={node.attrs.displayMode === "card" ? "card" : "table"}
         pageSize={attrNumber(node.attrs.pageSize, 5)}
         hideId={attrBoolean(node.attrs.hideId, true)}
+        hideSubmitted={attrBoolean(node.attrs.hideSubmitted, false)}
       />
     </NodeViewWrapper>
   );
@@ -261,12 +262,14 @@ export function FormSubmissionsEditorPreview({
   displayMode = "table",
   pageSize: requestedPageSize = 5,
   hideId = true,
+  hideSubmitted = false,
 }: {
   formId: string;
   formName?: string;
   displayMode?: "table" | "card";
   pageSize?: number;
   hideId?: boolean;
+  hideSubmitted?: boolean;
 }) {
   const pageSize = Math.min(5, Math.max(1, requestedPageSize));
   const [state, setState] = useState<
@@ -331,9 +334,17 @@ export function FormSubmissionsEditorPreview({
             </span>
           </div>
           {displayMode === "card" ? (
-            <SubmissionsCardPreview detail={state.detail} hideId={hideId} />
+            <SubmissionsCardPreview
+              detail={state.detail}
+              hideId={hideId}
+              hideSubmitted={hideSubmitted}
+            />
           ) : (
-            <SubmissionsTablePreview detail={state.detail} hideId={hideId} />
+            <SubmissionsTablePreview
+              detail={state.detail}
+              hideId={hideId}
+              hideSubmitted={hideSubmitted}
+            />
           )}
         </div>
       )}
@@ -344,9 +355,11 @@ export function FormSubmissionsEditorPreview({
 function SubmissionsTablePreview({
   detail,
   hideId,
+  hideSubmitted,
 }: {
   detail: FormSubmissionsPreviewDetail;
   hideId: boolean;
+  hideSubmitted: boolean;
 }) {
   const columns = usePreviewColumns(detail);
 
@@ -375,9 +388,11 @@ function SubmissionsTablePreview({
                   {resolveFieldLabel(col, detail.fields)}
                 </th>
               ))}
-              <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-foreground">
-                Submitted
-              </th>
+              {!hideSubmitted && (
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-foreground">
+                  Submitted
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -397,9 +412,11 @@ function SubmissionsTablePreview({
                       />
                     </td>
                   ))}
-                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
-                    {new Date(sub.createdAt).toLocaleString()}
-                  </td>
+                  {!hideSubmitted && (
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
+                      {new Date(sub.createdAt).toLocaleString()}
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -413,9 +430,11 @@ function SubmissionsTablePreview({
 function SubmissionsCardPreview({
   detail,
   hideId,
+  hideSubmitted,
 }: {
   detail: FormSubmissionsPreviewDetail;
   hideId: boolean;
+  hideSubmitted: boolean;
 }) {
   const columns = usePreviewColumns(detail);
 
@@ -445,12 +464,16 @@ function SubmissionsCardPreview({
                 />
               </div>
             ))}
-            <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-              {!hideId && (
-                <span className="font-mono">{sub.id.slice(0, 8)}</span>
-              )}
-              <span>{new Date(sub.createdAt).toLocaleString()}</span>
-            </div>
+            {(!hideId || !hideSubmitted) && (
+              <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
+                {!hideId && (
+                  <span className="font-mono">{sub.id.slice(0, 8)}</span>
+                )}
+                {!hideSubmitted && (
+                  <span>{new Date(sub.createdAt).toLocaleString()}</span>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

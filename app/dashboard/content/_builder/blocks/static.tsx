@@ -1,4 +1,10 @@
 import type { ReactNode, CSSProperties } from "react";
+import { generateHTML } from "@tiptap/html";
+import StarterKit from "@tiptap/starter-kit";
+import { TableKit } from "@tiptap/extension-table";
+import TextAlign from "@tiptap/extension-text-align";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
 import { renderInlineHtml } from "../render-inline";
 import type {
   ButtonProps,
@@ -9,6 +15,7 @@ import type {
   LayoutProps,
   RawHtmlProps,
   SectionProps,
+  TableProps,
   TextProps,
   VideoProps,
 } from "./types";
@@ -24,6 +31,7 @@ import {
   getLayoutPreset,
   layoutGapOptions,
 } from "@/app/dashboard/content/_editors/layout-presets";
+import { sanitizeTiptapHtml } from "@/app/dashboard/content/_editors/sanitize-tiptap-html";
 
 /**
  * Pure JSX renderers for every block. These are imported by both the
@@ -40,6 +48,27 @@ const gapClass: Record<NonNullable<ColumnsProps["gap"]>, string> = {
   md: "gap-6",
   lg: "gap-10",
 };
+
+const tableRenderExtensions = [
+  StarterKit.configure({
+    link: { openOnClick: false, autolink: true },
+  }),
+  TextStyle,
+  Color,
+  TableKit.configure({
+    table: {
+      resizable: true,
+      renderWrapper: true,
+      allowTableNodeSelection: true,
+      HTMLAttributes: {
+        class: "cms-rich-table",
+      },
+    },
+  }),
+  TextAlign.configure({
+    types: ["heading", "paragraph", "tableCell", "tableHeader"],
+  }),
+];
 
 function resolveShell(style: BlockStyle | undefined): {
   shellStyle: CSSProperties;
@@ -172,6 +201,27 @@ export function TextStatic({ content, style }: TextProps) {
   );
 }
 
+export function TableStatic({ content, style }: TableProps) {
+  const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
+  let html = "";
+  try {
+    html = sanitizeTiptapHtml(generateHTML(content, tableRenderExtensions));
+  } catch {
+    html = "";
+  }
+
+  return (
+    <>
+      {responsiveStyleEl}
+      <div
+        style={shellStyle}
+        className={cn("cms-content my-4 max-w-none", shellClass)}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </>
+  );
+}
+
 export function ImageStatic({
   src,
   alt,
@@ -245,10 +295,10 @@ export function ImageStatic({
 
   const merged: CSSProperties = { ...legacy, ...shellStyle };
 
-  // eslint-disable-next-line @next/next/no-img-element
   return (
     <>
       {responsiveStyleEl}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={alt}

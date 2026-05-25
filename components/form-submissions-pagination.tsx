@@ -18,7 +18,6 @@ export function FormSubmissionsPagination({
   currentPage,
   totalPages,
   totalItems,
-  pageSize,
   onPageChange,
   isLoading = false,
 }: FormSubmissionsPaginationProps) {
@@ -66,6 +65,7 @@ export function FormSubmissionsPagination({
       <div className="flex flex-wrap items-center justify-end gap-2">
         {/* Previous button */}
         <button
+          type="button"
           disabled={currentPage === 1 || isLoading}
           onClick={() => handlePageClick(currentPage - 1)}
           className="px-3 py-1.5 rounded border border-border bg-background text-foreground text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
@@ -85,6 +85,7 @@ export function FormSubmissionsPagination({
               </span>
             ) : (
               <button
+                type="button"
                 key={pageNum}
                 disabled={isLoading}
                 onClick={() => handlePageClick(Number(pageNum))}
@@ -102,6 +103,7 @@ export function FormSubmissionsPagination({
 
         {/* Next button */}
         <button
+          type="button"
           disabled={currentPage === totalPages || isLoading}
           onClick={() => handlePageClick(currentPage + 1)}
           className="px-3 py-1.5 rounded border border-border bg-background text-foreground text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"

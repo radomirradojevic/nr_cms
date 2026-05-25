@@ -4,7 +4,6 @@ import {
   collectSubmissionKeys,
   normalizeSubmissionData,
   resolveFieldLabel,
-  type NormalizedValue,
 } from "@/lib/form-submissions";
 import { FormSubmissionCell } from "./form-submission-cell";
 import { FormSubmissionsPagination } from "./form-submissions-pagination";
@@ -18,6 +17,7 @@ interface FormSubmissionsTableProps {
   pageSize: number;
   pages: number;
   hideId?: boolean;
+  hideSubmitted?: boolean;
   onPageChange?: (page: number) => Promise<void>;
   isLoading?: boolean;
 }
@@ -36,6 +36,7 @@ export function FormSubmissionsTable({
   pageSize,
   pages,
   hideId = true,
+  hideSubmitted = false,
   onPageChange,
   isLoading = false,
 }: FormSubmissionsTableProps) {
@@ -72,9 +73,11 @@ export function FormSubmissionsTable({
                   {resolveFieldLabel(col, fields)}
                 </th>
               ))}
-              <th className="px-4 py-3 text-left font-medium text-foreground whitespace-nowrap">
-                Submitted
-              </th>
+              {!hideSubmitted && (
+                <th className="px-4 py-3 text-left font-medium text-foreground whitespace-nowrap">
+                  Submitted
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -107,9 +110,11 @@ export function FormSubmissionsTable({
                       />
                     </td>
                   ))}
-                  <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                    {formatted}
-                  </td>
+                  {!hideSubmitted && (
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                      {formatted}
+                    </td>
+                  )}
                 </tr>
               );
             })}

@@ -17,6 +17,7 @@ interface FormSubmissionsCardProps {
   pageSize: number;
   pages: number;
   hideId?: boolean;
+  hideSubmitted?: boolean;
   onPageChange?: (page: number) => Promise<void>;
   isLoading?: boolean;
 }
@@ -35,6 +36,7 @@ export function FormSubmissionsCard({
   pageSize,
   pages,
   hideId = true,
+  hideSubmitted = false,
   onPageChange,
   isLoading = false,
 }: FormSubmissionsCardProps) {
@@ -80,12 +82,14 @@ export function FormSubmissionsCard({
                   />
                 </div>
               ))}
-              <div className="mt-4 pt-3 border-t border-border text-xs text-muted-foreground flex items-center justify-between">
-                {!hideId && (
-                  <span className="font-mono">{sub.id.slice(0, 8)}</span>
-                )}
-                <span>{formatted}</span>
-              </div>
+              {(!hideId || !hideSubmitted) && (
+                <div className="mt-4 pt-3 border-t border-border text-xs text-muted-foreground flex items-center justify-between">
+                  {!hideId && (
+                    <span className="font-mono">{sub.id.slice(0, 8)}</span>
+                  )}
+                  {!hideSubmitted && <span>{formatted}</span>}
+                </div>
+              )}
             </div>
           );
         })}
