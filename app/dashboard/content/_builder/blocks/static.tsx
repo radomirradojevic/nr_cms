@@ -9,6 +9,7 @@ import type {
   RawHtmlProps,
   SectionProps,
   TextProps,
+  VideoProps,
 } from "./types";
 import {
   applyBlockStyle,
@@ -17,6 +18,7 @@ import {
 } from "./style/serialize";
 import type { BlockStyle } from "./style/types";
 import { cn } from "@/lib/utils";
+import { VideoEmbed } from "@/app/dashboard/content/_editors/video-embed";
 
 /**
  * Pure JSX renderers for every block. These are imported by both the
@@ -287,6 +289,31 @@ export function RawHtmlStatic({ html, style }: RawHtmlProps) {
         style={shellStyle}
         className={shellClass || undefined}
         dangerouslySetInnerHTML={{ __html: html ?? "" }}
+      />
+    </>
+  );
+}
+
+export function VideoStatic({
+  src,
+  provider,
+  width,
+  height,
+  alignment,
+  style,
+}: VideoProps) {
+  const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
+  return (
+    <>
+      {responsiveStyleEl}
+      <VideoEmbed
+        src={src}
+        provider={provider}
+        width={width}
+        height={height}
+        alignment={alignment}
+        style={shellStyle}
+        className={cn("my-4", shellClass)}
       />
     </>
   );

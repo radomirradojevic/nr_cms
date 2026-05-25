@@ -9,6 +9,7 @@ import {
   RootStatic,
   SectionStatic,
   TextStatic,
+  VideoStatic,
 } from "./blocks/static";
 import {
   ROOT_NODE_ID,
@@ -58,6 +59,7 @@ export const defaultStaticRegistry: StaticRegistry = {
       {typeof galleryName === "string" && galleryName ? `: ${galleryName}` : ""}
     </div>
   ),
+  Video: VideoStatic as never,
   // Synchronous client-safe placeholder. The RSC entry overrides this with
   // the async `FormStatic` that fetches and renders the real form.
   Form: ({ formName }: Record<string, unknown> & { children?: ReactNode }) => (
