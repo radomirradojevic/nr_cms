@@ -9,6 +9,7 @@ import {
   RawHtmlStatic,
   RootStatic,
   SectionStatic,
+  TableStatic,
   TextStatic,
   VideoStatic,
 } from "./blocks/static";
@@ -49,6 +50,7 @@ export const defaultStaticRegistry: StaticRegistry = {
   ColumnSlot: ({ children }) => <div>{children}</div>,
   Heading: HeadingStatic as never,
   Text: TextStatic as never,
+  Table: TableStatic as never,
   Image: ImageStatic as never,
   Button: ButtonStatic as never,
   Hero: HeroStatic as never,

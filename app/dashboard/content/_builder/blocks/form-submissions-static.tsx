@@ -25,6 +25,7 @@ export async function FormSubmissionsStatic({
   sortField = "created_at",
   sortOrder = "desc",
   hideId = true,
+  hideSubmitted = false,
   style,
 }: FormSubmissionsProps) {
   const { style: cssStyle, className } = applyBlockStyle(style);
@@ -68,6 +69,7 @@ export async function FormSubmissionsStatic({
         sortField={sortField}
         sortOrder={sortOrder}
         hideId={hideId}
+        hideSubmitted={hideSubmitted}
         fields={formData.fields}
       />,
     );

@@ -9,6 +9,7 @@ declare module "@tiptap/core" {
         displayMode?: "table" | "card";
         pageSize?: number;
         hideId?: boolean;
+        hideSubmitted?: boolean;
       }) => ReturnType;
     };
   }
@@ -94,6 +95,18 @@ export const CmsFormSubmissionsNode = Node.create({
           ),
         }),
       },
+      hideSubmitted: {
+        default: false,
+        parseHTML: (el) =>
+          parseBoolean(
+            el.getAttribute("data-cms-form-submissions-hide-submitted"),
+          ),
+        renderHTML: (attributes) => ({
+          "data-cms-form-submissions-hide-submitted": String(
+            parseBoolean(attributes.hideSubmitted),
+          ),
+        }),
+      },
     };
   },
 
@@ -106,6 +119,7 @@ export const CmsFormSubmissionsNode = Node.create({
     const mode = parseDisplayMode(node.attrs.displayMode);
     const pageSize = parsePageSize(node.attrs.pageSize);
     const hideId = parseBoolean(node.attrs.hideId);
+    const hideSubmitted = parseBoolean(node.attrs.hideSubmitted);
 
     return [
       "div",
@@ -118,7 +132,7 @@ export const CmsFormSubmissionsNode = Node.create({
           class:
             "tiptap-cms-form-submissions-placeholder my-4 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 p-4 text-center text-sm text-muted-foreground",
         },
-        `Form Submissions: ${name || "(untitled)"} (${mode}, ${pageSize} per page${hideId ? ", ID hidden" : ""})`,
+        `Form Submissions: ${name || "(untitled)"} (${mode}, ${pageSize} per page${hideId ? ", ID hidden" : ""}${hideSubmitted ? ", Submitted hidden" : ""})`,
       ],
     ];
   },
@@ -132,6 +146,7 @@ export const CmsFormSubmissionsNode = Node.create({
           displayMode = "table",
           pageSize = 5,
           hideId = true,
+          hideSubmitted = false,
         }) =>
         ({ commands }) => {
           if (!formId) return false;
@@ -143,6 +158,7 @@ export const CmsFormSubmissionsNode = Node.create({
               displayMode: parseDisplayMode(displayMode),
               pageSize: parsePageSize(pageSize),
               hideId,
+              hideSubmitted,
             },
           });
         },

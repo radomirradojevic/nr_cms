@@ -2,6 +2,7 @@
 
 import type { Editor } from "@tiptap/react";
 import { useCallback, useRef, useSyncExternalStore } from "react";
+import { getCurrentIndentLevel } from "./indent-extension";
 
 export type TiptapToolbarState = {
   heading1: boolean;
@@ -15,6 +16,9 @@ export type TiptapToolbarState = {
   orderedList: boolean;
   blockquote: boolean;
   link: boolean;
+  codeBlock: boolean;
+  textColor: string | null;
+  indentLevel: number;
   alignLeft: boolean;
   alignCenter: boolean;
   alignRight: boolean;
@@ -22,6 +26,7 @@ export type TiptapToolbarState = {
   table: boolean;
   tableCell: boolean;
   tableHeader: boolean;
+  image: boolean;
   video: boolean;
   gallery: boolean;
   cmsForm: boolean;
@@ -41,6 +46,9 @@ export const inactiveTiptapToolbarState: TiptapToolbarState = {
   orderedList: false,
   blockquote: false,
   link: false,
+  codeBlock: false,
+  textColor: null,
+  indentLevel: 0,
   alignLeft: false,
   alignCenter: false,
   alignRight: false,
@@ -48,6 +56,7 @@ export const inactiveTiptapToolbarState: TiptapToolbarState = {
   table: false,
   tableCell: false,
   tableHeader: false,
+  image: false,
   video: false,
   gallery: false,
   cmsForm: false,
@@ -68,6 +77,12 @@ function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
     orderedList: editor.isActive("orderedList"),
     blockquote: editor.isActive("blockquote"),
     link: editor.isActive("link"),
+    codeBlock: editor.isActive("codeBlock"),
+    textColor:
+      typeof editor.getAttributes("textStyle").color === "string"
+        ? editor.getAttributes("textStyle").color
+        : null,
+    indentLevel: getCurrentIndentLevel(editor),
     alignLeft: editor.isActive({ textAlign: "left" }),
     alignCenter: editor.isActive({ textAlign: "center" }),
     alignRight: editor.isActive({ textAlign: "right" }),
@@ -75,6 +90,7 @@ function getTiptapToolbarState(editor: Editor): TiptapToolbarState {
     table: editor.isActive("table"),
     tableCell: editor.isActive("tableCell"),
     tableHeader: editor.isActive("tableHeader"),
+    image: editor.isActive("image"),
     video: editor.isActive("video"),
     gallery: editor.isActive("gallery"),
     cmsForm: editor.isActive("cmsForm"),
@@ -93,9 +109,15 @@ export function useTiptapToolbarState(
     (notify: () => void) => {
       if (!editor) return () => {};
 
+      let animationFrame: number | null = null;
       const syncToolbarState = () => {
-        versionRef.current += 1;
-        notify();
+        if (animationFrame !== null) return;
+
+        animationFrame = window.requestAnimationFrame(() => {
+          animationFrame = null;
+          versionRef.current += 1;
+          notify();
+        });
       };
 
       editor.on("selectionUpdate", syncToolbarState);
@@ -114,6 +136,9 @@ export function useTiptapToolbarState(
         editor.off("focus", syncToolbarState);
         dom.removeEventListener("mouseup", syncToolbarState);
         dom.removeEventListener("keyup", syncToolbarState);
+        if (animationFrame !== null) {
+          window.cancelAnimationFrame(animationFrame);
+        }
       };
     },
     [editor],
