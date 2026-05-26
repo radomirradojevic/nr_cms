@@ -1,4 +1,4 @@
-import { currentUser, clerkClient } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles, type Role } from "@/lib/roles";
 import { UsersFilters } from "./_components/users-filters";
 import { LockUserButton } from "./[userId]/lock-user-button";
@@ -54,7 +55,7 @@ export default async function UsersPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const caller = await currentUser();
+  const caller = await getOptionalCurrentUser();
 
   if (!hasRole(caller?.publicMetadata?.roles, "admin")) {
     redirect("/dashboard");

@@ -1,6 +1,5 @@
 "use server";
 
-import { currentUser } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
 import { eq, inArray } from "drizzle-orm";
@@ -15,6 +14,7 @@ import {
   isCategoryInUse,
 } from "@/data/content-categories";
 import { TOP_MENU_TAG } from "@/data/top-menu";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
 
 async function markMenuItemsBroken(categoryIds: string[]) {
@@ -45,7 +45,7 @@ async function markMenuItemsBroken(categoryIds: string[]) {
 }
 
 async function getAdminSession() {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   if (!user) return null;
   const roles = getRoles(user.publicMetadata);
   if (!hasRole(roles, "admin")) return null;

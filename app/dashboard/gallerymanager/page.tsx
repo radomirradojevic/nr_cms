@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { listGalleries, getDistinctCreatorIds } from "@/data/galleries";
 import { GalleryList } from "./gallery-list";
@@ -15,7 +16,7 @@ export default async function GalleryManagerPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!roles.some((r) => (ALLOWED_ROLES as readonly string[]).includes(r))) {
     redirect("/dashboard");

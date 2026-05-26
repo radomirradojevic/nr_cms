@@ -1,4 +1,4 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { Suspense } from "react";
@@ -14,6 +14,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { getDashboardStats } from "@/data/dashboard";
 import { DashboardCard } from "@/app/dashboard/_components/dashboard-card";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
 
 function DashboardSkeleton() {
@@ -136,14 +137,24 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
-  const caller = await currentUser();
+  const caller = await getOptionalCurrentUser();
   const roles = getRoles(caller?.publicMetadata);
   if (
     !hasRole(roles, "admin") &&
     !hasRole(roles, "publisher") &&
     !hasRole(roles, "author")
   ) {
-    redirect("/");
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center p-6">
+        <div className="max-w-md rounded-lg border bg-card p-6 text-center">
+          <h1 className="text-lg font-semibold">Dashboard access unavailable</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your session is signed in, but role information is still syncing.
+            Refresh the page in a moment.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

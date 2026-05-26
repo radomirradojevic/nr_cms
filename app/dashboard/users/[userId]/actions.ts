@@ -1,15 +1,16 @@
 "use server";
 
-import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, ROLES } from "@/lib/roles";
 
 async function requireAdmin() {
   const { userId: callerId } = await auth();
   if (!callerId) return { callerId: null, error: "Unauthorized." };
 
-  const caller = await currentUser();
+  const caller = await getOptionalCurrentUser();
   if (!hasRole(caller?.publicMetadata?.roles, "admin")) {
     return { callerId: null, error: "Forbidden." };
   }

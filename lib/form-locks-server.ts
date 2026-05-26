@@ -1,7 +1,8 @@
 // Shared helpers for form-lock API routes and Form Builder server actions.
 
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
 
 export type FormActor = {
@@ -14,7 +15,7 @@ export type FormActor = {
 export async function getFormActor(): Promise<FormActor | null> {
   const { userId, sessionId } = await auth();
   if (!userId || !sessionId) return null;
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   if (!user) return null;
   const roles = getRoles(user.publicMetadata);
   if (!hasRole(roles, "admin")) return null;

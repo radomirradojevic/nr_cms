@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { FileText, LayoutTemplate } from "lucide-react";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 
 export default async function NewContentChoicePage() {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   const allowed =
     hasRole(roles, "admin") ||

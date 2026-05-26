@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser, clerkClient } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { listContent } from "@/data/content";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 
 const ALLOWED_PAGE_SIZES = [10, 20, 30];
@@ -14,7 +15,7 @@ const ALLOWED_SORTS = [
 ] as const;
 
 export async function GET(request: NextRequest) {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
