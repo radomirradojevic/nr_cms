@@ -34,7 +34,7 @@ export async function SiteTopMenu({
       {/* Desktop navigation — visible on lg and above */}
       {tree.length > 0 && (
         <div className="hidden lg:block">
-          <NavigationMenu viewport={false}>
+          <NavigationMenu viewport={false} aria-label="Site navigation">
             <NavigationMenuList>
               {tree.map((item) => (
                 <RootItem key={item.id} item={item} />

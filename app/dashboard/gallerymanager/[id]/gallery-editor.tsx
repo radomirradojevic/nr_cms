@@ -92,7 +92,8 @@ export function GalleryEditor({
       toast.error(res.error);
       return;
     }
-    if ("duplicates" in res && res.duplicates.length > 0) {
+    const duplicates = "duplicates" in res ? (res.duplicates ?? []) : [];
+    if (duplicates.length > 0) {
       // rollback the optimistic insert (server reports duplicate)
       setImages((prev) => prev.filter((i) => i.fileId !== file.id));
       toast.error("This image is already in the gallery.");
@@ -121,15 +122,15 @@ export function GalleryEditor({
       toast.error(res.error);
       return;
     }
-    if ("duplicates" in res && res.duplicates.length > 0) {
-      const dupSet = new Set(res.duplicates);
+    const duplicates = "duplicates" in res ? (res.duplicates ?? []) : [];
+    if (duplicates.length > 0) {
+      const dupSet = new Set(duplicates);
       setImages((prev) => prev.filter((i) => !dupSet.has(i.fileId)));
-      toast.error(
-        `${res.duplicates.length} image(s) are already in this gallery.`,
-      );
+      toast.error(`${duplicates.length} image(s) are already in this gallery.`);
     }
-    if ("added" in res && res.added.length > 0) {
-      toast.success(`Added ${res.added.length} image(s).`);
+    const added = "added" in res ? (res.added ?? []) : [];
+    if (added.length > 0) {
+      toast.success(`Added ${added.length} image(s).`);
     }
   }
 

@@ -1,16 +1,31 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { clerkClient, currentUser } from "@clerk/nextjs/server";
 
+import {
+  BlogCategoryTemplate,
+  type BlogCategoryTemplatePost,
+} from "@/components/blog-category-template";
 import { getCategoryById } from "@/data/content-categories";
 import { listContent } from "@/data/content";
+import { getGlobalSettings } from "@/data/global-settings";
+import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
 import { getRoles } from "@/lib/roles";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ page?: string | string[] }>;
+};
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PAGE_SIZE = 24;
+
+function parsePageParam(value: string | string[] | undefined): number {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const page = raw ? parseInt(raw, 10) : 1;
+  return Number.isFinite(page) && page > 0 ? page : 1;
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -23,8 +38,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function BlogCategoryPage({ params }: Props) {
+export default async function BlogCategoryPage({
+  params,
+  searchParams,
+}: Props) {
   const { id } = await params;
+  const query = searchParams ? await searchParams : {};
+  const page = parsePageParam(query.page);
   if (!UUID_RE.test(id)) notFound();
 
   const category = await getCategoryById(id);
@@ -33,9 +53,9 @@ export default async function BlogCategoryPage({ params }: Props) {
   const me = await currentUser();
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
 
-  const { rows: posts } = await listContent({
-    page: 1,
-    pageSize: 100,
+  const { rows: posts, total } = await listContent({
+    page,
+    pageSize: PAGE_SIZE,
     contentType: "blog_post",
     status: "published",
     categoryId: id,
@@ -68,80 +88,47 @@ export default async function BlogCategoryPage({ params }: Props) {
     }
   }
 
-  return (
-    <div className="flex flex-1 justify-center px-6 py-16">
-      <main className="w-full space-y-8">
-        <header className="space-y-2">
-          <p className="text-sm uppercase tracking-wide text-muted-foreground">
-            Blog category
-          </p>
-          <h1 className="text-4xl font-bold tracking-tight">{category.name}</h1>
-        </header>
+  const settings = await getGlobalSettings();
+  const contentTemplates = resolveAppearanceContentTemplates(
+    settings.resolvedAppearanceRecipe?.contentTemplates,
+  );
+  const template = contentTemplates.blogCategory;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const templatePosts: BlogCategoryTemplatePost[] = posts.map((post) => {
+    const dt = post.publishedAt ?? post.createdAt;
+    const formattedDate = dt
+      ? new Intl.DateTimeFormat("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }).format(new Date(dt))
+      : null;
 
-        {posts.length === 0 ? (
-          <p className="text-muted-foreground">
-            No published posts in this category yet.
-          </p>
-        ) : (
-          <ul className="space-y-6">
-            {posts.map((post) => {
-              const dt = post.publishedAt ?? post.createdAt;
-              const formatted = dt
-                ? new Intl.DateTimeFormat("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  }).format(new Date(dt))
-                : null;
-              const author = authorNames.get(post.authorId);
-              return (
-                <li key={post.id} className="space-y-3 py-6">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-semibold tracking-tight">
-                      <Link href={`/${post.slug}`} className="hover:underline">
-                        {post.title}
-                      </Link>
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      {author ? <>Created by {author}</> : <>Created</>}
-                      {formatted && (
-                        <>
-                          <span aria-hidden="true"> · </span>
-                          <time dateTime={new Date(dt!).toISOString()}>
-                            {formatted}
-                          </time>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                  {post.coverImage && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={post.coverImage}
-                      alt={post.title}
-                      referrerPolicy="no-referrer"
-                      className="aspect-video w-full rounded-lg object-cover border"
-                    />
-                  )}
-                  {post.excerpt && (
-                    <p className="text-base text-foreground/90">
-                      {post.excerpt}
-                    </p>
-                  )}
-                  <div>
-                    <Link
-                      href={`/${post.slug}`}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Read more →
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </main>
-    </div>
+    return {
+      id: post.id,
+      slug: post.slug,
+      title: post.title,
+      excerpt: post.excerpt,
+      coverImage: post.coverImage,
+      authorName: authorNames.get(post.authorId) ?? null,
+      formattedDate,
+      dateTime: dt ? new Date(dt).toISOString() : null,
+    };
+  });
+
+  return (
+    <BlogCategoryTemplate
+      template={template}
+      categoryName={category.name}
+      posts={templatePosts}
+      pagination={{
+        page,
+        totalPages,
+        total,
+        previousHref: page > 1 ? `/blog-category/${id}?page=${page - 1}` : null,
+        nextHref:
+          page < totalPages ? `/blog-category/${id}?page=${page + 1}` : null,
+      }}
+    />
   );
 }

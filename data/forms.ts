@@ -19,8 +19,6 @@ import { slugify } from "@/lib/utils";
 import type {
   EmailStatus,
   FieldInput,
-  FieldOptions,
-  FieldValidation,
   FormDetail,
   FormFieldRow,
   FormRow,

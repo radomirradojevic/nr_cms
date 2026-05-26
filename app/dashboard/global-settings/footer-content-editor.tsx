@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTiptapToolbarState } from "@/app/dashboard/content/_editors/tiptap-toolbar-state";
+import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 
 interface FooterContentEditorProps {
   value: string;
@@ -133,7 +134,7 @@ function serializeFooterEditorDom(root: HTMLElement) {
   clone.removeAttribute("role");
   clone.classList.remove("ProseMirror", "ProseMirror-focused");
 
-  return clone.innerHTML;
+  return sanitizeCmsHtml(clone.innerHTML);
 }
 
 const preservedAttrs = {
@@ -376,7 +377,7 @@ export function FooterContentEditor({
     if (!htmlMode) {
       setHtmlSource(value || "");
     } else {
-      const nextHtml = htmlSource || "";
+      const nextHtml = sanitizeCmsHtml(htmlSource || "");
       editor!.commands.setContent(nextHtml, { emitUpdate: false });
       pendingEditorHtmlRef.current = nextHtml;
       focusVisualEditorRef.current = true;

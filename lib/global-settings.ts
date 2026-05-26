@@ -13,6 +13,11 @@ import {
   type AppearanceSettings,
   type ContentWidth,
 } from "@/lib/appearance";
+import {
+  AppearanceRecipeV2Schema,
+  buildDefaultClassicAppearanceRecipe,
+  type AppearanceRecipe,
+} from "@/lib/appearance-recipe";
 import { DEFAULT_GLOW, GlowEffectSchema } from "@/lib/glow";
 
 // ─── Cache tags ───────────────────────────────────────────────────────────────
@@ -144,6 +149,7 @@ export const UpdateGlobalSettingsSchema = z
     fontPreset: z.enum(FONT_PRESETS),
     radiusPreset: z.enum(RADIUS_PRESETS),
     shadowPreset: z.enum(SHADOW_PRESETS),
+    appearanceRecipe: AppearanceRecipeV2Schema.optional(),
     maxSessionDurationMinutes: z
       .number()
       .int()
@@ -165,6 +171,59 @@ export type UpdateGlobalSettingsInput = z.infer<
   typeof UpdateGlobalSettingsSchema
 >;
 
+// ─── Legacy appearance fallback parsing ─────────────────────────────────────
+
+export type GlobalSettingsAppearanceInput = {
+  theme: unknown;
+  frontendContentWidth: unknown;
+  backendContentWidth: unknown;
+  fontPreset: unknown;
+  radiusPreset: unknown;
+  shadowPreset: unknown;
+};
+
+function pickEnum<T extends readonly string[]>(
+  list: T,
+  value: unknown,
+  fallback: T[number],
+): T[number] {
+  return typeof value === "string" &&
+    (list as readonly string[]).includes(value)
+    ? (value as T[number])
+    : fallback;
+}
+
+export function parseGlobalSettingsAppearance(
+  row: GlobalSettingsAppearanceInput,
+): AppearanceSettings {
+  return {
+    theme: pickEnum(THEMES, row.theme, DEFAULT_APPEARANCE.theme),
+    frontendContentWidth: normalizeContentWidth(
+      row.frontendContentWidth,
+      DEFAULT_APPEARANCE.frontendContentWidth,
+    ),
+    backendContentWidth: normalizeContentWidth(
+      row.backendContentWidth,
+      DEFAULT_APPEARANCE.backendContentWidth,
+    ),
+    fontPreset: pickEnum(
+      FONT_PRESETS,
+      row.fontPreset,
+      DEFAULT_APPEARANCE.fontPreset,
+    ),
+    radiusPreset: pickEnum(
+      RADIUS_PRESETS,
+      row.radiusPreset,
+      DEFAULT_APPEARANCE.radiusPreset,
+    ),
+    shadowPreset: pickEnum(
+      SHADOW_PRESETS,
+      row.shadowPreset,
+      DEFAULT_APPEARANCE.shadowPreset,
+    ),
+  };
+}
+
 // ─── Resolved (read) shape consumed by the public site ────────────────────────
 
 export type ResolvedSiteLogo = {
@@ -185,6 +244,7 @@ export type ResolvedGlobalSettings = {
   maxUploadSizeBytes: number;
   maxBatchUploadSizeBytes: number;
   appearance: AppearanceSettings;
+  resolvedAppearanceRecipe: AppearanceRecipe;
   sessionSecurity: SessionSecuritySettings;
 };
 
@@ -200,5 +260,14 @@ export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
   maxUploadSizeBytes: DEFAULT_MAX_UPLOAD_SIZE_BYTES,
   maxBatchUploadSizeBytes: DEFAULT_MAX_BATCH_UPLOAD_SIZE_BYTES,
   appearance: DEFAULT_APPEARANCE,
+  resolvedAppearanceRecipe: buildDefaultClassicAppearanceRecipe({
+    appearance: DEFAULT_APPEARANCE,
+    headerContent: null,
+    footerContent: null,
+    headerSettings: DEFAULT_HEADER_SETTINGS,
+    footerSettings: DEFAULT_FOOTER_SETTINGS,
+    stickyHeaderHeight: 80,
+    stickyFooterHeight: 110,
+  }),
   sessionSecurity: SESSION_SECURITY_DEFAULTS,
 };

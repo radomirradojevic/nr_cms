@@ -11,6 +11,7 @@ import {
   GLOBAL_SETTINGS_TAG,
   HeaderSettingsSchema,
   SESSION_SECURITY_DEFAULTS,
+  parseGlobalSettingsAppearance,
   type FooterSettings,
   type HeaderSettings,
   type ResolvedGlobalSettings,
@@ -18,19 +19,11 @@ import {
   type UpdateGlobalSettingsInput,
 } from "@/lib/global-settings";
 import {
-  DEFAULT_APPEARANCE,
-  FONT_PRESETS,
-  RADIUS_PRESETS,
-  SHADOW_PRESETS,
-  THEMES,
-  normalizeContentWidth,
-  type AppearanceSettings,
-  type ContentWidth,
-  type FontPreset,
-  type RadiusPreset,
-  type ShadowPreset,
-  type Theme,
-} from "@/lib/appearance";
+  parseAppearanceRecipe,
+  resolveAppearanceRecipeForWrite,
+  type AppearanceRecipeLegacyInput,
+} from "@/lib/appearance-recipe";
+import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 
 export type GlobalSettingsRow = typeof globalSettings.$inferSelect;
 
@@ -46,59 +39,52 @@ function parseFooter(value: unknown): FooterSettings {
   return parsed.success ? parsed.data : DEFAULT_FOOTER_SETTINGS;
 }
 
-function pickEnum<T extends readonly string[]>(
-  list: T,
-  value: unknown,
-  fallback: T[number],
-): T[number] {
-  return typeof value === "string" &&
-    (list as readonly string[]).includes(value)
-    ? (value as T[number])
-    : fallback;
-}
-
-function parseAppearance(row: {
-  theme: unknown;
-  frontendContentWidth: unknown;
-  backendContentWidth: unknown;
-  fontPreset: unknown;
-  radiusPreset: unknown;
-  shadowPreset: unknown;
-}): AppearanceSettings {
+function toAppearanceRecipeLegacyInput(
+  settings: ResolvedGlobalSettings,
+): AppearanceRecipeLegacyInput {
   return {
-    theme: pickEnum<typeof THEMES>(
-      THEMES,
-      row.theme,
-      DEFAULT_APPEARANCE.theme,
-    ) as Theme,
-    frontendContentWidth: normalizeContentWidth(
-      row.frontendContentWidth,
-      DEFAULT_APPEARANCE.frontendContentWidth,
-    ) as ContentWidth,
-    backendContentWidth: normalizeContentWidth(
-      row.backendContentWidth,
-      DEFAULT_APPEARANCE.backendContentWidth,
-    ) as ContentWidth,
-    fontPreset: pickEnum<typeof FONT_PRESETS>(
-      FONT_PRESETS,
-      row.fontPreset,
-      DEFAULT_APPEARANCE.fontPreset,
-    ) as FontPreset,
-    radiusPreset: pickEnum<typeof RADIUS_PRESETS>(
-      RADIUS_PRESETS,
-      row.radiusPreset,
-      DEFAULT_APPEARANCE.radiusPreset,
-    ) as RadiusPreset,
-    shadowPreset: pickEnum<typeof SHADOW_PRESETS>(
-      SHADOW_PRESETS,
-      row.shadowPreset,
-      DEFAULT_APPEARANCE.shadowPreset,
-    ) as ShadowPreset,
+    appearance: settings.appearance,
+    headerContent: settings.headerContent,
+    footerContent: settings.footerContent,
+    headerSettings: settings.headerSettings,
+    footerSettings: settings.footerSettings,
+    stickyHeaderHeight: settings.stickyHeaderHeight,
+    stickyFooterHeight: settings.stickyFooterHeight,
   };
 }
 
-async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
-  const rows = await db
+function normalizeResolvedGlobalSettings(
+  settings: ResolvedGlobalSettings,
+): ResolvedGlobalSettings {
+  return {
+    ...settings,
+    resolvedAppearanceRecipe: parseAppearanceRecipe(
+      settings.resolvedAppearanceRecipe,
+      toAppearanceRecipeLegacyInput(settings),
+    ),
+  };
+}
+
+function isMissingAppearanceRecipeColumn(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : "";
+  const cause =
+    typeof err === "object" && err !== null && "cause" in err
+      ? (err as { cause?: unknown }).cause
+      : null;
+  const causeCode =
+    typeof cause === "object" && cause !== null && "code" in cause
+      ? (cause as { code?: unknown }).code
+      : null;
+  const causeMessage = cause instanceof Error ? cause.message : "";
+  return (
+    causeCode === "42703" &&
+    (message.includes("appearance_recipe") ||
+      causeMessage.includes("appearance_recipe"))
+  );
+}
+
+async function loadGlobalSettingsRows(includeAppearanceRecipe: boolean) {
+  return db
     .select({
       siteName: globalSettings.siteName,
       siteLogoFileId: globalSettings.siteLogoFileId,
@@ -116,6 +102,9 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
       fontPreset: globalSettings.fontPreset,
       radiusPreset: globalSettings.radiusPreset,
       shadowPreset: globalSettings.shadowPreset,
+      ...(includeAppearanceRecipe
+        ? { appearanceRecipe: globalSettings.appearanceRecipe }
+        : {}),
       maxSessionDurationMinutes: globalSettings.maxSessionDurationMinutes,
       idleLogoutMinutes: globalSettings.idleLogoutMinutes,
       logoStoragePath: files.storagePath,
@@ -125,9 +114,30 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
     .leftJoin(files, eq(files.id, globalSettings.siteLogoFileId))
     .where(eq(globalSettings.id, SINGLETON_ID))
     .limit(1);
+}
+
+async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
+  let rows: Awaited<ReturnType<typeof loadGlobalSettingsRows>>;
+  try {
+    rows = await loadGlobalSettingsRows(true);
+  } catch (err) {
+    if (!isMissingAppearanceRecipeColumn(err)) throw err;
+    rows = await loadGlobalSettingsRows(false);
+  }
 
   const row = rows[0];
   if (!row) return DEFAULT_RESOLVED_GLOBAL_SETTINGS;
+
+  const headerSettings = parseHeader(row.headerSettings);
+  const footerSettings = parseFooter(row.footerSettings);
+  const appearance = parseGlobalSettingsAppearance({
+    theme: row.theme,
+    frontendContentWidth: row.frontendContentWidth,
+    backendContentWidth: row.backendContentWidth,
+    fontPreset: row.fontPreset,
+    radiusPreset: row.radiusPreset,
+    shadowPreset: row.shadowPreset,
+  });
 
   return {
     siteName: row.siteName,
@@ -141,19 +151,21 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
         : null,
     headerContent: row.headerContent,
     footerContent: row.footerContent,
-    headerSettings: parseHeader(row.headerSettings),
-    footerSettings: parseFooter(row.footerSettings),
+    headerSettings,
+    footerSettings,
     stickyHeaderHeight: row.stickyHeaderHeight,
     stickyFooterHeight: row.stickyFooterHeight,
     maxUploadSizeBytes: Number(row.maxUploadSizeBytes),
     maxBatchUploadSizeBytes: Number(row.maxBatchUploadSizeBytes),
-    appearance: parseAppearance({
-      theme: row.theme,
-      frontendContentWidth: row.frontendContentWidth,
-      backendContentWidth: row.backendContentWidth,
-      fontPreset: row.fontPreset,
-      radiusPreset: row.radiusPreset,
-      shadowPreset: row.shadowPreset,
+    appearance,
+    resolvedAppearanceRecipe: parseAppearanceRecipe(row.appearanceRecipe, {
+      appearance,
+      headerContent: row.headerContent,
+      footerContent: row.footerContent,
+      headerSettings,
+      footerSettings,
+      stickyHeaderHeight: row.stickyHeaderHeight,
+      stickyFooterHeight: row.stickyFooterHeight,
     }),
     sessionSecurity: parseSessionSecurity({
       maxSessionDurationMinutes: row.maxSessionDurationMinutes,
@@ -188,13 +200,15 @@ function parseSessionSecurity(row: {
 export const getGlobalSettings = unstable_cache(
   async (): Promise<ResolvedGlobalSettings> => {
     try {
-      return await loadResolvedGlobalSettings();
+      return normalizeResolvedGlobalSettings(
+        await loadResolvedGlobalSettings(),
+      );
     } catch (err) {
       console.error("[getGlobalSettings] failed:", err);
-      return DEFAULT_RESOLVED_GLOBAL_SETTINGS;
+      return normalizeResolvedGlobalSettings(DEFAULT_RESOLVED_GLOBAL_SETTINGS);
     }
   },
-  ["global-settings:resolved:v2"],
+  ["global-settings:resolved:v4"],
   { tags: [GLOBAL_SETTINGS_TAG] },
 );
 
@@ -211,13 +225,29 @@ export async function updateGlobalSettings(
   input: UpdateGlobalSettingsInput,
   userId: string,
 ): Promise<void> {
+  const appearance = parseGlobalSettingsAppearance({
+    theme: input.theme,
+    frontendContentWidth: input.frontendContentWidth,
+    backendContentWidth: input.backendContentWidth,
+    fontPreset: input.fontPreset,
+    radiusPreset: input.radiusPreset,
+    shadowPreset: input.shadowPreset,
+  });
+  const headerSettings = parseHeader(input.headerSettings);
+  const footerSettings = parseFooter(input.footerSettings);
+  const headerContent = input.headerContent
+    ? sanitizeCmsHtml(input.headerContent)
+    : null;
+  const footerContent = input.footerContent
+    ? sanitizeCmsHtml(input.footerContent)
+    : null;
   const values = {
     siteName: input.siteName,
     siteLogoFileId: input.siteLogoFileId,
-    headerContent: input.headerContent,
-    footerContent: input.footerContent,
-    headerSettings: input.headerSettings,
-    footerSettings: input.footerSettings,
+    headerContent,
+    footerContent,
+    headerSettings,
+    footerSettings,
     stickyHeaderHeight: input.stickyHeaderHeight,
     stickyFooterHeight: input.stickyFooterHeight,
     maxUploadSizeBytes: input.maxUploadSizeBytes,
@@ -228,6 +258,15 @@ export async function updateGlobalSettings(
     fontPreset: input.fontPreset,
     radiusPreset: input.radiusPreset,
     shadowPreset: input.shadowPreset,
+    appearanceRecipe: resolveAppearanceRecipeForWrite(input.appearanceRecipe, {
+      appearance,
+      headerContent,
+      footerContent,
+      headerSettings,
+      footerSettings,
+      stickyHeaderHeight: input.stickyHeaderHeight,
+      stickyFooterHeight: input.stickyFooterHeight,
+    }),
     maxSessionDurationMinutes: input.maxSessionDurationMinutes,
     idleLogoutMinutes: input.idleLogoutMinutes,
     updatedBy: userId,

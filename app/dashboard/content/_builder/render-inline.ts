@@ -3,6 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import type { JSONContent } from "@tiptap/react";
+import { sanitizeTiptapHtml } from "@/app/dashboard/content/_editors/sanitize-tiptap-html";
 
 const renderExtensions = [
   StarterKit.configure({
@@ -50,7 +51,7 @@ export function renderInlineHtml(
 ): string {
   if (!value) return "";
   try {
-    return generateHTML(value, renderExtensions);
+    return sanitizeTiptapHtml(generateHTML(value, renderExtensions));
   } catch {
     return "";
   }

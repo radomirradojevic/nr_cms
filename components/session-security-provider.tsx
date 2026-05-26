@@ -90,9 +90,7 @@ export function SessionSecurityProvider({
         maxSessionDurationMinutes={maxSessionDurationMinutes}
         idleLogoutMinutes={idleLogoutMinutes}
         signInAtMs={
-          session.lastActiveAt?.getTime() ??
-          session.createdAt?.getTime() ??
-          Date.now()
+          session.lastActiveAt?.getTime() ?? session.createdAt?.getTime()
         }
         onSignOut={() =>
           signOut({ redirectUrl: "/" }).catch(() => {
@@ -108,7 +106,7 @@ export function SessionSecurityProvider({
 interface TimersProps {
   maxSessionDurationMinutes: number;
   idleLogoutMinutes: number;
-  signInAtMs: number;
+  signInAtMs?: number;
   onSignOut: () => void;
 }
 
@@ -123,6 +121,7 @@ function SessionSecurityTimers({
   const warningLeadMs = Math.min(60_000, Math.floor(idleMs / 4));
 
   const [now, setNow] = useState<number>(() => Date.now());
+  const [fallbackSignInAtMs] = useState<number>(() => Date.now());
   const [warningOpen, setWarningOpen] = useState(false);
   const [warningKind, setWarningKind] = useState<"idle" | "absolute">("idle");
 
@@ -137,6 +136,8 @@ function SessionSecurityTimers({
     onSignOut();
   }, [onSignOut]);
 
+  const effectiveSignInAtMs = signInAtMs ?? fallbackSignInAtMs;
+
   const resetIdle = useCallback(() => {
     const next = Date.now() + idleMs;
     safeSetNumber(IDLE_KEY, next);
@@ -150,7 +151,7 @@ function SessionSecurityTimers({
 
     // Absolute: persist if missing, clamp to min(existing, signInAt+max).
     const existingAbs = safeGetNumber(ABSOLUTE_KEY);
-    const computedAbs = signInAtMs + maxMs;
+    const computedAbs = effectiveSignInAtMs + maxMs;
     const nextAbs =
       existingAbs === null ? computedAbs : Math.min(existingAbs, computedAbs);
     safeSetNumber(ABSOLUTE_KEY, nextAbs);
@@ -169,7 +170,7 @@ function SessionSecurityTimers({
       // Re-clamp to the new idle window if it shrank.
       safeSetNumber(IDLE_KEY, Math.min(existingIdle, nowMs + idleMs));
     }
-  }, [idleMs, maxMs, signInAtMs, performSignOut]);
+  }, [idleMs, maxMs, effectiveSignInAtMs, performSignOut]);
 
   // ─── Activity listeners (throttled) ───────────────────────────────────────
   useEffect(() => {

@@ -44,18 +44,21 @@ export function ContentReassignDialog({
 
   useEffect(() => {
     if (!open) return;
-    setSelectedUserId(row.authorId);
-    setError(null);
-    setLoadingUsers(true);
-    fetchClerkUsersForReassign()
-      .then((res) => {
-        if ("error" in res) {
-          setError(res.error);
-        } else {
-          setUsers(res.users);
-        }
-      })
-      .finally(() => setLoadingUsers(false));
+    const timeout = window.setTimeout(() => {
+      setSelectedUserId(row.authorId);
+      setError(null);
+      setLoadingUsers(true);
+      fetchClerkUsersForReassign()
+        .then((res) => {
+          if ("error" in res) {
+            setError(res.error);
+          } else {
+            setUsers(res.users);
+          }
+        })
+        .finally(() => setLoadingUsers(false));
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [open, row.authorId]);
 
   function handleConfirm() {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { getFormSubmissions } from "@/data/form-submissions";
+import { getRoles, hasRole } from "@/lib/roles";
 
 // Validation schema for query params
 const QuerySchema = z.object({
@@ -10,6 +12,9 @@ const QuerySchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ formId: string }> },
@@ -17,6 +22,18 @@ export async function GET(
   try {
     // Await params per Next.js 16 requirements
     const { formId } = await context.params;
+    if (!UUID_RE.test(formId)) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const user = await currentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const roles = getRoles(user.publicMetadata);
+    if (!hasRole(roles, "admin")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Parse query
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);
