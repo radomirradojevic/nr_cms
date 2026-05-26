@@ -1,9 +1,10 @@
 "use server";
 
-import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import {
   bulkDeleteSubmissions,
@@ -40,7 +41,7 @@ async function requireAdmin(): Promise<{
 } | null> {
   const { userId, sessionId } = await auth();
   if (!userId || !sessionId) return null;
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) return null;
   return { userId, sessionId };

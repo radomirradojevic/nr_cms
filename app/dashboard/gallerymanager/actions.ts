@@ -1,9 +1,10 @@
 "use server";
 
-import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import {
   addImagesToGallery as addImagesToGalleryRow,
@@ -24,7 +25,7 @@ const ALLOWED_ROLES = ["admin", "publisher", "author"] as const;
 async function getCaller() {
   const { userId } = await auth();
   if (!userId) return null;
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!roles.some((r) => (ALLOWED_ROLES as readonly string[]).includes(r))) {
     return null;

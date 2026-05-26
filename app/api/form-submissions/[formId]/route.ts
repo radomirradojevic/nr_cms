@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { z } from "zod";
 import {
   canViewFormSubmissionsViaPublishedContent,
   getFormSubmissions,
 } from "@/data/form-submissions";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 
 // Validation schema for query params
@@ -29,7 +29,7 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const user = await currentUser();
+    const user = await getOptionalCurrentUser();
     const roles = user ? getRoles(user.publicMetadata) : null;
     const canView =
       (roles && hasRole(roles, "admin")) ||

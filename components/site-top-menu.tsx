@@ -1,5 +1,5 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { getTopMenuTreeForViewer, type TopMenuTreeNode } from "@/data/top-menu";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 import {
   NavigationMenu,
@@ -25,7 +25,7 @@ export async function SiteTopMenu({
   isAdmin?: boolean;
   isLoggedIn?: boolean;
 }) {
-  const me = await currentUser();
+  const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
   const tree = await getTopMenuTreeForViewer(viewerRoles);
 

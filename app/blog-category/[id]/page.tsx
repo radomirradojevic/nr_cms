@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { clerkClient, currentUser } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 
 import {
   BlogCategoryTemplate,
@@ -10,6 +10,7 @@ import { getCategoryById } from "@/data/content-categories";
 import { listContent } from "@/data/content";
 import { getGlobalSettings } from "@/data/global-settings";
 import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 
 type Props = {
@@ -50,7 +51,7 @@ export default async function BlogCategoryPage({
   const category = await getCategoryById(id);
   if (!category || category.contentType !== "blog_post") notFound();
 
-  const me = await currentUser();
+  const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
 
   const { rows: posts, total } = await listContent({

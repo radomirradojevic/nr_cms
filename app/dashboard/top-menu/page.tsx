@@ -1,5 +1,5 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import {
   getTopMenuTree,
@@ -10,7 +10,7 @@ import { AdminSectionLockProvider } from "@/components/admin-section-lock-provid
 import { TopMenuBuilder } from "./top-menu-builder";
 
 export default async function TopMenuPage() {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) {
     redirect("/dashboard");

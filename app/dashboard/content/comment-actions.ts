@@ -1,6 +1,6 @@
 "use server";
 
-import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -16,6 +16,7 @@ import {
   updateCommentById,
 } from "@/data/comments";
 import { getContentById } from "@/data/content";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { checkCommentRateLimit, getClientIp, hashIp } from "@/lib/rate-limit";
@@ -48,7 +49,7 @@ export type SubmitCommentInput = z.infer<typeof submitSchema>;
 type Actor = { userId: string; roles: Role[] };
 
 async function loadActor(): Promise<Actor | null> {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   if (!user) return null;
   const roles = getRoles(user.publicMetadata);
   return { userId: user.id, roles };
@@ -141,7 +142,7 @@ export async function submitComment(
   let authorName: string;
   let authorEmail: string | null = null;
   if (userId) {
-    const me = await currentUser();
+    const me = await getOptionalCurrentUser();
     authorName =
       [me?.firstName, me?.lastName].filter(Boolean).join(" ") ||
       me?.username ||

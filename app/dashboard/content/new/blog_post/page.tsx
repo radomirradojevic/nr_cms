@@ -1,12 +1,12 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getCategoriesByType } from "@/data/content-categories";
 import { getGlobalSettings } from "@/data/global-settings";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { ContentForm } from "../../content-form";
 
 export default async function NewBlogPostPage() {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   const allowed =
     hasRole(roles, "admin") ||

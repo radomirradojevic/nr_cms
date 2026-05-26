@@ -1,8 +1,9 @@
-import { currentUser, clerkClient } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles, type Role } from "@/lib/roles";
 import { EditUserDialog } from "@/app/dashboard/users/[userId]/edit-user-dialog";
 import { LockUserButton } from "@/app/dashboard/users/[userId]/lock-user-button";
@@ -25,7 +26,7 @@ type Props = {
 
 export default async function UserDetailPage({ params }: Props) {
   const { userId: targetUserId } = await params;
-  const caller = await currentUser();
+  const caller = await getOptionalCurrentUser();
 
   if (!hasRole(caller?.publicMetadata?.roles, "admin")) {
     redirect("/dashboard");

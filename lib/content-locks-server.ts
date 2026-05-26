@@ -1,6 +1,7 @@
 // Shared helpers for content-lock API routes. Not a route handler.
-import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, type Role } from "@/lib/roles";
 
 export type Actor = {
@@ -13,7 +14,7 @@ export type Actor = {
 export async function getActor(): Promise<Actor | null> {
   const { userId, sessionId } = await auth();
   if (!userId || !sessionId) return null;
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   if (!user) return null;
   const roles = getRoles(user.publicMetadata);
   const allowed = ["admin", "publisher", "author"] as const;

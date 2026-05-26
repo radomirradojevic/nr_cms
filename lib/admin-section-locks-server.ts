@@ -4,8 +4,9 @@
 // admin sections (e.g. /dashboard/global-settings, /dashboard/top-menu) are
 // admin-only by definition.
 
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
 
 export type AdminSectionActor = {
@@ -18,7 +19,7 @@ export type AdminSectionActor = {
 export async function getAdminSectionActor(): Promise<AdminSectionActor | null> {
   const { userId, sessionId } = await auth();
   if (!userId || !sessionId) return null;
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   if (!user) return null;
   const roles = getRoles(user.publicMetadata);
   if (!hasRole(roles, "admin")) return null;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
 
 export type AdminUser = { id: string; name: string };
@@ -10,8 +11,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Use currentUser() to reliably read publicMetadata (same as server actions)
-  const me = await currentUser();
+  // Use the central helper so Clerk API hiccups do not crash this route.
+  const me = await getOptionalCurrentUser();
   const roles = getRoles(me?.publicMetadata);
   if (!hasRole(roles, "admin")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

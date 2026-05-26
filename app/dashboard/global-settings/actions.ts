@@ -1,8 +1,9 @@
 "use server";
 
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { revalidatePath, updateTag } from "next/cache";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getFileByIdUnchecked } from "@/data/files";
 import {
@@ -22,7 +23,7 @@ export async function updateGlobalSettings(
   const { userId } = await auth();
   if (!userId) return { error: "Unauthorized." };
 
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) return { error: "Forbidden." };
 

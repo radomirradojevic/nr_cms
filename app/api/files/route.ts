@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { randomUUID } from "node:crypto";
 import { fileTypeFromBuffer } from "file-type";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 import { sanitizeSvgMarkup } from "@/lib/content-sanitizer";
 import {
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!roles.some((r) => (ALLOWED_ROLES as readonly string[]).includes(r))) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });

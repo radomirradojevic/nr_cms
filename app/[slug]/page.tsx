@@ -9,8 +9,9 @@ import { BlogPostTemplate } from "@/components/blog-post-template";
 import { ContentUnauthorized } from "@/components/content-unauthorized";
 import { PageTemplate } from "@/components/page-template";
 import { getGlobalSettings } from "@/data/global-settings";
-import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { canViewContent } from "@/lib/content-visibility";
 
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const row = await getContentBySlug(slug);
   if (!row || row.status !== "published") return {};
   // Do not leak title/description for restricted content. Generic title only.
-  const me = await currentUser();
+  const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
   if (!canViewContent(row.visibility, viewerRoles)) {
     return { title: "Restricted" };
@@ -39,14 +40,14 @@ export default async function PublicContentPage({ params }: Props) {
 
   // Visibility check — admin always passes; public passes for anyone;
   // otherwise the viewer must have a matching role.
-  const me = await currentUser();
+  const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
   if (!canViewContent(row.visibility, viewerRoles)) {
     return <ContentUnauthorized />;
   }
 
   // Determine if the current user can edit this content
-  const { userId } = await auth();
+  const userId = me?.id;
   let canEdit = false;
   if (userId && row.contentType === "blog_post") {
     const roles = viewerRoles ?? [];

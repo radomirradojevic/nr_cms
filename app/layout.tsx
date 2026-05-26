@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { currentUser } from "@clerk/nextjs/server";
 import { shadcn } from "@clerk/themes";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getRoles, hasRole } from "@/lib/roles";
@@ -9,6 +8,7 @@ import { SiteHeader, resolveHeaderHeight } from "@/components/site-header";
 import { SiteMain } from "@/components/site-main";
 import { getGlobalSettings } from "@/data/global-settings";
 import { getSessionSecuritySettings } from "@/lib/session-security";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { SessionSecurityProvider } from "@/components/session-security-provider";
 import { cn } from "@/lib/utils";
 import { cssVarsToInlineStyle, resolveAppearance } from "@/lib/appearance";
@@ -42,7 +42,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser(true);
   const roles = getRoles(user?.publicMetadata);
   const isBackendUser =
     hasRole(roles, "admin") ||

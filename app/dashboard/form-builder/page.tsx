@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { listForms } from "@/data/forms";
 import { FormsList } from "./forms-list";
@@ -11,7 +12,7 @@ const PAGE_SIZE = 20;
 export default async function FormBuilderPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) redirect("/dashboard");
 
