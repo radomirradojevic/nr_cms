@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { getFormSubmissions } from "@/data/form-submissions";
+import {
+  canViewFormSubmissionsViaPublishedContent,
+  getFormSubmissions,
+} from "@/data/form-submissions";
 import { getRoles, hasRole } from "@/lib/roles";
 
 // Validation schema for query params
@@ -27,11 +30,12 @@ export async function GET(
     }
 
     const user = await currentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const roles = getRoles(user.publicMetadata);
-    if (!hasRole(roles, "admin")) {
+    const roles = user ? getRoles(user.publicMetadata) : null;
+    const canView =
+      (roles && hasRole(roles, "admin")) ||
+      (await canViewFormSubmissionsViaPublishedContent(formId, roles));
+
+    if (!canView) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

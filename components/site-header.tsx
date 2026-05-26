@@ -103,12 +103,14 @@ function renderBrandSlot({
   siteLogo,
   logoUrl,
   className,
+  logoSize = "calc(var(--header-h) * 0.85)",
 }: {
   slot: SlotOf<"Brand"> | null;
   siteName: string;
   siteLogo: ResolvedSiteLogo | null;
   logoUrl: string | null;
   className?: string;
+  logoSize?: string;
 }) {
   if (!slot) return null;
 
@@ -116,15 +118,15 @@ function renderBrandSlot({
     <Link
       href="/"
       className={cn(
-        "text-xl font-bold tracking-tight text-gray-400 hover:text-foreground transition-colors flex items-center gap-2 shrink-0",
+        "text-xl font-bold leading-none tracking-tight text-gray-400 hover:text-foreground transition-colors flex items-center gap-2 shrink-0",
         className,
       )}
     >
       {logoUrl && slot.showLogo && (
         <div
           style={{
-            width: "calc(var(--header-h) * 0.85)",
-            height: "calc(var(--header-h) * 0.85)",
+            width: logoSize,
+            height: logoSize,
             borderRadius: "50%",
             border: "1px solid #6b7280",
             overflow: "hidden",
@@ -140,7 +142,7 @@ function renderBrandSlot({
               height: "100%",
               borderRadius: "50%",
             }}
-            className="object-contain"
+            className="block object-contain"
           />
         </div>
       )}
@@ -410,6 +412,10 @@ export function SiteHeader({
     siteName,
     siteLogo,
     logoUrl,
+    logoSize:
+      region.variant === "split"
+        ? "clamp(3rem, calc(var(--header-h) - 1.5rem), 4.5rem)"
+        : undefined,
   });
   const customContent = renderHeaderHtmlSlot(customHtmlSlot ?? richTextSlot);
   const siteMenu = renderSiteMenuSlot({
