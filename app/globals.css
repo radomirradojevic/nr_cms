@@ -820,6 +820,38 @@ html[data-appearance-background-effects="disabled"] .site-footer {
   max-width: 100%;
 }
 
+.cms-content[data-blog-content-root]
+  :where(iframe[data-video-provider="youtube"]) {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  height: auto !important;
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+
+.cms-content[data-blog-content-root]
+  :where(.tiptap-video-youtube .tiptap-video-frame) {
+  position: relative !important;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto !important;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.cms-content[data-blog-content-root]
+  :where(.tiptap-video-youtube iframe[data-video-provider="youtube"]) {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+}
+
 /* Craft.js Layers panel — add hover feedback on each layer header.
    Default state (unselected) has a transparent background and inherited
    text color, so hovering produced no visible change. We highlight the
