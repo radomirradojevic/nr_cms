@@ -9,12 +9,9 @@ import { content, topMenuItems } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 
 import {
-  clearHomepageFlag,
   deleteContentById,
   existsSlug,
   getContentById,
-  insertContent,
-  setHomepageById,
   updateContentById,
   type ContentRow,
 } from "@/data/content";
@@ -746,6 +743,3 @@ export async function reassignContent(input: {
     return { error: "Something went wrong." };
   }
 }
-
-// Suppress unused import warning
-void auth;

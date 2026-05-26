@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronsUpDown, Loader2, Search } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   Dialog,
@@ -47,27 +46,28 @@ export function ReassignGalleryDialog({
 
   useEffect(() => {
     if (!open) return;
-    setSearch("");
-    setSelectedId("");
-    setError(null);
-    setDropdownOpen(false);
-    setLoadingUsers(true);
-    fetchCmsUsers().then((res) => {
-      setLoadingUsers(false);
-      if ("error" in res) {
-        setError(res.error);
-      } else {
-        setUsers(res.users);
-      }
-    });
+    const timeout = window.setTimeout(() => {
+      setSearch("");
+      setSelectedId("");
+      setError(null);
+      setDropdownOpen(false);
+      setLoadingUsers(true);
+      fetchCmsUsers().then((res) => {
+        setLoadingUsers(false);
+        if ("error" in res) {
+          setError(res.error);
+        } else {
+          setUsers(res.users);
+        }
+      });
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [open]);
 
   // Focus search input when dropdown opens
   useEffect(() => {
     if (dropdownOpen) {
       setTimeout(() => searchRef.current?.focus(), 0);
-    } else {
-      setSearch("");
     }
   }, [dropdownOpen]);
 
@@ -125,7 +125,13 @@ export function ReassignGalleryDialog({
                 Loading users…
               </div>
             ) : (
-              <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
+              <Popover
+                open={dropdownOpen}
+                onOpenChange={(nextOpen) => {
+                  setDropdownOpen(nextOpen);
+                  if (!nextOpen) setSearch("");
+                }}
+              >
                 <PopoverTrigger asChild>
                   <Button
                     type="button"

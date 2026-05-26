@@ -15,8 +15,7 @@ type CategoryRow = {
 
 type AdminUser = { id: string; name: string };
 
-const ALLOWED_PAGE_SIZES = [10, 20, 30] as const;
-type AllowedPageSize = (typeof ALLOWED_PAGE_SIZES)[number];
+type AllowedPageSize = 10 | 20 | 30;
 
 type Props = {
   contentType: "page" | "blog_post";
@@ -78,7 +77,10 @@ export function CategoryTableContainer({ contentType }: Props) {
   }, [contentType, safePage, pageSize, debouncedQuery]);
 
   useEffect(() => {
-    fetchCategories();
+    const timeout = window.setTimeout(() => {
+      void fetchCategories();
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [fetchCategories]);
 
   function handlePageSizeChange(size: AllowedPageSize) {

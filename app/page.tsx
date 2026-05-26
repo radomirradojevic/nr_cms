@@ -4,7 +4,10 @@ import { getHomepageContent } from "@/data/content";
 import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
 import { Button } from "@/components/ui/button";
 import { ContentUnauthorized } from "@/components/content-unauthorized";
+import { PageTemplate } from "@/components/page-template";
+import { getGlobalSettings } from "@/data/global-settings";
 import { canViewContent } from "@/lib/content-visibility";
+import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
 import { getRoles } from "@/lib/roles";
 
 export default async function Home() {
@@ -16,12 +19,14 @@ export default async function Home() {
     if (!canViewContent(homepage.visibility, viewerRoles)) {
       return <ContentUnauthorized />;
     }
+    const settings = await getGlobalSettings();
+    const contentTemplates = resolveAppearanceContentTemplates(
+      settings.resolvedAppearanceRecipe?.contentTemplates,
+    );
     return (
-      <div className="flex flex-1 justify-center px-6 py-16">
-        <main className="w-full">
-          <BuilderRender data={homepage.contentJson} />
-        </main>
-      </div>
+      <PageTemplate template={contentTemplates.page}>
+        <BuilderRender data={homepage.contentJson} />
+      </PageTemplate>
     );
   }
 

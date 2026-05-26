@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "../node_modules/@clerk/ui/dist/themes/shadcn.css";
+@import "../node_modules/@clerk/themes/dist/themes/shadcn.css";
 
 @plugin "@tailwindcss/typography";
 
@@ -217,6 +217,37 @@ html:has(.dashboard-content-root) {
   }
 }
 
+html[data-appearance-background-effects="disabled"].theme-aurora body::before {
+  content: none;
+  animation: none;
+}
+
+html[data-appearance-motion="reduced"] *,
+html[data-appearance-motion="reduced"] *::before,
+html[data-appearance-motion="reduced"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+html[data-appearance-motion="reduced"].theme-aurora body::before {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-appearance-motion="system"] *,
+  html[data-appearance-motion="system"] *::before,
+  html[data-appearance-motion="system"] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -254,6 +285,12 @@ html:has(.dashboard-content-root) {
   overflow-wrap: anywhere;
   overflow-x: clip;
   max-width: 100%;
+}
+
+html[data-appearance-background-effects="disabled"] .site-header,
+html[data-appearance-background-effects="disabled"] .site-footer {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .site-footer .cms-content {

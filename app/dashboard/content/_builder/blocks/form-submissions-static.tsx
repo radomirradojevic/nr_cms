@@ -49,32 +49,37 @@ export async function FormSubmissionsStatic({
       node
     );
 
+  if (!formId) {
+    return wrap(<FormSubmissionsEmpty />);
+  }
+
+  let formData: Awaited<ReturnType<typeof getFormForSubmissions>> = null;
+  let loadError = false;
   try {
-    if (!formId) {
-      return wrap(<FormSubmissionsEmpty />);
-    }
-
-    // Fetch form metadata and fields
-    const formData = await getFormForSubmissions(formId);
-    if (!formData) {
-      return wrap(<FormSubmissionsError message="Form not found." />);
-    }
-
-    // Use client-side renderer for pagination
-    return wrap(
-      <FormSubmissionsRenderer
-        formId={formId}
-        displayMode={displayMode}
-        pageSize={pageSize}
-        sortField={sortField}
-        sortOrder={sortOrder}
-        hideId={hideId}
-        hideSubmitted={hideSubmitted}
-        fields={formData.fields}
-      />,
-    );
+    formData = await getFormForSubmissions(formId);
   } catch (error) {
+    loadError = true;
     console.error("[Form Submissions Block]", error);
+  }
+
+  if (loadError) {
     return wrap(<FormSubmissionsError message="Failed to load submissions." />);
   }
+
+  if (!formData) {
+    return wrap(<FormSubmissionsError message="Form not found." />);
+  }
+
+  return wrap(
+    <FormSubmissionsRenderer
+      formId={formId}
+      displayMode={displayMode}
+      pageSize={pageSize}
+      sortField={sortField}
+      sortOrder={sortOrder}
+      hideId={hideId}
+      hideSubmitted={hideSubmitted}
+      fields={formData.fields}
+    />,
+  );
 }

@@ -12,8 +12,7 @@ import {
 import { ContentTable, type ContentRow } from "./content-table";
 import type { Role } from "@/lib/roles";
 
-const ALLOWED_PAGE_SIZES = [10, 20, 30] as const;
-type AllowedPageSize = (typeof ALLOWED_PAGE_SIZES)[number];
+type AllowedPageSize = 10 | 20 | 30;
 
 export type CategoryOption = { id: string; name: string };
 
@@ -81,13 +80,19 @@ export function ContentTableContainer({
   }, [safePage, pageSize, debouncedQuery, type, status, categoryId]);
 
   useEffect(() => {
-    fetchRows();
+    const timeout = window.setTimeout(() => {
+      void fetchRows();
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [fetchRows]);
 
   // Reset filters that depend on type
   useEffect(() => {
-    setCategoryId("all");
-    setPage(1);
+    const timeout = window.setTimeout(() => {
+      setCategoryId("all");
+      setPage(1);
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [type]);
 
   const availableCategories =

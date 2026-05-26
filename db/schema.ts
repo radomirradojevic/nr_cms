@@ -434,6 +434,9 @@ export const globalSettings = pgTable(
     fontPreset: text("font_preset").notNull().default("system"),
     radiusPreset: text("radius_preset").notNull().default("medium"),
     shadowPreset: text("shadow_preset").notNull().default("soft"),
+    appearanceRecipe: jsonb("appearance_recipe")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     // ─── Session security (driven by lib/session-security.ts) ──────────────
     maxSessionDurationMinutes: integer("max_session_duration_minutes")
       .notNull()

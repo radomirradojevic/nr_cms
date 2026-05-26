@@ -19,8 +19,7 @@ import { type Role, hasRole } from "@/lib/roles";
 import { ContentRowActions } from "./content-row-actions";
 import { BatchActions } from "./batch-actions";
 
-const ALLOWED_PAGE_SIZES = [10, 20, 30] as const;
-type AllowedPageSize = (typeof ALLOWED_PAGE_SIZES)[number];
+type AllowedPageSize = 10 | 20 | 30;
 
 export type ContentRow = {
   id: string;
