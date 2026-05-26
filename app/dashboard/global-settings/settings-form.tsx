@@ -1615,13 +1615,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="headerContent">Header CustomHtml (expert)</Label>
-            <Textarea
-              id="headerContent"
-              rows={6}
+            <Label>Header CustomHtml (expert)</Label>
+            <FooterContentEditor
               value={headerContent}
-              onChange={(e) => setHeaderContent(e.target.value)}
-              maxLength={20000}
+              onChange={setHeaderContent}
             />
           </div>
         </CardContent>
