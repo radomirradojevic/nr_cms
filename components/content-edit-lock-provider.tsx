@@ -75,6 +75,12 @@ type ProviderProps = {
   children: ReactNode;
 };
 
+function createClientId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `c_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+}
+
 /**
  * Wraps the content editor and:
  *   - acquires the edit lock on mount
@@ -96,14 +102,7 @@ export function ContentEditLockProvider({
   currentUserRoles,
   children,
 }: ProviderProps) {
-  const clientIdRef = useRef<string>("");
-  if (!clientIdRef.current) {
-    clientIdRef.current =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `c_${Math.random().toString(36).slice(2)}_${Date.now()}`;
-  }
-  const clientId = clientIdRef.current;
+  const [clientId] = useState(createClientId);
 
   const [state, setState] = useState<LockState>({ kind: "loading" });
   const [contentVersion, setContentVersion] = useState<number>(initialVersion);
@@ -124,14 +123,6 @@ export function ContentEditLockProvider({
       heartbeatTimer.current = null;
     }
   }, []);
-
-  const startHeartbeat = useCallback(() => {
-    clearHeartbeat();
-    heartbeatTimer.current = setInterval(() => {
-      void doHeartbeat();
-    }, HEARTBEAT_INTERVAL_SECONDS * 1000);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearHeartbeat]);
 
   const doHeartbeat = useCallback(async () => {
     try {
@@ -198,6 +189,45 @@ export function ContentEditLockProvider({
       // Network failure — wait for next interval.
     }
   }, [clientId, contentId, contentVersion, currentUserId, clearHeartbeat]);
+
+  const startHeartbeat = useCallback(() => {
+    clearHeartbeat();
+    heartbeatTimer.current = setInterval(() => {
+      void doHeartbeat();
+    }, HEARTBEAT_INTERVAL_SECONDS * 1000);
+  }, [clearHeartbeat, doHeartbeat]);
+
+  const doRelease = useCallback(() => {
+    // Best-effort, fire-and-forget on unmount/navigation.
+    if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
+      try {
+        const blob = new Blob([JSON.stringify({ clientId })], {
+          type: "application/json",
+        });
+        navigator.sendBeacon(
+          `/api/content-locks/${encodeURIComponent(contentId)}/release`,
+          blob,
+        );
+        return;
+      } catch {
+        /* fall through to fetch */
+      }
+    }
+    try {
+      void fetch(
+        `/api/content-locks/${encodeURIComponent(contentId)}/release`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId }),
+          keepalive: true,
+          credentials: "same-origin",
+        },
+      );
+    } catch {
+      /* swallow */
+    }
+  }, [clientId, contentId]);
 
   const doAcquire = useCallback(async () => {
     // IMPORTANT: capture prev kind BEFORE setState("loading") clobbers
@@ -270,39 +300,7 @@ export function ContentEditLockProvider({
         message: err instanceof Error ? err.message : "Network error.",
       });
     }
-  }, [clientId, contentId, contentVersion, startHeartbeat]);
-
-  const doRelease = useCallback(() => {
-    // Best-effort, fire-and-forget on unmount/navigation.
-    if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
-      try {
-        const blob = new Blob([JSON.stringify({ clientId })], {
-          type: "application/json",
-        });
-        navigator.sendBeacon(
-          `/api/content-locks/${encodeURIComponent(contentId)}/release`,
-          blob,
-        );
-        return;
-      } catch {
-        /* fall through to fetch */
-      }
-    }
-    try {
-      void fetch(
-        `/api/content-locks/${encodeURIComponent(contentId)}/release`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientId }),
-          keepalive: true,
-          credentials: "same-origin",
-        },
-      );
-    } catch {
-      /* swallow */
-    }
-  }, [clientId, contentId]);
+  }, [clientId, contentId, contentVersion, doRelease, startHeartbeat]);
 
   const reconcileViaStatus = useCallback(async () => {
     try {
@@ -352,7 +350,9 @@ export function ContentEditLockProvider({
 
   // Mount: acquire + register cleanup
   useEffect(() => {
-    void doAcquire();
+    const acquireTimer = window.setTimeout(() => {
+      void doAcquire();
+    }, 0);
 
     // NOTE: visibilitychange=hidden is intentionally NOT used to release the
     // lock. Switching tabs/windows is normal multitasking — the server-side
@@ -376,6 +376,7 @@ export function ContentEditLockProvider({
     window.addEventListener("focus", onFocus);
 
     const cleanup = () => {
+      window.clearTimeout(acquireTimer);
       clearHeartbeat();
       if (lockedPollTimer.current) {
         clearInterval(lockedPollTimer.current);
@@ -414,6 +415,62 @@ export function ContentEditLockProvider({
     };
   }, [state, reconcileViaStatus]);
 
+  const takeOver = useCallback(async () => {
+    if (
+      !isAdmin ||
+      stateRef.current.kind !== "locked" ||
+      stateRef.current.holder.userRole === "admin"
+    ) {
+      return;
+    }
+    setTakeoverPending(true);
+    setTakeoverError(null);
+    try {
+      const res = await fetch(
+        `/api/content-locks/${encodeURIComponent(contentId)}/takeover`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId }),
+          credentials: "same-origin",
+        },
+      );
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        holder?: LockHolder;
+      };
+      if (res.ok && json.ok) {
+        // Reload so the editor remounts with fresh content from the DB
+        // after the previous editor's session is taken over.
+        if (typeof window !== "undefined") {
+          window.location.reload();
+        }
+        return;
+      }
+      if (res.status === 409 && json.error === "ADMIN_HELD") {
+        setTakeoverError(
+          "Another admin is currently editing this content. Contact them to release the lock.",
+        );
+      } else {
+        setTakeoverError(json.error ?? `Takeover failed (HTTP ${res.status}).`);
+      }
+    } catch (err) {
+      setTakeoverError(
+        err instanceof Error ? err.message : "Network error during takeover.",
+      );
+    } finally {
+      setTakeoverPending(false);
+    }
+  }, [clientId, contentId, isAdmin]);
+
+  const syncVersionAfterSave = useCallback((v: number) => {
+    setContentVersion(v);
+    setState((prev) =>
+      prev.kind === "owner" ? { ...prev, version: v } : prev,
+    );
+  }, []);
+
   const value = useMemo<LockContextValue>(
     () => ({
       state,
@@ -427,66 +484,8 @@ export function ContentEditLockProvider({
         !takeoverPending,
       takeoverPending,
       takeoverError,
-      takeOver: async () => {
-        if (
-          !isAdmin ||
-          stateRef.current.kind !== "locked" ||
-          stateRef.current.holder.userRole === "admin"
-        ) {
-          return;
-        }
-        setTakeoverPending(true);
-        setTakeoverError(null);
-        try {
-          const res = await fetch(
-            `/api/content-locks/${encodeURIComponent(contentId)}/takeover`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ clientId }),
-              credentials: "same-origin",
-            },
-          );
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            error?: string;
-            holder?: LockHolder;
-          };
-          if (res.ok && json.ok) {
-            // Reload so the editor remounts with fresh content from the DB
-            // (the previous editor may have saved since this admin first
-            // loaded the page). The post-reload acquire reclaims the lock
-            // because it matches user_id + session_id of the takeover row.
-            if (typeof window !== "undefined") {
-              window.location.reload();
-            }
-            return;
-          }
-          if (res.status === 409 && json.error === "ADMIN_HELD") {
-            setTakeoverError(
-              "Another admin is currently editing this content. Contact them to release the lock.",
-            );
-          } else {
-            setTakeoverError(
-              json.error ?? `Takeover failed (HTTP ${res.status}).`,
-            );
-          }
-        } catch (err) {
-          setTakeoverError(
-            err instanceof Error
-              ? err.message
-              : "Network error during takeover.",
-          );
-        } finally {
-          setTakeoverPending(false);
-        }
-      },
-      syncVersionAfterSave: (v: number) => {
-        setContentVersion(v);
-        setState((prev) =>
-          prev.kind === "owner" ? { ...prev, version: v } : prev,
-        );
-      },
+      takeOver,
+      syncVersionAfterSave,
     }),
     [
       state,
@@ -495,7 +494,8 @@ export function ContentEditLockProvider({
       isAdmin,
       takeoverPending,
       takeoverError,
-      contentId,
+      takeOver,
+      syncVersionAfterSave,
     ],
   );
 

@@ -42,6 +42,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 
 type Props = {
   /**
@@ -234,6 +235,7 @@ function Inner({
     ) {
       return;
     }
+    const sanitizedSourceHtml = sanitizeCmsHtml(sourceHtml);
     const newNodes: BuilderData["nodes"] = {
       [ROOT_NODE_ID]: {
         type: { resolvedName: "Root" },
@@ -249,7 +251,7 @@ function Inner({
       raw: {
         type: { resolvedName: "RawHtml" },
         isCanvas: false,
-        props: { html: sourceHtml },
+        props: { html: sanitizedSourceHtml },
         displayName: "RawHtml",
         custom: {},
         parent: ROOT_NODE_ID,

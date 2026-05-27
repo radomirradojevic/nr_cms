@@ -227,6 +227,17 @@ export async function getDistinctUploaderIds(): Promise<string[]> {
   return rows.map((r) => r.uploadedBy);
 }
 
+export async function countFilesByUploaderSince(
+  uploadedBy: string,
+  since: Date,
+): Promise<number> {
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(files)
+    .where(and(eq(files.uploadedBy, uploadedBy), gte(files.created, since)));
+  return total;
+}
+
 export async function reassignFileOwner(
   id: string,
   newUploadedBy: string,

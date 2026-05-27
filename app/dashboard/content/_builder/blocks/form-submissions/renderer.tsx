@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { FormSubmissionsTable } from "@/components/form-submissions-table";
 import { FormSubmissionsCard } from "@/components/form-submissions-card";
-import { FormSubmissionsError } from "@/components/form-submissions-error";
 import type { FormFieldRow, FormSubmissionRow } from "@/lib/form-types";
 
 interface FormSubmissionsRendererProps {
@@ -45,11 +44,13 @@ export function FormSubmissionsRenderer({
   const [pages, setPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isHidden, setIsHidden] = useState(false);
 
   // Fetch submissions for a specific page
   const fetchSubmissions = async (page: number) => {
     setIsLoading(true);
     setError(null);
+    setIsHidden(false);
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -61,7 +62,13 @@ export function FormSubmissionsRenderer({
       const response = await fetch(`/api/form-submissions/${formId}?${params}`);
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
+        if (response.status === 401 || response.status === 403) {
+          setIsHidden(true);
+          return;
+        }
+
+        setError("Submissions are unavailable.");
+        return;
       }
 
       const data: SubmissionsResponse = await response.json();
@@ -70,9 +77,8 @@ export function FormSubmissionsRenderer({
       setPages(data.pages);
       setCurrentPage(data.page);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      setError(`Failed to load submissions: ${message}`);
-      console.error("[FormSubmissionsRenderer]", err);
+      setError("Submissions are unavailable.");
+      console.warn("[FormSubmissionsRenderer]", err);
     } finally {
       setIsLoading(false);
     }
@@ -90,8 +96,8 @@ export function FormSubmissionsRenderer({
     await fetchSubmissions(page);
   };
 
-  if (error) {
-    return <FormSubmissionsError message={error} />;
+  if (isHidden || error) {
+    return null;
   }
 
   return (

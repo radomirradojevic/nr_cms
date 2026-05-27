@@ -1,8 +1,9 @@
 import { redirect, notFound } from "next/navigation";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { ArrowLeft, Inbox } from "lucide-react";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getFormById } from "@/data/forms";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ export default async function FormEditPage({
 
   const { userId } = await auth();
   if (!userId) redirect("/");
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) redirect("/dashboard");
 

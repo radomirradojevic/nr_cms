@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "../node_modules/@clerk/ui/dist/themes/shadcn.css";
+@import "../node_modules/@clerk/themes/dist/themes/shadcn.css";
 
 @plugin "@tailwindcss/typography";
 
@@ -64,7 +64,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.18 0 0);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -84,7 +84,7 @@
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.18 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
@@ -111,12 +111,12 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.18 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.95 0 0);
+  --primary-foreground: oklch(0.16 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -132,7 +132,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: oklch(0.18 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -217,6 +217,37 @@ html:has(.dashboard-content-root) {
   }
 }
 
+html[data-appearance-background-effects="disabled"].theme-aurora body::before {
+  content: none;
+  animation: none;
+}
+
+html[data-appearance-motion="reduced"] *,
+html[data-appearance-motion="reduced"] *::before,
+html[data-appearance-motion="reduced"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+html[data-appearance-motion="reduced"].theme-aurora body::before {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-appearance-motion="system"] *,
+  html[data-appearance-motion="system"] *::before,
+  html[data-appearance-motion="system"] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -254,6 +285,12 @@ html:has(.dashboard-content-root) {
   overflow-wrap: anywhere;
   overflow-x: clip;
   max-width: 100%;
+}
+
+html[data-appearance-background-effects="disabled"] .site-header,
+html[data-appearance-background-effects="disabled"] .site-footer {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .site-footer .cms-content {
@@ -356,6 +393,30 @@ html:has(.dashboard-content-root) {
      wrapper; we honor that override here while falling back to the theme
      foreground when no block override is set. */
   color: var(--cms-text-color, var(--foreground));
+  --cms-code-bg: color-mix(in oklch, var(--background) 96%, black);
+  --cms-code-fg: color-mix(in oklch, var(--foreground) 96%, black);
+  --cms-code-comment: #4b5563;
+  --cms-code-keyword: #9d174d;
+  --cms-code-number: #92400e;
+  --cms-code-string: #166534;
+  --cms-code-title: #1d4ed8;
+  --cms-code-type: #0f766e;
+  --cms-code-attr: #6d28d9;
+}
+.dark :where(.ProseMirror, .cms-content) {
+  --cms-code-bg: color-mix(in oklch, var(--background) 82%, black);
+  --cms-code-fg: color-mix(in oklch, var(--foreground) 92%, white);
+  --cms-code-comment: color-mix(
+    in oklch,
+    var(--muted-foreground) 82%,
+    var(--foreground)
+  );
+  --cms-code-keyword: #f472b6;
+  --cms-code-number: #fbbf24;
+  --cms-code-string: #86efac;
+  --cms-code-title: #93c5fd;
+  --cms-code-type: #67e8f9;
+  --cms-code-attr: #c4b5fd;
 }
 :where(.ProseMirror, .cms-content) :where(h1, h2, h3, h4, h5, h6) {
   color: var(--cms-text-color, var(--foreground));
@@ -442,8 +503,8 @@ html:has(.dashboard-content-root) {
 }
 :where(.ProseMirror, .cms-content) :where(pre) {
   position: relative;
-  background: color-mix(in oklch, var(--background) 82%, black);
-  color: color-mix(in oklch, var(--foreground) 92%, white);
+  background: var(--cms-code-bg);
+  color: var(--cms-code-fg);
   padding: 0.875rem 1rem;
   border-radius: 0.375rem;
   border: 1px solid var(--border);
@@ -489,32 +550,32 @@ html:has(.dashboard-content-root) {
   outline-offset: 2px;
 }
 :where(.ProseMirror, .cms-content) :where(.hljs-comment, .hljs-quote) {
-  color: color-mix(in oklch, var(--muted-foreground) 82%, var(--foreground));
+  color: var(--cms-code-comment);
   font-style: italic;
 }
 :where(.ProseMirror, .cms-content)
   :where(.hljs-keyword, .hljs-selector-tag, .hljs-subst) {
-  color: #f472b6;
+  color: var(--cms-code-keyword);
 }
 :where(.ProseMirror, .cms-content)
   :where(.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable) {
-  color: #fbbf24;
+  color: var(--cms-code-number);
 }
 :where(.ProseMirror, .cms-content)
   :where(.hljs-string, .hljs-doctag, .hljs-regexp) {
-  color: #86efac;
+  color: var(--cms-code-string);
 }
 :where(.ProseMirror, .cms-content)
   :where(.hljs-title, .hljs-section, .hljs-selector-id) {
-  color: #93c5fd;
+  color: var(--cms-code-title);
 }
 :where(.ProseMirror, .cms-content)
   :where(.hljs-type, .hljs-class .hljs-title, .hljs-tag, .hljs-name) {
-  color: #67e8f9;
+  color: var(--cms-code-type);
 }
 :where(.ProseMirror, .cms-content)
   :where(.hljs-attr, .hljs-attribute, .hljs-built_in, .hljs-builtin-name) {
-  color: #c4b5fd;
+  color: var(--cms-code-attr);
 }
 :where(.ProseMirror, .cms-content) :where(hr) {
   border: 0;
@@ -781,6 +842,38 @@ html:has(.dashboard-content-root) {
 
 :where(.ProseMirror, .cms-content) :where(.tiptap-video-frame) {
   max-width: 100%;
+}
+
+.cms-content[data-blog-content-root]
+  :where(iframe[data-video-provider="youtube"]) {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  height: auto !important;
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+
+.cms-content[data-blog-content-root]
+  :where(.tiptap-video-youtube .tiptap-video-frame) {
+  position: relative !important;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto !important;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.cms-content[data-blog-content-root]
+  :where(.tiptap-video-youtube iframe[data-video-provider="youtube"]) {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
 }
 
 /* Craft.js Layers panel — add hover feedback on each layer header.

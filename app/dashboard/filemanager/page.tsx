@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { listFiles, getDistinctUploaderIds } from "@/data/files";
 import { getGlobalSettings } from "@/data/global-settings";
@@ -14,7 +15,7 @@ export default async function FileManagerPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!roles.some((r) => (ALLOWED_ROLES as readonly string[]).includes(r))) {
     redirect("/dashboard");

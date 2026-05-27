@@ -1,8 +1,9 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { ChevronLeft } from "lucide-react";
 
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getGalleryById } from "@/data/galleries";
 import { listFiles } from "@/data/files";
@@ -22,7 +23,7 @@ export default async function GalleryEditorPage({
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!roles.some((r) => (ALLOWED_ROLES as readonly string[]).includes(r))) {
     redirect("/dashboard");

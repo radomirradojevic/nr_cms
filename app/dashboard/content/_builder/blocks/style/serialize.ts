@@ -13,6 +13,7 @@ import type {
 import { resolveAnimation } from "./animation";
 import { resolveColor, resolveFontFamily, resolveShadow } from "./tokens";
 import { cn } from "@/lib/utils";
+import { isSafeCssValue, sanitizeCssUrl } from "@/lib/url-safety";
 
 /**
  * Shallow-merges two `BlockStyleBase` envelopes per section. Used to
@@ -161,9 +162,8 @@ function applyBackground(
 ): void {
   if (!bg) return;
   if (bg.image) {
-    // Quote URL defensively to avoid CSS parser issues.
-    const safe = bg.image.replace(/"/g, "%22");
-    out.backgroundImage = `url("${safe}")`;
+    const safe = sanitizeCssUrl(bg.image);
+    if (safe) out.backgroundImage = `url("${safe}")`;
   }
   if (bg.size) out.backgroundSize = bg.size;
   if (bg.position) out.backgroundPosition = bg.position;
@@ -241,6 +241,7 @@ function cssPropsToString(props: React.CSSProperties): string {
   const parts: string[] = [];
   for (const [key, value] of entries) {
     if (value === undefined || value === null || value === "") continue;
+    if (!isSafeCssValue(value)) continue;
     const kebab = key.startsWith("--")
       ? key
       : key.replace(/([A-Z])/g, "-$1").toLowerCase();

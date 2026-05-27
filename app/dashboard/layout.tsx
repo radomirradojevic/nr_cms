@@ -1,6 +1,5 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getRoles } from "@/lib/roles";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { Toaster } from "@/components/ui/sonner";
 
 export default async function DashboardLayout({
@@ -8,14 +7,9 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
 
   if (!user) {
-    redirect("/");
-  }
-
-  const roles = getRoles(user.publicMetadata);
-  if (roles.length === 0 || (roles.length === 1 && roles[0] === "viewer")) {
     redirect("/");
   }
 

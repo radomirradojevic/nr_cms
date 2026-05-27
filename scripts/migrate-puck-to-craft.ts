@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * One-shot migration: convert legacy Puck `contentJson` rows into the new
  * BuilderData envelope used by the Craft.js page builder.

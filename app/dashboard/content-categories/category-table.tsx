@@ -29,8 +29,7 @@ import { EditCategoryDialog } from "./edit-category-dialog";
 import { DeleteCategoryDialog } from "./delete-category-dialog";
 import { deleteCategories } from "./actions";
 
-const ALLOWED_PAGE_SIZES = [10, 20, 30] as const;
-type AllowedPageSize = (typeof ALLOWED_PAGE_SIZES)[number];
+type AllowedPageSize = 10 | 20 | 30;
 
 type CategoryRow = {
   id: string;

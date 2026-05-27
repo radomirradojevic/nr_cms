@@ -42,14 +42,15 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect }: Props) {
 
   // Reset state whenever the dialog is (re)opened.
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    const timeout = window.setTimeout(() => {
       setSearch("");
       setSelectedId(null);
       setFiles([]);
       setOffset(0);
       runFetch(0, true, "");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [open]);
 
   // Debounced search.

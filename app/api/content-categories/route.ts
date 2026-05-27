@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getCategoriesPaginated } from "@/data/content-categories";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { getRoles, hasRole } from "@/lib/roles";
 
 const ALLOWED_PAGE_SIZES = [10, 20, 30];
 const ALLOWED_TYPES = ["page", "blog_post"] as const;
@@ -9,6 +11,11 @@ export async function GET(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const user = await getOptionalCurrentUser();
+  const roles = getRoles(user?.publicMetadata);
+  if (!hasRole(roles, "admin")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { searchParams } = request.nextUrl;

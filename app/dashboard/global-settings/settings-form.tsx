@@ -1,9 +1,27 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ImageIcon, X } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Clipboard,
+  Download,
+  ImageIcon,
+  Info,
+  RotateCcw,
+  Save,
+  ShieldCheck,
+  Upload,
+  X,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,6 +42,8 @@ import {
   DEFAULT_HEADER_SETTINGS,
   FooterSettingsSchema,
   HeaderSettingsSchema,
+  LOGO_BORDER_COLOR_MODES,
+  LOGO_BORDER_SHAPES,
   MAX_MAX_SESSION_MINUTES,
   MB,
   MIN_IDLE_MINUTES,
@@ -47,7 +67,6 @@ import {
   RADIUS_PRESETS,
   SHADOW_PRESETS,
   THEMES,
-  cssVarsToInlineStyle,
   isContentWidthPreset,
   normalizeContentWidth,
   parseCustomContentWidth,
@@ -59,17 +78,58 @@ import {
   type ShadowPreset,
   type Theme,
 } from "@/lib/appearance";
+import {
+  APPEARANCE_SHELL_PRESETS,
+  APPEARANCE_BACKGROUND_EFFECTS,
+  APPEARANCE_MOTION_PREFERENCES,
+  BLOG_CATEGORY_TEMPLATE_VARIANTS,
+  BLOG_POST_COMMENTS_PLACEMENTS,
+  BLOG_POST_COVER_PLACEMENTS,
+  BLOG_POST_EDIT_AFFORDANCE_PLACEMENTS,
+  BLOG_POST_EXCERPT_TREATMENTS,
+  BLOG_POST_METADATA_TREATMENTS,
+  FOOTER_VARIANTS,
+  HEADER_VARIANTS,
+  MAIN_SURFACE_VARIANTS,
+  PAGE_TEMPLATE_VARIANTS,
+  applyAppearancePresetToRecipe,
+  buildDefaultClassicAppearanceRecipe,
+  parseAppearanceRecipeExport,
+  parseAppearanceRecipe,
+  runAppearanceRecipeQualityChecks,
+  serializeAppearanceRecipeExport,
+  type AppearanceLinkV1,
+  type AppearanceShellPreset,
+  type AppearanceRecipe,
+  type AppearanceSlotV1,
+  type AppearancePresetId,
+  type AppearanceBackgroundEffects,
+  type AppearanceMotionPreference,
+  type BlogCategoryTemplateVariant,
+  type BlogPostCommentsPlacement,
+  type BlogPostCoverPlacement,
+  type BlogPostEditAffordancePlacement,
+  type BlogPostExcerptTreatment,
+  type BlogPostMetadataTreatment,
+  type FooterVariant,
+  type HeaderVariant,
+  type MainSurfaceVariant,
+  type PageTemplateVariant,
+} from "@/lib/appearance-recipe";
 import { LogoPickerDialog } from "./logo-picker-dialog";
 import { FooterContentEditor } from "./footer-content-editor";
+import { PresetCards, ShellPreview } from "./appearance-preview";
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
+import { cn } from "@/lib/utils";
 
 interface GlowFieldsProps {
   idPrefix: string;
   value: GlowEffect;
+  colorValid: boolean;
   onChange: (next: GlowEffect) => void;
 }
 
-function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
+function GlowFields({ idPrefix, value, colorValid, onChange }: GlowFieldsProps) {
   const enabledId = `${idPrefix}-glow-enabled`;
   const colorId = `${idPrefix}-glow-color`;
   const intensityId = `${idPrefix}-glow-intensity`;
@@ -77,7 +137,7 @@ function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
   return (
     <div className="space-y-3 rounded-md border p-3">
       <div className="flex items-center justify-between">
-        <Label htmlFor={enabledId}>Glow Border</Label>
+        <Label htmlFor={enabledId}>Border</Label>
         <Switch
           id={enabledId}
           checked={value.enabled}
@@ -86,12 +146,12 @@ function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
       </div>
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor={colorId}>Glow Color</Label>
+          <Label htmlFor={colorId}>Border Color</Label>
           <div className="flex items-center gap-2">
             <Input
               id={colorId}
               type="color"
-              value={value.color}
+              value={getColorPickerValue(value.color)}
               onChange={(e) => onChange({ ...value, color: e.target.value })}
               disabled={!value.enabled}
               className="h-9 w-14 p-1"
@@ -100,11 +160,20 @@ function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
               type="text"
               value={value.color}
               onChange={(e) => onChange({ ...value, color: e.target.value })}
+              onBlur={(e) =>
+                onChange({ ...value, color: e.target.value.trim() })
+              }
               disabled={!value.enabled}
               placeholder="#349aee"
               maxLength={7}
+              aria-invalid={!colorValid || undefined}
             />
           </div>
+          {!colorValid && (
+            <p className="text-xs text-destructive">
+              Enter a valid hex color like #349aee or leave it blank.
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={intensityId}>
@@ -155,6 +224,182 @@ interface SettingsFormProps {
 }
 
 const CUSTOM_WIDTH_OPTION = "__custom__";
+
+const HEADER_VARIANT_LABELS: Record<HeaderVariant, string> = {
+  classic: "Classic",
+  centered: "Centered",
+  split: "Split",
+  "compact-app": "Compact App",
+  "editorial-masthead": "Editorial Masthead",
+  minimal: "Minimal",
+};
+
+const FOOTER_VARIANT_LABELS: Record<FooterVariant, string> = {
+  classic: "Classic",
+  minimal: "Minimal",
+  "multi-column": "Multi-column",
+  centered: "Centered",
+  CTA: "CTA",
+  hidden: "Hidden",
+};
+
+const MAIN_VARIANT_LABELS: Record<MainSurfaceVariant, string> = {
+  normal: "Normal Content",
+  framed: "Framed Content",
+  "full-bleed-builder": "Full-bleed Builder",
+  "editorial-article": "Editorial Article",
+  "category-grid": "Category Grid",
+};
+
+const BLOG_POST_METADATA_LABELS: Record<BlogPostMetadataTreatment, string> = {
+  inline: "Inline",
+  stacked: "Stacked",
+  eyebrow: "Eyebrow",
+  compact: "Compact",
+};
+
+const BLOG_POST_COVER_LABELS: Record<BlogPostCoverPlacement, string> = {
+  top: "Top",
+  hero: "Hero",
+  "after-title": "After Title",
+  inline: "Inline",
+};
+
+const BLOG_POST_EXCERPT_LABELS: Record<BlogPostExcerptTreatment, string> = {
+  lead: "Lead",
+  subtle: "Subtle",
+  callout: "Callout",
+  compact: "Compact",
+};
+
+const BLOG_POST_COMMENTS_LABELS: Record<BlogPostCommentsPlacement, string> = {
+  "after-content": "After Content",
+  "before-content": "Before Content",
+  aside: "Aside",
+};
+
+const BLOG_POST_EDIT_LABELS: Record<BlogPostEditAffordancePlacement, string> = {
+  "title-inline": "Title Inline",
+  "header-actions": "Header Actions",
+  "footer-actions": "Footer Actions",
+};
+
+const BLOG_CATEGORY_TEMPLATE_LABELS: Record<
+  BlogCategoryTemplateVariant,
+  string
+> = {
+  list: "List",
+  cards: "Cards",
+  "magazine-grid": "Magazine Grid",
+  "compact-archive": "Compact Archive",
+  "featured-first": "Featured First",
+};
+
+const PAGE_TEMPLATE_LABELS: Record<PageTemplateVariant, string> = {
+  "full-bleed-builder": "Full-bleed Builder",
+  "contained-builder": "Contained Builder",
+  "framed-builder": "Framed Builder",
+  "landing-mode": "Landing Mode",
+};
+
+const MOTION_PREFERENCE_LABELS: Record<AppearanceMotionPreference, string> = {
+  system: "Use System Preference",
+  reduced: "Always Reduce Motion",
+};
+
+const BACKGROUND_EFFECTS_LABELS: Record<AppearanceBackgroundEffects, string> = {
+  system: "Use System Preference",
+  disabled: "Disabled",
+};
+
+const LOGO_BORDER_COLOR_MODE_LABELS: Record<
+  (typeof LOGO_BORDER_COLOR_MODES)[number],
+  string
+> = {
+  theme: "Use theme border color",
+  custom: "Custom border color",
+};
+
+const LOGO_BORDER_SHAPE_LABELS: Record<
+  (typeof LOGO_BORDER_SHAPES)[number],
+  string
+> = {
+  circle: "Circle",
+  square: "Square",
+};
+
+const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+function normalizeOptionalHexColor(value: string): string | undefined {
+  const trimmed = value.trim();
+  return HEX_COLOR.test(trimmed) ? trimmed : undefined;
+}
+
+function isOptionalHexColorValid(value: string): boolean {
+  return value.trim() === "" || HEX_COLOR.test(value.trim());
+}
+
+function normalizeOptionalGlowEffect(value: GlowEffect): GlowEffect | undefined {
+  const color = normalizeOptionalHexColor(value.color);
+  return color ? { ...value, color } : undefined;
+}
+
+function isOptionalGlowColorValid(value: GlowEffect): boolean {
+  return isOptionalHexColorValid(value.color);
+}
+
+function getColorPickerValue(value: string): string {
+  const normalized = normalizeOptionalHexColor(value);
+  if (!normalized) return "#ffffff";
+  if (normalized.length === 4) {
+    const [, r, g, b] = normalized;
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return normalized;
+}
+
+function findRecipeSlot<T extends AppearanceSlotV1["type"]>(
+  slots: AppearanceSlotV1[],
+  type: T,
+  id?: string,
+): Extract<AppearanceSlotV1, { type: T }> | null {
+  return (slots.find((slot) => slot.type === type && (!id || slot.id === id)) ??
+    null) as Extract<AppearanceSlotV1, { type: T }> | null;
+}
+
+function formatLinksText(links: AppearanceLinkV1[]): string {
+  return links.map((link) => `${link.label} | ${link.href}`).join("\n");
+}
+
+function parseLinksText(value: string): AppearanceLinkV1[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 8)
+    .map((line) => {
+      const separatorIndex = line.indexOf("|");
+      if (separatorIndex === -1) {
+        return { label: line, href: line };
+      }
+      return {
+        label: line.slice(0, separatorIndex).trim(),
+        href: line.slice(separatorIndex + 1).trim(),
+      };
+    })
+    .filter((link) => link.label.length > 0 && link.href.length > 0);
+}
+
+function inferPresetId(recipe: AppearanceRecipe): AppearancePresetId | null {
+  return (
+    APPEARANCE_SHELL_PRESETS.find(
+      (preset) =>
+        preset.header.variant === recipe.shell.header.variant &&
+        preset.main.variant === recipe.shell.main.variant &&
+        preset.footer.variant === recipe.shell.footer.variant,
+    )?.id ?? null
+  );
+}
 
 function clampMinutes(
   raw: string,
@@ -384,6 +629,89 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     FooterSettingsSchema.safeParse(settings?.footerSettings).data ??
     DEFAULT_FOOTER_SETTINGS;
 
+  const initialAppearanceSettings = {
+    theme: (settings?.theme as Theme | undefined) ?? DEFAULT_APPEARANCE.theme,
+    frontendContentWidth: normalizeContentWidth(
+      settings?.frontendContentWidth,
+      DEFAULT_APPEARANCE.frontendContentWidth,
+    ),
+    backendContentWidth: normalizeContentWidth(
+      settings?.backendContentWidth,
+      DEFAULT_APPEARANCE.backendContentWidth,
+    ),
+    fontPreset:
+      (settings?.fontPreset as FontPreset | undefined) ??
+      DEFAULT_APPEARANCE.fontPreset,
+    radiusPreset:
+      (settings?.radiusPreset as RadiusPreset | undefined) ??
+      DEFAULT_APPEARANCE.radiusPreset,
+    shadowPreset:
+      (settings?.shadowPreset as ShadowPreset | undefined) ??
+      DEFAULT_APPEARANCE.shadowPreset,
+  };
+  const initialRecipe = parseAppearanceRecipe(settings?.appearanceRecipe, {
+    appearance: initialAppearanceSettings,
+    headerContent: settings?.headerContent ?? null,
+    footerContent: settings?.footerContent ?? null,
+    headerSettings,
+    footerSettings,
+    stickyHeaderHeight: settings?.stickyHeaderHeight ?? 80,
+    stickyFooterHeight: settings?.stickyFooterHeight ?? 110,
+  });
+  const initialHeaderSlots = initialRecipe.shell.header.slots;
+  const initialFooterSlots = initialRecipe.shell.footer.slots;
+  const initialHeaderCustomHtmlSlot = findRecipeSlot(
+    initialHeaderSlots,
+    "CustomHtml",
+    "header-custom-html",
+  );
+  const initialSiteMenuSlot = findRecipeSlot(initialHeaderSlots, "SiteMenu");
+  const initialAdminMenuSlot = findRecipeSlot(initialHeaderSlots, "AdminMenu");
+  const initialAuthControlsSlot = findRecipeSlot(
+    initialHeaderSlots,
+    "AuthControls",
+  );
+  const initialSearchSlot = findRecipeSlot(
+    initialHeaderSlots,
+    "Search",
+    "header-search",
+  );
+  const initialHeaderCtaSlot = findRecipeSlot(
+    initialHeaderSlots,
+    "CTA",
+    "header-cta",
+  );
+  const initialFooterCustomHtmlSlot = findRecipeSlot(
+    initialFooterSlots,
+    "CustomHtml",
+    "footer-custom-html",
+  );
+  const initialCopyrightSlot = findRecipeSlot(
+    initialFooterSlots,
+    "Copyright",
+    "copyright",
+  );
+  const initialFooterLinksSlot = findRecipeSlot(
+    initialFooterSlots,
+    "FooterLinks",
+    "footer-links",
+  );
+  const initialLegalLinksSlot = findRecipeSlot(
+    initialFooterSlots,
+    "LegalLinks",
+    "legal-links",
+  );
+  const initialSocialLinksSlot = findRecipeSlot(
+    initialFooterSlots,
+    "SocialLinks",
+    "social-links",
+  );
+  const initialFooterCtaSlot = findRecipeSlot(
+    initialFooterSlots,
+    "CTA",
+    "footer-cta",
+  );
+
   const [siteName, setSiteName] = useState(
     settings?.siteName ?? "Night Raven CMS",
   );
@@ -398,6 +726,18 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     headerSettings.showSiteName,
   );
   const [headerSticky, setHeaderSticky] = useState(headerSettings.sticky);
+  const [logoBorderEnabled, setLogoBorderEnabled] = useState(
+    headerSettings.logoBorderEnabled,
+  );
+  const [logoBorderColorMode, setLogoBorderColorMode] = useState<
+    (typeof LOGO_BORDER_COLOR_MODES)[number]
+  >(headerSettings.logoBorderColorMode);
+  const [logoBorderColor, setLogoBorderColor] = useState(
+    headerSettings.logoBorderColor ?? "",
+  );
+  const [logoBorderShape, setLogoBorderShape] = useState<
+    (typeof LOGO_BORDER_SHAPES)[number]
+  >(headerSettings.logoBorderShape);
   const [headerBackground, setHeaderBackground] = useState(
     headerSettings.background ?? "",
   );
@@ -414,6 +754,42 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     initialLogoFile?.filename ?? null,
   );
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [headerVariant, setHeaderVariant] = useState<HeaderVariant>(
+    initialRecipe.shell.header.variant,
+  );
+  const [headerCustomHtmlEnabled, setHeaderCustomHtmlEnabled] = useState(
+    initialHeaderCustomHtmlSlot?.enabled ?? Boolean(settings?.headerContent),
+  );
+  const [siteMenuEnabled, setSiteMenuEnabled] = useState(
+    initialSiteMenuSlot?.enabled ?? true,
+  );
+  const [adminMenuEnabled, setAdminMenuEnabled] = useState(
+    initialAdminMenuSlot?.enabled ?? true,
+  );
+  const [authControlsEnabled, setAuthControlsEnabled] = useState(
+    initialAuthControlsSlot?.enabled ?? true,
+  );
+  const [searchEnabled, setSearchEnabled] = useState(
+    initialSearchSlot?.enabled ?? false,
+  );
+  const [searchPlaceholder, setSearchPlaceholder] = useState(
+    initialSearchSlot?.placeholder ?? "Search",
+  );
+  const [searchBlogPosts, setSearchBlogPosts] = useState(
+    initialSearchSlot?.contentTypes.includes("blog_post") ?? true,
+  );
+  const [searchPages, setSearchPages] = useState(
+    initialSearchSlot?.contentTypes.includes("page") ?? true,
+  );
+  const [headerCtaEnabled, setHeaderCtaEnabled] = useState(
+    initialHeaderCtaSlot?.enabled ?? false,
+  );
+  const [headerCtaLabel, setHeaderCtaLabel] = useState(
+    initialHeaderCtaSlot?.label ?? "",
+  );
+  const [headerCtaHref, setHeaderCtaHref] = useState(
+    initialHeaderCtaSlot?.href ?? "",
+  );
   const [footerShowLogo, setFooterShowLogo] = useState(footerSettings.showLogo);
   const [footerCopyright, setFooterCopyright] = useState(
     footerSettings.copyright ?? "",
@@ -428,6 +804,44 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [stickyFooterHeight, setStickyFooterHeight] = useState(
     String(settings?.stickyFooterHeight ?? 110),
   );
+  const [footerVariant, setFooterVariant] = useState<FooterVariant>(
+    initialRecipe.shell.footer.variant,
+  );
+  const [footerCustomHtmlEnabled, setFooterCustomHtmlEnabled] = useState(
+    initialFooterCustomHtmlSlot?.enabled ?? Boolean(settings?.footerContent),
+  );
+  const [copyrightEnabled, setCopyrightEnabled] = useState(
+    initialCopyrightSlot?.enabled ?? Boolean(footerSettings.copyright),
+  );
+  const [footerLinksEnabled, setFooterLinksEnabled] = useState(
+    initialFooterLinksSlot?.enabled ?? false,
+  );
+  const [footerLinksText, setFooterLinksText] = useState(
+    formatLinksText(initialFooterLinksSlot?.links ?? []),
+  );
+  const [legalLinksEnabled, setLegalLinksEnabled] = useState(
+    initialLegalLinksSlot?.enabled ?? false,
+  );
+  const [legalLinksText, setLegalLinksText] = useState(
+    formatLinksText(initialLegalLinksSlot?.links ?? []),
+  );
+  const [socialLinksEnabled, setSocialLinksEnabled] = useState(
+    initialSocialLinksSlot?.enabled ?? false,
+  );
+  const [socialLinksGenerateSocialIcons, setSocialLinksGenerateSocialIcons] =
+    useState(initialSocialLinksSlot?.generateSocialIcons ?? false);
+  const [socialLinksText, setSocialLinksText] = useState(
+    formatLinksText(initialSocialLinksSlot?.links ?? []),
+  );
+  const [footerCtaEnabled, setFooterCtaEnabled] = useState(
+    initialFooterCtaSlot?.enabled ?? false,
+  );
+  const [footerCtaLabel, setFooterCtaLabel] = useState(
+    initialFooterCtaSlot?.label ?? "",
+  );
+  const [footerCtaHref, setFooterCtaHref] = useState(
+    initialFooterCtaSlot?.href ?? "",
+  );
   const [maxUploadMB, setMaxUploadMB] = useState(
     String(Math.round(Number(settings?.maxUploadSizeBytes ?? 50 * MB) / MB)),
   );
@@ -438,33 +852,59 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   );
 
   // ─── Appearance ────────────────────────────────────────────────────────────
-  const [theme, setTheme] = useState<Theme>(
-    (settings?.theme as Theme | undefined) ?? DEFAULT_APPEARANCE.theme,
-  );
+  const [theme, setTheme] = useState<Theme>(initialAppearanceSettings.theme);
   const [frontendContentWidth, setFrontendContentWidth] =
-    useState<ContentWidth>(
-      normalizeContentWidth(
-        settings?.frontendContentWidth,
-        DEFAULT_APPEARANCE.frontendContentWidth,
-      ),
-    );
+    useState<ContentWidth>(initialAppearanceSettings.frontendContentWidth);
   const [backendContentWidth, setBackendContentWidth] = useState<ContentWidth>(
-    normalizeContentWidth(
-      settings?.backendContentWidth,
-      DEFAULT_APPEARANCE.backendContentWidth,
-    ),
+    initialAppearanceSettings.backendContentWidth,
   );
   const [fontPreset, setFontPreset] = useState<FontPreset>(
-    (settings?.fontPreset as FontPreset | undefined) ??
-      DEFAULT_APPEARANCE.fontPreset,
+    initialAppearanceSettings.fontPreset,
   );
   const [radiusPreset, setRadiusPreset] = useState<RadiusPreset>(
-    (settings?.radiusPreset as RadiusPreset | undefined) ??
-      DEFAULT_APPEARANCE.radiusPreset,
+    initialAppearanceSettings.radiusPreset,
   );
   const [shadowPreset, setShadowPreset] = useState<ShadowPreset>(
-    (settings?.shadowPreset as ShadowPreset | undefined) ??
-      DEFAULT_APPEARANCE.shadowPreset,
+    initialAppearanceSettings.shadowPreset,
+  );
+  const [mainVariant, setMainVariant] = useState<MainSurfaceVariant>(
+    initialRecipe.shell.main.variant,
+  );
+  const [blogPostMetadataTreatment, setBlogPostMetadataTreatment] =
+    useState<BlogPostMetadataTreatment>(
+      initialRecipe.contentTemplates.blogPost.metadataTreatment,
+    );
+  const [blogPostCoverPlacement, setBlogPostCoverPlacement] =
+    useState<BlogPostCoverPlacement>(
+      initialRecipe.contentTemplates.blogPost.coverPlacement,
+    );
+  const [blogPostExcerptTreatment, setBlogPostExcerptTreatment] =
+    useState<BlogPostExcerptTreatment>(
+      initialRecipe.contentTemplates.blogPost.excerptTreatment,
+    );
+  const [blogPostCommentsPlacement, setBlogPostCommentsPlacement] =
+    useState<BlogPostCommentsPlacement>(
+      initialRecipe.contentTemplates.blogPost.commentsPlacement,
+    );
+  const [blogPostEditPlacement, setBlogPostEditPlacement] =
+    useState<BlogPostEditAffordancePlacement>(
+      initialRecipe.contentTemplates.blogPost.editAffordancePlacement,
+    );
+  const [blogCategoryTemplateVariant, setBlogCategoryTemplateVariant] =
+    useState<BlogCategoryTemplateVariant>(
+      initialRecipe.contentTemplates.blogCategory.variant,
+    );
+  const [pageTemplateVariant, setPageTemplateVariant] =
+    useState<PageTemplateVariant>(initialRecipe.contentTemplates.page.variant);
+  const [motionPreference, setMotionPreference] =
+    useState<AppearanceMotionPreference>(initialRecipe.motion.motionPreference);
+  const [backgroundEffects, setBackgroundEffects] =
+    useState<AppearanceBackgroundEffects>(
+      initialRecipe.motion.backgroundEffects,
+    );
+  const [recipePortabilityText, setRecipePortabilityText] = useState("");
+  const [draftPresetId, setDraftPresetId] = useState<AppearancePresetId | null>(
+    inferPresetId(initialRecipe),
   );
 
   // ─── Session security ──────────────────────────────────────────────────────
@@ -500,10 +940,104 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       shadowPreset,
     ],
   );
+  const currentStickyHeaderHeight = Math.max(
+    0,
+    Math.min(400, parseInt(stickyHeaderHeight, 10) || 0),
+  );
+  const currentStickyFooterHeight = Math.max(
+    0,
+    Math.min(400, parseInt(stickyFooterHeight, 10) || 0),
+  );
+  const currentHeaderSettings = useMemo(
+    () => ({
+      showLogo: headerShowLogo,
+      showSiteName: headerShowSiteName,
+      sticky: headerSticky,
+      logoBorderEnabled,
+      logoBorderColorMode,
+      logoBorderColor:
+        logoBorderColorMode === "custom"
+          ? normalizeOptionalHexColor(logoBorderColor)
+          : undefined,
+      logoBorderShape,
+      background: normalizeOptionalHexColor(headerBackground),
+      glow: normalizeOptionalGlowEffect(headerGlow),
+    }),
+    [
+      headerShowLogo,
+      headerShowSiteName,
+      headerSticky,
+      logoBorderEnabled,
+      logoBorderColorMode,
+      logoBorderColor,
+      logoBorderShape,
+      headerBackground,
+      headerGlow,
+    ],
+  );
+  const currentFooterSettings = useMemo(
+    () => ({
+      showLogo: footerShowLogo,
+      copyright: footerCopyright || undefined,
+      sticky: footerSticky,
+      background: normalizeOptionalHexColor(footerBackground),
+      glow: normalizeOptionalGlowEffect(footerGlow),
+    }),
+    [
+      footerShowLogo,
+      footerCopyright,
+      footerSticky,
+      footerBackground,
+      footerGlow,
+    ],
+  );
+  const currentAppearanceSettings = useMemo(
+    () => ({
+      theme,
+      frontendContentWidth,
+      backendContentWidth,
+      fontPreset,
+      radiusPreset,
+      shadowPreset,
+    }),
+    [
+      theme,
+      frontendContentWidth,
+      backendContentWidth,
+      fontPreset,
+      radiusPreset,
+      shadowPreset,
+    ],
+  );
+  const draftRecipe = buildAppearanceRecipeForSubmit({
+    nextAppearance: currentAppearanceSettings,
+    nextHeaderSettings: currentHeaderSettings,
+    nextFooterSettings: currentFooterSettings,
+    nextStickyHeaderHeight: currentStickyHeaderHeight,
+    nextStickyFooterHeight: currentStickyFooterHeight,
+  });
+  const qualityIssues = runAppearanceRecipeQualityChecks(draftRecipe);
+  const qualityErrorCount = qualityIssues.filter(
+    (issue) => issue.severity === "error",
+  ).length;
+  const qualityWarningCount = qualityIssues.filter(
+    (issue) => issue.severity === "warning",
+  ).length;
 
   const [isPending, startTransition] = useTransition();
+  const bottomSaveButtonRef = useRef<HTMLDivElement | null>(null);
+  const [bottomSaveButtonVisible, setBottomSaveButtonVisible] = useState(false);
   const lock = useAdminSectionLock();
   const canSave = lock.isEditor;
+  const headerBackgroundValid = isOptionalHexColorValid(headerBackground);
+  const logoBorderColorValid =
+    logoBorderColorMode !== "custom" || HEX_COLOR.test(logoBorderColor.trim());
+  const footerBackgroundValid = isOptionalHexColorValid(footerBackground);
+  const backgroundColorsValid =
+    headerBackgroundValid && footerBackgroundValid;
+  const headerGlowColorValid = isOptionalGlowColorValid(headerGlow);
+  const footerGlowColorValid = isOptionalGlowColorValid(footerGlow);
+  const glowColorsValid = headerGlowColorValid && footerGlowColorValid;
 
   const maxSessionMinutesNum = parseInt(maxSessionMinutes, 10);
   const idleLogoutMinutesNum = parseInt(idleLogoutMinutesInput, 10);
@@ -514,12 +1048,369 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     Number.isFinite(idleLogoutMinutesNum) &&
     idleLogoutMinutesNum >= MIN_IDLE_MINUTES &&
     idleLogoutMinutesNum <= maxSessionMinutesNum;
+  const settingsSaveDisabled =
+    isPending ||
+    !sessionSecurityValid ||
+    !logoBorderColorValid ||
+    !backgroundColorsValid ||
+    !glowColorsValid ||
+    !canSave;
+
+  useEffect(() => {
+    const bottomSaveButton = bottomSaveButtonRef.current;
+
+    if (!bottomSaveButton) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      setBottomSaveButtonVisible(entry.isIntersecting);
+    });
+
+    observer.observe(bottomSaveButton);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  function buildAppearanceRecipeForSubmit({
+    nextAppearance,
+    nextHeaderSettings,
+    nextFooterSettings,
+    nextStickyHeaderHeight,
+    nextStickyFooterHeight,
+  }: {
+    nextAppearance: typeof initialAppearanceSettings;
+    nextHeaderSettings: typeof headerSettings;
+    nextFooterSettings: typeof footerSettings;
+    nextStickyHeaderHeight: number;
+    nextStickyFooterHeight: number;
+  }): AppearanceRecipe {
+    const recipe = buildDefaultClassicAppearanceRecipe({
+      appearance: nextAppearance,
+      headerContent: headerContent || null,
+      footerContent: footerContent || null,
+      headerSettings: nextHeaderSettings,
+      footerSettings: nextFooterSettings,
+      stickyHeaderHeight: nextStickyHeaderHeight,
+      stickyFooterHeight: nextStickyFooterHeight,
+    });
+
+    return {
+      ...recipe,
+      contentTemplates: {
+        blogPost: {
+          metadataTreatment: blogPostMetadataTreatment,
+          coverPlacement: blogPostCoverPlacement,
+          excerptTreatment: blogPostExcerptTreatment,
+          commentsPlacement: blogPostCommentsPlacement,
+          editAffordancePlacement: blogPostEditPlacement,
+        },
+        blogCategory: {
+          variant: blogCategoryTemplateVariant,
+        },
+        page: {
+          variant: pageTemplateVariant,
+        },
+      },
+      motion: {
+        motionPreference,
+        backgroundEffects,
+      },
+      shell: {
+        header: {
+          ...recipe.shell.header,
+          variant: headerVariant,
+          slots: recipe.shell.header.slots.map((slot) => {
+            if (
+              slot.type === "CustomHtml" &&
+              slot.id === "header-custom-html"
+            ) {
+              return {
+                ...slot,
+                enabled:
+                  headerCustomHtmlEnabled && (headerContent || "").length > 0,
+              };
+            }
+            if (slot.type === "SiteMenu") {
+              return { ...slot, enabled: siteMenuEnabled };
+            }
+            if (slot.type === "AdminMenu") {
+              return { ...slot, enabled: adminMenuEnabled };
+            }
+            if (slot.type === "AuthControls") {
+              return { ...slot, enabled: authControlsEnabled };
+            }
+            if (slot.type === "Search") {
+              return {
+                ...slot,
+                enabled: searchEnabled,
+                placeholder: searchPlaceholder.trim() || "Search",
+                contentTypes: [
+                  ...(searchBlogPosts ? (["blog_post"] as const) : []),
+                  ...(searchPages ? (["page"] as const) : []),
+                ],
+              };
+            }
+            if (slot.type === "CTA" && slot.id === "header-cta") {
+              return {
+                ...slot,
+                enabled: headerCtaEnabled,
+                label: headerCtaLabel.trim(),
+                href: headerCtaHref.trim(),
+                style: "primary" as const,
+              };
+            }
+            return slot;
+          }),
+        },
+        main: {
+          variant: mainVariant,
+        },
+        footer: {
+          ...recipe.shell.footer,
+          variant: footerVariant,
+          slots: recipe.shell.footer.slots.map((slot) => {
+            if (
+              slot.type === "CustomHtml" &&
+              slot.id === "footer-custom-html"
+            ) {
+              return {
+                ...slot,
+                enabled:
+                  footerCustomHtmlEnabled && (footerContent || "").length > 0,
+              };
+            }
+            if (slot.type === "Copyright") {
+              return {
+                ...slot,
+                enabled: copyrightEnabled && footerCopyright.length > 0,
+              };
+            }
+            if (slot.type === "FooterLinks") {
+              return {
+                ...slot,
+                enabled: footerLinksEnabled,
+                links: parseLinksText(footerLinksText),
+              };
+            }
+            if (slot.type === "LegalLinks") {
+              return {
+                ...slot,
+                enabled: legalLinksEnabled,
+                links: parseLinksText(legalLinksText),
+              };
+            }
+            if (slot.type === "SocialLinks") {
+              return {
+                ...slot,
+                enabled: socialLinksEnabled,
+                generateSocialIcons: socialLinksGenerateSocialIcons,
+                links: parseLinksText(socialLinksText),
+              };
+            }
+            if (slot.type === "CTA" && slot.id === "footer-cta") {
+              return {
+                ...slot,
+                enabled: footerCtaEnabled,
+                label: footerCtaLabel.trim(),
+                href: footerCtaHref.trim(),
+                style: "primary" as const,
+              };
+            }
+            return slot;
+          }),
+        },
+      },
+    };
+  }
+
+  function syncDraftFromRecipe(
+    recipe: AppearanceRecipe,
+    presetId: AppearancePresetId | null,
+  ) {
+    const brandSlot = findRecipeSlot(
+      recipe.shell.header.slots,
+      "Brand",
+      "brand",
+    );
+    const headerHtmlSlot = findRecipeSlot(
+      recipe.shell.header.slots,
+      "CustomHtml",
+      "header-custom-html",
+    );
+    const siteMenuSlot = findRecipeSlot(
+      recipe.shell.header.slots,
+      "SiteMenu",
+      "site-menu",
+    );
+    const adminMenuSlot = findRecipeSlot(
+      recipe.shell.header.slots,
+      "AdminMenu",
+      "admin-menu",
+    );
+    const authControlsSlot = findRecipeSlot(
+      recipe.shell.header.slots,
+      "AuthControls",
+      "auth-controls",
+    );
+    const searchSlot = findRecipeSlot(
+      recipe.shell.header.slots,
+      "Search",
+      "header-search",
+    );
+    const headerCtaSlot = findRecipeSlot(
+      recipe.shell.header.slots,
+      "CTA",
+      "header-cta",
+    );
+    const footerHtmlSlot = findRecipeSlot(
+      recipe.shell.footer.slots,
+      "CustomHtml",
+      "footer-custom-html",
+    );
+    const copyrightSlot = findRecipeSlot(
+      recipe.shell.footer.slots,
+      "Copyright",
+      "copyright",
+    );
+    const footerLinksSlot = findRecipeSlot(
+      recipe.shell.footer.slots,
+      "FooterLinks",
+      "footer-links",
+    );
+    const legalLinksSlot = findRecipeSlot(
+      recipe.shell.footer.slots,
+      "LegalLinks",
+      "legal-links",
+    );
+    const socialLinksSlot = findRecipeSlot(
+      recipe.shell.footer.slots,
+      "SocialLinks",
+      "social-links",
+    );
+    const footerCtaSlot = findRecipeSlot(
+      recipe.shell.footer.slots,
+      "CTA",
+      "footer-cta",
+    );
+
+    setTheme(recipe.tokens.theme);
+    setFrontendContentWidth(recipe.tokens.frontendContentWidth);
+    setBackendContentWidth(recipe.tokens.backendContentWidth);
+    setFontPreset(recipe.tokens.fontPreset);
+    setRadiusPreset(recipe.tokens.radiusPreset);
+    setShadowPreset(recipe.tokens.shadowPreset);
+    setHeaderVariant(recipe.shell.header.variant);
+    setMainVariant(recipe.shell.main.variant);
+    setFooterVariant(recipe.shell.footer.variant);
+    setBlogPostMetadataTreatment(
+      recipe.contentTemplates.blogPost.metadataTreatment,
+    );
+    setBlogPostCoverPlacement(recipe.contentTemplates.blogPost.coverPlacement);
+    setBlogPostExcerptTreatment(
+      recipe.contentTemplates.blogPost.excerptTreatment,
+    );
+    setBlogPostCommentsPlacement(
+      recipe.contentTemplates.blogPost.commentsPlacement,
+    );
+    setBlogPostEditPlacement(
+      recipe.contentTemplates.blogPost.editAffordancePlacement,
+    );
+    setBlogCategoryTemplateVariant(
+      recipe.contentTemplates.blogCategory.variant,
+    );
+    setPageTemplateVariant(recipe.contentTemplates.page.variant);
+    setMotionPreference(recipe.motion.motionPreference);
+    setBackgroundEffects(recipe.motion.backgroundEffects);
+    setHeaderSticky(recipe.shell.header.sticky);
+    setFooterSticky(recipe.shell.footer.sticky);
+    setStickyHeaderHeight(String(recipe.shell.header.heightPx));
+    setStickyFooterHeight(String(recipe.shell.footer.minHeightPx));
+    setHeaderShowLogo(brandSlot?.showLogo ?? headerShowLogo);
+    setHeaderShowSiteName(brandSlot?.showSiteName ?? headerShowSiteName);
+    setHeaderCustomHtmlEnabled(headerHtmlSlot?.enabled ?? false);
+    setSiteMenuEnabled(siteMenuSlot?.enabled ?? true);
+    setAdminMenuEnabled(adminMenuSlot?.enabled ?? true);
+    setAuthControlsEnabled(authControlsSlot?.enabled ?? true);
+    setSearchEnabled(searchSlot?.enabled ?? false);
+    setSearchPlaceholder(searchSlot?.placeholder ?? "Search");
+    setSearchBlogPosts(searchSlot?.contentTypes.includes("blog_post") ?? true);
+    setSearchPages(searchSlot?.contentTypes.includes("page") ?? true);
+    setHeaderCtaEnabled(headerCtaSlot?.enabled ?? false);
+    setHeaderCtaLabel(headerCtaSlot?.label ?? "");
+    setHeaderCtaHref(headerCtaSlot?.href ?? "");
+    setFooterCustomHtmlEnabled(footerHtmlSlot?.enabled ?? false);
+    setCopyrightEnabled(copyrightSlot?.enabled ?? false);
+    setFooterLinksEnabled(footerLinksSlot?.enabled ?? false);
+    setFooterLinksText(formatLinksText(footerLinksSlot?.links ?? []));
+    setLegalLinksEnabled(legalLinksSlot?.enabled ?? false);
+    setLegalLinksText(formatLinksText(legalLinksSlot?.links ?? []));
+    setSocialLinksEnabled(socialLinksSlot?.enabled ?? false);
+    setSocialLinksGenerateSocialIcons(
+      socialLinksSlot?.generateSocialIcons ?? false,
+    );
+    setSocialLinksText(formatLinksText(socialLinksSlot?.links ?? []));
+    setFooterCtaEnabled(footerCtaSlot?.enabled ?? false);
+    setFooterCtaLabel(footerCtaSlot?.label ?? "");
+    setFooterCtaHref(footerCtaSlot?.href ?? "");
+    setDraftPresetId(presetId);
+  }
+
+  function applyPresetDraft(preset: AppearanceShellPreset) {
+    const nextRecipe = applyAppearancePresetToRecipe(draftRecipe, preset);
+    syncDraftFromRecipe(nextRecipe, preset.id);
+    toast.success(`${preset.name} applied as a draft.`);
+  }
+
+  function resetToDraftPreset() {
+    const preset =
+      APPEARANCE_SHELL_PRESETS.find((item) => item.id === draftPresetId) ??
+      APPEARANCE_SHELL_PRESETS[0];
+    const nextRecipe = applyAppearancePresetToRecipe(draftRecipe, preset);
+    syncDraftFromRecipe(nextRecipe, preset.id);
+    toast.success(`${preset.name} structure reset.`);
+  }
+
+  async function exportDraftRecipe() {
+    const serialized = serializeAppearanceRecipeExport(draftRecipe);
+    setRecipePortabilityText(serialized);
+
+    try {
+      await navigator.clipboard.writeText(serialized);
+      toast.success("Appearance recipe copied.");
+    } catch {
+      toast.success("Appearance recipe exported.");
+    }
+  }
+
+  function importDraftRecipe() {
+    const parsed = parseAppearanceRecipeExport(recipePortabilityText);
+    if (!parsed.success) {
+      toast.error(parsed.error);
+      return;
+    }
+
+    syncDraftFromRecipe(parsed.recipe, inferPresetId(parsed.recipe));
+    toast.success("Appearance recipe imported as a draft.");
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSave) {
       toast.error(
         "You do not currently hold the edit lock. Another admin is editing these settings.",
+      );
+      return;
+    }
+    if (!logoBorderColorValid) {
+      toast.error("Logo border custom color must be a valid hex value.");
+      return;
+    }
+    if (!backgroundColorsValid || !glowColorsValid) {
+      toast.error(
+        "Header and footer background and glow colors must be valid hex values.",
       );
       return;
     }
@@ -546,36 +1437,14 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
           siteLogoFileId: logoFileId,
           headerContent: headerContent || null,
           footerContent: footerContent || null,
-          headerSettings: {
-            showLogo: headerShowLogo,
-            showSiteName: headerShowSiteName,
-            sticky: headerSticky,
-            background: headerBackground || undefined,
-            glow: headerGlow,
-          },
-          footerSettings: {
-            showLogo: footerShowLogo,
-            copyright: footerCopyright || undefined,
-            sticky: footerSticky,
-            background: footerBackground || undefined,
-            glow: footerGlow,
-          },
-          stickyHeaderHeight: Math.max(
-            0,
-            Math.min(400, parseInt(stickyHeaderHeight, 10) || 0),
-          ),
-          stickyFooterHeight: Math.max(
-            0,
-            Math.min(400, parseInt(stickyFooterHeight, 10) || 0),
-          ),
+          headerSettings: currentHeaderSettings,
+          footerSettings: currentFooterSettings,
+          stickyHeaderHeight: currentStickyHeaderHeight,
+          stickyFooterHeight: currentStickyFooterHeight,
           maxUploadSizeBytes: (parseInt(maxUploadMB, 10) || 50) * MB,
           maxBatchUploadSizeBytes: (parseInt(maxBatchUploadMB, 10) || 500) * MB,
-          theme,
-          frontendContentWidth,
-          backendContentWidth,
-          fontPreset,
-          radiusPreset,
-          shadowPreset,
+          ...currentAppearanceSettings,
+          appearanceRecipe: draftRecipe,
           maxSessionDurationMinutes: parsedMax,
           idleLogoutMinutes: parsedIdle,
         },
@@ -592,6 +1461,30 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div
+        className={cn(
+          "fixed right-4 bottom-4 z-40 transition-all duration-200 sm:right-6 sm:bottom-6",
+          bottomSaveButtonVisible
+            ? "pointer-events-none translate-y-3 opacity-0"
+            : "translate-y-0 opacity-100",
+        )}
+        aria-hidden={bottomSaveButtonVisible}
+      >
+        <Button
+          type="submit"
+          size="lg"
+          disabled={settingsSaveDisabled}
+          className="h-11 rounded-full px-4 shadow-lg shadow-black/15"
+          aria-label={isPending ? "Saving settings" : "Save settings"}
+        >
+          <Save aria-hidden className="h-4 w-4" />
+          <span className="hidden sm:inline">
+            {isPending ? "Saving…" : "Save changes"}
+          </span>
+          <span className="sm:hidden">{isPending ? "Saving…" : "Save"}</span>
+        </Button>
+      </div>
+
       {/* ── Site ── */}
       <Card>
         <CardHeader>
@@ -615,8 +1508,29 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       <Card>
         <CardHeader>
           <CardTitle>Header Settings</CardTitle>
+          <CardDescription>
+            Choose a curated header layout and enable structured slots.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="headerVariant">Header Variant</Label>
+            <Select
+              value={headerVariant}
+              onValueChange={(v) => setHeaderVariant(v as HeaderVariant)}
+            >
+              <SelectTrigger id="headerVariant">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HEADER_VARIANTS.map((variant) => (
+                  <SelectItem key={variant} value={variant}>
+                    {HEADER_VARIANT_LABELS[variant]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label>Site Logo</Label>
             <div className="flex items-center gap-3">
@@ -676,6 +1590,99 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               onCheckedChange={setHeaderShowLogo}
             />
           </div>
+          <div className="space-y-3 rounded-md border p-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="logoBorderEnabled">Enable logo border</Label>
+              <Switch
+                id="logoBorderEnabled"
+                checked={logoBorderEnabled}
+                onCheckedChange={setLogoBorderEnabled}
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="logoBorderShape">Logo border shape</Label>
+                <Select
+                  value={logoBorderShape}
+                  onValueChange={(v) =>
+                    setLogoBorderShape(
+                      v as (typeof LOGO_BORDER_SHAPES)[number],
+                    )
+                  }
+                  disabled={!logoBorderEnabled}
+                >
+                  <SelectTrigger id="logoBorderShape">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOGO_BORDER_SHAPES.map((shape) => (
+                      <SelectItem key={shape} value={shape}>
+                        {LOGO_BORDER_SHAPE_LABELS[shape]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="logoBorderColorMode">Logo border color</Label>
+                <Select
+                  value={logoBorderColorMode}
+                  onValueChange={(v) => {
+                    const mode = v as (typeof LOGO_BORDER_COLOR_MODES)[number];
+                    setLogoBorderColorMode(mode);
+                    if (
+                      mode === "custom" &&
+                      !normalizeOptionalHexColor(logoBorderColor)
+                    ) {
+                      setLogoBorderColor("#ffffff");
+                    }
+                  }}
+                  disabled={!logoBorderEnabled}
+                >
+                  <SelectTrigger id="logoBorderColorMode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOGO_BORDER_COLOR_MODES.map((mode) => (
+                      <SelectItem key={mode} value={mode}>
+                        {LOGO_BORDER_COLOR_MODE_LABELS[mode]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {logoBorderColorMode === "custom" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="logoBorderColor">Custom logo border color</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="logoBorderColor"
+                    type="color"
+                    value={getColorPickerValue(logoBorderColor)}
+                    onChange={(e) => setLogoBorderColor(e.target.value)}
+                    disabled={!logoBorderEnabled}
+                    className="h-9 w-14 p-1"
+                  />
+                  <Input
+                    type="text"
+                    value={logoBorderColor}
+                    onChange={(e) => setLogoBorderColor(e.target.value)}
+                    onBlur={(e) => setLogoBorderColor(e.target.value.trim())}
+                    disabled={!logoBorderEnabled}
+                    placeholder="#ffffff"
+                    maxLength={7}
+                    aria-invalid={!logoBorderColorValid || undefined}
+                  />
+                </div>
+                {!logoBorderColorValid && (
+                  <p className="text-xs text-destructive">
+                    Enter a valid hex color like #fff or #ffffff.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="headerShowSiteName">Show Site Name</Label>
             <Switch
@@ -711,7 +1718,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               <Input
                 id="headerBackground"
                 type="color"
-                value={headerBackground || "#ffffff"}
+                value={getColorPickerValue(headerBackground)}
                 onChange={(e) => setHeaderBackground(e.target.value)}
                 className="h-9 w-14 p-1"
               />
@@ -719,24 +1726,153 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                 type="text"
                 value={headerBackground}
                 onChange={(e) => setHeaderBackground(e.target.value)}
+                onBlur={(e) => setHeaderBackground(e.target.value.trim())}
                 placeholder="#ffffff"
                 maxLength={7}
+                aria-invalid={!headerBackgroundValid || undefined}
               />
             </div>
+            {!headerBackgroundValid && (
+              <p className="text-xs text-destructive">
+                Enter a valid hex color like #fff or #ffffff, or leave it blank.
+              </p>
+            )}
           </div>
           <GlowFields
             idPrefix="header"
             value={headerGlow}
+            colorValid={headerGlowColorValid}
             onChange={setHeaderGlow}
           />
+          <div className="space-y-3 rounded-md border p-3">
+            <div>
+              <h3 className="text-sm font-medium">Header Slots</h3>
+              <p className="text-xs text-muted-foreground">
+                These controls enable curated, validated shell pieces.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="siteMenuEnabled">Site Menu</Label>
+                <Switch
+                  id="siteMenuEnabled"
+                  checked={siteMenuEnabled}
+                  onCheckedChange={setSiteMenuEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="adminMenuEnabled">Admin Menu</Label>
+                <Switch
+                  id="adminMenuEnabled"
+                  checked={adminMenuEnabled}
+                  onCheckedChange={setAdminMenuEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="authControlsEnabled">Auth Controls</Label>
+                <Switch
+                  id="authControlsEnabled"
+                  checked={authControlsEnabled}
+                  onCheckedChange={setAuthControlsEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="headerCustomHtmlEnabled">CustomHtml Slot</Label>
+                <Switch
+                  id="headerCustomHtmlEnabled"
+                  checked={headerCustomHtmlEnabled}
+                  onCheckedChange={setHeaderCustomHtmlEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="searchEnabled">Search Slot</Label>
+                <Switch
+                  id="searchEnabled"
+                  checked={searchEnabled}
+                  onCheckedChange={setSearchEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="headerCtaEnabled">CTA Slot</Label>
+                <Switch
+                  id="headerCtaEnabled"
+                  checked={headerCtaEnabled}
+                  onCheckedChange={setHeaderCtaEnabled}
+                />
+              </div>
+            </div>
+            {searchEnabled && (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="searchPlaceholder">Search Placeholder</Label>
+                  <Input
+                    id="searchPlaceholder"
+                    value={searchPlaceholder}
+                    onChange={(e) => setSearchPlaceholder(e.target.value)}
+                    maxLength={80}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Search Content</Label>
+                  <div className="flex flex-wrap gap-4 rounded-lg border border-border/70 px-3 py-2.5">
+                    <label
+                      htmlFor="searchBlogPosts"
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        id="searchBlogPosts"
+                        checked={searchBlogPosts}
+                        onCheckedChange={(checked) =>
+                          setSearchBlogPosts(checked === true)
+                        }
+                      />
+                      <span>Search blog posts</span>
+                    </label>
+                    <label
+                      htmlFor="searchPages"
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        id="searchPages"
+                        checked={searchPages}
+                        onCheckedChange={(checked) =>
+                          setSearchPages(checked === true)
+                        }
+                      />
+                      <span>Search pages</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+            {headerCtaEnabled && (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="headerCtaLabel">Header CTA Label</Label>
+                  <Input
+                    id="headerCtaLabel"
+                    value={headerCtaLabel}
+                    onChange={(e) => setHeaderCtaLabel(e.target.value)}
+                    maxLength={80}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="headerCtaHref">Header CTA URL</Label>
+                  <Input
+                    id="headerCtaHref"
+                    value={headerCtaHref}
+                    onChange={(e) => setHeaderCtaHref(e.target.value)}
+                    maxLength={300}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           <div className="space-y-1.5">
-            <Label htmlFor="headerContent">Header Content (HTML)</Label>
-            <Textarea
-              id="headerContent"
-              rows={6}
+            <Label>Header CustomHtml (expert)</Label>
+            <FooterContentEditor
               value={headerContent}
-              onChange={(e) => setHeaderContent(e.target.value)}
-              maxLength={20000}
+              onChange={setHeaderContent}
             />
           </div>
         </CardContent>
@@ -746,8 +1882,29 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       <Card>
         <CardHeader>
           <CardTitle>Footer Settings</CardTitle>
+          <CardDescription>
+            Select a curated footer layout and structured footer slots.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="footerVariant">Footer Variant</Label>
+            <Select
+              value={footerVariant}
+              onValueChange={(v) => setFooterVariant(v as FooterVariant)}
+            >
+              <SelectTrigger id="footerVariant">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FOOTER_VARIANTS.map((variant) => (
+                  <SelectItem key={variant} value={variant}>
+                    {FOOTER_VARIANT_LABELS[variant]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="footerShowLogo">Show Logo</Label>
             <Switch
@@ -783,7 +1940,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               <Input
                 id="footerBackground"
                 type="color"
-                value={footerBackground || "#ffffff"}
+                value={getColorPickerValue(footerBackground)}
                 onChange={(e) => setFooterBackground(e.target.value)}
                 className="h-9 w-14 p-1"
               />
@@ -791,16 +1948,152 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                 type="text"
                 value={footerBackground}
                 onChange={(e) => setFooterBackground(e.target.value)}
+                onBlur={(e) => setFooterBackground(e.target.value.trim())}
                 placeholder="#ffffff"
                 maxLength={7}
+                aria-invalid={!footerBackgroundValid || undefined}
               />
             </div>
+            {!footerBackgroundValid && (
+              <p className="text-xs text-destructive">
+                Enter a valid hex color like #fff or #ffffff, or leave it blank.
+              </p>
+            )}
           </div>
           <GlowFields
             idPrefix="footer"
             value={footerGlow}
+            colorValid={footerGlowColorValid}
             onChange={setFooterGlow}
           />
+          <div className="space-y-3 rounded-md border p-3">
+            <div>
+              <h3 className="text-sm font-medium">Footer Slots</h3>
+              <p className="text-xs text-muted-foreground">
+                Link slots use one item per line in the form: Label | URL.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="footerCustomHtmlEnabled">CustomHtml Slot</Label>
+                <Switch
+                  id="footerCustomHtmlEnabled"
+                  checked={footerCustomHtmlEnabled}
+                  onCheckedChange={setFooterCustomHtmlEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="copyrightEnabled">Copyright Slot</Label>
+                <Switch
+                  id="copyrightEnabled"
+                  checked={copyrightEnabled}
+                  onCheckedChange={setCopyrightEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="footerLinksEnabled">Footer Links</Label>
+                <Switch
+                  id="footerLinksEnabled"
+                  checked={footerLinksEnabled}
+                  onCheckedChange={setFooterLinksEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="legalLinksEnabled">Legal Links</Label>
+                <Switch
+                  id="legalLinksEnabled"
+                  checked={legalLinksEnabled}
+                  onCheckedChange={setLegalLinksEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="socialLinksEnabled">Social Links</Label>
+                <Switch
+                  id="socialLinksEnabled"
+                  checked={socialLinksEnabled}
+                  onCheckedChange={setSocialLinksEnabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="footerCtaEnabled">CTA Slot</Label>
+                <Switch
+                  id="footerCtaEnabled"
+                  checked={footerCtaEnabled}
+                  onCheckedChange={setFooterCtaEnabled}
+                />
+              </div>
+            </div>
+            {footerLinksEnabled && (
+              <div className="space-y-1.5">
+                <Label htmlFor="footerLinksText">Footer Links</Label>
+                <Textarea
+                  id="footerLinksText"
+                  rows={3}
+                  value={footerLinksText}
+                  onChange={(e) => setFooterLinksText(e.target.value)}
+                  maxLength={2000}
+                />
+              </div>
+            )}
+            {legalLinksEnabled && (
+              <div className="space-y-1.5">
+                <Label htmlFor="legalLinksText">Legal Links</Label>
+                <Textarea
+                  id="legalLinksText"
+                  rows={3}
+                  value={legalLinksText}
+                  onChange={(e) => setLegalLinksText(e.target.value)}
+                  maxLength={2000}
+                />
+              </div>
+            )}
+            {socialLinksEnabled && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <Label htmlFor="socialLinksGenerateSocialIcons">
+                    Generate Social Link Icons
+                  </Label>
+                  <Switch
+                    id="socialLinksGenerateSocialIcons"
+                    checked={socialLinksGenerateSocialIcons}
+                    onCheckedChange={setSocialLinksGenerateSocialIcons}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="socialLinksText">Social Links</Label>
+                  <Textarea
+                    id="socialLinksText"
+                    rows={3}
+                    value={socialLinksText}
+                    onChange={(e) => setSocialLinksText(e.target.value)}
+                    maxLength={2000}
+                  />
+                </div>
+              </div>
+            )}
+            {footerCtaEnabled && (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="footerCtaLabel">Footer CTA Label</Label>
+                  <Input
+                    id="footerCtaLabel"
+                    value={footerCtaLabel}
+                    onChange={(e) => setFooterCtaLabel(e.target.value)}
+                    maxLength={80}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="footerCtaHref">Footer CTA URL</Label>
+                  <Input
+                    id="footerCtaHref"
+                    value={footerCtaHref}
+                    onChange={(e) => setFooterCtaHref(e.target.value)}
+                    maxLength={300}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="footerCopyright">Copyright Text (optional)</Label>
             <Input
@@ -811,7 +2104,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Footer Content (HTML)</Label>
+            <Label>Footer CustomHtml (expert)</Label>
             <FooterContentEditor
               value={footerContent}
               onChange={setFooterContent}
@@ -820,47 +2113,49 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         </CardContent>
       </Card>
 
-      {/* ── Uploads ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload Limits</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="maxUploadMB">Max Per-File Upload Size (MB)</Label>
-            <Input
-              id="maxUploadMB"
-              type="number"
-              min={1}
-              value={maxUploadMB}
-              onChange={(e) => setMaxUploadMB(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {(parseInt(maxUploadMB, 10) || 0) * MB} bytes
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="maxBatchUploadMB">Max Batch Upload Size (MB)</Label>
-            <Input
-              id="maxBatchUploadMB"
-              type="number"
-              min={1}
-              value={maxBatchUploadMB}
-              onChange={(e) => setMaxBatchUploadMB(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {(parseInt(maxBatchUploadMB, 10) || 0) * MB} bytes
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* ── Appearance ── */}
       <Card>
         <CardHeader>
           <CardTitle>Appearance</CardTitle>
+          <CardDescription>
+            Build a draft shell with presets, slot controls, and responsive
+            preview before saving.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <Label>Shell Presets</Label>
+                <p className="text-xs text-muted-foreground">
+                  Presets update the draft recipe while keeping identity, menus,
+                  and content.
+                </p>
+                <div className="mt-3 flex gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  <p>
+                    Presets are starting points. Mix Theme, content widths,
+                    font, radius, shadow, main surface, and content templates to
+                    shape the public pages and blog posts exactly how you want.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={resetToDraftPreset}
+              >
+                <RotateCcw aria-hidden />
+                Reset to preset
+              </Button>
+            </div>
+            <PresetCards
+              selectedId={draftPresetId}
+              onApply={applyPresetDraft}
+            />
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="appearance-theme">Theme</Label>
@@ -872,6 +2167,25 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                   {THEMES.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="mainVariant">Main Surface Variant</Label>
+              <Select
+                value={mainVariant}
+                onValueChange={(v) => setMainVariant(v as MainSurfaceVariant)}
+              >
+                <SelectTrigger id="mainVariant">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MAIN_SURFACE_VARIANTS.map((variant) => (
+                    <SelectItem key={variant} value={variant}>
+                      {MAIN_VARIANT_LABELS[variant]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -950,54 +2264,385 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Live Preview</Label>
-            <div
-              className={previewAppearance.htmlClass}
-              style={cssVarsToInlineStyle(previewAppearance.cssVars)}
-            >
-              <div
-                className="rounded-lg border bg-background p-6 text-foreground"
-                style={{ boxShadow: "var(--shadow-md)" }}
-              >
-                <h3
-                  className="text-lg font-semibold"
-                  style={{ fontFamily: "var(--font-heading)" }}
+          <div className="space-y-4 rounded-md border p-3">
+            <div>
+              <Label>Content Templates</Label>
+              <p className="text-xs text-muted-foreground">
+                Global template selections for public content surfaces.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="pageTemplateVariant">Page Template</Label>
+                <Select
+                  value={pageTemplateVariant}
+                  onValueChange={(v) =>
+                    setPageTemplateVariant(v as PageTemplateVariant)
+                  }
                 >
-                  Sample Heading
-                </h3>
-                <p
-                  className="mt-1 text-sm text-muted-foreground"
-                  style={{ fontFamily: "var(--font-sans)" }}
+                  <SelectTrigger id="pageTemplateVariant">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_TEMPLATE_VARIANTS.map((variant) => (
+                      <SelectItem key={variant} value={variant}>
+                        {PAGE_TEMPLATE_LABELS[variant]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="blogCategoryTemplateVariant">
+                  Blog Category Template
+                </Label>
+                <Select
+                  value={blogCategoryTemplateVariant}
+                  onValueChange={(v) =>
+                    setBlogCategoryTemplateVariant(
+                      v as BlogCategoryTemplateVariant,
+                    )
+                  }
                 >
-                  Quick brown foxes jump over lazy dogs. This card uses the
-                  active background, foreground, border, radius and shadow
-                  tokens.
-                </p>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-                    style={{ boxShadow: "var(--shadow-sm)" }}
-                  >
-                    Primary
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground"
-                  >
-                    Secondary
-                  </button>
-                  <span className="text-xs text-muted-foreground">
-                    frontend: {previewAppearance.frontendContainerMaxWidth} /
-                    backend: {previewAppearance.backendContainerMaxWidth}
-                  </span>
-                </div>
+                  <SelectTrigger id="blogCategoryTemplateVariant">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BLOG_CATEGORY_TEMPLATE_VARIANTS.map((variant) => (
+                      <SelectItem key={variant} value={variant}>
+                        {BLOG_CATEGORY_TEMPLATE_LABELS[variant]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="blogPostMetadataTreatment">
+                  Blog Post Metadata
+                </Label>
+                <Select
+                  value={blogPostMetadataTreatment}
+                  onValueChange={(v) =>
+                    setBlogPostMetadataTreatment(v as BlogPostMetadataTreatment)
+                  }
+                >
+                  <SelectTrigger id="blogPostMetadataTreatment">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BLOG_POST_METADATA_TREATMENTS.map((treatment) => (
+                      <SelectItem key={treatment} value={treatment}>
+                        {BLOG_POST_METADATA_LABELS[treatment]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="blogPostCoverPlacement">Blog Post Cover</Label>
+                <Select
+                  value={blogPostCoverPlacement}
+                  onValueChange={(v) =>
+                    setBlogPostCoverPlacement(v as BlogPostCoverPlacement)
+                  }
+                >
+                  <SelectTrigger id="blogPostCoverPlacement">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BLOG_POST_COVER_PLACEMENTS.map((placement) => (
+                      <SelectItem key={placement} value={placement}>
+                        {BLOG_POST_COVER_LABELS[placement]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="blogPostExcerptTreatment">
+                  Blog Post Excerpt
+                </Label>
+                <Select
+                  value={blogPostExcerptTreatment}
+                  onValueChange={(v) =>
+                    setBlogPostExcerptTreatment(v as BlogPostExcerptTreatment)
+                  }
+                >
+                  <SelectTrigger id="blogPostExcerptTreatment">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BLOG_POST_EXCERPT_TREATMENTS.map((treatment) => (
+                      <SelectItem key={treatment} value={treatment}>
+                        {BLOG_POST_EXCERPT_LABELS[treatment]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="blogPostCommentsPlacement">
+                  Blog Post Comments
+                </Label>
+                <Select
+                  value={blogPostCommentsPlacement}
+                  onValueChange={(v) =>
+                    setBlogPostCommentsPlacement(v as BlogPostCommentsPlacement)
+                  }
+                >
+                  <SelectTrigger id="blogPostCommentsPlacement">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BLOG_POST_COMMENTS_PLACEMENTS.map((placement) => (
+                      <SelectItem key={placement} value={placement}>
+                        {BLOG_POST_COMMENTS_LABELS[placement]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="blogPostEditPlacement">
+                  Blog Post Edit Link
+                </Label>
+                <Select
+                  value={blogPostEditPlacement}
+                  onValueChange={(v) =>
+                    setBlogPostEditPlacement(
+                      v as BlogPostEditAffordancePlacement,
+                    )
+                  }
+                >
+                  <SelectTrigger id="blogPostEditPlacement">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BLOG_POST_EDIT_AFFORDANCE_PLACEMENTS.map((placement) => (
+                      <SelectItem key={placement} value={placement}>
+                        {BLOG_POST_EDIT_LABELS[placement]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+          </div>
+
+          <div className="space-y-4 rounded-md border p-3">
+            <div>
+              <Label>Motion & Effects</Label>
+              <p className="text-xs text-muted-foreground">
+                Recipe-level motion policy for animation and background effects.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="motionPreference">Motion Preference</Label>
+                <Select
+                  value={motionPreference}
+                  onValueChange={(v) =>
+                    setMotionPreference(v as AppearanceMotionPreference)
+                  }
+                >
+                  <SelectTrigger id="motionPreference">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {APPEARANCE_MOTION_PREFERENCES.map((preference) => (
+                      <SelectItem key={preference} value={preference}>
+                        {MOTION_PREFERENCE_LABELS[preference]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="backgroundEffects">Background Effects</Label>
+                <Select
+                  value={backgroundEffects}
+                  onValueChange={(v) =>
+                    setBackgroundEffects(v as AppearanceBackgroundEffects)
+                  }
+                >
+                  <SelectTrigger id="backgroundEffects">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {APPEARANCE_BACKGROUND_EFFECTS.map((effect) => (
+                      <SelectItem key={effect} value={effect}>
+                        {BACKGROUND_EFFECTS_LABELS[effect]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-md border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <Label>Quality Gates</Label>
+                <p className="text-xs text-muted-foreground">
+                  Checks run across desktop, tablet, mobile, and auth states.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge
+                  variant={qualityErrorCount > 0 ? "destructive" : "secondary"}
+                >
+                  <ShieldCheck aria-hidden />
+                  {qualityErrorCount} errors
+                </Badge>
+                <Badge variant="outline">{qualityWarningCount} warnings</Badge>
+              </div>
+            </div>
+            {qualityIssues.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {qualityIssues.slice(0, 5).map((issue) => (
+                  <li
+                    key={`${issue.code}:${issue.scenario?.viewport ?? "global"}:${issue.scenario?.authState ?? "global"}`}
+                    className="flex gap-2 text-muted-foreground"
+                  >
+                    <span
+                      className={cn(
+                        "mt-1 size-2 shrink-0 rounded-full",
+                        issue.severity === "error"
+                          ? "bg-destructive"
+                          : "bg-muted-foreground",
+                      )}
+                      aria-hidden
+                    />
+                    <span>{issue.message}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No quality gate issues detected.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-4 rounded-md border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <Label htmlFor="recipePortabilityText">
+                  Appearance Recipe JSON
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Portable recipe data. Imported HTML slots are disabled.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={exportDraftRecipe}
+                >
+                  <Download aria-hidden />
+                  Export
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={importDraftRecipe}
+                  disabled={recipePortabilityText.trim().length === 0}
+                >
+                  <Upload aria-hidden />
+                  Import Draft
+                </Button>
+              </div>
+            </div>
+            <Textarea
+              id="recipePortabilityText"
+              rows={8}
+              value={recipePortabilityText}
+              onChange={(e) => setRecipePortabilityText(e.target.value)}
+              spellCheck={false}
+              className="font-mono text-xs"
+            />
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRecipePortabilityText("");
+                  toast.message("Appearance recipe JSON cleared.");
+                }}
+              >
+                <Clipboard aria-hidden />
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label>Shell Preview</Label>
+              <Badge variant="outline">
+                {previewAppearance.frontendContainerMaxWidth}
+              </Badge>
+            </div>
+            <ShellPreview
+              recipe={draftRecipe}
+              appearance={previewAppearance}
+              siteName={siteName}
+              logoFileId={logoFileId}
+              logoBorderEnabled={logoBorderEnabled}
+              logoBorderColorMode={logoBorderColorMode}
+              logoBorderColor={normalizeOptionalHexColor(logoBorderColor)}
+              logoBorderShape={logoBorderShape}
+            />
             <p className="text-xs text-muted-foreground">
               Preview reflects current selections only. Save changes to apply
               site-wide.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Uploads ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Limits</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="maxUploadMB">Max Per-File Upload Size (MB)</Label>
+            <Input
+              id="maxUploadMB"
+              type="number"
+              min={1}
+              value={maxUploadMB}
+              onChange={(e) => setMaxUploadMB(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {(parseInt(maxUploadMB, 10) || 0) * MB} bytes
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="maxBatchUploadMB">Max Batch Upload Size (MB)</Label>
+            <Input
+              id="maxBatchUploadMB"
+              type="number"
+              min={1}
+              value={maxBatchUploadMB}
+              onChange={(e) => setMaxBatchUploadMB(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {(parseInt(maxBatchUploadMB, 10) || 0) * MB} bytes
             </p>
           </div>
         </CardContent>
@@ -1011,11 +2656,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         setIdleLogoutMinutes={setIdleLogoutMinutesInput}
       />
 
-      <div>
-        <Button
-          type="submit"
-          disabled={isPending || !sessionSecurityValid || !canSave}
-        >
+      <div ref={bottomSaveButtonRef}>
+        <Button type="submit" disabled={settingsSaveDisabled}>
           {isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>

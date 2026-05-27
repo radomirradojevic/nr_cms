@@ -55,6 +55,12 @@ type ProviderProps = {
   children: ReactNode;
 };
 
+function createClientId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `c_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+}
+
 /**
  * Wraps an admin singleton page (e.g. /dashboard/global-settings,
  * /dashboard/top-menu) with the same edit-lock behaviour as the content
@@ -75,14 +81,7 @@ export function AdminSectionLockProvider({
   currentUserId,
   children,
 }: ProviderProps) {
-  const clientIdRef = useRef<string>("");
-  if (!clientIdRef.current) {
-    clientIdRef.current =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `c_${Math.random().toString(36).slice(2)}_${Date.now()}`;
-  }
-  const clientId = clientIdRef.current;
+  const [clientId] = useState(createClientId);
 
   const [state, setState] = useState<LockState>({ kind: "loading" });
   const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -207,7 +206,6 @@ export function AdminSectionLockProvider({
           json.holder.userId !== currentUserId ||
           json.holder.clientId !== clientId
         ) {
-          // eslint-disable-next-line no-console
           console.warn(
             "[admin-section-locks] acquire 200 ok with mismatched holder; treating as locked",
             {
@@ -248,7 +246,7 @@ export function AdminSectionLockProvider({
         message: err instanceof Error ? err.message : "Network error.",
       });
     }
-  }, [apiBase, clientId, doRelease, startHeartbeat]);
+  }, [apiBase, clientId, currentUserId, doRelease, startHeartbeat]);
 
   const reconcileViaStatus = useCallback(async () => {
     try {
@@ -283,7 +281,9 @@ export function AdminSectionLockProvider({
 
   // Mount: acquire + register cleanup
   useEffect(() => {
-    void doAcquire();
+    const acquireTimer = window.setTimeout(() => {
+      void doAcquire();
+    }, 0);
 
     // visibilitychange=hidden is intentionally NOT used to release. Tab
     // switching is normal multitasking — the server-side lease reclaims
@@ -306,6 +306,7 @@ export function AdminSectionLockProvider({
     window.addEventListener("focus", onFocus);
 
     return () => {
+      window.clearTimeout(acquireTimer);
       clearHeartbeat();
       if (lockedPollTimer.current) {
         clearInterval(lockedPollTimer.current);

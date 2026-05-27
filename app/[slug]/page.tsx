@@ -1,25 +1,64 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { Pencil } from "lucide-react";
 import { getContentBySlug } from "@/data/content";
 import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
 import { renderTiptapHtml } from "@/app/dashboard/content/_editors/render-tiptap-html";
 import { BlogContent } from "@/components/blog-content";
 import { BlogComments } from "@/components/blog-comments";
+import { BlogPostTemplate } from "@/components/blog-post-template";
 import { ContentUnauthorized } from "@/components/content-unauthorized";
-import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
+import { ContentUnpublished } from "@/components/content-unpublished";
+import { PageTemplate } from "@/components/page-template";
+import { getGlobalSettings } from "@/data/global-settings";
+import { clerkClient } from "@clerk/nextjs/server";
+import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { canViewContent } from "@/lib/content-visibility";
 
 type Props = { params: Promise<{ slug: string }> };
+type PublicContentRow = NonNullable<
+  Awaited<ReturnType<typeof getContentBySlug>>
+>;
+type OptionalUser = Awaited<ReturnType<typeof getOptionalCurrentUser>>;
+
+async function canPreviewUnpublishedContent(
+  row: PublicContentRow,
+  user: OptionalUser,
+) {
+  if (!user) return false;
+
+  const roles = getRoles(user.publicMetadata);
+  if (hasRole(roles, "admin") || row.authorId === user.id) return true;
+  if (!hasRole(roles, "publisher")) return false;
+
+  try {
+    const client = await clerkClient();
+    const author = await client.users.getUser(row.authorId);
+    const authorRoles = getRoles(author.publicMetadata);
+    return (
+      hasRole(authorRoles, "author") &&
+      !hasRole(authorRoles, "publisher") &&
+      !hasRole(authorRoles, "admin")
+    );
+  } catch {
+    return false;
+  }
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const row = await getContentBySlug(slug);
-  if (!row || row.status !== "published") return {};
+  if (!row) return {};
+  if (row.status !== "published") {
+    if (row.status !== "unpublished") return {};
+    const me = await getOptionalCurrentUser(true);
+    return (await canPreviewUnpublishedContent(row, me))
+      ? { title: "Unpublished content" }
+      : {};
+  }
   // Do not leak title/description for restricted content. Generic title only.
-  const me = await currentUser();
+  const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
   if (!canViewContent(row.visibility, viewerRoles)) {
     return { title: "Restricted" };
@@ -33,18 +72,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PublicContentPage({ params }: Props) {
   const { slug } = await params;
   const row = await getContentBySlug(slug);
-  if (!row || row.status !== "published") notFound();
+  if (!row) notFound();
 
   // Visibility check — admin always passes; public passes for anyone;
   // otherwise the viewer must have a matching role.
-  const me = await currentUser();
+  const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
+  if (row.status !== "published") {
+    if (
+      row.status === "unpublished" &&
+      (await canPreviewUnpublishedContent(row, me))
+    ) {
+      return (
+        <ContentUnpublished editHref={`/dashboard/content/${row.id}/edit`} />
+      );
+    }
+    notFound();
+  }
+
   if (!canViewContent(row.visibility, viewerRoles)) {
     return <ContentUnauthorized />;
   }
 
   // Determine if the current user can edit this content
-  const { userId } = await auth();
+  const userId = me?.id;
   let canEdit = false;
   if (userId && row.contentType === "blog_post") {
     const roles = viewerRoles ?? [];
@@ -73,65 +124,45 @@ export default async function PublicContentPage({ params }: Props) {
         day: "numeric",
       }).format(new Date(displayDate))
     : null;
+  const dateTime = displayDate ? new Date(displayDate).toISOString() : null;
+  const settings = await getGlobalSettings();
+  const contentTemplates = resolveAppearanceContentTemplates(
+    settings.resolvedAppearanceRecipe?.contentTemplates,
+  );
+
+  if (row.contentType === "page") {
+    return (
+      <PageTemplate template={contentTemplates.page}>
+        <BuilderRender data={row.contentJson} />
+      </PageTemplate>
+    );
+  }
 
   return (
-    <div className="flex flex-1 justify-center px-6 py-16">
-      <main className="w-full space-y-8">
-        {row.contentType === "blog_post" && (
-          <header className="space-y-4">
-            {row.coverImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={row.coverImage}
-                alt={row.title}
-                referrerPolicy="no-referrer"
-                className="aspect-video w-full rounded-lg object-cover border"
-              />
-            )}
-            <h1 className="text-4xl font-bold tracking-tight">
-              {row.title}
-              {canEdit && (
-                <Link
-                  href={`/dashboard/content/${row.id}/edit`}
-                  title="Edit post"
-                  className="ml-3 inline-flex align-middle rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                >
-                  <Pencil className="h-5 w-5" />
-                </Link>
-              )}
-            </h1>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              {authorName && <span>By {authorName}</span>}
-              {authorName && formattedDate && <span aria-hidden="true">·</span>}
-              {formattedDate && (
-                <time dateTime={new Date(displayDate!).toISOString()}>
-                  {formattedDate}
-                </time>
-              )}
-            </div>
-            {row.excerpt && (
-              <p className="text-lg text-muted-foreground">{row.excerpt}</p>
-            )}
-          </header>
-        )}
-        {row.contentType === "page" ? (
-          <article className="max-w-none">
-            <BuilderRender data={row.contentJson} />
-          </article>
-        ) : (
-          <BlogContent
-            className="cms-content max-w-none"
-            html={renderTiptapHtml(row.contentJson) || row.content || ""}
-          />
-        )}
-        {row.contentType === "blog_post" && row.enableComments && (
+    <BlogPostTemplate
+      template={contentTemplates.blogPost}
+      title={row.title}
+      coverImage={row.coverImage}
+      excerpt={row.excerpt}
+      authorName={authorName}
+      formattedDate={formattedDate}
+      dateTime={dateTime}
+      canEdit={canEdit}
+      editHref={`/dashboard/content/${row.id}/edit`}
+      comments={
+        row.enableComments ? (
           <BlogComments
             contentId={row.id}
             postSlug={row.slug}
             allowAnonymous={row.allowAnonymousComments}
           />
-        )}
-      </main>
-    </div>
+        ) : null
+      }
+    >
+      <BlogContent
+        className="cms-content max-w-none"
+        html={renderTiptapHtml(row.contentJson) || row.content || ""}
+      />
+    </BlogPostTemplate>
   );
 }

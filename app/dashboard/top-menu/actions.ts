@@ -1,12 +1,12 @@
 "use server";
 
-import { currentUser } from "@clerk/nextjs/server";
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { eq, and, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { topMenuItems } from "@/db/schema";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { requireAdminSectionLock } from "@/lib/admin-section-locks-actions";
 import {
@@ -21,7 +21,7 @@ import { getCategoryById } from "@/data/content-categories";
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 async function requireAdmin() {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   if (!user) return null;
   const roles = getRoles(user.publicMetadata);
   if (!hasRole(roles, "admin")) return null;

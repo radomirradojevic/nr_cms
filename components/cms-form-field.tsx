@@ -1,8 +1,17 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -13,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { FieldChoice, FormFieldRow } from "@/lib/form-types";
+import { cn } from "@/lib/utils";
 
 export type FieldValue =
   | string
@@ -36,6 +46,24 @@ function choices(field: FormFieldRow): FieldChoice[] {
   return Array.isArray(opts.choices) ? opts.choices : [];
 }
 
+function parseDateValue(value: FieldValue): Date | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return undefined;
+  const [, year, month, day] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+
+  if (
+    date.getFullYear() !== Number(year) ||
+    date.getMonth() !== Number(month) - 1 ||
+    date.getDate() !== Number(day)
+  ) {
+    return undefined;
+  }
+
+  return date;
+}
+
 export function CmsFormField({
   field,
   value,
@@ -52,6 +80,7 @@ export function CmsFormField({
 
   const required = field.required;
   const v = field.validation as Record<string, unknown> | null;
+  const [dateOpen, setDateOpen] = useState(false);
 
   function commonLabel(htmlFor?: string) {
     return (
@@ -161,19 +190,60 @@ export function CmsFormField({
       );
 
     case "date":
+      const selectedDate = parseDateValue(value);
       return (
         <div className="space-y-1.5">
           {commonLabel(id)}
-          <Input
-            id={id}
-            type="date"
-            value={typeof value === "string" ? value : ""}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            required={required}
-            aria-describedby={describedBy}
-            aria-invalid={!!error}
-          />
+          <Popover open={dateOpen} onOpenChange={setDateOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                id={id}
+                type="button"
+                variant="outline"
+                disabled={disabled}
+                aria-describedby={describedBy}
+                aria-invalid={!!error}
+                className={cn(
+                  "h-9 w-full justify-start border-input bg-background px-3 text-left font-normal hover:bg-background",
+                  !selectedDate && "text-muted-foreground",
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                {selectedDate
+                  ? format(selectedDate, "PPP")
+                  : field.placeholder || "Select date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => {
+                  if (!date) return;
+                  onChange(format(date, "yyyy-MM-dd"));
+                  setDateOpen(false);
+                }}
+                captionLayout="dropdown"
+                disabled={disabled}
+              />
+              {selectedDate && !required && (
+                <div className="border-t p-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-center"
+                    onClick={() => {
+                      onChange("");
+                      setDateOpen(false);
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
           {helpAndError()}
         </div>
       );

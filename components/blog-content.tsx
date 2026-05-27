@@ -30,6 +30,19 @@ const FORM_OPEN_RE =
 const FORM_SUBMISSIONS_OPEN_RE =
   /<div\b[^>]*\bdata-cms-form-submissions-id="([0-9a-fA-F-]{36})"[^>]*>/g;
 const DIV_TAG_RE = /<(\/?)div\b[^>]*>/g;
+const YOUTUBE_VIDEO_BLOCK_RE =
+  /(<div\b(?=[^>]*\bclass="[^"]*\btiptap-video-youtube\b[^"]*")[^>]*>\s*)(<div\b(?=[^>]*\bclass="[^"]*\btiptap-video-frame\b[^"]*")[^>]*>)([\s\S]*?<iframe\b(?=[^>]*\bdata-video-provider="youtube")[^>]*><\/iframe>[\s\S]*?)(<\/div>\s*<\/div>)/gi;
+const YOUTUBE_IFRAME_OPEN_RE =
+  /<iframe\b(?=[^>]*\bdata-video-provider="youtube")[^>]*>/i;
+const SAFE_VIDEO_SIZE_RE = /^\d+(?:\.\d+)?(?:px|em|rem|%)$/i;
+const FRONTEND_YOUTUBE_IFRAME_STYLE = [
+  "position:absolute",
+  "inset:0",
+  "display:block",
+  "width:100%",
+  "height:100%",
+  "border:0",
+].join(";");
 
 type EmbedMatch = {
   kind: "gallery" | "form" | "formSubmissions";
@@ -77,13 +90,89 @@ function findEmbedBlocks(
   return matches;
 }
 
+function readHtmlAttribute(tag: string, name: string): string | null {
+  const match = tag.match(new RegExp(`\\b${name}="([^"]*)"`));
+  return match?.[1] ?? null;
+}
+
+function readSafeStyleValue(tag: string, property: string): string | null {
+  const style = readHtmlAttribute(tag, "style");
+  if (!style) return null;
+
+  for (const declaration of style.split(";")) {
+    const [rawName, ...rawValue] = declaration.split(":");
+    if (!rawName || rawValue.length === 0) continue;
+    if (rawName.trim().toLowerCase() !== property) continue;
+
+    const value = rawValue.join(":").trim();
+    return SAFE_VIDEO_SIZE_RE.test(value) ? value : null;
+  }
+
+  return null;
+}
+
+function withStyleAttribute(openingTag: string, style: string): string {
+  if (/\sstyle="[^"]*"/i.test(openingTag)) {
+    return openingTag.replace(/\sstyle="[^"]*"/i, ` style="${style}"`);
+  }
+
+  return openingTag.replace(/>$/, ` style="${style}">`);
+}
+
+function frontendYouTubeFrameStyle(width: string): string {
+  return [
+    "position:relative",
+    "display:block",
+    `width:${width}`,
+    "max-width:100%",
+    "height:auto",
+    "aspect-ratio:16/9",
+    "overflow:hidden",
+    "background:#000",
+  ].join(";");
+}
+
+function normalizeFrontendYouTubeEmbeds(html: string): string {
+  return html.replace(
+    YOUTUBE_VIDEO_BLOCK_RE,
+    (
+      _match: string,
+      wrapperOpen: string,
+      frameOpen: string,
+      iframeHtml: string,
+      closingTags: string,
+    ) => {
+      const width =
+        readSafeStyleValue(frameOpen, "width") ??
+        (SAFE_VIDEO_SIZE_RE.test(
+          readHtmlAttribute(wrapperOpen, "data-width") ?? "",
+        )
+          ? readHtmlAttribute(wrapperOpen, "data-width")
+          : null) ??
+        "100%";
+      const nextFrameOpen = withStyleAttribute(
+        frameOpen,
+        frontendYouTubeFrameStyle(width),
+      );
+      const nextIframeHtml = iframeHtml.replace(
+        YOUTUBE_IFRAME_OPEN_RE,
+        (tag: string) => withStyleAttribute(tag, FRONTEND_YOUTUBE_IFRAME_STYLE),
+      );
+
+      return `${wrapperOpen}${nextFrameOpen}${nextIframeHtml}${closingTags}`;
+    },
+  );
+}
+
 /**
  * Renders blog post HTML produced by the TipTap editor and hydrates
  * embedded gallery, form, and form-submissions placeholders into real
  * React renderers.
  */
 export async function BlogContent({ html, className }: Props) {
-  const safeHtml = sanitizeTiptapHtml(html ?? "");
+  const safeHtml = normalizeFrontendYouTubeEmbeds(
+    sanitizeTiptapHtml(html ?? ""),
+  );
   const scopeId = hashHtml(safeHtml);
 
   const galleryMatches = findEmbedBlocks(safeHtml, GALLERY_OPEN_RE, "gallery");

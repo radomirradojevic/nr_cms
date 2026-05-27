@@ -121,13 +121,10 @@ export function renderNode(
   // Render linked nodes (e.g. Columns has linkedNodes.left / .right).
   // Each linked subtree is rendered into its own wrapper child.
   const linked = node.linkedNodes ?? {};
-  const linkedChildren = Object.entries(linked).map(([slotId, childId]) =>
-    renderNode(childId, nodes, registry) ? (
-      <span key={`linked-${slotId}`}>
-        {renderNode(childId, nodes, registry)}
-      </span>
-    ) : null,
-  );
+  const linkedChildren = Object.entries(linked).map(([slotId, childId]) => {
+    const child = renderNode(childId, nodes, registry);
+    return child ? <span key={`linked-${slotId}`}>{child}</span> : null;
+  });
 
   const children =
     linkedChildren.length > 0
