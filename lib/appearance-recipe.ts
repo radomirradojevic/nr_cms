@@ -253,6 +253,7 @@ export const AppearanceLinkV1Schema = z
 
 export const SocialLinksSlotV1Schema = AppearanceSlotBaseV1Schema.extend({
   type: z.literal("SocialLinks"),
+  generateSocialIcons: z.boolean().default(false),
   links: z
     .array(AppearanceLinkV1Schema)
     .max(APPEARANCE_RECIPE_MAX_LINKS)
@@ -269,6 +270,7 @@ export const LegalLinksSlotV1Schema = AppearanceSlotBaseV1Schema.extend({
 
 export const FooterLinksSlotV1Schema = AppearanceSlotBaseV1Schema.extend({
   type: z.literal("FooterLinks"),
+  generateSocialIcons: z.boolean().default(false),
   links: z
     .array(AppearanceLinkV1Schema)
     .max(APPEARANCE_RECIPE_MAX_LINKS)
@@ -601,6 +603,7 @@ export function buildDefaultClassicAppearanceRecipe(
             type: "FooterLinks",
             enabled: false,
             visibility: "always",
+            generateSocialIcons: false,
             links: [],
           },
           {
@@ -615,6 +618,7 @@ export function buildDefaultClassicAppearanceRecipe(
             type: "SocialLinks",
             enabled: false,
             visibility: "always",
+            generateSocialIcons: false,
             links: [],
           },
           {
@@ -719,6 +723,9 @@ function mergeSlotWithLegacy(
         ...base,
         links: linkSlot.links,
         enabled: linkSlot.enabled && linkSlot.links.length > 0,
+        ...(fallback.type === "SocialLinks" && linkSlot.type === "SocialLinks"
+          ? { generateSocialIcons: linkSlot.generateSocialIcons }
+          : {}),
       };
     }
     case "SiteMenu":

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import * as SimpleIcons from "simple-icons";
+import type { SimpleIcon } from "simple-icons";
 
 import { Button } from "@/components/ui/button";
 import type {
@@ -24,6 +26,132 @@ type SiteFooterProps = {
 type FooterContext = Required<
   Pick<SiteFooterProps, "isBackendUser" | "isAdmin" | "isLoggedIn">
 >;
+
+const SIMPLE_ICON_EXPORTS = SimpleIcons as Record<string, SimpleIcon>;
+
+const SOCIAL_ICON_ALIASES: Record<string, string> = {
+  email: "siGmail",
+  mail: "siGmail",
+  x: "siX",
+  twitter: "siX",
+  twitterx: "siX",
+  youtube: "siYoutube",
+  youtubemusic: "siYoutubemusic",
+  youtubeshorts: "siYoutubeshorts",
+  youtu: "siYoutube",
+  github: "siGithub",
+  gitlab: "siGitlab",
+  linkedin: "siLinkedin",
+  tiktok: "siTiktok",
+  tik_tok: "siTiktok",
+  whatsapp: "siWhatsapp",
+  telegram: "siTelegram",
+  facebook: "siFacebook",
+  instagram: "siInstagram",
+  threads: "siThreads",
+  bluesky: "siBluesky",
+  mastodon: "siMastodon",
+  discord: "siDiscord",
+  reddit: "siReddit",
+  twitch: "siTwitch",
+  pinterest: "siPinterest",
+  snapchat: "siSnapchat",
+  medium: "siMedium",
+  substack: "siSubstack",
+  dribbble: "siDribbble",
+  behance: "siBehance",
+  vimeo: "siVimeo",
+  spotify: "siSpotify",
+  soundcloud: "siSoundcloud",
+  rss: "siRss",
+  podcast: "siApplepodcasts",
+};
+
+const SOCIAL_ICON_MONOGRAMS: Record<string, string> = {
+  linkedin: "in",
+};
+
+type ResolvedSocialIcon =
+  | { type: "simple"; icon: SimpleIcon }
+  | { type: "monogram"; label: string };
+
+function normalizeSocialToken(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/\+/g, "plus")
+    .replace(/\./g, "dot")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function variableNameFromToken(token: string): string {
+  return `si${token.charAt(0).toUpperCase()}${token.slice(1)}`;
+}
+
+function candidateTokensFromHref(href: string): string[] {
+  if (href.startsWith("mailto:")) return ["email", "mail"];
+
+  try {
+    const parsed = new URL(href);
+    const hostParts = parsed.hostname
+      .replace(/^www\./, "")
+      .toLowerCase()
+      .split(".");
+    const domain = hostParts.length > 1 ? hostParts.at(-2) : hostParts[0];
+    return domain ? [domain] : [];
+  } catch {
+    return [];
+  }
+}
+
+function resolveSocialIcon(link: AppearanceLinkV1): ResolvedSocialIcon | null {
+  const tokens = [
+    normalizeSocialToken(link.label),
+    ...candidateTokensFromHref(link.href).map(normalizeSocialToken),
+  ].filter(Boolean);
+
+  for (const token of tokens) {
+    const aliasedIcon = SOCIAL_ICON_ALIASES[token];
+    const icon =
+      (aliasedIcon ? SIMPLE_ICON_EXPORTS[aliasedIcon] : undefined) ??
+      SIMPLE_ICON_EXPORTS[variableNameFromToken(token)];
+
+    if (icon?.path) return { type: "simple", icon };
+
+    const monogram = SOCIAL_ICON_MONOGRAMS[token];
+    if (monogram) return { type: "monogram", label: monogram };
+  }
+
+  return null;
+}
+
+function renderSocialIcon(link: AppearanceLinkV1) {
+  const icon = resolveSocialIcon(link);
+  if (!icon) return null;
+
+  if (icon.type === "monogram") {
+    return (
+      <span
+        aria-hidden="true"
+        className="text-[0.8rem] font-semibold leading-none"
+      >
+        {icon.label}
+      </span>
+    );
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5 fill-current"
+      role="img"
+      viewBox="0 0 24 24"
+    >
+      <path d={icon.icon.path} />
+    </svg>
+  );
+}
 
 function slotIsVisible(
   slot: AppearanceSlotV1,
@@ -124,20 +252,43 @@ function renderLinks(
   links: AppearanceLinkV1[],
   label: string,
   className?: string,
+  generateSocialIcons = false,
 ) {
   if (links.length === 0) return null;
 
   return (
-    <nav aria-label={label} className={cn("flex flex-wrap gap-3", className)}>
-      {links.map((link) => (
-        <span key={`${link.href}:${link.label}`}>
-          {renderSlotLink({
-            href: link.href,
-            className: "underline-offset-4 hover:underline",
-            children: link.label,
-          })}
-        </span>
-      ))}
+    <nav
+      aria-label={label}
+      className={cn(
+        "flex flex-wrap items-center gap-3",
+        generateSocialIcons && "items-center gap-2",
+        className,
+      )}
+    >
+      {links.map((link) => {
+        const icon = generateSocialIcons ? renderSocialIcon(link) : null;
+
+        return (
+          <span key={`${link.href}:${link.label}`}>
+            {renderSlotLink({
+              href: link.href,
+              className: cn(
+                "underline-offset-4 hover:underline",
+                icon &&
+                  "inline-flex h-5 w-5 items-center justify-center rounded-sm align-middle no-underline transition-colors hover:text-foreground hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              ),
+              children: icon ? (
+                <>
+                  {icon}
+                  <span className="sr-only">{link.label}</span>
+                </>
+              ) : (
+                link.label
+              ),
+            })}
+          </span>
+        );
+      })}
     </nav>
   );
 }
@@ -152,7 +303,12 @@ function renderLinkSlot(
   className?: string,
 ) {
   if (!slot) return null;
-  return renderLinks(slot.links, label, className);
+  return renderLinks(
+    slot.links,
+    label,
+    className,
+    slot.type === "SocialLinks" ? slot.generateSocialIcons : false,
+  );
 }
 
 function renderCtaSlot(slot: SlotOf<"CTA"> | null) {
@@ -315,7 +471,7 @@ export function SiteFooter({
           {htmlSlots.map(renderFooterHtmlSlot)}
           {copyrightSlots.map(renderCopyrightSlot)}
         </div>
-        <div className="flex min-w-0 flex-wrap gap-3 sm:justify-end">
+        <div className="flex min-w-0 flex-wrap items-center gap-3 sm:justify-end">
           {renderLinkSlot(footerLinksSlot, "Footer links")}
           {renderLinkSlot(legalLinksSlot, "Legal links")}
           {renderLinkSlot(socialLinksSlot, "Social links")}
