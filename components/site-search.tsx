@@ -21,6 +21,7 @@ type SiteSearchProps = {
   contentTypes: SearchContentType[];
   className?: string;
   inputClassName?: string;
+  resultsAlign?: "left" | "right";
 };
 
 function typeLabel(type: SearchContentType): string {
@@ -33,6 +34,7 @@ export function SiteSearch({
   contentTypes,
   className,
   inputClassName,
+  resultsAlign = "left",
 }: SiteSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -122,7 +124,10 @@ export function SiteSearch({
       />
       {open && canSearch && (
         <div
-          className="absolute top-[calc(100%+0.5rem)] left-0 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg"
+          className={cn(
+            "absolute top-[calc(100%+0.5rem)] z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border bg-popover text-left text-popover-foreground shadow-lg",
+            resultsAlign === "right" ? "right-0" : "left-0",
+          )}
           onMouseDown={(event) => event.preventDefault()}
         >
           {loading && results.length === 0 ? (

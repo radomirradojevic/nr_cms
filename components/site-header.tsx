@@ -274,6 +274,7 @@ function renderSearchSlot(
   slot: SlotOf<"Search"> | null,
   className?: string,
   inputClassName?: string,
+  resultsAlign?: ComponentProps<typeof SiteSearch>["resultsAlign"],
 ) {
   if (!slot) return null;
 
@@ -284,6 +285,7 @@ function renderSearchSlot(
       contentTypes={slot.contentTypes}
       className={className}
       inputClassName={inputClassName}
+      resultsAlign={resultsAlign}
     />
   );
 }
@@ -360,7 +362,7 @@ export function SiteHeader({
     slot: authControlsSlot,
     isLoggedIn,
   });
-  const search = renderSearchSlot(searchSlot);
+  const search = renderSearchSlot(searchSlot, undefined, undefined, "right");
   const cta = renderCtaSlot(ctaSlot);
   const stickyClass = region.sticky && "sticky top-0 z-50";
 
@@ -414,7 +416,7 @@ export function SiteHeader({
         <div className="flex min-w-0 flex-wrap items-center justify-center gap-3">
           {siteMenu}
           {adminMenu}
-          {search}
+          {renderSearchSlot(searchSlot, undefined, undefined, "left")}
           {cta}
           {authControls}
         </div>
@@ -493,6 +495,7 @@ export function SiteHeader({
               searchSlot,
               "flex",
               "w-56 rounded-full border-border/80 bg-background/70 px-3",
+              "left",
             )}
           </div>
           {renderBrandSlot({
