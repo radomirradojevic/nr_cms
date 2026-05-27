@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import {
   Loader2,
   MessageSquare,
   Rocket,
+  Save,
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,7 @@ export function ContentForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [staleVersion, setStaleVersion] = useState<number | null>(null);
+  const [showFloatingSave, setShowFloatingSave] = useState(false);
   const lock = useContentEditLockOptional();
   const lockBlocksSave = mode === "edit" && lock !== null && !lock.isEditor;
 
@@ -174,6 +176,32 @@ export function ContentForm({
     contentType === "page"
       ? "Page saved successfully"
       : "Blog post saved successfully";
+  const primarySaveDisabled = pending || lockBlocksSave;
+  const primarySaveLabel = mode === "create" ? "Create" : "Save";
+
+  useEffect(() => {
+    function updateFloatingSaveVisibility() {
+      setShowFloatingSave(window.scrollY > 160);
+    }
+
+    updateFloatingSaveVisibility();
+    window.addEventListener("scroll", updateFloatingSaveVisibility, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener("scroll", updateFloatingSaveVisibility);
+    };
+  }, []);
+
+  function submitPrimary() {
+    if (mode === "create") {
+      submit(true);
+      return;
+    }
+
+    submit(false, true);
+  }
 
   function failSave(message: string, showToast: boolean) {
     setError(message);
@@ -484,6 +512,57 @@ export function ContentForm({
 
   return (
     <div className="space-y-6">
+      <div
+        className={[
+          "fixed right-4 bottom-4 z-40 transition-all duration-200 sm:right-6 sm:bottom-6",
+          showFloatingSave
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-3 opacity-0",
+        ].join(" ")}
+      >
+        <Button
+          type="button"
+          size="lg"
+          onClick={submitPrimary}
+          disabled={primarySaveDisabled}
+          className="h-11 rounded-full px-4 shadow-lg shadow-black/15"
+          aria-label={
+            pending
+              ? mode === "create"
+                ? "Creating content"
+                : "Saving content"
+              : mode === "create"
+                ? "Create content"
+                : "Save content"
+          }
+          title={
+            lockBlocksSave
+              ? "Saving is disabled while another editor holds the edit lock."
+              : undefined
+          }
+        >
+          {pending ? (
+            <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save aria-hidden className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">
+            {pending
+              ? mode === "create"
+                ? "Creating…"
+                : "Saving…"
+              : primarySaveLabel}
+          </span>
+          <span className="sm:hidden">
+            {pending
+              ? mode === "create"
+                ? "Creating…"
+                : "Saving…"
+              : primarySaveLabel}
+          </span>
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">
@@ -498,15 +577,15 @@ export function ContentForm({
         </div>
         <div className="flex items-center gap-2">
           {mode === "create" ? (
-            <Button onClick={() => submit(true)} disabled={pending}>
+            <Button onClick={submitPrimary} disabled={primarySaveDisabled}>
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create
             </Button>
           ) : (
             <>
               <Button
-                onClick={() => submit(false, true)}
-                disabled={pending || lockBlocksSave}
+                onClick={submitPrimary}
+                disabled={primarySaveDisabled}
                 title={
                   lockBlocksSave
                     ? "Saving is disabled while another editor holds the edit lock."

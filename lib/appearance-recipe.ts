@@ -224,6 +224,10 @@ export const SearchSlotV1Schema = AppearanceSlotBaseV1Schema.extend({
   placeholder: z.string().trim().max(80).default("Search"),
   action: z.string().trim().regex(SAFE_SLOT_HREF).default("/"),
   queryParam: z.string().trim().min(1).max(40).default("q"),
+  contentTypes: z
+    .array(z.enum(["blog_post", "page"]))
+    .max(2)
+    .default(["blog_post", "page"]),
 }).strict();
 
 export const CTASlotV1Schema = AppearanceSlotBaseV1Schema.extend({
@@ -551,6 +555,7 @@ export function buildDefaultClassicAppearanceRecipe(
             placeholder: "Search",
             action: "/",
             queryParam: "q",
+            contentTypes: ["blog_post", "page"],
           },
           {
             id: "header-cta",
@@ -685,6 +690,7 @@ function mergeSlotWithLegacy(
         placeholder: searchSlot.placeholder,
         action: searchSlot.action,
         queryParam: searchSlot.queryParam,
+        contentTypes: searchSlot.contentTypes,
       };
     }
     case "CTA": {
@@ -1601,6 +1607,7 @@ export function applyAppearancePresetToRecipe(
             label: "Search",
             placeholder: preset.header.search.placeholder,
             action: preset.header.search.action,
+            contentTypes: ["blog_post", "page"],
           }
         : slot,
   );

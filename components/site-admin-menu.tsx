@@ -20,6 +20,9 @@ type SiteAdminMenuProps = {
   fallbackIsAdmin?: boolean;
 };
 
+const submenuLinkClassName =
+  "block rounded px-3 py-2 text-sm transition-colors hover:!bg-[var(--nav-hover-bg)] hover:!text-[var(--nav-hover-foreground)] focus-visible:!bg-[var(--nav-hover-bg)] focus-visible:!text-[var(--nav-hover-foreground)] focus-visible:outline-none data-active:!bg-[var(--nav-hover-bg)] data-active:!text-[var(--nav-hover-foreground)] data-[active]:!bg-[var(--nav-hover-bg)] data-[active]:!text-[var(--nav-hover-foreground)]";
+
 export function SiteAdminMenu({
   fallbackIsBackendUser = false,
   fallbackIsAdmin = false,
@@ -53,7 +56,7 @@ export function SiteAdminMenu({
                       <NavigationMenuLink asChild>
                         <Link
                           href="/dashboard/global-settings"
-                          className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
+                          className={submenuLinkClassName}
                         >
                           Global Settings
                         </Link>
@@ -85,7 +88,7 @@ export function SiteAdminMenu({
                       <NavigationMenuLink asChild>
                         <Link
                           href="/dashboard/content-categories"
-                          className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
+                          className={submenuLinkClassName}
                         >
                           Content Categories
                         </Link>
@@ -115,7 +118,7 @@ export function SiteAdminMenu({
                   <NavigationMenuLink asChild>
                     <Link
                       href="/dashboard/gallerymanager"
-                      className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
+                      className={submenuLinkClassName}
                     >
                       Gallery Manager
                     </Link>

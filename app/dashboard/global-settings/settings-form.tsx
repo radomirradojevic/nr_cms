@@ -7,6 +7,7 @@ import {
   Download,
   ImageIcon,
   RotateCcw,
+  Save,
   ShieldCheck,
   Upload,
   X,
@@ -19,6 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -742,8 +744,11 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [searchPlaceholder, setSearchPlaceholder] = useState(
     initialSearchSlot?.placeholder ?? "Search",
   );
-  const [searchAction, setSearchAction] = useState(
-    initialSearchSlot?.action ?? "/",
+  const [searchBlogPosts, setSearchBlogPosts] = useState(
+    initialSearchSlot?.contentTypes.includes("blog_post") ?? true,
+  );
+  const [searchPages, setSearchPages] = useState(
+    initialSearchSlot?.contentTypes.includes("page") ?? true,
   );
   const [headerCtaEnabled, setHeaderCtaEnabled] = useState(
     initialHeaderCtaSlot?.enabled ?? false,
@@ -995,6 +1000,12 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     Number.isFinite(idleLogoutMinutesNum) &&
     idleLogoutMinutesNum >= MIN_IDLE_MINUTES &&
     idleLogoutMinutesNum <= maxSessionMinutesNum;
+  const settingsSaveDisabled =
+    isPending ||
+    !sessionSecurityValid ||
+    !backgroundColorsValid ||
+    !glowColorsValid ||
+    !canSave;
 
   function buildAppearanceRecipeForSubmit({
     nextAppearance,
@@ -1069,7 +1080,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                 ...slot,
                 enabled: searchEnabled,
                 placeholder: searchPlaceholder.trim() || "Search",
-                action: searchAction.trim() || "/",
+                contentTypes: [
+                  ...(searchBlogPosts ? (["blog_post"] as const) : []),
+                  ...(searchPages ? (["page"] as const) : []),
+                ],
               };
             }
             if (slot.type === "CTA" && slot.id === "header-cta") {
@@ -1254,7 +1268,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     setAuthControlsEnabled(authControlsSlot?.enabled ?? true);
     setSearchEnabled(searchSlot?.enabled ?? false);
     setSearchPlaceholder(searchSlot?.placeholder ?? "Search");
-    setSearchAction(searchSlot?.action ?? "/");
+    setSearchBlogPosts(searchSlot?.contentTypes.includes("blog_post") ?? true);
+    setSearchPages(searchSlot?.contentTypes.includes("page") ?? true);
     setHeaderCtaEnabled(headerCtaSlot?.enabled ?? false);
     setHeaderCtaLabel(headerCtaSlot?.label ?? "");
     setHeaderCtaHref(headerCtaSlot?.href ?? "");
@@ -1371,6 +1386,22 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="fixed right-4 bottom-4 z-40 sm:right-6 sm:bottom-6">
+        <Button
+          type="submit"
+          size="lg"
+          disabled={settingsSaveDisabled}
+          className="h-11 rounded-full px-4 shadow-lg shadow-black/15"
+          aria-label={isPending ? "Saving settings" : "Save settings"}
+        >
+          <Save aria-hidden className="h-4 w-4" />
+          <span className="hidden sm:inline">
+            {isPending ? "Saving…" : "Save changes"}
+          </span>
+          <span className="sm:hidden">{isPending ? "Saving…" : "Save"}</span>
+        </Button>
+      </div>
+
       {/* ── Site ── */}
       <Card>
         <CardHeader>
@@ -1605,14 +1636,36 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                     maxLength={80}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="searchAction">Search Action</Label>
-                  <Input
-                    id="searchAction"
-                    value={searchAction}
-                    onChange={(e) => setSearchAction(e.target.value)}
-                    maxLength={300}
-                  />
+                <div className="space-y-2">
+                  <Label>Search Content</Label>
+                  <div className="flex flex-wrap gap-4 rounded-lg border border-border/70 px-3 py-2.5">
+                    <label
+                      htmlFor="searchBlogPosts"
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        id="searchBlogPosts"
+                        checked={searchBlogPosts}
+                        onCheckedChange={(checked) =>
+                          setSearchBlogPosts(checked === true)
+                        }
+                      />
+                      <span>Search blog posts</span>
+                    </label>
+                    <label
+                      htmlFor="searchPages"
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        id="searchPages"
+                        checked={searchPages}
+                        onCheckedChange={(checked) =>
+                          setSearchPages(checked === true)
+                        }
+                      />
+                      <span>Search pages</span>
+                    </label>
+                  </div>
                 </div>
               </div>
             )}
@@ -2404,16 +2457,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       />
 
       <div>
-        <Button
-          type="submit"
-          disabled={
-            isPending ||
-            !sessionSecurityValid ||
-            !backgroundColorsValid ||
-            !glowColorsValid ||
-            !canSave
-          }
-        >
+        <Button type="submit" disabled={settingsSaveDisabled}>
           {isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>
