@@ -7,6 +7,7 @@ import { BlogContent } from "@/components/blog-content";
 import { BlogComments } from "@/components/blog-comments";
 import { BlogPostTemplate } from "@/components/blog-post-template";
 import { ContentUnauthorized } from "@/components/content-unauthorized";
+import { ContentUnpublished } from "@/components/content-unpublished";
 import { PageTemplate } from "@/components/page-template";
 import { getGlobalSettings } from "@/data/global-settings";
 import { clerkClient } from "@clerk/nextjs/server";
@@ -16,11 +17,46 @@ import { getRoles, hasRole } from "@/lib/roles";
 import { canViewContent } from "@/lib/content-visibility";
 
 type Props = { params: Promise<{ slug: string }> };
+type PublicContentRow = NonNullable<
+  Awaited<ReturnType<typeof getContentBySlug>>
+>;
+type OptionalUser = Awaited<ReturnType<typeof getOptionalCurrentUser>>;
+
+async function canPreviewUnpublishedContent(
+  row: PublicContentRow,
+  user: OptionalUser,
+) {
+  if (!user) return false;
+
+  const roles = getRoles(user.publicMetadata);
+  if (hasRole(roles, "admin") || row.authorId === user.id) return true;
+  if (!hasRole(roles, "publisher")) return false;
+
+  try {
+    const client = await clerkClient();
+    const author = await client.users.getUser(row.authorId);
+    const authorRoles = getRoles(author.publicMetadata);
+    return (
+      hasRole(authorRoles, "author") &&
+      !hasRole(authorRoles, "publisher") &&
+      !hasRole(authorRoles, "admin")
+    );
+  } catch {
+    return false;
+  }
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const row = await getContentBySlug(slug);
-  if (!row || row.status !== "published") return {};
+  if (!row) return {};
+  if (row.status !== "published") {
+    if (row.status !== "unpublished") return {};
+    const me = await getOptionalCurrentUser(true);
+    return (await canPreviewUnpublishedContent(row, me))
+      ? { title: "Unpublished content" }
+      : {};
+  }
   // Do not leak title/description for restricted content. Generic title only.
   const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
@@ -36,12 +72,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PublicContentPage({ params }: Props) {
   const { slug } = await params;
   const row = await getContentBySlug(slug);
-  if (!row || row.status !== "published") notFound();
+  if (!row) notFound();
 
   // Visibility check — admin always passes; public passes for anyone;
   // otherwise the viewer must have a matching role.
   const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
+  if (row.status !== "published") {
+    if (
+      row.status === "unpublished" &&
+      (await canPreviewUnpublishedContent(row, me))
+    ) {
+      return (
+        <ContentUnpublished editHref={`/dashboard/content/${row.id}/edit`} />
+      );
+    }
+    notFound();
+  }
+
   if (!canViewContent(row.visibility, viewerRoles)) {
     return <ContentUnauthorized />;
   }
