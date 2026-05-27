@@ -122,8 +122,11 @@ function SessionSecurityTimers({
 
   const [now, setNow] = useState<number>(() => Date.now());
   const [fallbackSignInAtMs] = useState<number>(() => Date.now());
-  const [warningOpen, setWarningOpen] = useState(false);
-  const [warningKind, setWarningKind] = useState<"idle" | "absolute">("idle");
+  const [warning, setWarning] = useState<{
+    kind: "idle" | "absolute";
+    deadline: number;
+  } | null>(null);
+  const warningOpen = warning !== null;
 
   const lastActivityWriteRef = useRef<number>(0);
   const signedOutRef = useRef<boolean>(false);
@@ -141,7 +144,7 @@ function SessionSecurityTimers({
   const resetIdle = useCallback(() => {
     const next = Date.now() + idleMs;
     safeSetNumber(IDLE_KEY, next);
-    setWarningOpen(false);
+    setWarning(null);
   }, [idleMs]);
 
   // ─── Initialize / clamp deadlines on mount + when settings change ─────────
@@ -175,6 +178,7 @@ function SessionSecurityTimers({
   // ─── Activity listeners (throttled) ───────────────────────────────────────
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (warningOpen) return;
 
     const onActivity = () => {
       if (signedOutRef.current) return;
@@ -201,7 +205,7 @@ function SessionSecurityTimers({
       }
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [idleMs]);
+  }, [idleMs, warningOpen]);
 
   // ─── Cross-tab sync ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -246,10 +250,9 @@ function SessionSecurityTimers({
       const remaining = Math.min(nextAbs, nextIdle) - nowMs;
 
       if (remaining <= warningLeadMs) {
-        setWarningKind(which);
-        setWarningOpen(true);
-      } else {
-        setWarningOpen((prev) => (prev ? false : prev));
+        setWarning(
+          (prev) => prev ?? { kind: which, deadline: nowMs + remaining },
+        );
       }
     }, TICK_MS);
     return () => window.clearInterval(id);
@@ -258,9 +261,11 @@ function SessionSecurityTimers({
   // ─── Render warning dialog ────────────────────────────────────────────────
   const abs = safeGetNumber(ABSOLUTE_KEY) ?? Number.POSITIVE_INFINITY;
   const idle = safeGetNumber(IDLE_KEY) ?? Number.POSITIVE_INFINITY;
-  const deadline = Math.min(abs, idle);
+  const deadline = warning
+    ? Math.min(warning.deadline, abs, idle)
+    : Math.min(abs, idle);
   const remainingSec = Math.max(0, Math.ceil((deadline - now) / 1000));
-  const isAbsolute = warningKind === "absolute";
+  const isAbsolute = warning?.kind === "absolute";
 
   return (
     <AlertDialog open={warningOpen}>

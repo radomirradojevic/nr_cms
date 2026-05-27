@@ -44,7 +44,7 @@ function PresetThumbnail({ preset }: { preset: AppearanceShellPreset }) {
     <div className="h-28 rounded-md border bg-background p-2 text-foreground">
       <div
         className={cn(
-          "mb-2 flex h-6 items-center gap-1 rounded border px-1.5",
+          "mb-1 flex h-6 items-center gap-1 rounded border px-1.5",
           preset.header.variant === "centered" ||
             preset.header.variant === "editorial-masthead"
             ? "justify-center"
@@ -80,7 +80,7 @@ function PresetThumbnail({ preset }: { preset: AppearanceShellPreset }) {
       {preset.footer.variant !== "hidden" && (
         <div
           className={cn(
-            "mt-2 grid h-5 gap-1 rounded border p-1",
+            "mt-1 grid h-4 gap-1 rounded border p-1",
             preset.footer.variant === "multi-column"
               ? "grid-cols-3"
               : "grid-cols-2",
@@ -175,11 +175,19 @@ export function ShellPreview({
   appearance,
   siteName,
   logoFileId,
+  logoBorderEnabled,
+  logoBorderColorMode,
+  logoBorderColor,
+  logoBorderShape,
 }: {
   recipe: AppearanceRecipe;
   appearance: ReturnType<typeof resolveAppearance>;
   siteName: string;
   logoFileId: string | null;
+  logoBorderEnabled: boolean;
+  logoBorderColorMode: "theme" | "custom";
+  logoBorderColor: string | undefined;
+  logoBorderShape: "circle" | "square";
 }) {
   return (
     <Tabs defaultValue="desktop" className="gap-3">
@@ -202,6 +210,10 @@ export function ShellPreview({
             appearance={appearance}
             siteName={siteName}
             logoFileId={logoFileId}
+            logoBorderEnabled={logoBorderEnabled}
+            logoBorderColorMode={logoBorderColorMode}
+            logoBorderColor={logoBorderColor}
+            logoBorderShape={logoBorderShape}
           />
         </TabsContent>
       ))}
@@ -215,12 +227,20 @@ function PreviewFrame({
   appearance,
   siteName,
   logoFileId,
+  logoBorderEnabled,
+  logoBorderColorMode,
+  logoBorderColor,
+  logoBorderShape,
 }: {
   viewport: (typeof PREVIEW_VIEWPORTS)[number];
   recipe: AppearanceRecipe;
   appearance: ReturnType<typeof resolveAppearance>;
   siteName: string;
   logoFileId: string | null;
+  logoBorderEnabled: boolean;
+  logoBorderColorMode: "theme" | "custom";
+  logoBorderColor: string | undefined;
+  logoBorderShape: "circle" | "square";
 }) {
   const header = recipe.shell.header;
   const footer = recipe.shell.footer;
@@ -238,6 +258,11 @@ function PreviewFrame({
   );
   const footerCtaSlot = getSlot(recipe, "footer", "CTA", "footer-cta");
   const showCompact = viewport.id === "mobile";
+  const logoBorderRadius = logoBorderShape === "square" ? "0" : "9999px";
+  const resolvedLogoBorderColor =
+    logoBorderColorMode === "custom" && logoBorderColor
+      ? logoBorderColor
+      : "var(--border)";
 
   return (
     <div
@@ -261,12 +286,21 @@ function PreviewFrame({
       >
         <div className="flex min-w-0 items-center gap-2">
           {logoFileId && brandSlot?.showLogo && (
-            <span className="size-5 overflow-hidden rounded-full border">
+            <span
+              className="size-5 overflow-hidden"
+              style={{
+                borderRadius: logoBorderRadius,
+                border: logoBorderEnabled
+                  ? `1px solid ${resolvedLogoBorderColor}`
+                  : "0",
+              }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`/api/files/${logoFileId}`}
                 alt=""
                 className="h-full w-full object-contain"
+                style={{ borderRadius: logoBorderRadius }}
               />
             </span>
           )}

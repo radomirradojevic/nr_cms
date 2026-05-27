@@ -1243,6 +1243,7 @@ export type AppearancePresetId =
   | "documentation"
   | "saas-product"
   | "magazine"
+  | "cyber-journal"
   | "campaign";
 
 export type AppearanceShellPreset = {
@@ -1292,12 +1293,15 @@ export const APPEARANCE_SHELL_PRESETS = [
     description:
       "Left brand, horizontal menu, contained content, simple footer.",
     tags: ["classic", "cms", "safe"],
-    appearance: DEFAULT_APPEARANCE,
+    appearance: {
+      ...DEFAULT_APPEARANCE,
+      theme: "dark",
+    },
     header: {
       variant: "classic",
       heightPx: 80,
       sticky: false,
-      search: { enabled: false, placeholder: "Search", action: "/" },
+      search: { enabled: false, placeholder: "Search...", action: "/" },
       cta: { enabled: false, label: "", href: "" },
     },
     main: { variant: "normal" },
@@ -1320,7 +1324,7 @@ export const APPEARANCE_SHELL_PRESETS = [
     tags: ["publishing", "articles"],
     appearance: {
       ...DEFAULT_APPEARANCE,
-      theme: "elegant",
+      theme: "midnight",
       frontendContentWidth: "wide",
       fontPreset: "serif",
       radiusPreset: "small",
@@ -1330,7 +1334,7 @@ export const APPEARANCE_SHELL_PRESETS = [
       variant: "editorial-masthead",
       heightPx: 148,
       sticky: false,
-      search: { enabled: true, placeholder: "Search stories", action: "/" },
+      search: { enabled: true, placeholder: "Search...", action: "/" },
       cta: { enabled: false, label: "", href: "" },
     },
     main: { variant: "editorial-article" },
@@ -1365,7 +1369,7 @@ export const APPEARANCE_SHELL_PRESETS = [
     tags: ["visual", "work"],
     appearance: {
       ...DEFAULT_APPEARANCE,
-      theme: "minimal",
+      theme: "aurora",
       frontendContentWidth: "full-width",
       fontPreset: "display",
       radiusPreset: "large",
@@ -1375,7 +1379,7 @@ export const APPEARANCE_SHELL_PRESETS = [
       variant: "minimal",
       heightPx: 72,
       sticky: true,
-      search: { enabled: false, placeholder: "Search", action: "/" },
+      search: { enabled: false, placeholder: "Search...", action: "/" },
       cta: { enabled: false, label: "", href: "" },
     },
     main: { variant: "full-bleed-builder" },
@@ -1407,7 +1411,7 @@ export const APPEARANCE_SHELL_PRESETS = [
     tags: ["docs", "reading"],
     appearance: {
       ...DEFAULT_APPEARANCE,
-      theme: "corporate",
+      theme: "dark",
       frontendContentWidth: "narrow",
       fontPreset: "sans",
       radiusPreset: "medium",
@@ -1417,7 +1421,7 @@ export const APPEARANCE_SHELL_PRESETS = [
       variant: "compact-app",
       heightPx: 64,
       sticky: true,
-      search: { enabled: true, placeholder: "Search docs", action: "/" },
+      search: { enabled: true, placeholder: "Search...", action: "/" },
       cta: { enabled: false, label: "", href: "" },
     },
     main: { variant: "editorial-article" },
@@ -1452,7 +1456,7 @@ export const APPEARANCE_SHELL_PRESETS = [
     tags: ["product", "cta"],
     appearance: {
       ...DEFAULT_APPEARANCE,
-      theme: "corporate",
+      theme: "midnight",
       frontendContentWidth: "wide",
       fontPreset: "humanist",
       radiusPreset: "large",
@@ -1462,7 +1466,7 @@ export const APPEARANCE_SHELL_PRESETS = [
       variant: "compact-app",
       heightPx: 72,
       sticky: true,
-      search: { enabled: false, placeholder: "Search", action: "/" },
+      search: { enabled: false, placeholder: "Search...", action: "/" },
       cta: { enabled: true, label: "Get Started", href: "/" },
     },
     main: { variant: "framed" },
@@ -1497,7 +1501,7 @@ export const APPEARANCE_SHELL_PRESETS = [
     tags: ["magazine", "categories"],
     appearance: {
       ...DEFAULT_APPEARANCE,
-      theme: "aurora",
+      theme: "obsidian",
       frontendContentWidth: "ultra-wide",
       fontPreset: "display",
       radiusPreset: "medium",
@@ -1507,7 +1511,7 @@ export const APPEARANCE_SHELL_PRESETS = [
       variant: "split",
       heightPx: 96,
       sticky: true,
-      search: { enabled: true, placeholder: "Search magazine", action: "/" },
+      search: { enabled: true, placeholder: "Search...", action: "/" },
       cta: { enabled: false, label: "", href: "" },
     },
     main: { variant: "category-grid" },
@@ -1540,6 +1544,57 @@ export const APPEARANCE_SHELL_PRESETS = [
     },
   },
   {
+    id: "cyber-journal",
+    name: "Cyber Journal",
+    description:
+      "Cyberpunk theme, contained content, normal surface, magazine footer.",
+    tags: ["cyberpunk", "journal", "magazine"],
+    appearance: {
+      ...DEFAULT_APPEARANCE,
+      theme: "cyberpunk",
+      frontendContentWidth: "contained",
+      backendContentWidth: "ultra-wide",
+      fontPreset: "display",
+      radiusPreset: "small",
+      shadowPreset: "none",
+    },
+    header: {
+      variant: "split",
+      heightPx: 96,
+      sticky: true,
+      search: { enabled: true, placeholder: "Search...", action: "/" },
+      cta: { enabled: false, label: "", href: "" },
+    },
+    main: { variant: "normal" },
+    footer: {
+      variant: "multi-column",
+      minHeightPx: 180,
+      sticky: false,
+      links: [
+        { label: "Features", href: "/" },
+        { label: "Reviews", href: "/" },
+        { label: "Interviews", href: "/" },
+      ],
+      legalLinks: [{ label: "Privacy", href: "/" }],
+      socialLinks: [
+        { label: "Instagram", href: "https://instagram.com" },
+        { label: "YouTube", href: "https://youtube.com" },
+      ],
+      cta: { enabled: false, label: "", href: "" },
+    },
+    contentTemplates: {
+      blogPost: {
+        metadataTreatment: "compact",
+        coverPlacement: "top",
+        excerptTreatment: "lead",
+        commentsPlacement: "after-content",
+        editAffordancePlacement: "footer-actions",
+      },
+      blogCategory: { variant: "cards" },
+      page: { variant: "contained-builder" },
+    },
+  },
+  {
     id: "campaign",
     name: "Campaign",
     description:
@@ -1547,7 +1602,7 @@ export const APPEARANCE_SHELL_PRESETS = [
     tags: ["landing", "campaign"],
     appearance: {
       ...DEFAULT_APPEARANCE,
-      theme: "luxury",
+      theme: "cyberpunk",
       frontendContentWidth: "full-width",
       fontPreset: "display",
       radiusPreset: "rounded",
@@ -1557,7 +1612,7 @@ export const APPEARANCE_SHELL_PRESETS = [
       variant: "minimal",
       heightPx: 72,
       sticky: false,
-      search: { enabled: false, placeholder: "Search", action: "/" },
+      search: { enabled: false, placeholder: "Search...", action: "/" },
       cta: { enabled: true, label: "Act Now", href: "/" },
     },
     main: { variant: "full-bleed-builder" },

@@ -18,7 +18,7 @@ export function PageTemplate({ template, children }: PageTemplateProps) {
         variant === "framed-builder" &&
           "mx-auto max-w-[var(--frontend-content-max-width)] px-2 py-10 sm:py-14",
         variant === "full-bleed-builder" &&
-          "relative left-1/2 ml-[-50vw] mr-[-50vw] w-screen max-w-none py-0",
+          "relative left-1/2 ml-[-50vw] mr-[-50vw] w-screen max-w-none px-4 py-0 md:px-8",
         variant === "landing-mode" &&
           "relative left-1/2 ml-[-50vw] mr-[-50vw] w-screen max-w-none py-0",
       )}

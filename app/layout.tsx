@@ -121,6 +121,7 @@ export default async function RootLayout({
               siteName={siteName}
               siteLogo={settings.siteLogo}
               logoUrl={logoUrl}
+              headerSettings={settings.headerSettings}
               isBackendUser={isBackendUser}
               isAdmin={isAdmin}
               isLoggedIn={!!user}
