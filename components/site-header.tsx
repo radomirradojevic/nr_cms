@@ -514,7 +514,8 @@ export function SiteHeader({
             buttonSize: "sm",
             signInClassName:
               "rounded-full px-3 text-foreground/75 hover:text-foreground",
-            signUpClassName: "rounded-full border-border/80 bg-background/70 px-3",
+            signUpClassName:
+              "rounded-full border-border/80 bg-background/70 px-3",
           })}
         </div>
         {renderHeaderHtmlSlot(
@@ -524,6 +525,7 @@ export function SiteHeader({
         <div className="flex min-w-0 flex-wrap items-center justify-center gap-3 border-t pt-2">
           {siteMenu}
           {adminMenu}
+          {renderSearchSlot(searchSlot, "lg:hidden", undefined, "left")}
           {cta}
         </div>
       </header>
