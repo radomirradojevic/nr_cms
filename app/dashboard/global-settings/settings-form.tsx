@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   Clipboard,
@@ -828,6 +828,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [socialLinksEnabled, setSocialLinksEnabled] = useState(
     initialSocialLinksSlot?.enabled ?? false,
   );
+  const [socialLinksGenerateSocialIcons, setSocialLinksGenerateSocialIcons] =
+    useState(initialSocialLinksSlot?.generateSocialIcons ?? false);
   const [socialLinksText, setSocialLinksText] = useState(
     formatLinksText(initialSocialLinksSlot?.links ?? []),
   );
@@ -1023,6 +1025,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   ).length;
 
   const [isPending, startTransition] = useTransition();
+  const bottomSaveButtonRef = useRef<HTMLDivElement | null>(null);
+  const [bottomSaveButtonVisible, setBottomSaveButtonVisible] = useState(false);
   const lock = useAdminSectionLock();
   const canSave = lock.isEditor;
   const headerBackgroundValid = isOptionalHexColorValid(headerBackground);
@@ -1051,6 +1055,24 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     !backgroundColorsValid ||
     !glowColorsValid ||
     !canSave;
+
+  useEffect(() => {
+    const bottomSaveButton = bottomSaveButtonRef.current;
+
+    if (!bottomSaveButton) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      setBottomSaveButtonVisible(entry.isIntersecting);
+    });
+
+    observer.observe(bottomSaveButton);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   function buildAppearanceRecipeForSubmit({
     nextAppearance,
@@ -1184,6 +1206,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               return {
                 ...slot,
                 enabled: socialLinksEnabled,
+                generateSocialIcons: socialLinksGenerateSocialIcons,
                 links: parseLinksText(socialLinksText),
               };
             }
@@ -1325,6 +1348,9 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     setLegalLinksEnabled(legalLinksSlot?.enabled ?? false);
     setLegalLinksText(formatLinksText(legalLinksSlot?.links ?? []));
     setSocialLinksEnabled(socialLinksSlot?.enabled ?? false);
+    setSocialLinksGenerateSocialIcons(
+      socialLinksSlot?.generateSocialIcons ?? false,
+    );
     setSocialLinksText(formatLinksText(socialLinksSlot?.links ?? []));
     setFooterCtaEnabled(footerCtaSlot?.enabled ?? false);
     setFooterCtaLabel(footerCtaSlot?.label ?? "");
@@ -1435,7 +1461,15 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="fixed right-4 bottom-4 z-40 sm:right-6 sm:bottom-6">
+      <div
+        className={cn(
+          "fixed right-4 bottom-4 z-40 transition-all duration-200 sm:right-6 sm:bottom-6",
+          bottomSaveButtonVisible
+            ? "pointer-events-none translate-y-3 opacity-0"
+            : "translate-y-0 opacity-100",
+        )}
+        aria-hidden={bottomSaveButtonVisible}
+      >
         <Button
           type="submit"
           size="lg"
@@ -2014,15 +2048,27 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               </div>
             )}
             {socialLinksEnabled && (
-              <div className="space-y-1.5">
-                <Label htmlFor="socialLinksText">Social Links</Label>
-                <Textarea
-                  id="socialLinksText"
-                  rows={3}
-                  value={socialLinksText}
-                  onChange={(e) => setSocialLinksText(e.target.value)}
-                  maxLength={2000}
-                />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <Label htmlFor="socialLinksGenerateSocialIcons">
+                    Generate Social Link Icons
+                  </Label>
+                  <Switch
+                    id="socialLinksGenerateSocialIcons"
+                    checked={socialLinksGenerateSocialIcons}
+                    onCheckedChange={setSocialLinksGenerateSocialIcons}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="socialLinksText">Social Links</Label>
+                  <Textarea
+                    id="socialLinksText"
+                    rows={3}
+                    value={socialLinksText}
+                    onChange={(e) => setSocialLinksText(e.target.value)}
+                    maxLength={2000}
+                  />
+                </div>
               </div>
             )}
             {footerCtaEnabled && (
@@ -2610,7 +2656,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         setIdleLogoutMinutes={setIdleLogoutMinutesInput}
       />
 
-      <div>
+      <div ref={bottomSaveButtonRef}>
         <Button type="submit" disabled={settingsSaveDisabled}>
           {isPending ? "Saving…" : "Save changes"}
         </Button>
