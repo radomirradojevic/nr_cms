@@ -514,7 +514,7 @@ export function ContentForm({
     <div className="space-y-6">
       <div
         className={[
-          "fixed right-4 bottom-4 z-40 transition-all duration-200 sm:right-6 sm:bottom-6",
+          "fixed right-4 bottom-[calc(var(--sticky-footer-h,0px)+1rem+env(safe-area-inset-bottom,0px))] z-[60] transition-all duration-200 sm:right-6 sm:bottom-[calc(var(--sticky-footer-h,0px)+1.5rem+env(safe-area-inset-bottom,0px))]",
           showFloatingSave
             ? "translate-y-0 opacity-100"
             : "pointer-events-none translate-y-3 opacity-0",
