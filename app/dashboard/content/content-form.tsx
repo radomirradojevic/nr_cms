@@ -668,7 +668,15 @@ export function ContentForm({
               placeholder="url-slug"
             />
             <p className="text-xs text-muted-foreground">
-              Public URL: <code>/{slug || "your-slug"}</code>
+              Public URL:{" "}
+              <Link
+                href={`/${slug || "your-slug"}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-primary underline-offset-4 hover:underline"
+              >
+                /{slug || "your-slug"}
+              </Link>
             </p>
           </div>
 
