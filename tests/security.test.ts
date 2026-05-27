@@ -130,6 +130,26 @@ test("CMS sanitizers strip executable URLs without dropping ordinary markup", ()
   assert.match(tiptap, /href="tel:\+15550100"/);
 });
 
+test("CMS sanitizer keeps safe decorative RawHtml image styles", () => {
+  const html = sanitizeCmsHtml(
+    '<div style="width:min(400px, 100%); aspect-ratio: 1 / 1; border-radius: 50%; box-shadow: rgba(52, 154, 238, 0) 0px 0px 4px, rgba(52, 154, 238, 0.533) 0px 0px 12px 12px, rgba(52, 154, 238, 0.2) 0px 0px 64px 24px;"><img alt="Night Raven Logo" src="/_next/image?url=%2Fnr%2Fimages%2Flogo.png&amp;w=828&amp;q=75" style="color: transparent; border-radius: 50%; width: 100%; height: 100%; object-fit: cover;"></div>',
+  );
+
+  assert.match(html, /width:min\(400px, 100%\)/);
+  assert.match(html, /aspect-ratio:1 \/ 1/);
+  assert.match(html, /border-radius:50%/);
+  assert.match(html, /box-shadow:rgba\(52, 154, 238, 0\) 0px 0px 4px/);
+  assert.match(html, /object-fit:cover/);
+  assert.match(html, /color:transparent/);
+
+  const unsafe = sanitizeCmsHtml(
+    '<div style="box-shadow: url(javascript:alert(1)) 0 0 1px; background: url(javascript:alert(1)); border: 1px solid red;"></div>',
+  );
+  assert.doesNotMatch(unsafe, /javascript/i);
+  assert.doesNotMatch(unsafe, /box-shadow/i);
+  assert.doesNotMatch(unsafe, /background:/i);
+});
+
 test("form upload owner helpers accept current and legacy rows only for their form", () => {
   const formId = "11111111-1111-4111-8111-111111111111";
   const otherFormId = "22222222-2222-4222-8222-222222222222";

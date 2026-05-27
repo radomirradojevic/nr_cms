@@ -227,6 +227,24 @@ function hasUnsafeUrlAttribute(attribs: Record<string, string>): boolean {
   return false;
 }
 
+const CSS_COLOR_PATTERN =
+  /^(?:#[0-9a-f]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|transparent|currentColor)$/i;
+const CSS_LENGTH_VALUE_SOURCE =
+  "(?:0|-?\\d+(?:\\.\\d+)?(?:px|em|rem|%|vh|vw|vmin|vmax))";
+const CSS_LENGTH_PATTERN =
+  /^(?:0|-?\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|vmin|vmax))$/i;
+const CSS_SIZE_PATTERN =
+  /^(?:auto|0|\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|vmin|vmax)|(?:min|max)\(\s*\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|vmin|vmax)\s*,\s*\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|vmin|vmax)\s*\)|clamp\(\s*\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|vmin|vmax)\s*,\s*\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|vmin|vmax)\s*,\s*\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|vmin|vmax)\s*\))$/i;
+const CSS_RADIUS_PATTERN = new RegExp(
+  `^${CSS_LENGTH_VALUE_SOURCE}(?:\\s+${CSS_LENGTH_VALUE_SOURCE}){0,3}(?:\\s*/\\s*${CSS_LENGTH_VALUE_SOURCE}(?:\\s+${CSS_LENGTH_VALUE_SOURCE}){0,3})?$`,
+  "i",
+);
+const CSS_ASPECT_RATIO_PATTERN = /^(?:auto|\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)?)$/i;
+const CSS_BORDER_PATTERN =
+  /^(?!.*(?:url|expression|javascript|;|<|>))(?:0|(?:\d+(?:\.\d+)?(?:px|em|rem)\s+)?(?:none|solid|dashed|dotted|double)?(?:\s+(?:#[0-9a-f]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|transparent|currentColor))?)$/i;
+const CSS_SHADOW_PATTERN =
+  /^(?!.*(?:url|expression|javascript|;|<|>))(?:none|(?:inset\s+)?(?:#[0-9a-f]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|transparent|currentColor)?(?:\s*-?\d+(?:\.\d+)?(?:px|em|rem)){2,4}(?:\s+(?:#[0-9a-f]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|transparent|currentColor))?(?:\s*,\s*(?:inset\s+)?(?:#[0-9a-f]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|transparent|currentColor)?(?:\s*-?\d+(?:\.\d+)?(?:px|em|rem)){2,4}(?:\s+(?:#[0-9a-f]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|transparent|currentColor))?)*)$/i;
+
 const tiptapOptions: IOptions = {
   allowedTags: [
     "a",
@@ -352,6 +370,30 @@ const cmsHtmlOptions: IOptions = {
   ...tiptapOptions,
   allowedTags: CMS_ALLOWED_TAGS,
   allowedAttributes: CMS_ALLOWED_ATTRIBUTES,
+  allowedStyles: {
+    "*": {
+      ...tiptapOptions.allowedStyles?.["*"],
+      "aspect-ratio": [CSS_ASPECT_RATIO_PATTERN],
+      background: [CSS_COLOR_PATTERN],
+      "background-color": [CSS_COLOR_PATTERN],
+      border: [CSS_BORDER_PATTERN],
+      "border-color": [CSS_COLOR_PATTERN],
+      "border-radius": [CSS_RADIUS_PATTERN],
+      "border-style": [/^(?:none|solid|dashed|dotted|double)$/i],
+      "border-width": [CSS_LENGTH_PATTERN],
+      "box-shadow": [CSS_SHADOW_PATTERN],
+      color: [CSS_COLOR_PATTERN],
+      display: [/^(?:block|inline|inline-block|flex|inline-flex|grid|none)$/i],
+      height: [CSS_SIZE_PATTERN],
+      "max-height": [CSS_SIZE_PATTERN],
+      "max-width": [CSS_SIZE_PATTERN],
+      "min-height": [CSS_SIZE_PATTERN],
+      "min-width": [CSS_SIZE_PATTERN],
+      "object-fit": [/^(?:contain|cover|fill|none|scale-down)$/i],
+      overflow: [/^(?:visible|hidden|clip|auto|scroll)$/i],
+      width: [CSS_SIZE_PATTERN],
+    },
+  },
   transformTags: {
     ...tiptapOptions.transformTags,
     button: (_tagName, attribs) => ({
