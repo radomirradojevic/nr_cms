@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
+import { type Ref, useEffect, useMemo, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type SearchContentType = "blog_post" | "page";
@@ -39,8 +41,10 @@ export function SiteSearch({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const mobileInputRef = useRef<HTMLInputElement | null>(null);
   const typesParam = useMemo(
     () => Array.from(new Set(contentTypes)).join(","),
     [contentTypes],
@@ -92,78 +96,132 @@ export function SiteSearch({
     };
   }, [canSearch, query, typesParam]);
 
-  return (
-    <form
-      action="/search"
-      className={cn("relative hidden items-center lg:flex", className)}
-      role="search"
-      aria-label={label}
-      onFocus={() => setOpen(true)}
-      onBlur={() => {
-        window.setTimeout(() => setOpen(false), 120);
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    mobileInputRef.current?.focus();
+  }, [mobileOpen]);
+
+  const searchInput = (
+    ref?: Ref<HTMLInputElement>,
+    extraClassName?: string,
+  ) => (
+    <input
+      ref={ref}
+      type="search"
+      name="q"
+      value={query}
+      onChange={(event) => setQuery(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setOpen(false);
+          setMobileOpen(false);
+          event.currentTarget.blur();
+        }
       }}
+      placeholder={placeholder}
+      autoComplete="off"
+      className={cn(
+        "h-8 w-40 rounded-lg border border-input bg-background px-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+        inputClassName,
+        extraClassName,
+      )}
+    />
+  );
+
+  const searchResults = (
+    <div
+      className={cn(
+        "absolute top-[calc(100%+0.5rem)] z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border bg-popover text-left text-popover-foreground shadow-lg",
+        resultsAlign === "right" ? "right-0" : "left-0",
+      )}
+      onMouseDown={(event) => event.preventDefault()}
     >
-      <input type="hidden" name="types" value={typesParam} />
-      <input
-        type="search"
-        name="q"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            setOpen(false);
-            event.currentTarget.blur();
-          }
-        }}
-        placeholder={placeholder}
-        autoComplete="off"
-        className={cn(
-          "h-8 w-40 rounded-lg border border-input bg-background px-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-          inputClassName,
-        )}
-      />
-      {open && canSearch && (
-        <div
-          className={cn(
-            "absolute top-[calc(100%+0.5rem)] z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border bg-popover text-left text-popover-foreground shadow-lg",
-            resultsAlign === "right" ? "right-0" : "left-0",
-          )}
-          onMouseDown={(event) => event.preventDefault()}
-        >
-          {loading && results.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-muted-foreground">
-              Searching...
-            </div>
-          ) : results.length > 0 ? (
-            <div className="max-h-96 overflow-y-auto py-1">
-              {results.map((result) => (
-                <Link
-                  key={result.id}
-                  href={result.url}
-                  onClick={() => setOpen(false)}
-                  className="group block px-3 py-2 text-sm outline-none transition-colors hover:!bg-[var(--nav-hover-bg)] hover:!text-[var(--nav-hover-foreground)] focus-visible:!bg-[var(--nav-hover-bg)] focus-visible:!text-[var(--nav-hover-foreground)]"
-                >
-                  <span className="block text-xs font-medium text-muted-foreground transition-colors group-hover:text-[var(--nav-hover-foreground)] group-focus-visible:text-[var(--nav-hover-foreground)]">
-                    {typeLabel(result.contentType)}
-                  </span>
-                  <span className="mt-0.5 block font-medium">
-                    {result.title}
-                  </span>
-                  {result.snippet && (
-                    <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground transition-colors group-hover:text-[var(--nav-hover-foreground)] group-hover:opacity-90 group-focus-visible:text-[var(--nav-hover-foreground)] group-focus-visible:opacity-90">
-                      {result.snippet}
-                    </span>
-                  )}
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="px-3 py-2 text-sm text-muted-foreground">
-              No results found.
-            </div>
-          )}
+      {loading && results.length === 0 ? (
+        <div className="px-3 py-2 text-sm text-muted-foreground">
+          Searching...
+        </div>
+      ) : results.length > 0 ? (
+        <div className="max-h-96 overflow-y-auto py-1">
+          {results.map((result) => (
+            <Link
+              key={result.id}
+              href={result.url}
+              onClick={() => {
+                setOpen(false);
+                setMobileOpen(false);
+              }}
+              className="group block px-3 py-2 text-sm outline-none transition-colors hover:!bg-[var(--nav-hover-bg)] hover:!text-[var(--nav-hover-foreground)] focus-visible:!bg-[var(--nav-hover-bg)] focus-visible:!text-[var(--nav-hover-foreground)]"
+            >
+              <span className="block text-xs font-medium text-muted-foreground transition-colors group-hover:text-[var(--nav-hover-foreground)] group-focus-visible:text-[var(--nav-hover-foreground)]">
+                {typeLabel(result.contentType)}
+              </span>
+              <span className="mt-0.5 block font-medium">{result.title}</span>
+              {result.snippet && (
+                <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground transition-colors group-hover:text-[var(--nav-hover-foreground)] group-hover:opacity-90 group-focus-visible:text-[var(--nav-hover-foreground)] group-focus-visible:opacity-90">
+                  {result.snippet}
+                </span>
+              )}
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="px-3 py-2 text-sm text-muted-foreground">
+          No results found.
         </div>
       )}
-    </form>
+    </div>
+  );
+
+  return (
+    <div className={cn("relative", className)}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="lg:hidden"
+        aria-label={mobileOpen ? "Close search" : label}
+        aria-expanded={mobileOpen}
+        onClick={() => {
+          setMobileOpen((current) => !current);
+          setOpen(true);
+        }}
+      >
+        {mobileOpen ? <X /> : <Search />}
+      </Button>
+      {mobileOpen && (
+        <form
+          action="/search"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 flex w-[min(20rem,calc(100vw-1.5rem))] items-center lg:hidden"
+          role="search"
+          aria-label={label}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            window.setTimeout(() => {
+              setOpen(false);
+              setMobileOpen(false);
+            }, 120);
+          }}
+        >
+          <input type="hidden" name="types" value={typesParam} />
+          {searchInput(mobileInputRef, "w-full shadow-lg")}
+          {open && canSearch && searchResults}
+        </form>
+      )}
+      <form
+        action="/search"
+        className="relative hidden items-center lg:flex"
+        role="search"
+        aria-label={label}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          window.setTimeout(() => setOpen(false), 120);
+        }}
+      >
+        <input type="hidden" name="types" value={typesParam} />
+        {searchInput()}
+        {open && canSearch && searchResults}
+      </form>
+    </div>
   );
 }

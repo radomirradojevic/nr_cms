@@ -314,9 +314,9 @@ export function SiteTopMenuMobile({
         aria-label="Site navigation"
         className={cn(
           "fixed right-3 top-[calc(var(--header-h)+0.5rem)] z-[70]",
+          "bottom-[calc(var(--sticky-footer-h,0px)+0.75rem+env(safe-area-inset-bottom,0px))]",
           "w-72 max-w-[calc(100vw-1.5rem)]",
-          "flex max-h-[calc(100vh-var(--header-h)-1rem)] min-h-0 flex-col overflow-hidden",
-          "max-h-[calc(100dvh-var(--header-h)-1rem)]",
+          "flex min-h-0 flex-col overflow-hidden",
           "rounded-lg border border-border bg-background shadow-xl",
           "origin-top-right transition-all duration-200 ease-out",
           isOpen
