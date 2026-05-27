@@ -1288,6 +1288,57 @@ export type AppearanceShellPreset = {
 
 export const APPEARANCE_SHELL_PRESETS = [
   {
+    id: "cyber-journal",
+    name: "Cyber Journal",
+    description:
+      "Cyberpunk theme, contained content, normal surface, magazine footer.",
+    tags: ["cyberpunk", "journal", "magazine"],
+    appearance: {
+      ...DEFAULT_APPEARANCE,
+      theme: "cyberpunk",
+      frontendContentWidth: "contained",
+      backendContentWidth: "ultra-wide",
+      fontPreset: "display",
+      radiusPreset: "small",
+      shadowPreset: "none",
+    },
+    header: {
+      variant: "classic",
+      heightPx: 90,
+      sticky: true,
+      search: { enabled: true, placeholder: "Search...", action: "/" },
+      cta: { enabled: false, label: "", href: "" },
+    },
+    main: { variant: "normal" },
+    footer: {
+      variant: "minimal",
+      minHeightPx: 95,
+      sticky: false,
+      links: [
+        { label: "Features", href: "/" },
+        { label: "Reviews", href: "/" },
+        { label: "Interviews", href: "/" },
+      ],
+      legalLinks: [{ label: "Privacy", href: "/" }],
+      socialLinks: [
+        { label: "Instagram", href: "https://instagram.com" },
+        { label: "YouTube", href: "https://youtube.com" },
+      ],
+      cta: { enabled: false, label: "", href: "" },
+    },
+    contentTemplates: {
+      blogPost: {
+        metadataTreatment: "compact",
+        coverPlacement: "top",
+        excerptTreatment: "lead",
+        commentsPlacement: "after-content",
+        editAffordancePlacement: "footer-actions",
+      },
+      blogCategory: { variant: "cards" },
+      page: { variant: "contained-builder" },
+    },
+  },
+  {
     id: "classic-cms",
     name: "Classic CMS",
     description:
@@ -1540,57 +1591,6 @@ export const APPEARANCE_SHELL_PRESETS = [
         editAffordancePlacement: "header-actions",
       },
       blogCategory: { variant: "featured-first" },
-      page: { variant: "contained-builder" },
-    },
-  },
-  {
-    id: "cyber-journal",
-    name: "Cyber Journal",
-    description:
-      "Cyberpunk theme, contained content, normal surface, magazine footer.",
-    tags: ["cyberpunk", "journal", "magazine"],
-    appearance: {
-      ...DEFAULT_APPEARANCE,
-      theme: "cyberpunk",
-      frontendContentWidth: "contained",
-      backendContentWidth: "ultra-wide",
-      fontPreset: "display",
-      radiusPreset: "small",
-      shadowPreset: "none",
-    },
-    header: {
-      variant: "split",
-      heightPx: 96,
-      sticky: true,
-      search: { enabled: true, placeholder: "Search...", action: "/" },
-      cta: { enabled: false, label: "", href: "" },
-    },
-    main: { variant: "normal" },
-    footer: {
-      variant: "multi-column",
-      minHeightPx: 180,
-      sticky: false,
-      links: [
-        { label: "Features", href: "/" },
-        { label: "Reviews", href: "/" },
-        { label: "Interviews", href: "/" },
-      ],
-      legalLinks: [{ label: "Privacy", href: "/" }],
-      socialLinks: [
-        { label: "Instagram", href: "https://instagram.com" },
-        { label: "YouTube", href: "https://youtube.com" },
-      ],
-      cta: { enabled: false, label: "", href: "" },
-    },
-    contentTemplates: {
-      blogPost: {
-        metadataTreatment: "compact",
-        coverPlacement: "top",
-        excerptTreatment: "lead",
-        commentsPlacement: "after-content",
-        editAffordancePlacement: "footer-actions",
-      },
-      blogCategory: { variant: "cards" },
       page: { variant: "contained-builder" },
     },
   },
