@@ -120,10 +120,11 @@ import { cn } from "@/lib/utils";
 interface GlowFieldsProps {
   idPrefix: string;
   value: GlowEffect;
+  colorValid: boolean;
   onChange: (next: GlowEffect) => void;
 }
 
-function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
+function GlowFields({ idPrefix, value, colorValid, onChange }: GlowFieldsProps) {
   const enabledId = `${idPrefix}-glow-enabled`;
   const colorId = `${idPrefix}-glow-color`;
   const intensityId = `${idPrefix}-glow-intensity`;
@@ -131,7 +132,7 @@ function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
   return (
     <div className="space-y-3 rounded-md border p-3">
       <div className="flex items-center justify-between">
-        <Label htmlFor={enabledId}>Glow Border</Label>
+        <Label htmlFor={enabledId}>Border</Label>
         <Switch
           id={enabledId}
           checked={value.enabled}
@@ -140,12 +141,12 @@ function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
       </div>
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor={colorId}>Glow Color</Label>
+          <Label htmlFor={colorId}>Border Color</Label>
           <div className="flex items-center gap-2">
             <Input
               id={colorId}
               type="color"
-              value={value.color}
+              value={getColorPickerValue(value.color)}
               onChange={(e) => onChange({ ...value, color: e.target.value })}
               disabled={!value.enabled}
               className="h-9 w-14 p-1"
@@ -154,11 +155,20 @@ function GlowFields({ idPrefix, value, onChange }: GlowFieldsProps) {
               type="text"
               value={value.color}
               onChange={(e) => onChange({ ...value, color: e.target.value })}
+              onBlur={(e) =>
+                onChange({ ...value, color: e.target.value.trim() })
+              }
               disabled={!value.enabled}
               placeholder="#349aee"
               maxLength={7}
+              aria-invalid={!colorValid || undefined}
             />
           </div>
+          {!colorValid && (
+            <p className="text-xs text-destructive">
+              Enter a valid hex color like #349aee or leave it blank.
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={intensityId}>
@@ -306,6 +316,15 @@ function normalizeOptionalHexColor(value: string): string | undefined {
 
 function isOptionalHexColorValid(value: string): boolean {
   return value.trim() === "" || HEX_COLOR.test(value.trim());
+}
+
+function normalizeOptionalGlowEffect(value: GlowEffect): GlowEffect | undefined {
+  const color = normalizeOptionalHexColor(value.color);
+  return color ? { ...value, color } : undefined;
+}
+
+function isOptionalGlowColorValid(value: GlowEffect): boolean {
+  return isOptionalHexColorValid(value.color);
 }
 
 function getColorPickerValue(value: string): string {
@@ -897,7 +916,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       showSiteName: headerShowSiteName,
       sticky: headerSticky,
       background: normalizeOptionalHexColor(headerBackground),
-      glow: headerGlow,
+      glow: normalizeOptionalGlowEffect(headerGlow),
     }),
     [
       headerShowLogo,
@@ -913,7 +932,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       copyright: footerCopyright || undefined,
       sticky: footerSticky,
       background: normalizeOptionalHexColor(footerBackground),
-      glow: footerGlow,
+      glow: normalizeOptionalGlowEffect(footerGlow),
     }),
     [
       footerShowLogo,
@@ -963,6 +982,9 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const footerBackgroundValid = isOptionalHexColorValid(footerBackground);
   const backgroundColorsValid =
     headerBackgroundValid && footerBackgroundValid;
+  const headerGlowColorValid = isOptionalGlowColorValid(headerGlow);
+  const footerGlowColorValid = isOptionalGlowColorValid(footerGlow);
+  const glowColorsValid = headerGlowColorValid && footerGlowColorValid;
 
   const maxSessionMinutesNum = parseInt(maxSessionMinutes, 10);
   const idleLogoutMinutesNum = parseInt(idleLogoutMinutesInput, 10);
@@ -1296,8 +1318,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       );
       return;
     }
-    if (!backgroundColorsValid) {
-      toast.error("Header and footer background colors must be valid hex values.");
+    if (!backgroundColorsValid || !glowColorsValid) {
+      toast.error(
+        "Header and footer background and glow colors must be valid hex values.",
+      );
       return;
     }
     const parsedMax = clampMinutes(
@@ -1510,6 +1534,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
           <GlowFields
             idPrefix="header"
             value={headerGlow}
+            colorValid={headerGlowColorValid}
             onChange={setHeaderGlow}
           />
           <div className="space-y-3 rounded-md border p-3">
@@ -1709,6 +1734,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
           <GlowFields
             idPrefix="footer"
             value={footerGlow}
+            colorValid={footerGlowColorValid}
             onChange={setFooterGlow}
           />
           <div className="space-y-3 rounded-md border p-3">
@@ -1842,41 +1868,6 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               value={footerContent}
               onChange={setFooterContent}
             />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Uploads ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload Limits</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="maxUploadMB">Max Per-File Upload Size (MB)</Label>
-            <Input
-              id="maxUploadMB"
-              type="number"
-              min={1}
-              value={maxUploadMB}
-              onChange={(e) => setMaxUploadMB(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {(parseInt(maxUploadMB, 10) || 0) * MB} bytes
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="maxBatchUploadMB">Max Batch Upload Size (MB)</Label>
-            <Input
-              id="maxBatchUploadMB"
-              type="number"
-              min={1}
-              value={maxBatchUploadMB}
-              onChange={(e) => setMaxBatchUploadMB(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {(parseInt(maxBatchUploadMB, 10) || 0) * MB} bytes
-            </p>
           </div>
         </CardContent>
       </Card>
@@ -2369,6 +2360,41 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         </CardContent>
       </Card>
 
+      {/* ── Uploads ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Limits</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="maxUploadMB">Max Per-File Upload Size (MB)</Label>
+            <Input
+              id="maxUploadMB"
+              type="number"
+              min={1}
+              value={maxUploadMB}
+              onChange={(e) => setMaxUploadMB(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {(parseInt(maxUploadMB, 10) || 0) * MB} bytes
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="maxBatchUploadMB">Max Batch Upload Size (MB)</Label>
+            <Input
+              id="maxBatchUploadMB"
+              type="number"
+              min={1}
+              value={maxBatchUploadMB}
+              onChange={(e) => setMaxBatchUploadMB(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {(parseInt(maxBatchUploadMB, 10) || 0) * MB} bytes
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ── Session Security ── */}
       <SessionSecurityCard
         maxSessionMinutes={maxSessionMinutes}
@@ -2384,6 +2410,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             isPending ||
             !sessionSecurityValid ||
             !backgroundColorsValid ||
+            !glowColorsValid ||
             !canSave
           }
         >
