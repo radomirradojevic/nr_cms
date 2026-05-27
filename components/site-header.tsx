@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { UserButtonClient } from "@/components/user-button-client";
 import type { AppearanceSlotV1, HeaderRegionV1 } from "@/lib/appearance-recipe";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
-import type { ResolvedSiteLogo } from "@/lib/global-settings";
+import type { HeaderSettings, ResolvedSiteLogo } from "@/lib/global-settings";
 import { cn } from "@/lib/utils";
 
 type SlotOf<T extends AppearanceSlotV1["type"]> = Extract<
@@ -22,6 +22,7 @@ type SiteHeaderProps = {
   siteName: string;
   siteLogo: ResolvedSiteLogo | null;
   logoUrl: string | null;
+  headerSettings: HeaderSettings;
   isBackendUser: boolean;
   isAdmin: boolean;
   isLoggedIn: boolean;
@@ -103,6 +104,7 @@ function renderBrandSlot({
   siteName,
   siteLogo,
   logoUrl,
+  headerSettings,
   className,
   logoSize = "calc(var(--header-h) * 0.85)",
 }: {
@@ -110,10 +112,19 @@ function renderBrandSlot({
   siteName: string;
   siteLogo: ResolvedSiteLogo | null;
   logoUrl: string | null;
+  headerSettings: HeaderSettings;
   className?: string;
   logoSize?: string;
 }) {
   if (!slot) return null;
+
+  const logoBorderRadius =
+    headerSettings.logoBorderShape === "square" ? "0" : "50%";
+  const logoBorderColor =
+    headerSettings.logoBorderColorMode === "custom" &&
+    headerSettings.logoBorderColor
+      ? headerSettings.logoBorderColor
+      : "var(--border)";
 
   return (
     <Link
@@ -128,8 +139,10 @@ function renderBrandSlot({
           style={{
             width: logoSize,
             height: logoSize,
-            borderRadius: "50%",
-            border: "1px solid #6b7280",
+            borderRadius: logoBorderRadius,
+            border: headerSettings.logoBorderEnabled
+              ? `1px solid ${logoBorderColor}`
+              : "0",
             overflow: "hidden",
             flexShrink: 0,
           }}
@@ -141,7 +154,7 @@ function renderBrandSlot({
             style={{
               width: "100%",
               height: "100%",
-              borderRadius: "50%",
+              borderRadius: logoBorderRadius,
             }}
             className="block object-contain"
           />
@@ -297,6 +310,7 @@ export function SiteHeader({
   siteName,
   siteLogo,
   logoUrl,
+  headerSettings,
   isBackendUser,
   isAdmin,
   isLoggedIn,
@@ -324,6 +338,7 @@ export function SiteHeader({
     siteName,
     siteLogo,
     logoUrl,
+    headerSettings,
     logoSize:
       region.variant === "split"
         ? "clamp(3rem, calc(var(--header-h) - 1.5rem), 4.5rem)"
@@ -375,17 +390,22 @@ export function SiteHeader({
     return (
       <header
         className={cn(
-          "site-header bg-background flex flex-col items-center justify-center px-4 py-3 text-center",
+          "site-header bg-background flex flex-col items-center justify-center gap-2 px-4 py-2 text-center",
           stickyClass,
         )}
-        style={headerStyle}
+        style={{
+          minHeight: `${headerH}px`,
+          ...(region.background ? { backgroundColor: region.background } : {}),
+        }}
       >
         {renderBrandSlot({
           slot: brandSlot,
           siteName,
           siteLogo,
           logoUrl,
+          headerSettings,
           className: "justify-center",
+          logoSize: "clamp(2.25rem, calc(var(--header-h) * 0.44), 4.5rem)",
         })}
         {renderHeaderHtmlSlot(
           customHtmlSlot ?? richTextSlot,
@@ -440,6 +460,7 @@ export function SiteHeader({
           siteName,
           siteLogo,
           logoUrl,
+          headerSettings,
           className: "text-base",
         })}
         {renderHeaderHtmlSlot(customHtmlSlot ?? richTextSlot, "hidden md:flex")}
@@ -479,6 +500,7 @@ export function SiteHeader({
             siteName,
             siteLogo,
             logoUrl,
+            headerSettings,
             className: "justify-center justify-self-center text-2xl",
             logoSize: "clamp(4rem, calc(var(--header-h) * 0.55), 6rem)",
           })}

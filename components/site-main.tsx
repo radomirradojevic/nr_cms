@@ -13,7 +13,7 @@ function mainInnerClassName(variant: MainRegionV1["variant"]): string {
     case "framed":
       return "site-content-container mx-auto w-full px-4 py-6";
     case "full-bleed-builder":
-      return "w-full min-w-0";
+      return "w-full min-w-0 px-4 md:px-8";
     case "editorial-article":
       return "site-content-container mx-auto w-full max-w-[min(var(--frontend-content-max-width),75ch)] px-4 py-8";
     case "category-grid":

@@ -6,6 +6,7 @@ import {
   Clipboard,
   Download,
   ImageIcon,
+  Info,
   RotateCcw,
   Save,
   ShieldCheck,
@@ -41,6 +42,8 @@ import {
   DEFAULT_HEADER_SETTINGS,
   FooterSettingsSchema,
   HeaderSettingsSchema,
+  LOGO_BORDER_COLOR_MODES,
+  LOGO_BORDER_SHAPES,
   MAX_MAX_SESSION_MINUTES,
   MB,
   MIN_IDLE_MINUTES,
@@ -307,6 +310,22 @@ const MOTION_PREFERENCE_LABELS: Record<AppearanceMotionPreference, string> = {
 const BACKGROUND_EFFECTS_LABELS: Record<AppearanceBackgroundEffects, string> = {
   system: "Use System Preference",
   disabled: "Disabled",
+};
+
+const LOGO_BORDER_COLOR_MODE_LABELS: Record<
+  (typeof LOGO_BORDER_COLOR_MODES)[number],
+  string
+> = {
+  theme: "Use theme border color",
+  custom: "Custom border color",
+};
+
+const LOGO_BORDER_SHAPE_LABELS: Record<
+  (typeof LOGO_BORDER_SHAPES)[number],
+  string
+> = {
+  circle: "Circle",
+  square: "Square",
 };
 
 const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -707,6 +726,18 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     headerSettings.showSiteName,
   );
   const [headerSticky, setHeaderSticky] = useState(headerSettings.sticky);
+  const [logoBorderEnabled, setLogoBorderEnabled] = useState(
+    headerSettings.logoBorderEnabled,
+  );
+  const [logoBorderColorMode, setLogoBorderColorMode] = useState<
+    (typeof LOGO_BORDER_COLOR_MODES)[number]
+  >(headerSettings.logoBorderColorMode);
+  const [logoBorderColor, setLogoBorderColor] = useState(
+    headerSettings.logoBorderColor ?? "",
+  );
+  const [logoBorderShape, setLogoBorderShape] = useState<
+    (typeof LOGO_BORDER_SHAPES)[number]
+  >(headerSettings.logoBorderShape);
   const [headerBackground, setHeaderBackground] = useState(
     headerSettings.background ?? "",
   );
@@ -920,6 +951,13 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       showLogo: headerShowLogo,
       showSiteName: headerShowSiteName,
       sticky: headerSticky,
+      logoBorderEnabled,
+      logoBorderColorMode,
+      logoBorderColor:
+        logoBorderColorMode === "custom"
+          ? normalizeOptionalHexColor(logoBorderColor)
+          : undefined,
+      logoBorderShape,
       background: normalizeOptionalHexColor(headerBackground),
       glow: normalizeOptionalGlowEffect(headerGlow),
     }),
@@ -927,6 +965,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       headerShowLogo,
       headerShowSiteName,
       headerSticky,
+      logoBorderEnabled,
+      logoBorderColorMode,
+      logoBorderColor,
+      logoBorderShape,
       headerBackground,
       headerGlow,
     ],
@@ -984,6 +1026,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const lock = useAdminSectionLock();
   const canSave = lock.isEditor;
   const headerBackgroundValid = isOptionalHexColorValid(headerBackground);
+  const logoBorderColorValid =
+    logoBorderColorMode !== "custom" || HEX_COLOR.test(logoBorderColor.trim());
   const footerBackgroundValid = isOptionalHexColorValid(footerBackground);
   const backgroundColorsValid =
     headerBackgroundValid && footerBackgroundValid;
@@ -1003,6 +1047,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const settingsSaveDisabled =
     isPending ||
     !sessionSecurityValid ||
+    !logoBorderColorValid ||
     !backgroundColorsValid ||
     !glowColorsValid ||
     !canSave;
@@ -1333,6 +1378,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       );
       return;
     }
+    if (!logoBorderColorValid) {
+      toast.error("Logo border custom color must be a valid hex value.");
+      return;
+    }
     if (!backgroundColorsValid || !glowColorsValid) {
       toast.error(
         "Header and footer background and glow colors must be valid hex values.",
@@ -1506,6 +1555,99 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               checked={headerShowLogo}
               onCheckedChange={setHeaderShowLogo}
             />
+          </div>
+          <div className="space-y-3 rounded-md border p-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="logoBorderEnabled">Enable logo border</Label>
+              <Switch
+                id="logoBorderEnabled"
+                checked={logoBorderEnabled}
+                onCheckedChange={setLogoBorderEnabled}
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="logoBorderShape">Logo border shape</Label>
+                <Select
+                  value={logoBorderShape}
+                  onValueChange={(v) =>
+                    setLogoBorderShape(
+                      v as (typeof LOGO_BORDER_SHAPES)[number],
+                    )
+                  }
+                  disabled={!logoBorderEnabled}
+                >
+                  <SelectTrigger id="logoBorderShape">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOGO_BORDER_SHAPES.map((shape) => (
+                      <SelectItem key={shape} value={shape}>
+                        {LOGO_BORDER_SHAPE_LABELS[shape]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="logoBorderColorMode">Logo border color</Label>
+                <Select
+                  value={logoBorderColorMode}
+                  onValueChange={(v) => {
+                    const mode = v as (typeof LOGO_BORDER_COLOR_MODES)[number];
+                    setLogoBorderColorMode(mode);
+                    if (
+                      mode === "custom" &&
+                      !normalizeOptionalHexColor(logoBorderColor)
+                    ) {
+                      setLogoBorderColor("#ffffff");
+                    }
+                  }}
+                  disabled={!logoBorderEnabled}
+                >
+                  <SelectTrigger id="logoBorderColorMode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOGO_BORDER_COLOR_MODES.map((mode) => (
+                      <SelectItem key={mode} value={mode}>
+                        {LOGO_BORDER_COLOR_MODE_LABELS[mode]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {logoBorderColorMode === "custom" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="logoBorderColor">Custom logo border color</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="logoBorderColor"
+                    type="color"
+                    value={getColorPickerValue(logoBorderColor)}
+                    onChange={(e) => setLogoBorderColor(e.target.value)}
+                    disabled={!logoBorderEnabled}
+                    className="h-9 w-14 p-1"
+                  />
+                  <Input
+                    type="text"
+                    value={logoBorderColor}
+                    onChange={(e) => setLogoBorderColor(e.target.value)}
+                    onBlur={(e) => setLogoBorderColor(e.target.value.trim())}
+                    disabled={!logoBorderEnabled}
+                    placeholder="#ffffff"
+                    maxLength={7}
+                    aria-invalid={!logoBorderColorValid || undefined}
+                  />
+                </div>
+                {!logoBorderColorValid && (
+                  <p className="text-xs text-destructive">
+                    Enter a valid hex color like #fff or #ffffff.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="headerShowSiteName">Show Site Name</Label>
@@ -1943,6 +2085,14 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                   Presets update the draft recipe while keeping identity, menus,
                   and content.
                 </p>
+                <div className="mt-3 flex gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  <p>
+                    Presets are starting points. Mix Theme, content widths,
+                    font, radius, shadow, main surface, and content templates to
+                    shape the public pages and blog posts exactly how you want.
+                  </p>
+                </div>
               </div>
               <Button
                 type="button"
@@ -2404,6 +2554,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               appearance={previewAppearance}
               siteName={siteName}
               logoFileId={logoFileId}
+              logoBorderEnabled={logoBorderEnabled}
+              logoBorderColorMode={logoBorderColorMode}
+              logoBorderColor={normalizeOptionalHexColor(logoBorderColor)}
+              logoBorderShape={logoBorderShape}
             />
             <p className="text-xs text-muted-foreground">
               Preview reflects current selections only. Save changes to apply

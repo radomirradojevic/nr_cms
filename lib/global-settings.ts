@@ -67,12 +67,19 @@ export type SessionSecuritySettings = z.infer<typeof SessionSecuritySchema>;
 
 const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+export const LOGO_BORDER_COLOR_MODES = ["theme", "custom"] as const;
+export const LOGO_BORDER_SHAPES = ["circle", "square"] as const;
+
 export const HeaderSettingsSchema = z.object({
   showLogo: z.boolean().default(true),
   showSiteName: z.boolean().default(true),
   sticky: z.boolean().default(false),
   background: z.string().regex(HEX_COLOR).optional(),
   glow: GlowEffectSchema.optional(),
+  logoBorderEnabled: z.boolean().default(true),
+  logoBorderColorMode: z.enum(LOGO_BORDER_COLOR_MODES).default("theme"),
+  logoBorderColor: z.string().regex(HEX_COLOR).optional(),
+  logoBorderShape: z.enum(LOGO_BORDER_SHAPES).default("circle"),
 });
 
 export const FooterSettingsSchema = z.object({
@@ -91,6 +98,9 @@ export const DEFAULT_HEADER_SETTINGS: HeaderSettings = {
   showSiteName: true,
   sticky: false,
   glow: DEFAULT_GLOW,
+  logoBorderEnabled: true,
+  logoBorderColorMode: "theme",
+  logoBorderShape: "circle",
 };
 
 export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {

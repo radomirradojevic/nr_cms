@@ -634,6 +634,24 @@ test("appearance shell presets are valid draft recipes", () => {
   }
 });
 
+test("appearance shell presets use only dark starter themes", () => {
+  const darkStarterThemes = new Set([
+    "aurora",
+    "cyberpunk",
+    "dark",
+    "midnight",
+    "obsidian",
+  ]);
+
+  for (const preset of APPEARANCE_SHELL_PRESETS) {
+    assert.equal(
+      darkStarterThemes.has(preset.appearance.theme),
+      true,
+      `${preset.name} should use a dark starter theme`,
+    );
+  }
+});
+
 test("applying a preset preserves identity, menu slots, and existing content slots", () => {
   const classic = buildDefaultClassicAppearanceRecipe(classicLegacyInput);
   const current = {
