@@ -47,17 +47,20 @@ export function ReassignFileDialog({
 
   useEffect(() => {
     if (!open) return;
-    setSelectedUserId(file.uploadedBy);
-    setError(null);
-    setLoadingUsers(true);
-    listCmsUsers().then((res) => {
-      setLoadingUsers(false);
-      if ("error" in res) {
-        setError(res.error);
-        return;
-      }
-      setUsers(res.users);
-    });
+    const timeout = window.setTimeout(() => {
+      setSelectedUserId(file.uploadedBy);
+      setError(null);
+      setLoadingUsers(true);
+      listCmsUsers().then((res) => {
+        setLoadingUsers(false);
+        if ("error" in res) {
+          setError(res.error);
+          return;
+        }
+        setUsers(res.users);
+      });
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [open, file.uploadedBy]);
 
   async function handleSubmit(e: React.FormEvent) {

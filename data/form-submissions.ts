@@ -1,7 +1,9 @@
 import "server-only";
 import { db } from "@/db";
-import { formSubmissions, forms, formFields } from "@/db/schema";
+import { content, formSubmissions, forms, formFields } from "@/db/schema";
 import { asc, desc, eq, count, type SQL } from "drizzle-orm";
+import { canViewContent } from "@/lib/content-visibility";
+import type { Role } from "@/lib/roles";
 import type {
   FormRow,
   FormFieldRow,
@@ -11,6 +13,74 @@ import type {
 export type SubmissionWithForm = FormSubmissionRow & {
   form?: FormRow;
 };
+
+function objectHasFormSubmissionsEmbed(value: unknown, formId: string): boolean {
+  if (!value || typeof value !== "object") return false;
+
+  if (Array.isArray(value)) {
+    return value.some((item) => objectHasFormSubmissionsEmbed(item, formId));
+  }
+
+  const node = value as Record<string, unknown>;
+  const nodeType =
+    typeof node.type === "string"
+      ? node.type
+      : node.type && typeof node.type === "object"
+        ? (node.type as Record<string, unknown>).resolvedName
+        : null;
+  const attrs =
+    node.attrs && typeof node.attrs === "object"
+      ? (node.attrs as Record<string, unknown>)
+      : null;
+  const props =
+    node.props && typeof node.props === "object"
+      ? (node.props as Record<string, unknown>)
+      : null;
+
+  if (
+    (nodeType === "FormSubmissions" || nodeType === "cmsFormSubmissions") &&
+    (props?.formId === formId || attrs?.formId === formId)
+  ) {
+    return true;
+  }
+
+  return Object.values(node).some((item) =>
+    objectHasFormSubmissionsEmbed(item, formId),
+  );
+}
+
+function textHasFormSubmissionsEmbed(value: string | null, formId: string) {
+  return (
+    value?.includes(`data-cms-form-submissions-id="${formId}"`) ||
+    value?.includes(`data-cms-form-submissions-id='${formId}'`)
+  );
+}
+
+/**
+ * Public frontend access to submissions follows the published parent content:
+ * if a visible page/blog post embeds this Form Submissions block, the viewer
+ * may fetch its rows. Dashboard/admin access is still enforced by callers.
+ */
+export async function canViewFormSubmissionsViaPublishedContent(
+  formId: string,
+  viewerRoles: Role[] | null,
+): Promise<boolean> {
+  const rows = await db
+    .select({
+      content: content.content,
+      contentJson: content.contentJson,
+      visibility: content.visibility,
+    })
+    .from(content)
+    .where(eq(content.status, "published"));
+
+  return rows.some(
+    (row) =>
+      canViewContent(row.visibility, viewerRoles) &&
+      (objectHasFormSubmissionsEmbed(row.contentJson, formId) ||
+        textHasFormSubmissionsEmbed(row.content, formId)),
+  );
+}
 
 /**
  * Fetch a single form (with fields).

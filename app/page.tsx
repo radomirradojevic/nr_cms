@@ -1,27 +1,32 @@
 import Link from "next/link";
-import { currentUser } from "@clerk/nextjs/server";
 import { getHomepageContent } from "@/data/content";
 import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
 import { Button } from "@/components/ui/button";
 import { ContentUnauthorized } from "@/components/content-unauthorized";
+import { PageTemplate } from "@/components/page-template";
+import { getGlobalSettings } from "@/data/global-settings";
 import { canViewContent } from "@/lib/content-visibility";
+import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 
 export default async function Home() {
   const homepage = await getHomepageContent();
 
   if (homepage && homepage.status === "published") {
-    const me = await currentUser();
+    const me = await getOptionalCurrentUser(true);
     const viewerRoles = me ? getRoles(me.publicMetadata) : null;
     if (!canViewContent(homepage.visibility, viewerRoles)) {
       return <ContentUnauthorized />;
     }
+    const settings = await getGlobalSettings();
+    const contentTemplates = resolveAppearanceContentTemplates(
+      settings.resolvedAppearanceRecipe?.contentTemplates,
+    );
     return (
-      <div className="flex flex-1 justify-center px-6 py-16">
-        <main className="w-full">
-          <BuilderRender data={homepage.contentJson} />
-        </main>
-      </div>
+      <PageTemplate template={contentTemplates.page}>
+        <BuilderRender data={homepage.contentJson} />
+      </PageTemplate>
     );
   }
 

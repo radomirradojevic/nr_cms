@@ -32,12 +32,14 @@ export function EditFileDialog({ file, open, onOpenChange, onUpdated }: Props) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    const timeout = window.setTimeout(() => {
       setFilename(file.filename);
       setTitle(file.title ?? "");
       setAlt(file.alt ?? "");
       setError(null);
-    }
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [open, file]);
 
   async function handleSubmit(e: React.FormEvent) {

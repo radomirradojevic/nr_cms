@@ -1,5 +1,5 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { getTopMenuTreeForViewer, type TopMenuTreeNode } from "@/data/top-menu";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 import {
   NavigationMenu,
@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/navigation-menu";
 import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
 import { SiteTopMenuMobile } from "@/components/site-top-menu-mobile";
+
+const submenuLinkClassName =
+  "block rounded px-3 py-2 text-sm transition-colors hover:!bg-[var(--nav-hover-bg)] hover:!text-[var(--nav-hover-foreground)] focus-visible:!bg-[var(--nav-hover-bg)] focus-visible:!text-[var(--nav-hover-foreground)] focus-visible:outline-none data-active:!bg-[var(--nav-hover-bg)] data-active:!text-[var(--nav-hover-foreground)] data-[active]:!bg-[var(--nav-hover-bg)] data-[active]:!text-[var(--nav-hover-foreground)]";
 
 function isExternal(url: string) {
   return /^https?:\/\//i.test(url);
@@ -25,7 +28,7 @@ export async function SiteTopMenu({
   isAdmin?: boolean;
   isLoggedIn?: boolean;
 }) {
-  const me = await currentUser();
+  const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
   const tree = await getTopMenuTreeForViewer(viewerRoles);
 
@@ -34,7 +37,7 @@ export async function SiteTopMenu({
       {/* Desktop navigation — visible on lg and above */}
       {tree.length > 0 && (
         <div className="hidden lg:block">
-          <NavigationMenu viewport={false}>
+          <NavigationMenu viewport={false} aria-label="Site navigation">
             <NavigationMenuList>
               {tree.map((item) => (
                 <RootItem key={item.id} item={item} />
@@ -105,7 +108,7 @@ function SubmenuItem({ item }: { item: TopMenuTreeNode }) {
             ? "noopener noreferrer"
             : undefined
         }
-        className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
+        className={submenuLinkClassName}
       >
         {item.label}
       </NavigationMenuLink>

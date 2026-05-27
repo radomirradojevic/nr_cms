@@ -90,9 +90,7 @@ export function SessionSecurityProvider({
         maxSessionDurationMinutes={maxSessionDurationMinutes}
         idleLogoutMinutes={idleLogoutMinutes}
         signInAtMs={
-          session.lastActiveAt?.getTime() ??
-          session.createdAt?.getTime() ??
-          Date.now()
+          session.lastActiveAt?.getTime() ?? session.createdAt?.getTime()
         }
         onSignOut={() =>
           signOut({ redirectUrl: "/" }).catch(() => {
@@ -108,7 +106,7 @@ export function SessionSecurityProvider({
 interface TimersProps {
   maxSessionDurationMinutes: number;
   idleLogoutMinutes: number;
-  signInAtMs: number;
+  signInAtMs?: number;
   onSignOut: () => void;
 }
 
@@ -123,8 +121,12 @@ function SessionSecurityTimers({
   const warningLeadMs = Math.min(60_000, Math.floor(idleMs / 4));
 
   const [now, setNow] = useState<number>(() => Date.now());
-  const [warningOpen, setWarningOpen] = useState(false);
-  const [warningKind, setWarningKind] = useState<"idle" | "absolute">("idle");
+  const [fallbackSignInAtMs] = useState<number>(() => Date.now());
+  const [warning, setWarning] = useState<{
+    kind: "idle" | "absolute";
+    deadline: number;
+  } | null>(null);
+  const warningOpen = warning !== null;
 
   const lastActivityWriteRef = useRef<number>(0);
   const signedOutRef = useRef<boolean>(false);
@@ -137,10 +139,12 @@ function SessionSecurityTimers({
     onSignOut();
   }, [onSignOut]);
 
+  const effectiveSignInAtMs = signInAtMs ?? fallbackSignInAtMs;
+
   const resetIdle = useCallback(() => {
     const next = Date.now() + idleMs;
     safeSetNumber(IDLE_KEY, next);
-    setWarningOpen(false);
+    setWarning(null);
   }, [idleMs]);
 
   // ─── Initialize / clamp deadlines on mount + when settings change ─────────
@@ -150,7 +154,7 @@ function SessionSecurityTimers({
 
     // Absolute: persist if missing, clamp to min(existing, signInAt+max).
     const existingAbs = safeGetNumber(ABSOLUTE_KEY);
-    const computedAbs = signInAtMs + maxMs;
+    const computedAbs = effectiveSignInAtMs + maxMs;
     const nextAbs =
       existingAbs === null ? computedAbs : Math.min(existingAbs, computedAbs);
     safeSetNumber(ABSOLUTE_KEY, nextAbs);
@@ -169,11 +173,12 @@ function SessionSecurityTimers({
       // Re-clamp to the new idle window if it shrank.
       safeSetNumber(IDLE_KEY, Math.min(existingIdle, nowMs + idleMs));
     }
-  }, [idleMs, maxMs, signInAtMs, performSignOut]);
+  }, [idleMs, maxMs, effectiveSignInAtMs, performSignOut]);
 
   // ─── Activity listeners (throttled) ───────────────────────────────────────
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (warningOpen) return;
 
     const onActivity = () => {
       if (signedOutRef.current) return;
@@ -200,7 +205,7 @@ function SessionSecurityTimers({
       }
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [idleMs]);
+  }, [idleMs, warningOpen]);
 
   // ─── Cross-tab sync ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -245,10 +250,9 @@ function SessionSecurityTimers({
       const remaining = Math.min(nextAbs, nextIdle) - nowMs;
 
       if (remaining <= warningLeadMs) {
-        setWarningKind(which);
-        setWarningOpen(true);
-      } else {
-        setWarningOpen((prev) => (prev ? false : prev));
+        setWarning(
+          (prev) => prev ?? { kind: which, deadline: nowMs + remaining },
+        );
       }
     }, TICK_MS);
     return () => window.clearInterval(id);
@@ -257,9 +261,11 @@ function SessionSecurityTimers({
   // ─── Render warning dialog ────────────────────────────────────────────────
   const abs = safeGetNumber(ABSOLUTE_KEY) ?? Number.POSITIVE_INFINITY;
   const idle = safeGetNumber(IDLE_KEY) ?? Number.POSITIVE_INFINITY;
-  const deadline = Math.min(abs, idle);
+  const deadline = warning
+    ? Math.min(warning.deadline, abs, idle)
+    : Math.min(abs, idle);
   const remainingSec = Math.max(0, Math.ceil((deadline - now) / 1000));
-  const isAbsolute = warningKind === "absolute";
+  const isAbsolute = warning?.kind === "absolute";
 
   return (
     <AlertDialog open={warningOpen}>

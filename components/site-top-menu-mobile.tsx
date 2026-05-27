@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Menu, X, ChevronDown } from "lucide-react";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { Show, SignInButton, SignUpButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { UserButtonClient } from "@/components/user-button-client";
 import { cn } from "@/lib/utils";
+import { getRoles, hasRole } from "@/lib/roles";
 import type { TopMenuTreeNode } from "@/data/top-menu";
 
 function isExternal(url: string) {
@@ -193,13 +194,13 @@ export function SiteTopMenuMobile({
   tree,
   isBackendUser = false,
   isAdmin = false,
-  isLoggedIn = false,
 }: {
   tree: TopMenuTreeNode[];
   isBackendUser?: boolean;
   isAdmin?: boolean;
   isLoggedIn?: boolean;
 }) {
+  const { isLoaded, isSignedIn, user } = useUser();
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -245,10 +246,18 @@ export function SiteTopMenuMobile({
 
   if (!hasAnything) return null;
 
-  const backendLinks = isBackendUser
-    ? BACKEND_LINKS.filter((l) => !l.adminOnly || isAdmin)
+  const roles = isLoaded && isSignedIn ? getRoles(user?.publicMetadata) : [];
+  const effectiveIsAdmin = isLoaded ? hasRole(roles, "admin") : isAdmin;
+  const effectiveIsBackendUser = isLoaded
+    ? hasRole(roles, "admin") ||
+      hasRole(roles, "publisher") ||
+      hasRole(roles, "author")
+    : isBackendUser;
+
+  const backendLinks = effectiveIsBackendUser
+    ? BACKEND_LINKS.filter((l) => !l.adminOnly || effectiveIsAdmin)
     : [];
-  const adminLinks = isAdmin ? ADMIN_LINKS : [];
+  const adminLinks = effectiveIsAdmin ? ADMIN_LINKS : [];
 
   return (
     <div className="relative lg:hidden">
@@ -333,7 +342,7 @@ export function SiteTopMenuMobile({
           )}
 
           {/* Admin nav section */}
-          {isBackendUser && (
+          {effectiveIsBackendUser && (
             <>
               {hasSiteNav && <div className="mx-2 border-t border-border" />}
               <div className="px-3 py-2">
@@ -366,12 +375,13 @@ export function SiteTopMenuMobile({
           {/* Auth section */}
           <div className="mx-2 border-t border-border" />
           <div className="p-2">
-            {isLoggedIn ? (
+            <Show when="signed-in">
               <div className="flex items-center gap-3 px-3 py-2">
                 <UserButtonClient />
                 <span className="text-sm font-medium">Account</span>
               </div>
-            ) : (
+            </Show>
+            <Show when="signed-out">
               <div className="flex flex-col gap-1">
                 <SignInButton mode="modal">
                   <button
@@ -402,7 +412,7 @@ export function SiteTopMenuMobile({
                   </button>
                 </SignUpButton>
               </div>
-            )}
+            </Show>
           </div>
         </nav>
       </div>

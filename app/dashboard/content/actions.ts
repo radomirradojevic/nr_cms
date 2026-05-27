@@ -1,6 +1,6 @@
 "use server";
 
-import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
@@ -9,12 +9,9 @@ import { content, topMenuItems } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 
 import {
-  clearHomepageFlag,
   deleteContentById,
   existsSlug,
   getContentById,
-  insertContent,
-  setHomepageById,
   updateContentById,
   type ContentRow,
 } from "@/data/content";
@@ -25,6 +22,7 @@ import {
   sanitizeVisibilityInput,
   VISIBILITY_ROLES,
 } from "@/lib/content-visibility";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { slugify } from "@/lib/utils";
 import { renderTiptapHtml } from "./_editors/render-tiptap-html";
 import {
@@ -39,7 +37,7 @@ import {
 type Actor = { userId: string; roles: Role[] };
 
 async function loadActor(): Promise<Actor | null> {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   if (!user) return null;
   const roles = getRoles(user.publicMetadata);
   const allowed = ["admin", "publisher", "author"] as const;
@@ -310,7 +308,8 @@ export async function updateContent(input: UpdateContentInput) {
     const stillOwns = await isLockedBy({
       contentId: target.id,
       userId: actor.userId,
-      sessionId: (await auth()).sessionId ?? "",
+      sessionId:
+        (await auth()).sessionId ?? "",
       clientId: data.lockClientId,
     });
     if (!stillOwns) {
@@ -746,6 +745,3 @@ export async function reassignContent(input: {
     return { error: "Something went wrong." };
   }
 }
-
-// Suppress unused import warning
-void auth;

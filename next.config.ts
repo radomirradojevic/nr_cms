@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 const securityHeaders = [
   {
     key: "X-Frame-Options",
-    value: "SAMEORIGIN",
+    value: "DENY",
   },
   {
     key: "X-Content-Type-Options",
@@ -21,15 +23,19 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev https://challenges.cloudflare.com",
-      "style-src 'self' 'unsafe-inline' https://rsms.me",
-      "img-src 'self' blob: data: https: http:",
-      "font-src 'self' https://rsms.me",
-      "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com",
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com`,
+      "style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com",
+      "img-src 'self' blob: data: https:",
+      "font-src 'self' https://rsms.me https://fonts.gstatic.com",
+      "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com https://challenges.cloudflare.com",
       "frame-src 'self' https://*.clerk.accounts.dev https://www.youtube.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
       "media-src 'self' blob: data:",
       "worker-src 'self' blob:",
       "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      ...(isDev ? [] : ["upgrade-insecure-requests"]),
     ].join("; "),
   },
 ];

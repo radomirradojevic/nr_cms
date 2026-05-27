@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getCategoriesByType } from "@/data/content-categories";
 import { ContentTableContainer } from "./content-table-container";
 
 export default async function ContentPage() {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   const allowed =
     hasRole(roles, "admin") ||

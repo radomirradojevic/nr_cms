@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { fileTypeFromBuffer } from "file-type";
 
 import { getPublishedFormById } from "@/data/forms";
-import { insertFile } from "@/data/files";
+import { countFilesByUploaderSince, insertFile } from "@/data/files";
 import { sanitizeSvgMarkup } from "@/lib/content-sanitizer";
 import {
   MAX_FILE_SIZE,
@@ -23,13 +23,21 @@ import {
 } from "@/lib/file-storage";
 import { getClientIp, hashIp } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
-import { checkSubmissionRateLimit } from "@/data/forms";
+import {
+  FORM_UPLOAD_DAY_WINDOW_MAX,
+  FORM_UPLOAD_DAY_WINDOW_MS,
+  FORM_UPLOAD_SHORT_WINDOW_MAX,
+  FORM_UPLOAD_SHORT_WINDOW_MS,
+  buildFormUploadOwner,
+} from "@/lib/form-upload-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const GENERIC_ERROR = "Upload failed.";
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function err(status: number, message = GENERIC_ERROR) {
   return NextResponse.json(
@@ -57,6 +65,7 @@ export async function POST(
 ) {
   try {
     const { id } = await ctx.params;
+    if (!UUID_RE.test(id)) return err(404, "Form not found.");
     if (!(await isSameOrigin())) return err(403, "Invalid request origin.");
 
     const detail = await getPublishedFormById(id);
@@ -100,24 +109,31 @@ export async function POST(
       );
     }
 
-    // IP-based rate limit (reuse submission limiter keyed on file uploads).
     const ip = await getClientIp();
     const ipHash = hashIp(ip);
-    const rl = await checkSubmissionRateLimit({
-      formId: id,
-      ipHash,
-      payloadHash: `upload:${randomUUID()}`,
-    });
-    if (!rl.allowed) return err(429, rl.reason);
+    const uploadOwner = buildFormUploadOwner(id, ipHash);
 
-    // Optional Turnstile check, only if a token was supplied (the public renderer
-    // does not block file picks on captcha; main gate happens at submit time).
     if (detail.settings.enableTurnstile) {
       const tok = String(form.get("turnstileToken") ?? "");
-      if (tok) {
-        const ok = await verifyTurnstile(tok, ip);
-        if (!ok) return err(400, "Captcha verification failed.");
-      }
+      if (!tok) return err(400, "Captcha required before uploading files.");
+      const ok = await verifyTurnstile(tok, ip);
+      if (!ok) return err(400, "Captcha verification failed.");
+    }
+
+    const now = Date.now();
+    const recentCount = await countFilesByUploaderSince(
+      uploadOwner,
+      new Date(now - FORM_UPLOAD_SHORT_WINDOW_MS),
+    );
+    if (recentCount >= FORM_UPLOAD_SHORT_WINDOW_MAX) {
+      return err(429, "Too many uploads. Please wait a few minutes.");
+    }
+    const dayCount = await countFilesByUploaderSince(
+      uploadOwner,
+      new Date(now - FORM_UPLOAD_DAY_WINDOW_MS),
+    );
+    if (dayCount >= FORM_UPLOAD_DAY_WINDOW_MAX) {
+      return err(429, "Daily upload limit reached.");
     }
 
     const original = sanitizeFilename(file.name || "file");
@@ -164,7 +180,7 @@ export async function POST(
       mimeType: mime,
       sizeBytes: buffer.length,
       kind,
-      uploadedBy: `form-submission:${id}`,
+      uploadedBy: uploadOwner,
     });
 
     return NextResponse.json(

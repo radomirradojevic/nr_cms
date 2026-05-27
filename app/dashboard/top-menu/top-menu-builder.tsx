@@ -63,7 +63,10 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
 
   // Sync local tree state when server data changes (after refresh / mutations)
   useEffect(() => {
-    setTree(initialTree);
+    const timeout = window.setTimeout(() => {
+      setTree(initialTree);
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [initialTree]);
 
   const flat: FlatItem[] = useMemo(

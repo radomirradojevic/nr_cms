@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { clerkClient, currentUser } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 
 import { Button } from "@/components/ui/button";
 import { getContentById } from "@/data/content";
@@ -10,6 +10,7 @@ import {
   getCommentsByIds,
   listCommentsForPost,
 } from "@/data/comments";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
 import { CommentsTable } from "./comments-table";
 
@@ -47,7 +48,7 @@ export default async function PostCommentsModerationPage({
   const { id } = await params;
   const sp = await searchParams;
 
-  const me = await currentUser();
+  const me = await getOptionalCurrentUser();
   if (!me) redirect("/");
   const myRoles = getRoles(me.publicMetadata);
   const baseAllowed =

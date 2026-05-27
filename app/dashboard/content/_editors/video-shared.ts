@@ -1,3 +1,5 @@
+import { sanitizeMediaSrc } from "@/lib/url-safety";
+
 export type VideoProvider = "youtube" | "file";
 export type VideoAlignment = "left" | "center" | "right";
 
@@ -34,19 +36,27 @@ export function extractYouTubeId(url: string): string | null {
     const host = u.hostname.replace(/^www\./, "");
     if (host === "youtu.be") {
       const id = u.pathname.slice(1).split("/")[0];
-      return id || null;
+      return isSafeYouTubeId(id) ? id : null;
     }
     if (host === "youtube.com" || host === "m.youtube.com") {
-      if (u.pathname === "/watch") return u.searchParams.get("v");
+      if (u.pathname === "/watch") {
+        const id = u.searchParams.get("v") ?? "";
+        return isSafeYouTubeId(id) ? id : null;
+      }
       const parts = u.pathname.split("/").filter(Boolean);
       if (parts[0] === "embed" || parts[0] === "shorts" || parts[0] === "v") {
-        return parts[1] ?? null;
+        const id = parts[1] ?? "";
+        return isSafeYouTubeId(id) ? id : null;
       }
     }
     return null;
   } catch {
     return null;
   }
+}
+
+function isSafeYouTubeId(value: string): boolean {
+  return /^[a-zA-Z0-9_-]{6,64}$/.test(value);
 }
 
 export function youTubeEmbedUrl(id: string): string {
@@ -72,9 +82,11 @@ export function resolveVideoEmbed(config: VideoConfig) {
   };
 
   if (provider === "youtube") {
+    const youtubeId = extractYouTubeId(src);
+    const safeSrc = youtubeId ? youTubeEmbedUrl(youtubeId) : "";
     return {
       provider,
-      src,
+      src: safeSrc,
       width,
       height,
       alignment,
@@ -92,9 +104,10 @@ export function resolveVideoEmbed(config: VideoConfig) {
     };
   }
 
+  const safeSrc = sanitizeMediaSrc(src);
   return {
     provider,
-    src,
+    src: safeSrc,
     width,
     height,
     alignment,

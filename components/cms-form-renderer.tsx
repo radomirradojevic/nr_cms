@@ -135,6 +135,21 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
   }
 
   async function handleFileSelect(field: FormFieldRow, file: File) {
+    if (enableTurnstile && !siteKey) {
+      setErrors((p) => ({
+        ...p,
+        [field.fieldKey]: "Captcha is not configured.",
+      }));
+      return;
+    }
+    if (enableTurnstile && !token) {
+      setArmed(true);
+      setErrors((p) => ({
+        ...p,
+        [field.fieldKey]: "Please complete the captcha before uploading.",
+      }));
+      return;
+    }
     setUploadingFor((s) => new Set(s).add(field.fieldKey));
     setErrors((prev) => {
       if (!prev[field.fieldKey]) return prev;

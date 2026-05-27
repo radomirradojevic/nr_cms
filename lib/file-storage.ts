@@ -103,7 +103,8 @@ function sanitizeKey(key: string): string {
 
 export function getUploadsDir(): string {
   return (
-    process.env.UPLOADS_DIR ?? path.join(process.cwd(), "storage", "uploads")
+    process.env.UPLOADS_DIR ??
+    path.join(/*turbopackIgnore: true*/ process.cwd(), "storage", "uploads")
   );
 }
 

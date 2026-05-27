@@ -44,11 +44,13 @@ export function EditGalleryDialog({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    const timeout = window.setTimeout(() => {
       setName(gallery.name);
       setDescription(gallery.description ?? "");
       setError(null);
-    }
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [open, gallery]);
 
   async function handleSubmit(e: React.FormEvent) {

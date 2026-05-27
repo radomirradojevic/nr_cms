@@ -1,5 +1,5 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
 import { getRawGlobalSettings } from "@/data/global-settings";
 import { getFileByIdUnchecked } from "@/data/files";
@@ -7,7 +7,7 @@ import { AdminSectionLockProvider } from "@/components/admin-section-lock-provid
 import { SettingsForm } from "./settings-form";
 
 export default async function GlobalSettingsPage() {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
 
   if (!hasRole(roles, "admin")) {

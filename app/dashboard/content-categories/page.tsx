@@ -1,10 +1,10 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
 import { CategoryTableContainer } from "./category-table-container";
 
 export default async function ContentCategoriesPage() {
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
 
   if (!hasRole(roles, "admin")) {

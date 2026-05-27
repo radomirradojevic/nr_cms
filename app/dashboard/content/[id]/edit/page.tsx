@@ -1,8 +1,9 @@
-import { currentUser, clerkClient } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import { getContentById } from "@/data/content";
 import { getCategoriesByType } from "@/data/content-categories";
 import { getGlobalSettings } from "@/data/global-settings";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { ContentForm } from "../../content-form";
 import { parseVisibility } from "@/lib/content-visibility";
@@ -12,7 +13,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function EditContentPage({ params }: Props) {
   const { id } = await params;
-  const user = await currentUser();
+  const user = await getOptionalCurrentUser();
   if (!user) redirect("/");
   const roles = getRoles(user.publicMetadata);
   const allowed =

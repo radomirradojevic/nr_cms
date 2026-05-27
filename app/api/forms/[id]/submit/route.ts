@@ -19,6 +19,7 @@ import {
 } from "@/lib/email";
 import { getFileByIdUnchecked } from "@/data/files";
 import { readUploadBuffer } from "@/lib/file-storage";
+import { isFormUploadOwner } from "@/lib/form-upload-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,8 @@ function valueToString(v: unknown): string {
 
 const MAX_BODY = 100 * 1024; // 100KB
 const GENERIC_ERROR = "We could not submit your form. Please try again.";
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function genericResponse(status: number, message = GENERIC_ERROR) {
   return NextResponse.json(
@@ -62,6 +65,9 @@ export async function POST(
 ) {
   try {
     const { id } = await ctx.params;
+    if (!UUID_RE.test(id)) {
+      return genericResponse(404, "Form not found.");
+    }
 
     if (!(await isSameOrigin())) {
       return genericResponse(403, "Invalid request origin.");
@@ -107,6 +113,63 @@ export async function POST(
       );
     }
     const values = normalizeValues(result.data, detail.fields);
+    const fileErrors: Record<string, string> = {};
+    for (const field of detail.fields) {
+      if (field.fieldType !== "file") continue;
+      const value = values[field.fieldKey];
+      if (value === undefined || value === null) continue;
+      if (typeof value !== "object" || Array.isArray(value)) {
+        fileErrors[field.fieldKey] = "Invalid file upload.";
+        continue;
+      }
+      const fileValue = value as {
+        fileId?: unknown;
+        mime?: unknown;
+        size?: unknown;
+      };
+      if (typeof fileValue.fileId !== "string") {
+        fileErrors[field.fieldKey] = "Invalid file upload.";
+        continue;
+      }
+      const fileRow = await getFileByIdUnchecked(fileValue.fileId);
+      if (!fileRow || !isFormUploadOwner(fileRow.uploadedBy, id)) {
+        fileErrors[field.fieldKey] = "Invalid file upload.";
+        continue;
+      }
+      if (
+        fileRow.mimeType !== fileValue.mime ||
+        fileRow.sizeBytes !== fileValue.size
+      ) {
+        fileErrors[field.fieldKey] = "Invalid file upload metadata.";
+        continue;
+      }
+      const validation = (field.validation ?? {}) as {
+        accept?: string[];
+        maxFileSizeKb?: number;
+      };
+      if (
+        Array.isArray(validation.accept) &&
+        validation.accept.length > 0 &&
+        !validation.accept.includes(fileRow.mimeType)
+      ) {
+        fileErrors[field.fieldKey] = "File type not allowed.";
+      }
+      if (
+        validation.maxFileSizeKb &&
+        fileRow.sizeBytes > validation.maxFileSizeKb * 1024
+      ) {
+        fileErrors[field.fieldKey] = "File exceeds the field size limit.";
+      }
+    }
+    if (Object.keys(fileErrors).length > 0) {
+      return NextResponse.json(
+        {
+          error: "Please fix the highlighted fields.",
+          fieldErrors: fileErrors,
+        },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
+    }
 
     const ip = await getClientIp();
     const ipHash = hashIp(ip);

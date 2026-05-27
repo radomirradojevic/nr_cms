@@ -32,6 +32,8 @@ import {
   layoutGapOptions,
 } from "@/app/dashboard/content/_editors/layout-presets";
 import { sanitizeTiptapHtml } from "@/app/dashboard/content/_editors/sanitize-tiptap-html";
+import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
+import { sanitizeHref, sanitizeMediaSrc } from "@/lib/url-safety";
 
 /**
  * Pure JSX renderers for every block. These are imported by both the
@@ -232,8 +234,9 @@ export function ImageStatic({
 }: ImageProps) {
   const { shellStyle, shellClass, responsiveStyleEl } =
     resolveShell(blockStyle);
+  const safeSrc = sanitizeMediaSrc(src, { allowDataImages: true });
 
-  if (!src) {
+  if (!safeSrc) {
     return (
       <>
         {responsiveStyleEl}
@@ -300,7 +303,7 @@ export function ImageStatic({
       {responsiveStyleEl}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        src={safeSrc}
         alt={alt}
         width={widthAttr}
         height={heightAttr}
@@ -313,11 +316,12 @@ export function ImageStatic({
 
 export function ButtonStatic({ label, href, style }: ButtonProps) {
   const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
+  const safeHref = sanitizeHref(href);
   return (
     <>
       {responsiveStyleEl}
       <a
-        href={href || "#"}
+        href={safeHref}
         style={shellStyle}
         className={cn(
           "inline-block my-3 rounded bg-primary px-4 py-2 text-primary-foreground",
@@ -359,8 +363,9 @@ export function HeroStatic({ title, subtitle, style }: HeroProps) {
 
 export function RawHtmlStatic({ html, style }: RawHtmlProps) {
   const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
+  const safeHtml = sanitizeCmsHtml(html ?? "");
   if (Object.keys(shellStyle).length === 0 && !shellClass) {
-    return <div dangerouslySetInnerHTML={{ __html: html ?? "" }} />;
+    return <div dangerouslySetInnerHTML={{ __html: safeHtml }} />;
   }
   return (
     <>
@@ -368,7 +373,7 @@ export function RawHtmlStatic({ html, style }: RawHtmlProps) {
       <div
         style={shellStyle}
         className={shellClass || undefined}
-        dangerouslySetInnerHTML={{ __html: html ?? "" }}
+        dangerouslySetInnerHTML={{ __html: safeHtml }}
       />
     </>
   );
