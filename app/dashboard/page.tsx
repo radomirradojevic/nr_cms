@@ -10,9 +10,11 @@ import {
   Tag,
   Menu,
   ClipboardList,
+  Settings,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { getDashboardStats } from "@/data/dashboard";
+import { getGlobalSettings } from "@/data/global-settings";
 import { DashboardCard } from "@/app/dashboard/_components/dashboard-card";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
@@ -20,7 +22,7 @@ import { hasRole, getRoles } from "@/lib/roles";
 function DashboardSkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      {Array.from({ length: 7 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (
         <Card key={i} className="h-48 animate-pulse bg-muted" />
       ))}
     </div>
@@ -28,15 +30,45 @@ function DashboardSkeleton() {
 }
 
 async function DashboardCards({ roles }: { roles: string[] }) {
-  const stats = await getDashboardStats();
+  const [stats, settings] = await Promise.all([
+    getDashboardStats(),
+    getGlobalSettings(),
+  ]);
   const isAdmin = roles.includes("admin");
   const canAccessContent =
     roles.includes("admin") ||
     roles.includes("publisher") ||
     roles.includes("author");
+  const bytesToMb = (bytes: number) => Math.round(bytes / 1024 / 1024);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <DashboardCard
+        title="Global Settings"
+        description="Site-wide configuration"
+        icon={Settings}
+        href="/dashboard/global-settings"
+        actionLabel="Manage Settings"
+        showAction={isAdmin}
+        stats={[
+          {
+            label: "Max Upload (MB)",
+            value: bytesToMb(settings.maxUploadSizeBytes),
+          },
+          {
+            label: "Batch Upload (MB)",
+            value: bytesToMb(settings.maxBatchUploadSizeBytes),
+          },
+          {
+            label: "Idle Logout (min)",
+            value: settings.sessionSecurity.idleLogoutMinutes,
+          },
+          {
+            label: "Session Limit (min)",
+            value: settings.sessionSecurity.maxSessionDurationMinutes,
+          },
+        ]}
+      />
       <DashboardCard
         title="Content"
         description="Pages and blog posts"
@@ -147,7 +179,9 @@ export default async function DashboardPage() {
     return (
       <div className="flex min-h-[40vh] items-center justify-center p-6">
         <div className="max-w-md rounded-lg border bg-card p-6 text-center">
-          <h1 className="text-lg font-semibold">Dashboard access unavailable</h1>
+          <h1 className="text-lg font-semibold">
+            Dashboard access unavailable
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Your session is signed in, but role information is still syncing.
             Refresh the page in a moment.
