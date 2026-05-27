@@ -10,6 +10,7 @@ import {
   inArray,
   ne,
   or,
+  sql,
   type SQL,
 } from "drizzle-orm";
 import { buildVisibilityWhere } from "@/lib/content-visibility";
@@ -23,6 +24,16 @@ export type NewContent = typeof content.$inferInsert;
 
 export type ContentListItem = ContentRow & {
   categoryName: string;
+};
+
+export type PublicSearchResult = {
+  id: string;
+  title: string;
+  slug: string;
+  url: string;
+  contentType: ContentType;
+  snippet: string;
+  updatedAt: Date;
 };
 
 export type ListContentParams = {
@@ -129,6 +140,137 @@ export async function listContent(
 
   return {
     rows: rows.map((r) => ({ ...r, categoryName: r.categoryName ?? "—" })),
+    total: totalRows[0]?.total ?? 0,
+  };
+}
+
+function normalizeSearchTypes(contentTypes: ContentType[]): ContentType[] {
+  return Array.from(
+    new Set(
+      contentTypes.filter(
+        (type): type is ContentType =>
+          type === "blog_post" || type === "page",
+      ),
+    ),
+  );
+}
+
+function plainText(value: string | null | undefined): string {
+  return (value ?? "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildSnippet(row: {
+  title: string;
+  excerpt: string | null;
+  metaDescription: string | null;
+  content: string | null;
+}, query: string): string {
+  const text =
+    plainText(row.excerpt) ||
+    plainText(row.metaDescription) ||
+    plainText(row.content) ||
+    row.title;
+  const maxLength = 180;
+  if (text.length <= maxLength) return text;
+
+  const index = text.toLocaleLowerCase().indexOf(query.toLocaleLowerCase());
+  const start = index > 40 ? Math.max(0, index - 55) : 0;
+  const end = Math.min(text.length, start + maxLength);
+  const prefix = start > 0 ? "... " : "";
+  const suffix = end < text.length ? " ..." : "";
+  return `${prefix}${text.slice(start, end).trim()}${suffix}`;
+}
+
+export async function searchPublishedContent(params: {
+  query: string;
+  contentTypes: ContentType[];
+  limit: number;
+  offset?: number;
+  viewerRoles?: Role[] | null;
+}): Promise<{ rows: PublicSearchResult[]; total: number }> {
+  const query = params.query.trim();
+  const contentTypes = normalizeSearchTypes(params.contentTypes);
+  const limit = Math.min(Math.max(params.limit, 1), 50);
+  const offset = Math.max(params.offset ?? 0, 0);
+
+  if (query.length === 0 || contentTypes.length === 0) {
+    return { rows: [], total: 0 };
+  }
+
+  const like = `%${query}%`;
+  const prefixLike = `${query}%`;
+  const conditions: SQL[] = [
+    eq(content.status, "published"),
+    inArray(content.contentType, contentTypes),
+  ];
+  if (params.viewerRoles !== undefined) {
+    conditions.push(buildVisibilityWhere(params.viewerRoles));
+  }
+
+  const searchClause = or(
+    ilike(content.title, like),
+    ilike(content.slug, like),
+    ilike(content.metaTitle, like),
+    ilike(content.metaDescription, like),
+    ilike(content.excerpt, like),
+    ilike(content.content, like),
+    sql`${content.contentJson}::text ILIKE ${like}`,
+  );
+  if (searchClause) conditions.push(searchClause);
+
+  const whereClause = and(...conditions);
+  const relevance = sql<number>`CASE
+    WHEN lower(${content.title}) = lower(${query}) THEN 100
+    WHEN ${content.title} ILIKE ${prefixLike} THEN 80
+    WHEN ${content.title} ILIKE ${like} THEN 60
+    WHEN ${content.slug} ILIKE ${prefixLike} THEN 45
+    WHEN ${content.excerpt} ILIKE ${like} THEN 35
+    WHEN ${content.metaDescription} ILIKE ${like} THEN 30
+    ELSE 10
+  END`;
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: content.id,
+        title: content.title,
+        slug: content.slug,
+        contentType: content.contentType,
+        excerpt: content.excerpt,
+        metaDescription: content.metaDescription,
+        content: content.content,
+        updatedAt: content.updatedAt,
+        relevance,
+      })
+      .from(content)
+      .where(whereClause)
+      .orderBy(desc(relevance), desc(content.updatedAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ total: count() }).from(content).where(whereClause),
+  ]);
+
+  return {
+    rows: rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+      url: `/${row.slug}`,
+      contentType: row.contentType as ContentType,
+      snippet: buildSnippet(row, query),
+      updatedAt: row.updatedAt,
+    })),
     total: totalRows[0]?.total ?? 0,
   };
 }

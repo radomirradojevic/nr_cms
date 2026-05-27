@@ -12,6 +12,9 @@ import {
 import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
 import { SiteTopMenuMobile } from "@/components/site-top-menu-mobile";
 
+const submenuLinkClassName =
+  "block rounded px-3 py-2 text-sm transition-colors hover:!bg-[var(--nav-hover-bg)] hover:!text-[var(--nav-hover-foreground)] focus-visible:!bg-[var(--nav-hover-bg)] focus-visible:!text-[var(--nav-hover-foreground)] focus-visible:outline-none data-active:!bg-[var(--nav-hover-bg)] data-active:!text-[var(--nav-hover-foreground)] data-[active]:!bg-[var(--nav-hover-bg)] data-[active]:!text-[var(--nav-hover-foreground)]";
+
 function isExternal(url: string) {
   return /^https?:\/\//i.test(url);
 }
@@ -105,7 +108,7 @@ function SubmenuItem({ item }: { item: TopMenuTreeNode }) {
             ? "noopener noreferrer"
             : undefined
         }
-        className="block rounded px-3 py-2 text-sm transition-colors hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)] focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)] focus-visible:outline-none data-[active]:bg-[var(--nav-hover-bg)] data-[active]:text-[var(--nav-hover-foreground)]"
+        className={submenuLinkClassName}
       >
         {item.label}
       </NavigationMenuLink>
