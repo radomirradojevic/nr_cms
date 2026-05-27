@@ -6,6 +6,7 @@ import {
   resolveFieldLabel,
 } from "@/lib/form-submissions";
 import { FormSubmissionCell } from "./form-submission-cell";
+import { FormSubmissionsLoading } from "./form-submissions-loading";
 import { FormSubmissionsPagination } from "./form-submissions-pagination";
 import type { FormFieldRow, FormSubmissionRow } from "@/lib/form-types";
 
@@ -44,6 +45,10 @@ export function FormSubmissionsTable({
   const columns = collectSubmissionKeys(
     submissions.map((s) => ({ data: s.data as Record<string, unknown> })),
   );
+
+  if (isLoading && submissions.length === 0) {
+    return <FormSubmissionsLoading />;
+  }
 
   if (columns.length === 0 || submissions.length === 0) {
     return (
