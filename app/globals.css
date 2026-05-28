@@ -616,6 +616,21 @@ html[data-appearance-background-effects="disabled"] .site-footer {
   height: auto;
   border-radius: 0.375rem;
 }
+:where(.ProseMirror, .cms-content) :where(img.tiptap-image-align-left) {
+  display: block;
+  margin-left: 0;
+  margin-right: auto;
+}
+:where(.ProseMirror, .cms-content) :where(img.tiptap-image-align-center) {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+:where(.ProseMirror, .cms-content) :where(img.tiptap-image-align-right) {
+  display: block;
+  margin-left: auto;
+  margin-right: 0;
+}
 :where(.ProseMirror, .cms-content) :where(figure) {
   margin: 1rem 0;
 }

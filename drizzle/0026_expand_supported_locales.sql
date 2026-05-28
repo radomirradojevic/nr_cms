@@ -1,0 +1,3 @@
+ALTER TABLE "global_settings" DROP CONSTRAINT "global_settings_default_language_check";
+
+ALTER TABLE "global_settings" ADD CONSTRAINT "global_settings_default_language_check" CHECK ("global_settings"."default_language" IN ('en-US','en-GB','en-CA','en-AU','en-IN','sr-RS','sr-Cyrl-RS','sr-Latn-RS','de-DE','de-AT','de-CH','fr-FR','fr-CA','fr-CH','es-ES','es-MX','es-AR','es-CO','es-CL','it-IT','pt-BR','pt-PT','nl-NL','nl-BE','sv-SE','da-DK','nb-NO','fi-FI','pl-PL','cs-CZ','sk-SK','hu-HU','ro-RO','bg-BG','el-GR','hr-HR','bs-BA','sl-SI','mk-MK','sq-AL','tr-TR','ru-RU','uk-UA','ar-SA','he-IL','hi-IN','bn-BD','ur-PK','fa-IR','zh-CN','zh-TW','ja-JP','ko-KR','th-TH','vi-VN','id-ID','ms-MY'));

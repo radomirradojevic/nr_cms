@@ -8,6 +8,7 @@ import {
 import { FormSubmissionCell } from "./form-submission-cell";
 import { FormSubmissionsLoading } from "./form-submissions-loading";
 import { FormSubmissionsPagination } from "./form-submissions-pagination";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import type { FormFieldRow, FormSubmissionRow } from "@/lib/form-types";
 
 interface FormSubmissionsTableProps {
@@ -41,6 +42,7 @@ export function FormSubmissionsTable({
   onPageChange,
   isLoading = false,
 }: FormSubmissionsTableProps) {
+  const { formatDateTime } = useRegionalSettings();
   // Discover schema from submissions
   const columns = collectSubmissionKeys(
     submissions.map((s) => ({ data: s.data as Record<string, unknown> })),
@@ -90,8 +92,7 @@ export function FormSubmissionsTable({
               const normalized = normalizeSubmissionData(
                 sub.data as Record<string, unknown>,
               );
-              const date = new Date(sub.createdAt);
-              const formatted = date.toLocaleString();
+              const formatted = formatDateTime(sub.createdAt);
 
               return (
                 <tr

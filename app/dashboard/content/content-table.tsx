@@ -18,6 +18,7 @@ import { PageSizeSelector } from "@/app/dashboard/page-size-selector";
 import { type Role, hasRole } from "@/lib/roles";
 import { ContentRowActions } from "./content-row-actions";
 import { BatchActions } from "./batch-actions";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 
 type AllowedPageSize = 10 | 20 | 30;
 
@@ -72,6 +73,7 @@ export function ContentTable({
   onPageSizeChange,
   onMutated,
 }: Props) {
+  const { formatDate } = useRegionalSettings();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const allSelected =
@@ -186,7 +188,7 @@ export function ContentTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(row.updatedAt).toLocaleDateString()}
+                    {formatDate(row.updatedAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

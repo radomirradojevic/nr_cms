@@ -5,16 +5,30 @@ import {
   DayPicker,
   getDefaultClassNames,
   type DayButton,
-  type Locale,
 } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDownIcon,
 } from "lucide-react";
+
+function getWeekStartsOn(localeCode: string): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
+  try {
+    const locale = new Intl.Locale(localeCode) as Intl.Locale & {
+      weekInfo?: { firstDay?: number };
+    };
+    const firstDay = locale.weekInfo?.firstDay;
+    return typeof firstDay === "number"
+      ? ((firstDay % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6)
+      : 0;
+  } catch {
+    return 0;
+  }
+}
 
 function Calendar({
   className,
@@ -23,17 +37,21 @@ function Calendar({
   captionLayout = "label",
   buttonVariant = "ghost",
   locale,
+  weekStartsOn,
   formatters,
   components,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
+  const { defaultLanguage } = useRegionalSettings();
+  const localeCode = locale?.code ?? defaultLanguage;
   const defaultClassNames = getDefaultClassNames();
 
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      weekStartsOn={weekStartsOn ?? getWeekStartsOn(localeCode)}
       className={cn(
         "group/calendar bg-background p-2 [--cell-radius:var(--radius-md)] [--cell-size:--spacing(7)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
@@ -43,8 +61,21 @@ function Calendar({
       captionLayout={captionLayout}
       locale={locale}
       formatters={{
+        formatCaption: (date) =>
+          new Intl.DateTimeFormat(localeCode, {
+            month: "long",
+            year: "numeric",
+          }).format(date),
+        formatDay: (date) =>
+          new Intl.DateTimeFormat(localeCode, { day: "numeric" }).format(date),
         formatMonthDropdown: (date) =>
-          date.toLocaleString(locale?.code, { month: "short" }),
+          new Intl.DateTimeFormat(localeCode, { month: "short" }).format(date),
+        formatWeekdayName: (date) =>
+          new Intl.DateTimeFormat(localeCode, { weekday: "short" }).format(
+            date,
+          ),
+        formatYearDropdown: (date) =>
+          new Intl.DateTimeFormat(localeCode, { year: "numeric" }).format(date),
         ...formatters,
       }}
       classNames={{
@@ -168,7 +199,7 @@ function Calendar({
           );
         },
         DayButton: ({ ...props }) => (
-          <CalendarDayButton locale={locale} {...props} />
+          <CalendarDayButton localeCode={localeCode} {...props} />
         ),
         WeekNumber: ({ children, ...props }) => {
           return (
@@ -190,9 +221,9 @@ function CalendarDayButton({
   className,
   day,
   modifiers,
-  locale,
+  localeCode,
   ...props
-}: React.ComponentProps<typeof DayButton> & { locale?: Partial<Locale> }) {
+}: React.ComponentProps<typeof DayButton> & { localeCode: string }) {
   const defaultClassNames = getDefaultClassNames();
 
   const ref = React.useRef<HTMLButtonElement>(null);
@@ -205,7 +236,7 @@ function CalendarDayButton({
       ref={ref}
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString(locale?.code)}
+      data-day={day.date.toLocaleDateString(localeCode)}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

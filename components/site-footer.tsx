@@ -346,10 +346,10 @@ export function SiteFooter({
   if (region.variant === "hidden") return null;
 
   const context = { isBackendUser, isAdmin, isLoggedIn };
-  const htmlSlots = [
-    ...enabledSlots(region.slots, "CustomHtml", context),
-    ...enabledSlots(region.slots, "RichText", context),
-  ];
+  const customHtmlSlots = enabledSlots(region.slots, "CustomHtml", context);
+  const richTextSlots = enabledSlots(region.slots, "RichText", context);
+  const htmlSlots =
+    customHtmlSlots.length > 0 ? customHtmlSlots : richTextSlots;
   const copyrightSlots = enabledSlots(region.slots, "Copyright", context);
   const footerLinksSlot = firstEnabledSlot(
     region.slots,

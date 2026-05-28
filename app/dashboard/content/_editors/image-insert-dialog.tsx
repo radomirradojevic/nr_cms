@@ -14,9 +14,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchFiles } from "@/app/dashboard/filemanager/actions";
 import type { FileRow } from "@/data/files";
+
+export type ImageAlignment = "left" | "center" | "right";
 
 type Props = {
   open: boolean;
@@ -27,16 +36,25 @@ type Props = {
     alt?: string | null;
     width?: string | null;
     height?: string | null;
+    alignment?: ImageAlignment | null;
   } | null;
   onInsert: (args: {
     src: string;
     alt: string;
     width: string;
     height: string;
+    alignment: ImageAlignment;
   }) => void;
+  onAlignmentChange?: (alignment: ImageAlignment) => void;
 };
 
 const PAGE_SIZE = 24;
+
+function normalizeImageAlignment(value: unknown): ImageAlignment {
+  return value === "left" || value === "right" || value === "center"
+    ? value
+    : "center";
+}
 
 function fileIdFromApiSrc(src: string | null | undefined): string | null {
   if (!src) return null;
@@ -53,6 +71,7 @@ export function ImageInsertDialog(props: Props) {
         initialValues?.alt ?? "",
         initialValues?.width ?? "",
         initialValues?.height ?? "",
+        initialValues?.alignment ?? "",
       ].join("|")
     : "closed";
 
@@ -65,11 +84,15 @@ function ImageInsertDialogInner({
   mode = "insert",
   initialValues,
   onInsert,
+  onAlignmentChange,
 }: Props) {
   const [url, setUrl] = useState(() => initialValues?.src ?? "");
   const [alt, setAlt] = useState(() => initialValues?.alt ?? "");
   const [width, setWidth] = useState(() => initialValues?.width ?? "");
   const [height, setHeight] = useState(() => initialValues?.height ?? "");
+  const [alignment, setAlignment] = useState<ImageAlignment>(() =>
+    normalizeImageAlignment(initialValues?.alignment),
+  );
   const [search, setSearch] = useState("");
   const [files, setFiles] = useState<FileRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -126,7 +149,13 @@ function ImageInsertDialogInner({
       }
     }
     if (!src) return;
-    onInsert({ src, alt: nextAlt, width: width.trim(), height: height.trim() });
+    onInsert({
+      src,
+      alt: nextAlt,
+      width: width.trim(),
+      height: height.trim(),
+      alignment,
+    });
     onOpenChange(false);
   }
 
@@ -142,7 +171,7 @@ function ImageInsertDialogInner({
           </DialogTitle>
           <DialogDescription>
             {mode === "edit"
-              ? "Update the image URL, alt text, or dimensions."
+              ? "Update the image URL, alt text, dimensions, or alignment."
               : "Paste a direct image URL or pick an image from the File Manager."}
           </DialogDescription>
         </DialogHeader>
@@ -190,6 +219,27 @@ function ImageInsertDialogInner({
                 placeholder="e.g. 400 or auto"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="image-alignment">Alignment</Label>
+            <Select
+              value={alignment}
+              onValueChange={(value) => {
+                const next = normalizeImageAlignment(value);
+                setAlignment(next);
+                if (mode === "edit") onAlignmentChange?.(next);
+              }}
+            >
+              <SelectTrigger id="image-alignment" className="w-full">
+                <SelectValue placeholder="Select alignment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="left">Left</SelectItem>
+                <SelectItem value="center">Center</SelectItem>
+                <SelectItem value="right">Right</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

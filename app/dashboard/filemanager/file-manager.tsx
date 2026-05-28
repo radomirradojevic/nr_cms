@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CalendarIcon, Search, Trash2, X } from "lucide-react";
-import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -24,6 +23,7 @@ import type { UploaderInfo } from "./page";
 import type { FileKind } from "@/lib/file-manager";
 import { UploadDropzone } from "./upload-dropzone";
 import { FileCard } from "./file-card";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import { DeleteFileDialog } from "./delete-file-dialog";
 import { fetchFiles } from "./actions";
 
@@ -39,6 +39,14 @@ type Props = {
 
 type DateRange = { from?: Date; to?: Date };
 
+function toDateInputValue(date: Date | undefined): string | undefined {
+  if (!date) return undefined;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function FileManager({
   initialFiles,
   initialTotal,
@@ -48,6 +56,7 @@ export function FileManager({
   maxFileSize,
   maxBatchSize,
 }: Props) {
+  const { formatDate } = useRegionalSettings();
   const [files, setFiles] = useState<FileRow[]>(initialFiles);
   const [total, setTotal] = useState(initialTotal);
   const [offset, setOffset] = useState(initialFiles.length);
@@ -83,8 +92,8 @@ export function FileManager({
       const res = await fetchFiles({
         kind,
         search: search || undefined,
-        from: range.from?.toISOString(),
-        to: range.to?.toISOString(),
+        from: toDateInputValue(range.from),
+        to: toDateInputValue(range.to),
         uploadedBy: uploadedBy !== "all" ? uploadedBy : undefined,
         limit: pageSize,
         offset: nextOffset,
@@ -206,8 +215,8 @@ export function FileManager({
               <CalendarIcon className="mr-2 h-4 w-4" />
               {range.from
                 ? range.to
-                  ? `${format(range.from, "PP")} – ${format(range.to, "PP")}`
-                  : format(range.from, "PP")
+                  ? `${formatDate(range.from)} - ${formatDate(range.to)}`
+                  : formatDate(range.from)
                 : "Date range"}
               {(range.from || range.to) && (
                 <X

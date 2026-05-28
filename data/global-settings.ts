@@ -18,6 +18,7 @@ import {
   type SessionSecuritySettings,
   type UpdateGlobalSettingsInput,
 } from "@/lib/global-settings";
+import { normalizeRegionalSettings } from "@/lib/regional-settings";
 import {
   parseAppearanceRecipe,
   resolveAppearanceRecipeForWrite,
@@ -83,11 +84,40 @@ function isMissingAppearanceRecipeColumn(err: unknown): boolean {
   );
 }
 
-async function loadGlobalSettingsRows(includeAppearanceRecipe: boolean) {
+function isMissingRegionalSettingsColumns(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : "";
+  const cause =
+    typeof err === "object" && err !== null && "cause" in err
+      ? (err as { cause?: unknown }).cause
+      : null;
+  const causeCode =
+    typeof cause === "object" && cause !== null && "code" in cause
+      ? (cause as { code?: unknown }).code
+      : null;
+  const causeMessage = cause instanceof Error ? cause.message : "";
+  return (
+    causeCode === "42703" &&
+    (message.includes("default_language") ||
+      message.includes("timezone") ||
+      causeMessage.includes("default_language") ||
+      causeMessage.includes("timezone"))
+  );
+}
+
+async function loadGlobalSettingsRows(
+  includeAppearanceRecipe: boolean,
+  includeRegionalSettings: boolean,
+) {
   return db
     .select({
       siteName: globalSettings.siteName,
       publicSiteUrl: globalSettings.publicSiteUrl,
+      ...(includeRegionalSettings
+        ? {
+            defaultLanguage: globalSettings.defaultLanguage,
+            timezone: globalSettings.timezone,
+          }
+        : {}),
       siteLogoFileId: globalSettings.siteLogoFileId,
       headerContent: globalSettings.headerContent,
       footerContent: globalSettings.footerContent,
@@ -120,10 +150,25 @@ async function loadGlobalSettingsRows(includeAppearanceRecipe: boolean) {
 async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
   let rows: Awaited<ReturnType<typeof loadGlobalSettingsRows>>;
   try {
-    rows = await loadGlobalSettingsRows(true);
+    rows = await loadGlobalSettingsRows(true, true);
   } catch (err) {
-    if (!isMissingAppearanceRecipeColumn(err)) throw err;
-    rows = await loadGlobalSettingsRows(false);
+    if (isMissingAppearanceRecipeColumn(err)) {
+      try {
+        rows = await loadGlobalSettingsRows(false, true);
+      } catch (fallbackErr) {
+        if (!isMissingRegionalSettingsColumns(fallbackErr)) throw fallbackErr;
+        rows = await loadGlobalSettingsRows(false, false);
+      }
+    } else if (isMissingRegionalSettingsColumns(err)) {
+      try {
+        rows = await loadGlobalSettingsRows(true, false);
+      } catch (fallbackErr) {
+        if (!isMissingAppearanceRecipeColumn(fallbackErr)) throw fallbackErr;
+        rows = await loadGlobalSettingsRows(false, false);
+      }
+    } else {
+      throw err;
+    }
   }
 
   const row = rows[0];
@@ -143,6 +188,11 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
   return {
     siteName: row.siteName,
     publicSiteUrl: row.publicSiteUrl,
+    regional: normalizeRegionalSettings({
+      defaultLanguage:
+        "defaultLanguage" in row ? row.defaultLanguage : undefined,
+      timezone: "timezone" in row ? row.timezone : undefined,
+    }),
     siteLogo:
       row.siteLogoFileId && row.logoStoragePath
         ? {
@@ -210,7 +260,7 @@ export const getGlobalSettings = unstable_cache(
       return normalizeResolvedGlobalSettings(DEFAULT_RESOLVED_GLOBAL_SETTINGS);
     }
   },
-  ["global-settings:resolved:v4"],
+  ["global-settings:resolved:v5"],
   { tags: [GLOBAL_SETTINGS_TAG] },
 );
 
@@ -246,6 +296,8 @@ export async function updateGlobalSettings(
   const values = {
     siteName: input.siteName,
     publicSiteUrl: input.publicSiteUrl,
+    defaultLanguage: input.defaultLanguage,
+    timezone: input.timezone,
     siteLogoFileId: input.siteLogoFileId,
     headerContent,
     footerContent,
