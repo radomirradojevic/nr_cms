@@ -169,6 +169,27 @@
       "when": 1781462400000,
       "tag": "0024_public_site_url",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1781481600000,
+      "tag": "0025_regional_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1781568000000,
+      "tag": "0026_expand_supported_locales",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1781654400000,
+      "tag": "0027_expand_supported_timezones",
+      "breakpoints": true
     }
   ]
 }

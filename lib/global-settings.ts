@@ -19,6 +19,13 @@ import {
   type AppearanceRecipe,
 } from "@/lib/appearance-recipe";
 import { DEFAULT_GLOW, GlowEffectSchema } from "@/lib/glow";
+import {
+  DEFAULT_REGIONAL_SETTINGS,
+  SUPPORTED_LOCALES,
+  SUPPORTED_TIMEZONES,
+  normalizeRegionalSettings,
+  type RegionalSettings,
+} from "@/lib/regional-settings";
 
 // ─── Cache tags ───────────────────────────────────────────────────────────────
 
@@ -62,6 +69,13 @@ export const SessionSecuritySchema = z
   });
 
 export type SessionSecuritySettings = z.infer<typeof SessionSecuritySchema>;
+
+export const RegionalSettingsSchema = z.object({
+  defaultLanguage: z.enum(
+    SUPPORTED_LOCALES.map((locale) => locale.code) as [string, ...string[]],
+  ),
+  timezone: z.enum(SUPPORTED_TIMEZONES),
+});
 
 // ─── JSON shapes ──────────────────────────────────────────────────────────────
 
@@ -155,6 +169,8 @@ export const UpdateGlobalSettingsSchema = z
   .object({
     siteName: z.string().trim().min(1).max(120),
     publicSiteUrl: PublicSiteUrlSchema,
+    defaultLanguage: RegionalSettingsSchema.shape.defaultLanguage,
+    timezone: RegionalSettingsSchema.shape.timezone,
     siteLogoFileId: z.string().uuid().nullable(),
     headerContent: z.string().max(20_000).nullable(),
     footerContent: z.string().max(20_000).nullable(),
@@ -273,6 +289,7 @@ export type ResolvedGlobalSettings = {
   stickyFooterHeight: number;
   maxUploadSizeBytes: number;
   maxBatchUploadSizeBytes: number;
+  regional: RegionalSettings;
   appearance: AppearanceSettings;
   resolvedAppearanceRecipe: AppearanceRecipe;
   sessionSecurity: SessionSecuritySettings;
@@ -290,6 +307,7 @@ export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
   stickyFooterHeight: 110,
   maxUploadSizeBytes: DEFAULT_MAX_UPLOAD_SIZE_BYTES,
   maxBatchUploadSizeBytes: DEFAULT_MAX_BATCH_UPLOAD_SIZE_BYTES,
+  regional: DEFAULT_REGIONAL_SETTINGS,
   appearance: DEFAULT_APPEARANCE,
   resolvedAppearanceRecipe: buildDefaultClassicAppearanceRecipe({
     appearance: DEFAULT_APPEARANCE,

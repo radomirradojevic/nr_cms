@@ -10,6 +10,7 @@ import { getGlobalSettings } from "@/data/global-settings";
 import { getSessionSecuritySettings } from "@/lib/session-security";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { SessionSecurityProvider } from "@/components/session-security-provider";
+import { RegionalSettingsProvider } from "@/components/regional-settings-provider";
 import { cn } from "@/lib/utils";
 import { cssVarsToInlineStyle, resolveAppearance } from "@/lib/appearance";
 import { resolveAppearanceMotionAttributes } from "@/lib/appearance-recipe";
@@ -87,7 +88,7 @@ export default async function RootLayout({
   } as React.CSSProperties;
   return (
     <html
-      lang="en"
+      lang={settings.regional.defaultLanguage}
       className={cn(
         appearance.htmlClass,
         geistSans.variable,
@@ -110,38 +111,40 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full min-h-dvh flex flex-col overflow-x-hidden">
         <ClerkProvider appearance={{ theme: shadcn }}>
-          <SessionSecurityProvider
-            maxSessionDurationMinutes={
-              sessionSecurity.maxSessionDurationMinutes
-            }
-            idleLogoutMinutes={sessionSecurity.idleLogoutMinutes}
-          >
-            <SiteHeader
-              region={headerRegion}
-              siteName={siteName}
-              siteLogo={settings.siteLogo}
-              logoUrl={logoUrl}
-              headerSettings={settings.headerSettings}
-              isBackendUser={isBackendUser}
-              isAdmin={isAdmin}
-              isLoggedIn={!!user}
-            />
-            <SiteMain
-              region={mainRegion}
-              headerPaddingPx={headerIsSticky && headerH > 0 ? headerH : 0}
-              footerPaddingPx={
-                footerIsSticky && stickyFooterH > 0 ? stickyFooterH : 0
+          <RegionalSettingsProvider value={settings.regional}>
+            <SessionSecurityProvider
+              maxSessionDurationMinutes={
+                sessionSecurity.maxSessionDurationMinutes
               }
+              idleLogoutMinutes={sessionSecurity.idleLogoutMinutes}
             >
-              {children}
-            </SiteMain>
-            <SiteFooter
-              region={footerRegion}
-              isBackendUser={isBackendUser}
-              isAdmin={isAdmin}
-              isLoggedIn={!!user}
-            />
-          </SessionSecurityProvider>
+              <SiteHeader
+                region={headerRegion}
+                siteName={siteName}
+                siteLogo={settings.siteLogo}
+                logoUrl={logoUrl}
+                headerSettings={settings.headerSettings}
+                isBackendUser={isBackendUser}
+                isAdmin={isAdmin}
+                isLoggedIn={!!user}
+              />
+              <SiteMain
+                region={mainRegion}
+                headerPaddingPx={headerIsSticky && headerH > 0 ? headerH : 0}
+                footerPaddingPx={
+                  footerIsSticky && stickyFooterH > 0 ? stickyFooterH : 0
+                }
+              >
+                {children}
+              </SiteMain>
+              <SiteFooter
+                region={footerRegion}
+                isBackendUser={isBackendUser}
+                isAdmin={isAdmin}
+                isLoggedIn={!!user}
+              />
+            </SessionSecurityProvider>
+          </RegionalSettingsProvider>
         </ClerkProvider>
       </body>
     </html>

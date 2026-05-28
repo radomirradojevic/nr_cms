@@ -9,6 +9,8 @@ import { EditUserDialog } from "@/app/dashboard/users/[userId]/edit-user-dialog"
 import { LockUserButton } from "@/app/dashboard/users/[userId]/lock-user-button";
 import { ForceSignOutButton } from "@/app/dashboard/users/[userId]/force-signout-button";
 import { DeleteUserButton } from "@/app/dashboard/users/[userId]/delete-user-button";
+import { getGlobalSettings } from "@/data/global-settings";
+import { getDateFormatter } from "@/lib/regional-settings";
 
 const roleBadgeVariant: Record<
   Role,
@@ -56,11 +58,12 @@ export default async function UserDetailPage({ params }: Props) {
     "—";
   const email = user.primaryEmailAddress?.emailAddress ?? "—";
   const roles = getRoles(user.publicMetadata);
-  const createdAt = new Date(user.createdAt).toLocaleDateString("en-US", {
+  const settings = await getGlobalSettings();
+  const createdAt = getDateFormatter(settings.regional, {
     year: "numeric",
     month: "long",
     day: "numeric",
-  });
+  }).format(new Date(user.createdAt));
 
   return (
     <div className="p-6 space-y-6 max-w-xl">

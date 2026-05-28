@@ -21,6 +21,7 @@ import { CmsFormSubmissionsNode } from "./form-submissions-extension";
 import { LayoutColumn, LayoutSection } from "./layout-extension";
 import { lowlight } from "./code-languages";
 import { CmsIndent } from "./indent-extension";
+import type { ImageAlignment } from "./image-insert-dialog";
 
 export const codeBlockOptions = {
   lowlight,
@@ -113,9 +114,36 @@ const ImageWithSize = Image.extend({
           return { height: attributes.height };
         },
       },
+      alignment: {
+        default: "center",
+        parseHTML: (element) => normalizeImageAlignmentAttribute(element),
+        renderHTML: (attributes) => {
+          const alignment = normalizeImageAlignment(attributes.alignment);
+          return {
+            "data-alignment": alignment,
+            class: `tiptap-image-align-${alignment}`,
+          };
+        },
+      },
     };
   },
 });
+
+function normalizeImageAlignment(value: unknown): ImageAlignment {
+  return value === "left" || value === "right" || value === "center"
+    ? value
+    : "center";
+}
+
+function normalizeImageAlignmentAttribute(
+  element: HTMLElement,
+): ImageAlignment {
+  const dataAlignment = element.getAttribute("data-alignment");
+  if (dataAlignment) return normalizeImageAlignment(dataAlignment);
+  if (element.classList.contains("tiptap-image-align-left")) return "left";
+  if (element.classList.contains("tiptap-image-align-right")) return "right";
+  return "center";
+}
 
 export const tiptapExtensions = [
   StarterKit.configure({

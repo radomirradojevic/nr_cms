@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
 import {
   FileText,
   Inbox,
@@ -41,6 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchFormsList } from "./actions";
 import { DeleteFormDialog } from "./delete-form-dialog";
 import { ReassignFormDialog } from "./reassign-form-dialog";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import type { FormRow, FormStatus } from "@/lib/form-types";
 
 type Row = FormRow & {
@@ -73,6 +73,7 @@ export function FormsList({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [reassignTarget, setReassignTarget] = useState<Row | null>(null);
+  const { formatDateTime } = useRegionalSettings();
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -189,7 +190,7 @@ export function FormsList({
                     {r.submissionCount}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
-                    {format(new Date(r.updatedAt), "PPp")}
+                    {formatDateTime(r.updatedAt)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

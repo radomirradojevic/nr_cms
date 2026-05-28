@@ -33,13 +33,15 @@ export type ImageProps = StyledProps & {
   alt: string;
   /**
    * Sizing mode for the image:
-   * - "responsive": width/height interpreted as percentages (e.g. "50%").
-   * - "fixed": width/height interpreted as pixels (e.g. "640").
+   * - "responsive": legacy unitless width/height are percentages.
+   * - "fixed": legacy unitless width/height are pixels.
+   * Explicit CSS values such as "50%", "640px", or "auto" are preserved.
    * When a dimension is empty, the natural aspect ratio is preserved.
    */
   sizing: "responsive" | "fixed";
   width: string;
   height: string;
+  alignment?: "left" | "center" | "right" | null;
 };
 export type ButtonProps = StyledProps & { label: string; href: string };
 export type HeroProps = StyledProps & {
@@ -122,6 +124,7 @@ export const defaults = {
     sizing: "responsive",
     width: "",
     height: "",
+    alignment: "center",
   } satisfies ImageProps,
   Button: { label: "Click me", href: "#" } satisfies ButtonProps,
   Hero: {

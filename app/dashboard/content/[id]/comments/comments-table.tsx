@@ -25,6 +25,7 @@ import {
 import type { CommentRow } from "@/data/comments";
 import { CommentRowActions } from "./comment-row-actions";
 import { bulkModerate } from "@/app/dashboard/content/comment-actions";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 
 type Props = {
   postId: string;
@@ -36,16 +37,6 @@ type Props = {
   search: string;
   parentLookup: Record<string, string | null>; // commentId -> parent author or null
 };
-
-function fmt(d: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(d));
-}
 
 function truncate(s: string, n = 140) {
   if (s.length <= n) return s;
@@ -68,6 +59,7 @@ export function CommentsTable({
   const [pending, startTransition] = useTransition();
   const [searchInput, setSearchInput] = useState(search);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const { formatDateTime } = useRegionalSettings();
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -262,7 +254,7 @@ export function CommentsTable({
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {fmt(r.createdAt)}
+                    {formatDateTime(r.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     <CommentRowActions

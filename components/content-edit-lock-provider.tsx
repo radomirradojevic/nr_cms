@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import {
   HEARTBEAT_INTERVAL_SECONDS,
   LEASE_TTL_SECONDS,
@@ -514,6 +515,7 @@ export function ContentEditLockProvider({
 function LockBanner() {
   const { state, canTakeOver, takeOver, takeoverPending, takeoverError } =
     useContentEditLock();
+  const { formatTime } = useRegionalSettings();
   if (state.kind === "owner") {
     return (
       <div className="mb-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-200">
@@ -535,9 +537,8 @@ function LockBanner() {
           Currently being edited by{" "}
           <strong>{state.holder.userDisplayName}</strong> (
           {state.holder.userRole}). Last activity{" "}
-          {new Date(state.holder.lastHeartbeatAt).toLocaleTimeString()}. You can
-          view but not save changes. Wait until the current editor closes the
-          page.
+          {formatTime(state.holder.lastHeartbeatAt)}. You can view but not save
+          changes. Wait until the current editor closes the page.
           {takeoverError ? (
             <div className="mt-1 text-xs text-destructive">{takeoverError}</div>
           ) : null}

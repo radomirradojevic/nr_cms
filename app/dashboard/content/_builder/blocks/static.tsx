@@ -230,6 +230,7 @@ export function ImageStatic({
   sizing,
   width,
   height,
+  alignment,
   style: blockStyle,
 }: ImageProps) {
   const { shellStyle, shellClass, responsiveStyleEl } =
@@ -256,6 +257,8 @@ export function ImageStatic({
   const w = (width ?? "").trim();
   const h = (height ?? "").trim();
   const mode = sizing ?? "responsive";
+  const imageAlignment = normalizeImageBlockAlignment(alignment);
+  const alignmentStyle = imageBlockAlignmentStyle(imageAlignment);
 
   // Legacy sizing controls remain authoritative when no explicit
   // `layout.width/maxWidth` is set via BlockStyle.
@@ -271,32 +274,28 @@ export function ImageStatic({
   let heightAttr: number | undefined;
 
   if (!hasStyleSizing) {
-    if (mode === "fixed") {
-      const wNum = parseInt(w.replace(/px$/i, ""), 10);
-      const hNum = parseInt(h.replace(/px$/i, ""), 10);
-      if (Number.isFinite(wNum) && wNum > 0) {
-        legacy.width = `${wNum}px`;
-        widthAttr = wNum;
-      }
-      if (Number.isFinite(hNum) && hNum > 0) {
-        legacy.height = `${hNum}px`;
-        heightAttr = hNum;
-      }
-      if (legacy.width && !legacy.height) legacy.height = "auto";
-      if (legacy.height && !legacy.width) legacy.width = "auto";
-      legacy.maxWidth = "100%";
-    } else {
-      const wPct = w.endsWith("%") ? w : w ? `${w}%` : "";
-      const hPct = h.endsWith("%") ? h : h ? `${h}%` : "";
-      if (wPct) legacy.width = wPct;
-      if (hPct) legacy.height = hPct;
-      if (legacy.width && !legacy.height) legacy.height = "auto";
-      if (legacy.height && !legacy.width) legacy.width = "auto";
-      if (!legacy.width && !legacy.height) legacy.maxWidth = "100%";
+    const cssWidth = resolveImageCssDimension(w, mode);
+    const cssHeight = resolveImageCssDimension(h, mode);
+
+    if (cssWidth) {
+      legacy.width = cssWidth;
+      widthAttr = imageNumericPixelAttr(cssWidth);
     }
+    if (cssHeight) {
+      legacy.height = cssHeight;
+      heightAttr = imageNumericPixelAttr(cssHeight);
+    }
+    if (legacy.width && !legacy.height) legacy.height = "auto";
+    if (legacy.height && !legacy.width) legacy.width = "auto";
+    legacy.maxWidth = "100%";
   }
 
-  const merged: CSSProperties = { ...legacy, ...shellStyle };
+  const merged: CSSProperties = {
+    ...legacy,
+    ...shellStyle,
+    ...alignmentStyle,
+    display: shellStyle.display ?? alignmentStyle.display,
+  };
 
   return (
     <>
@@ -308,10 +307,53 @@ export function ImageStatic({
         width={widthAttr}
         height={heightAttr}
         style={merged}
-        className={cn("my-4 rounded", shellClass)}
+        data-alignment={imageAlignment}
+        className={cn(
+          "my-4 rounded",
+          `tiptap-image-align-${imageAlignment}`,
+          shellClass,
+        )}
       />
     </>
   );
+}
+
+function resolveImageCssDimension(
+  value: string,
+  mode: ImageProps["sizing"],
+): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^auto$/i.test(trimmed)) return "auto";
+  if (/[a-z%)]$/i.test(trimmed)) return trimmed;
+  return mode === "fixed" ? `${trimmed}px` : `${trimmed}%`;
+}
+
+function imageNumericPixelAttr(value: string): number | undefined {
+  const match = value.trim().match(/^(\d+(?:\.\d+)?)px$/i);
+  if (!match) return undefined;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
+}
+
+function normalizeImageBlockAlignment(
+  value: ImageProps["alignment"],
+): NonNullable<ImageProps["alignment"]> {
+  return value === "left" || value === "right" || value === "center"
+    ? value
+    : "center";
+}
+
+function imageBlockAlignmentStyle(
+  alignment: NonNullable<ImageProps["alignment"]>,
+): CSSProperties {
+  if (alignment === "left") {
+    return { display: "block", marginLeft: 0, marginRight: "auto" };
+  }
+  if (alignment === "right") {
+    return { display: "block", marginLeft: "auto", marginRight: 0 };
+  }
+  return { display: "block", marginLeft: "auto", marginRight: "auto" };
 }
 
 export function ButtonStatic({ label, href, style }: ButtonProps) {

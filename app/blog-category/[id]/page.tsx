@@ -12,6 +12,7 @@ import { getGlobalSettings } from "@/data/global-settings";
 import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
+import { getDateFormatter } from "@/lib/regional-settings";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -93,17 +94,16 @@ export default async function BlogCategoryPage({
   const contentTemplates = resolveAppearanceContentTemplates(
     settings.resolvedAppearanceRecipe?.contentTemplates,
   );
+  const postDateFormatter = getDateFormatter(settings.regional, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
   const template = contentTemplates.blogCategory;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const templatePosts: BlogCategoryTemplatePost[] = posts.map((post) => {
     const dt = post.publishedAt ?? post.createdAt;
-    const formattedDate = dt
-      ? new Intl.DateTimeFormat("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        }).format(new Date(dt))
-      : null;
+    const formattedDate = dt ? postDateFormatter.format(new Date(dt)) : null;
 
     return {
       id: post.id,

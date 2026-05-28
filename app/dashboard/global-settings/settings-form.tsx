@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+  Check,
+  ChevronsUpDown,
   Clipboard,
   Download,
   ImageIcon,
@@ -25,6 +27,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { updateGlobalSettings } from "./actions";
@@ -121,6 +129,11 @@ import { FooterContentEditor } from "./footer-content-editor";
 import { PresetCards, ShellPreview } from "./appearance-preview";
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_REGIONAL_SETTINGS,
+  SUPPORTED_LOCALES,
+  SUPPORTED_TIMEZONES,
+} from "@/lib/regional-settings";
 
 interface GlowFieldsProps {
   idPrefix: string;
@@ -129,7 +142,12 @@ interface GlowFieldsProps {
   onChange: (next: GlowEffect) => void;
 }
 
-function GlowFields({ idPrefix, value, colorValid, onChange }: GlowFieldsProps) {
+function GlowFields({
+  idPrefix,
+  value,
+  colorValid,
+  onChange,
+}: GlowFieldsProps) {
   const enabledId = `${idPrefix}-glow-enabled`;
   const colorId = `${idPrefix}-glow-color`;
   const intensityId = `${idPrefix}-glow-intensity`;
@@ -234,6 +252,241 @@ const HEADER_VARIANT_LABELS: Record<HeaderVariant, string> = {
   minimal: "Minimal",
 };
 
+const HEADER_VARIANT_SUMMARIES: Record<HeaderVariant, string> = {
+  classic:
+    "Brand on the left, CustomHtml in the middle, navigation and actions on the right.",
+  centered:
+    "Centered vertical header: brand first, then menu, search, CTA, and auth controls.",
+  split:
+    "Three-zone grid: brand left, navigation centered, CustomHtml and actions right.",
+  "compact-app":
+    "Short app-style bar with brand left and dense controls on the right.",
+  "editorial-masthead":
+    "Magazine masthead: search/auth top row, centered brand, menu row below.",
+  minimal:
+    "Quiet header with brand left and only essential controls on the right.",
+};
+
+function HeaderPreviewBlock({
+  className,
+  label,
+  tone = "muted",
+}: {
+  className?: string;
+  label: string;
+  tone?: "muted" | "primary" | "border" | "brand";
+}) {
+  return (
+    <span
+      className={cn(
+        "flex min-h-4 items-center justify-center truncate rounded-sm px-1 text-[0.6rem] leading-none",
+        tone === "primary"
+          ? "bg-primary text-primary-foreground"
+          : tone === "border"
+            ? "border border-muted-foreground/35 bg-background text-muted-foreground"
+            : tone === "brand"
+              ? "bg-foreground/85 text-background"
+              : "bg-muted-foreground/20 text-muted-foreground",
+        className,
+      )}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
+function HeaderVariantPreview({ variant }: { variant: HeaderVariant }) {
+  return (
+    <div className="overflow-hidden rounded-md border bg-muted/20">
+      <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] sm:items-center">
+        <div
+          className="overflow-hidden rounded border bg-background p-2"
+          aria-hidden="true"
+        >
+          {variant === "classic" && (
+            <div className="flex min-h-16 items-center justify-between gap-2">
+              <HeaderPreviewBlock
+                className="h-5 w-20"
+                label="Brand"
+                tone="brand"
+              />
+              <HeaderPreviewBlock className="h-5 flex-1" label="CustomHtml" />
+              <div className="flex shrink-0 items-center gap-1.5">
+                <HeaderPreviewBlock className="h-5 w-10" label="Menu" />
+                <HeaderPreviewBlock className="h-5 w-12" label="Admin" />
+                <HeaderPreviewBlock
+                  className="h-5 w-12"
+                  label="Search"
+                  tone="border"
+                />
+                <HeaderPreviewBlock
+                  className="h-5 w-10"
+                  label="CTA"
+                  tone="primary"
+                />
+                <HeaderPreviewBlock className="h-5 w-10" label="Auth" />
+              </div>
+            </div>
+          )}
+          {variant === "centered" && (
+            <div className="flex min-h-20 flex-col items-center justify-center gap-1.5 text-center">
+              <HeaderPreviewBlock
+                className="h-5 w-24"
+                label="Brand"
+                tone="brand"
+              />
+              <HeaderPreviewBlock className="h-4 w-28" label="CustomHtml" />
+              <div className="flex flex-wrap justify-center gap-1.5">
+                <HeaderPreviewBlock className="h-4 w-12" label="Menu" />
+                <HeaderPreviewBlock className="h-4 w-12" label="Admin" />
+                <HeaderPreviewBlock
+                  className="h-4 w-14"
+                  label="Search"
+                  tone="border"
+                />
+                <HeaderPreviewBlock
+                  className="h-4 w-10"
+                  label="CTA"
+                  tone="primary"
+                />
+                <HeaderPreviewBlock className="h-4 w-10" label="Auth" />
+              </div>
+            </div>
+          )}
+          {variant === "split" && (
+            <div className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+              <HeaderPreviewBlock
+                className="h-5 w-20"
+                label="Brand"
+                tone="brand"
+              />
+              <div className="flex items-center justify-center gap-1.5">
+                <HeaderPreviewBlock className="h-5 w-12" label="Menu" />
+                <HeaderPreviewBlock className="h-5 w-12" label="Admin" />
+              </div>
+              <div className="flex min-w-0 items-center justify-end gap-1.5">
+                <HeaderPreviewBlock className="h-5 w-16" label="CustomHtml" />
+                <HeaderPreviewBlock
+                  className="h-5 w-14"
+                  label="Search"
+                  tone="border"
+                />
+                <HeaderPreviewBlock
+                  className="h-5 w-10"
+                  label="CTA"
+                  tone="primary"
+                />
+                <HeaderPreviewBlock className="h-5 w-10" label="Auth" />
+              </div>
+            </div>
+          )}
+          {variant === "compact-app" && (
+            <div className="flex min-h-12 items-center justify-between gap-2 border-b border-muted-foreground/15">
+              <HeaderPreviewBlock
+                className="h-5 w-20"
+                label="Brand"
+                tone="brand"
+              />
+              <HeaderPreviewBlock
+                className="hidden h-5 flex-1 md:flex"
+                label="CustomHtml"
+              />
+              <div className="flex shrink-0 items-center gap-1.5">
+                <HeaderPreviewBlock className="h-5 w-10" label="Menu" />
+                <HeaderPreviewBlock className="h-5 w-12" label="Admin" />
+                <HeaderPreviewBlock
+                  className="h-5 w-10"
+                  label="Search"
+                  tone="border"
+                />
+                <HeaderPreviewBlock
+                  className="h-5 w-10"
+                  label="CTA"
+                  tone="primary"
+                />
+                <HeaderPreviewBlock className="h-5 w-10" label="Auth" />
+              </div>
+            </div>
+          )}
+          {variant === "editorial-masthead" && (
+            <div className="flex min-h-24 flex-col justify-center gap-2">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <HeaderPreviewBlock
+                  className="h-5 w-16"
+                  label="Search"
+                  tone="border"
+                />
+                <HeaderPreviewBlock
+                  className="h-7 w-28"
+                  label="Brand"
+                  tone="brand"
+                />
+                <HeaderPreviewBlock className="ml-auto h-5 w-12" label="Auth" />
+              </div>
+              <HeaderPreviewBlock
+                className="mx-auto h-4 w-28"
+                label="CustomHtml"
+              />
+              <div className="flex justify-center gap-1.5 border-t border-muted-foreground/15 pt-2">
+                <HeaderPreviewBlock className="h-4 w-12" label="Menu" />
+                <HeaderPreviewBlock className="h-4 w-12" label="Admin" />
+                <HeaderPreviewBlock
+                  className="h-4 w-10"
+                  label="CTA"
+                  tone="primary"
+                />
+              </div>
+            </div>
+          )}
+          {variant === "minimal" && (
+            <div className="flex min-h-14 items-center justify-between gap-2">
+              <HeaderPreviewBlock
+                className="h-5 w-20"
+                label="Brand"
+                tone="brand"
+              />
+              <HeaderPreviewBlock className="h-5 flex-1" label="CustomHtml" />
+              <div className="flex shrink-0 items-center gap-1.5">
+                <HeaderPreviewBlock className="h-5 w-10" label="Menu" />
+                <HeaderPreviewBlock className="h-5 w-12" label="Admin" />
+                <HeaderPreviewBlock
+                  className="h-5 w-12"
+                  label="Search"
+                  tone="border"
+                />
+                <HeaderPreviewBlock
+                  className="h-5 w-10"
+                  label="CTA"
+                  tone="primary"
+                />
+                <HeaderPreviewBlock className="h-5 w-10" label="Auth" />
+              </div>
+            </div>
+          )}
+          <div className="mt-2 border-t border-muted-foreground/15 pt-2">
+            <HeaderPreviewBlock
+              className="h-4 w-28 opacity-70"
+              label="Page content"
+            />
+          </div>
+        </div>
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">
+              {HEADER_VARIANT_LABELS[variant]}
+            </span>
+            <Badge variant="outline">Header preview</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {HEADER_VARIANT_SUMMARIES[variant]}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const FOOTER_VARIANT_LABELS: Record<FooterVariant, string> = {
   classic: "Classic",
   minimal: "Minimal",
@@ -242,6 +495,209 @@ const FOOTER_VARIANT_LABELS: Record<FooterVariant, string> = {
   CTA: "CTA",
   hidden: "Hidden",
 };
+
+const FOOTER_VARIANT_SUMMARIES: Record<FooterVariant, string> = {
+  classic: "Simple legacy footer: CustomHtml and copyright only.",
+  minimal:
+    "Compact row: CustomHtml and copyright on the left, links and CTA on the right.",
+  "multi-column": "Three-column footer for content, navigation, and actions.",
+  centered: "Centered vertical stack for balanced, quiet pages.",
+  CTA: "Two-sided footer with content on the left and action on the right.",
+  hidden: "No footer is rendered on the public site.",
+};
+
+function FooterPreviewBlock({
+  className,
+  tone = "muted",
+  label,
+}: {
+  className?: string;
+  label?: string;
+  tone?: "muted" | "primary" | "border";
+}) {
+  return (
+    <span
+      className={cn(
+        "flex min-h-4 items-center justify-center truncate rounded-sm px-1 text-[0.6rem] leading-none",
+        tone === "primary"
+          ? "bg-primary text-primary-foreground"
+          : tone === "border"
+            ? "border border-muted-foreground/35 bg-background text-muted-foreground"
+            : "bg-muted-foreground/20 text-muted-foreground",
+        className,
+      )}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
+function FooterVariantPreview({ variant }: { variant: FooterVariant }) {
+  const isHidden = variant === "hidden";
+
+  return (
+    <div className="overflow-hidden rounded-md border bg-muted/20">
+      <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] sm:items-center">
+        <div
+          className={cn(
+            "relative min-h-36 overflow-hidden rounded border bg-background p-3",
+            isHidden && "flex items-center justify-center",
+          )}
+          aria-hidden="true"
+        >
+          <div className="absolute inset-x-0 top-0 h-7 border-b bg-muted/35">
+            <FooterPreviewBlock
+              className="mx-3 mt-1.5 h-4 w-24"
+              label="Page content"
+            />
+          </div>
+          <div className="absolute inset-x-0 top-7 bottom-0 border-t bg-background p-2">
+            {variant === "classic" && (
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1.5">
+                  <FooterPreviewBlock className="h-4 w-24" label="CustomHtml" />
+                </div>
+                <FooterPreviewBlock className="h-4 w-24" label="Copyright" />
+              </div>
+            )}
+            {variant === "minimal" && (
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-1">
+                  <FooterPreviewBlock className="h-4 w-24" label="CustomHtml" />
+                  <FooterPreviewBlock
+                    className="h-4 w-24 opacity-80"
+                    label="Copyright"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <FooterPreviewBlock
+                    className="h-4 w-16"
+                    label="Footer links"
+                  />
+                  <FooterPreviewBlock className="h-4 w-12" label="Legal" />
+                  <FooterPreviewBlock className="h-4 w-12" label="Social" />
+                  <FooterPreviewBlock
+                    className="h-4 w-10"
+                    label="CTA"
+                    tone="primary"
+                  />
+                </div>
+              </div>
+            )}
+            {variant === "multi-column" && (
+              <div className="grid grid-cols-[1.5fr_1fr_1fr] gap-2">
+                <div className="space-y-1.5">
+                  <FooterPreviewBlock
+                    className="h-4 w-full"
+                    label="CustomHtml"
+                  />
+                  <FooterPreviewBlock
+                    className="h-4 w-2/3 opacity-80"
+                    label="Copyright"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <FooterPreviewBlock
+                    className="h-4 w-full"
+                    label="Footer links"
+                  />
+                  <FooterPreviewBlock
+                    className="h-4 w-4/5 opacity-80"
+                    label="Legal"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <FooterPreviewBlock
+                    className="ml-auto h-4 w-14"
+                    label="CTA"
+                    tone="primary"
+                  />
+                  <FooterPreviewBlock
+                    className="ml-auto h-4 w-16 opacity-80"
+                    label="Social"
+                  />
+                </div>
+              </div>
+            )}
+            {variant === "centered" && (
+              <div className="flex flex-col items-center gap-1 text-center">
+                <FooterPreviewBlock className="h-4 w-24" label="CustomHtml" />
+                <FooterPreviewBlock
+                  className="h-4 w-12"
+                  label="CTA"
+                  tone="primary"
+                />
+                <div className="flex gap-1.5">
+                  <FooterPreviewBlock
+                    className="h-4 w-16"
+                    label="Footer links"
+                  />
+                  <FooterPreviewBlock className="h-4 w-12" label="Social" />
+                  <FooterPreviewBlock className="h-4 w-12" label="Legal" />
+                </div>
+                <FooterPreviewBlock
+                  className="h-4 w-24 opacity-80"
+                  label="Copyright"
+                />
+              </div>
+            )}
+            {variant === "CTA" && (
+              <div className="flex h-full items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <FooterPreviewBlock className="h-4 w-24" label="CustomHtml" />
+                  <FooterPreviewBlock
+                    className="h-4 w-20 opacity-80"
+                    label="Footer links"
+                  />
+                  <FooterPreviewBlock
+                    className="h-4 w-20 opacity-80"
+                    label="Legal"
+                  />
+                  <FooterPreviewBlock
+                    className="h-4 w-24 opacity-80"
+                    label="Copyright"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <FooterPreviewBlock
+                    className="h-5 w-14"
+                    label="CTA"
+                    tone="primary"
+                  />
+                  <FooterPreviewBlock
+                    className="ml-auto h-4 w-14 opacity-80"
+                    label="Social"
+                  />
+                </div>
+              </div>
+            )}
+            {isHidden && (
+              <div className="flex items-center justify-center py-2">
+                <FooterPreviewBlock
+                  className="h-6 w-28 border-dashed"
+                  label="Footer hidden"
+                  tone="border"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">
+              {FOOTER_VARIANT_LABELS[variant]}
+            </span>
+            <Badge variant="outline">Footer preview</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {FOOTER_VARIANT_SUMMARIES[variant]}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const MAIN_VARIANT_LABELS: Record<MainSurfaceVariant, string> = {
   normal: "Normal Content",
@@ -339,7 +795,9 @@ function isOptionalHexColorValid(value: string): boolean {
   return value.trim() === "" || HEX_COLOR.test(value.trim());
 }
 
-function normalizeOptionalGlowEffect(value: GlowEffect): GlowEffect | undefined {
+function normalizeOptionalGlowEffect(
+  value: GlowEffect,
+): GlowEffect | undefined {
   const color = normalizeOptionalHexColor(value.color);
   return color ? { ...value, color } : undefined;
 }
@@ -531,6 +989,118 @@ function ContentWidthField({
   );
 }
 
+type SearchableOption = {
+  value: string;
+  label: string;
+};
+
+interface SearchableSelectProps {
+  id: string;
+  label: string;
+  value: string;
+  options: SearchableOption[];
+  placeholder: string;
+  searchPlaceholder: string;
+  onChange: (value: string) => void;
+}
+
+function SearchableSelect({
+  id,
+  label,
+  value,
+  options,
+  placeholder,
+  searchPlaceholder,
+  onChange,
+}: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selected = options.find((option) => option.value === value);
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredOptions = normalizedQuery
+    ? options.filter((option) =>
+        `${option.label} ${option.value}`
+          .toLocaleLowerCase()
+          .includes(normalizedQuery),
+      )
+    : options;
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) setQuery("");
+        }}
+      >
+        <PopoverTrigger asChild>
+          <Button
+            id={id}
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
+          >
+            <span className="truncate text-left">
+              {selected ? `${selected.label} (${selected.value})` : placeholder}
+            </span>
+            <ChevronsUpDown className="size-4 opacity-50" aria-hidden />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-(--radix-popover-trigger-width) p-2"
+        >
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="mb-2"
+          />
+          <div className="max-h-72 overflow-y-auto">
+            {filteredOptions.length === 0 ? (
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                No matches found.
+              </p>
+            ) : (
+              filteredOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant="ghost"
+                  className="h-auto w-full justify-start gap-2 px-2 py-2 text-left"
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "size-4 shrink-0",
+                      option.value === value ? "opacity-100" : "opacity-0",
+                    )}
+                    aria-hidden
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate">{option.label}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {option.value}
+                    </span>
+                  </span>
+                </Button>
+              ))
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 interface SessionSecurityCardProps {
   maxSessionMinutes: string;
   setMaxSessionMinutes: (v: string) => void;
@@ -717,6 +1287,12 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   );
   const [publicSiteUrl, setPublicSiteUrl] = useState(
     settings?.publicSiteUrl ?? "",
+  );
+  const [defaultLanguage, setDefaultLanguage] = useState(
+    settings?.defaultLanguage ?? DEFAULT_REGIONAL_SETTINGS.defaultLanguage,
+  );
+  const [timezone, setTimezone] = useState(
+    settings?.timezone ?? DEFAULT_REGIONAL_SETTINGS.timezone,
   );
   const [headerContent, setHeaderContent] = useState(
     settings?.headerContent ?? "",
@@ -1036,8 +1612,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const logoBorderColorValid =
     logoBorderColorMode !== "custom" || HEX_COLOR.test(logoBorderColor.trim());
   const footerBackgroundValid = isOptionalHexColorValid(footerBackground);
-  const backgroundColorsValid =
-    headerBackgroundValid && footerBackgroundValid;
+  const backgroundColorsValid = headerBackgroundValid && footerBackgroundValid;
   const headerGlowColorValid = isOptionalGlowColorValid(headerGlow);
   const footerGlowColorValid = isOptionalGlowColorValid(footerGlow);
   const glowColorsValid = headerGlowColorValid && footerGlowColorValid;
@@ -1438,6 +2013,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         {
           siteName,
           publicSiteUrl: publicSiteUrl.trim() || null,
+          defaultLanguage,
+          timezone,
           siteLogoFileId: logoFileId,
           headerContent: headerContent || null,
           footerContent: footerContent || null,
@@ -1489,1188 +2066,1345 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         </Button>
       </div>
 
-      {/* ── Site ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Site Identity</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="siteName">Site Name</Label>
-            <Input
-              id="siteName"
-              value={siteName}
-              onChange={(e) => setSiteName(e.target.value)}
-              maxLength={120}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="publicSiteUrl">Public site URL</Label>
-            <Input
-              id="publicSiteUrl"
-              type="url"
-              value={publicSiteUrl}
-              onChange={(e) => setPublicSiteUrl(e.target.value)}
-              onBlur={(e) => setPublicSiteUrl(e.target.value.trim())}
-              placeholder="https://example.com"
-              maxLength={2048}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="general" className="space-y-4">
+        <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="layout-design">Layout &amp; Design</TabsTrigger>
+          <TabsTrigger value="system">System</TabsTrigger>
+        </TabsList>
 
-      {/* ── Header ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Header Settings</CardTitle>
-          <CardDescription>
-            Choose a curated header layout and enable structured slots.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="headerVariant">Header Variant</Label>
-            <Select
-              value={headerVariant}
-              onValueChange={(v) => setHeaderVariant(v as HeaderVariant)}
-            >
-              <SelectTrigger id="headerVariant">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {HEADER_VARIANTS.map((variant) => (
-                  <SelectItem key={variant} value={variant}>
-                    {HEADER_VARIANT_LABELS[variant]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Site Logo</Label>
-            <div className="flex items-center gap-3">
-              <div className="flex h-16 w-16 items-center justify-center rounded-md border bg-muted overflow-hidden shrink-0">
-                {logoFileId ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={`/api/files/${logoFileId}`}
-                    alt={logoFilename ?? "Site logo"}
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <ImageIcon
-                    className="h-6 w-6 text-muted-foreground"
-                    aria-hidden
-                  />
-                )}
-              </div>
-              <div className="flex flex-col gap-1 min-w-0">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPickerOpen(true)}
-                  >
-                    {logoFileId ? "Change logo…" : "Choose from File Manager…"}
-                  </Button>
-                  {logoFileId && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setLogoFileId(null);
-                        setLogoFilename(null);
-                        setHeaderShowLogo(false);
-                      }}
-                    >
-                      <X className="mr-1 h-4 w-4" /> Remove
-                    </Button>
-                  )}
-                </div>
-                {logoFilename && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {logoFilename}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="headerShowLogo">Show Logo</Label>
-            <Switch
-              id="headerShowLogo"
-              checked={headerShowLogo}
-              onCheckedChange={setHeaderShowLogo}
-            />
-          </div>
-          <div className="space-y-3 rounded-md border p-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="logoBorderEnabled">Enable logo border</Label>
-              <Switch
-                id="logoBorderEnabled"
-                checked={logoBorderEnabled}
-                onCheckedChange={setLogoBorderEnabled}
-              />
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
+        <TabsContent value="general" className="space-y-6">
+          {/* ── Site ── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Site Identity</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="logoBorderShape">Logo border shape</Label>
-                <Select
-                  value={logoBorderShape}
-                  onValueChange={(v) =>
-                    setLogoBorderShape(
-                      v as (typeof LOGO_BORDER_SHAPES)[number],
-                    )
-                  }
-                  disabled={!logoBorderEnabled}
-                >
-                  <SelectTrigger id="logoBorderShape">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LOGO_BORDER_SHAPES.map((shape) => (
-                      <SelectItem key={shape} value={shape}>
-                        {LOGO_BORDER_SHAPE_LABELS[shape]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="siteName">Site Name</Label>
+                <Input
+                  id="siteName"
+                  value={siteName}
+                  onChange={(e) => setSiteName(e.target.value)}
+                  maxLength={120}
+                  required
+                />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="logoBorderColorMode">Logo border color</Label>
-                <Select
-                  value={logoBorderColorMode}
-                  onValueChange={(v) => {
-                    const mode = v as (typeof LOGO_BORDER_COLOR_MODES)[number];
-                    setLogoBorderColorMode(mode);
-                    if (
-                      mode === "custom" &&
-                      !normalizeOptionalHexColor(logoBorderColor)
-                    ) {
-                      setLogoBorderColor("#ffffff");
-                    }
-                  }}
-                  disabled={!logoBorderEnabled}
-                >
-                  <SelectTrigger id="logoBorderColorMode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LOGO_BORDER_COLOR_MODES.map((mode) => (
-                      <SelectItem key={mode} value={mode}>
-                        {LOGO_BORDER_COLOR_MODE_LABELS[mode]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="publicSiteUrl">Public site URL</Label>
+                <Input
+                  id="publicSiteUrl"
+                  type="url"
+                  value={publicSiteUrl}
+                  onChange={(e) => setPublicSiteUrl(e.target.value)}
+                  onBlur={(e) => setPublicSiteUrl(e.target.value.trim())}
+                  placeholder="https://example.com"
+                  maxLength={2048}
+                />
               </div>
-            </div>
-            {logoBorderColorMode === "custom" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="logoBorderColor">Custom logo border color</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="logoBorderColor"
-                    type="color"
-                    value={getColorPickerValue(logoBorderColor)}
-                    onChange={(e) => setLogoBorderColor(e.target.value)}
-                    disabled={!logoBorderEnabled}
-                    className="h-9 w-14 p-1"
-                  />
-                  <Input
-                    type="text"
-                    value={logoBorderColor}
-                    onChange={(e) => setLogoBorderColor(e.target.value)}
-                    onBlur={(e) => setLogoBorderColor(e.target.value.trim())}
-                    disabled={!logoBorderEnabled}
-                    placeholder="#ffffff"
-                    maxLength={7}
-                    aria-invalid={!logoBorderColorValid || undefined}
-                  />
-                </div>
-                {!logoBorderColorValid && (
-                  <p className="text-xs text-destructive">
-                    Enter a valid hex color like #fff or #ffffff.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="headerShowSiteName">Show Site Name</Label>
-            <Switch
-              id="headerShowSiteName"
-              checked={headerShowSiteName}
-              onCheckedChange={setHeaderShowSiteName}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="headerSticky">Sticky Header</Label>
-            <Switch
-              id="headerSticky"
-              checked={headerSticky}
-              onCheckedChange={setHeaderSticky}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="stickyHeaderHeight">Header Height (px)</Label>
-            <Input
-              id="stickyHeaderHeight"
-              type="number"
-              min={0}
-              max={400}
-              value={stickyHeaderHeight}
-              onChange={(e) => setStickyHeaderHeight(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="headerBackground">
-              Background Color (hex, optional)
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="headerBackground"
-                type="color"
-                value={getColorPickerValue(headerBackground)}
-                onChange={(e) => setHeaderBackground(e.target.value)}
-                className="h-9 w-14 p-1"
+            </CardContent>
+          </Card>
+
+          {/* ── Regional ── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Regional Settings</CardTitle>
+              <CardDescription>
+                Single-site locale and timezone for language metadata and date
+                display.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <SearchableSelect
+                id="defaultLanguage"
+                label="Default language"
+                value={defaultLanguage}
+                options={SUPPORTED_LOCALES.map((locale) => ({
+                  value: locale.code,
+                  label: locale.label,
+                }))}
+                placeholder="Select locale"
+                searchPlaceholder="Search locales..."
+                onChange={setDefaultLanguage}
               />
-              <Input
-                type="text"
-                value={headerBackground}
-                onChange={(e) => setHeaderBackground(e.target.value)}
-                onBlur={(e) => setHeaderBackground(e.target.value.trim())}
-                placeholder="#ffffff"
-                maxLength={7}
-                aria-invalid={!headerBackgroundValid || undefined}
+              <SearchableSelect
+                id="timezone"
+                label="Timezone"
+                value={timezone}
+                options={SUPPORTED_TIMEZONES.map((tz) => ({
+                  value: tz,
+                  label: tz,
+                }))}
+                placeholder="Select timezone"
+                searchPlaceholder="Search timezones..."
+                onChange={setTimezone}
               />
-            </div>
-            {!headerBackgroundValid && (
-              <p className="text-xs text-destructive">
-                Enter a valid hex color like #fff or #ffffff, or leave it blank.
-              </p>
-            )}
-          </div>
-          <GlowFields
-            idPrefix="header"
-            value={headerGlow}
-            colorValid={headerGlowColorValid}
-            onChange={setHeaderGlow}
-          />
-          <div className="space-y-3 rounded-md border p-3">
-            <div>
-              <h3 className="text-sm font-medium">Header Slots</h3>
-              <p className="text-xs text-muted-foreground">
-                These controls enable curated, validated shell pieces.
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="siteMenuEnabled">Site Menu</Label>
-                <Switch
-                  id="siteMenuEnabled"
-                  checked={siteMenuEnabled}
-                  onCheckedChange={setSiteMenuEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="adminMenuEnabled">Admin Menu</Label>
-                <Switch
-                  id="adminMenuEnabled"
-                  checked={adminMenuEnabled}
-                  onCheckedChange={setAdminMenuEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="authControlsEnabled">Auth Controls</Label>
-                <Switch
-                  id="authControlsEnabled"
-                  checked={authControlsEnabled}
-                  onCheckedChange={setAuthControlsEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="headerCustomHtmlEnabled">CustomHtml Slot</Label>
-                <Switch
-                  id="headerCustomHtmlEnabled"
-                  checked={headerCustomHtmlEnabled}
-                  onCheckedChange={setHeaderCustomHtmlEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="searchEnabled">Search Slot</Label>
-                <Switch
-                  id="searchEnabled"
-                  checked={searchEnabled}
-                  onCheckedChange={setSearchEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="headerCtaEnabled">CTA Slot</Label>
-                <Switch
-                  id="headerCtaEnabled"
-                  checked={headerCtaEnabled}
-                  onCheckedChange={setHeaderCtaEnabled}
-                />
-              </div>
-            </div>
-            {searchEnabled && (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="searchPlaceholder">Search Placeholder</Label>
-                  <Input
-                    id="searchPlaceholder"
-                    value={searchPlaceholder}
-                    onChange={(e) => setSearchPlaceholder(e.target.value)}
-                    maxLength={80}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Search Content</Label>
-                  <div className="flex flex-wrap gap-4 rounded-lg border border-border/70 px-3 py-2.5">
-                    <label
-                      htmlFor="searchBlogPosts"
-                      className="flex cursor-pointer items-center gap-2 text-sm"
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="layout-design" className="space-y-4">
+          <Tabs defaultValue="header" className="space-y-4">
+            <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+              <TabsTrigger value="header">Header</TabsTrigger>
+              <TabsTrigger value="footer">Footer</TabsTrigger>
+              <TabsTrigger value="appearance">Appearance</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="header" className="space-y-6">
+              {/* ── Header ── */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Header Settings</CardTitle>
+                  <CardDescription>
+                    Choose a curated header layout and enable structured slots.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="headerVariant">Header Variant</Label>
+                    <Select
+                      value={headerVariant}
+                      onValueChange={(v) =>
+                        setHeaderVariant(v as HeaderVariant)
+                      }
                     >
-                      <Checkbox
-                        id="searchBlogPosts"
-                        checked={searchBlogPosts}
-                        onCheckedChange={(checked) =>
-                          setSearchBlogPosts(checked === true)
-                        }
-                      />
-                      <span>Search blog posts</span>
-                    </label>
-                    <label
-                      htmlFor="searchPages"
-                      className="flex cursor-pointer items-center gap-2 text-sm"
-                    >
-                      <Checkbox
-                        id="searchPages"
-                        checked={searchPages}
-                        onCheckedChange={(checked) =>
-                          setSearchPages(checked === true)
-                        }
-                      />
-                      <span>Search pages</span>
-                    </label>
+                      <SelectTrigger id="headerVariant">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {HEADER_VARIANTS.map((variant) => (
+                          <SelectItem key={variant} value={variant}>
+                            {HEADER_VARIANT_LABELS[variant]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <HeaderVariantPreview variant={headerVariant} />
                   </div>
-                </div>
-              </div>
-            )}
-            {headerCtaEnabled && (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="headerCtaLabel">Header CTA Label</Label>
-                  <Input
-                    id="headerCtaLabel"
-                    value={headerCtaLabel}
-                    onChange={(e) => setHeaderCtaLabel(e.target.value)}
-                    maxLength={80}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="headerCtaHref">Header CTA URL</Label>
-                  <Input
-                    id="headerCtaHref"
-                    value={headerCtaHref}
-                    onChange={(e) => setHeaderCtaHref(e.target.value)}
-                    maxLength={300}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label>Header CustomHtml (expert)</Label>
-            <FooterContentEditor
-              value={headerContent}
-              onChange={setHeaderContent}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Footer ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Footer Settings</CardTitle>
-          <CardDescription>
-            Select a curated footer layout and structured footer slots.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="footerVariant">Footer Variant</Label>
-            <Select
-              value={footerVariant}
-              onValueChange={(v) => setFooterVariant(v as FooterVariant)}
-            >
-              <SelectTrigger id="footerVariant">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {FOOTER_VARIANTS.map((variant) => (
-                  <SelectItem key={variant} value={variant}>
-                    {FOOTER_VARIANT_LABELS[variant]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="footerShowLogo">Show Logo</Label>
-            <Switch
-              id="footerShowLogo"
-              checked={footerShowLogo}
-              onCheckedChange={setFooterShowLogo}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="footerSticky">Sticky Footer</Label>
-            <Switch
-              id="footerSticky"
-              checked={footerSticky}
-              onCheckedChange={setFooterSticky}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="stickyFooterHeight">Footer Height (px)</Label>
-            <Input
-              id="stickyFooterHeight"
-              type="number"
-              min={0}
-              max={400}
-              value={stickyFooterHeight}
-              onChange={(e) => setStickyFooterHeight(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="footerBackground">
-              Background Color (hex, optional)
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="footerBackground"
-                type="color"
-                value={getColorPickerValue(footerBackground)}
-                onChange={(e) => setFooterBackground(e.target.value)}
-                className="h-9 w-14 p-1"
-              />
-              <Input
-                type="text"
-                value={footerBackground}
-                onChange={(e) => setFooterBackground(e.target.value)}
-                onBlur={(e) => setFooterBackground(e.target.value.trim())}
-                placeholder="#ffffff"
-                maxLength={7}
-                aria-invalid={!footerBackgroundValid || undefined}
-              />
-            </div>
-            {!footerBackgroundValid && (
-              <p className="text-xs text-destructive">
-                Enter a valid hex color like #fff or #ffffff, or leave it blank.
-              </p>
-            )}
-          </div>
-          <GlowFields
-            idPrefix="footer"
-            value={footerGlow}
-            colorValid={footerGlowColorValid}
-            onChange={setFooterGlow}
-          />
-          <div className="space-y-3 rounded-md border p-3">
-            <div>
-              <h3 className="text-sm font-medium">Footer Slots</h3>
-              <p className="text-xs text-muted-foreground">
-                Link slots use one item per line in the form: Label | URL.
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="footerCustomHtmlEnabled">CustomHtml Slot</Label>
-                <Switch
-                  id="footerCustomHtmlEnabled"
-                  checked={footerCustomHtmlEnabled}
-                  onCheckedChange={setFooterCustomHtmlEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="copyrightEnabled">Copyright Slot</Label>
-                <Switch
-                  id="copyrightEnabled"
-                  checked={copyrightEnabled}
-                  onCheckedChange={setCopyrightEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="footerLinksEnabled">Footer Links</Label>
-                <Switch
-                  id="footerLinksEnabled"
-                  checked={footerLinksEnabled}
-                  onCheckedChange={setFooterLinksEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="legalLinksEnabled">Legal Links</Label>
-                <Switch
-                  id="legalLinksEnabled"
-                  checked={legalLinksEnabled}
-                  onCheckedChange={setLegalLinksEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="socialLinksEnabled">Social Links</Label>
-                <Switch
-                  id="socialLinksEnabled"
-                  checked={socialLinksEnabled}
-                  onCheckedChange={setSocialLinksEnabled}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="footerCtaEnabled">CTA Slot</Label>
-                <Switch
-                  id="footerCtaEnabled"
-                  checked={footerCtaEnabled}
-                  onCheckedChange={setFooterCtaEnabled}
-                />
-              </div>
-            </div>
-            {footerLinksEnabled && (
-              <div className="space-y-1.5">
-                <Label htmlFor="footerLinksText">Footer Links</Label>
-                <Textarea
-                  id="footerLinksText"
-                  rows={3}
-                  value={footerLinksText}
-                  onChange={(e) => setFooterLinksText(e.target.value)}
-                  maxLength={2000}
-                />
-              </div>
-            )}
-            {legalLinksEnabled && (
-              <div className="space-y-1.5">
-                <Label htmlFor="legalLinksText">Legal Links</Label>
-                <Textarea
-                  id="legalLinksText"
-                  rows={3}
-                  value={legalLinksText}
-                  onChange={(e) => setLegalLinksText(e.target.value)}
-                  maxLength={2000}
-                />
-              </div>
-            )}
-            {socialLinksEnabled && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between rounded-md border p-3">
-                  <Label htmlFor="socialLinksGenerateSocialIcons">
-                    Generate Social Link Icons
-                  </Label>
-                  <Switch
-                    id="socialLinksGenerateSocialIcons"
-                    checked={socialLinksGenerateSocialIcons}
-                    onCheckedChange={setSocialLinksGenerateSocialIcons}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="socialLinksText">Social Links</Label>
-                  <Textarea
-                    id="socialLinksText"
-                    rows={3}
-                    value={socialLinksText}
-                    onChange={(e) => setSocialLinksText(e.target.value)}
-                    maxLength={2000}
-                  />
-                </div>
-              </div>
-            )}
-            {footerCtaEnabled && (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="footerCtaLabel">Footer CTA Label</Label>
-                  <Input
-                    id="footerCtaLabel"
-                    value={footerCtaLabel}
-                    onChange={(e) => setFooterCtaLabel(e.target.value)}
-                    maxLength={80}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="footerCtaHref">Footer CTA URL</Label>
-                  <Input
-                    id="footerCtaHref"
-                    value={footerCtaHref}
-                    onChange={(e) => setFooterCtaHref(e.target.value)}
-                    maxLength={300}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="footerCopyright">Copyright Text (optional)</Label>
-            <Input
-              id="footerCopyright"
-              value={footerCopyright}
-              onChange={(e) => setFooterCopyright(e.target.value)}
-              maxLength={200}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Footer CustomHtml (expert)</Label>
-            <FooterContentEditor
-              value={footerContent}
-              onChange={setFooterContent}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Appearance ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>
-            Build a draft shell with presets, slot controls, and responsive
-            preview before saving.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <Label>Shell Presets</Label>
-                <p className="text-xs text-muted-foreground">
-                  Presets update the draft recipe while keeping identity, menus,
-                  and content.
-                </p>
-                <div className="mt-3 flex gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                  <p>
-                    Presets are starting points. Mix Theme, content widths,
-                    font, radius, shadow, main surface, and content templates to
-                    shape the public pages and blog posts exactly how you want.
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={resetToDraftPreset}
-              >
-                <RotateCcw aria-hidden />
-                Reset to preset
-              </Button>
-            </div>
-            <PresetCards
-              selectedId={draftPresetId}
-              onApply={applyPresetDraft}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="appearance-theme">Theme</Label>
-              <Select value={theme} onValueChange={(v) => setTheme(v as Theme)}>
-                <SelectTrigger id="appearance-theme">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {THEMES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="mainVariant">Main Surface Variant</Label>
-              <Select
-                value={mainVariant}
-                onValueChange={(v) => setMainVariant(v as MainSurfaceVariant)}
-              >
-                <SelectTrigger id="mainVariant">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MAIN_SURFACE_VARIANTS.map((variant) => (
-                    <SelectItem key={variant} value={variant}>
-                      {MAIN_VARIANT_LABELS[variant]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <ContentWidthField
-              id="appearance-frontend-width"
-              label="Frontend Content Width"
-              value={frontendContentWidth}
-              onChange={setFrontendContentWidth}
-            />
-
-            <ContentWidthField
-              id="appearance-backend-width"
-              label="Backend Content Width"
-              value={backendContentWidth}
-              onChange={setBackendContentWidth}
-            />
-
-            <div className="space-y-1.5">
-              <Label htmlFor="appearance-font">Font Preset</Label>
-              <Select
-                value={fontPreset}
-                onValueChange={(v) => setFontPreset(v as FontPreset)}
-              >
-                <SelectTrigger id="appearance-font">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FONT_PRESETS.map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {f}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="appearance-radius">Border Radius</Label>
-              <Select
-                value={radiusPreset}
-                onValueChange={(v) => setRadiusPreset(v as RadiusPreset)}
-              >
-                <SelectTrigger id="appearance-radius">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RADIUS_PRESETS.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="appearance-shadow">Shadow Preset</Label>
-              <Select
-                value={shadowPreset}
-                onValueChange={(v) => setShadowPreset(v as ShadowPreset)}
-              >
-                <SelectTrigger id="appearance-shadow">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SHADOW_PRESETS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-4 rounded-md border p-3">
-            <div>
-              <Label>Content Templates</Label>
-              <p className="text-xs text-muted-foreground">
-                Global template selections for public content surfaces.
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="pageTemplateVariant">Page Template</Label>
-                <Select
-                  value={pageTemplateVariant}
-                  onValueChange={(v) =>
-                    setPageTemplateVariant(v as PageTemplateVariant)
-                  }
-                >
-                  <SelectTrigger id="pageTemplateVariant">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAGE_TEMPLATE_VARIANTS.map((variant) => (
-                      <SelectItem key={variant} value={variant}>
-                        {PAGE_TEMPLATE_LABELS[variant]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="blogCategoryTemplateVariant">
-                  Blog Category Template
-                </Label>
-                <Select
-                  value={blogCategoryTemplateVariant}
-                  onValueChange={(v) =>
-                    setBlogCategoryTemplateVariant(
-                      v as BlogCategoryTemplateVariant,
-                    )
-                  }
-                >
-                  <SelectTrigger id="blogCategoryTemplateVariant">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BLOG_CATEGORY_TEMPLATE_VARIANTS.map((variant) => (
-                      <SelectItem key={variant} value={variant}>
-                        {BLOG_CATEGORY_TEMPLATE_LABELS[variant]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="blogPostMetadataTreatment">
-                  Blog Post Metadata
-                </Label>
-                <Select
-                  value={blogPostMetadataTreatment}
-                  onValueChange={(v) =>
-                    setBlogPostMetadataTreatment(v as BlogPostMetadataTreatment)
-                  }
-                >
-                  <SelectTrigger id="blogPostMetadataTreatment">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BLOG_POST_METADATA_TREATMENTS.map((treatment) => (
-                      <SelectItem key={treatment} value={treatment}>
-                        {BLOG_POST_METADATA_LABELS[treatment]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="blogPostCoverPlacement">Blog Post Cover</Label>
-                <Select
-                  value={blogPostCoverPlacement}
-                  onValueChange={(v) =>
-                    setBlogPostCoverPlacement(v as BlogPostCoverPlacement)
-                  }
-                >
-                  <SelectTrigger id="blogPostCoverPlacement">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BLOG_POST_COVER_PLACEMENTS.map((placement) => (
-                      <SelectItem key={placement} value={placement}>
-                        {BLOG_POST_COVER_LABELS[placement]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="blogPostExcerptTreatment">
-                  Blog Post Excerpt
-                </Label>
-                <Select
-                  value={blogPostExcerptTreatment}
-                  onValueChange={(v) =>
-                    setBlogPostExcerptTreatment(v as BlogPostExcerptTreatment)
-                  }
-                >
-                  <SelectTrigger id="blogPostExcerptTreatment">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BLOG_POST_EXCERPT_TREATMENTS.map((treatment) => (
-                      <SelectItem key={treatment} value={treatment}>
-                        {BLOG_POST_EXCERPT_LABELS[treatment]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="blogPostCommentsPlacement">
-                  Blog Post Comments
-                </Label>
-                <Select
-                  value={blogPostCommentsPlacement}
-                  onValueChange={(v) =>
-                    setBlogPostCommentsPlacement(v as BlogPostCommentsPlacement)
-                  }
-                >
-                  <SelectTrigger id="blogPostCommentsPlacement">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BLOG_POST_COMMENTS_PLACEMENTS.map((placement) => (
-                      <SelectItem key={placement} value={placement}>
-                        {BLOG_POST_COMMENTS_LABELS[placement]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="blogPostEditPlacement">
-                  Blog Post Edit Link
-                </Label>
-                <Select
-                  value={blogPostEditPlacement}
-                  onValueChange={(v) =>
-                    setBlogPostEditPlacement(
-                      v as BlogPostEditAffordancePlacement,
-                    )
-                  }
-                >
-                  <SelectTrigger id="blogPostEditPlacement">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BLOG_POST_EDIT_AFFORDANCE_PLACEMENTS.map((placement) => (
-                      <SelectItem key={placement} value={placement}>
-                        {BLOG_POST_EDIT_LABELS[placement]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4 rounded-md border p-3">
-            <div>
-              <Label>Motion & Effects</Label>
-              <p className="text-xs text-muted-foreground">
-                Recipe-level motion policy for animation and background effects.
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="motionPreference">Motion Preference</Label>
-                <Select
-                  value={motionPreference}
-                  onValueChange={(v) =>
-                    setMotionPreference(v as AppearanceMotionPreference)
-                  }
-                >
-                  <SelectTrigger id="motionPreference">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {APPEARANCE_MOTION_PREFERENCES.map((preference) => (
-                      <SelectItem key={preference} value={preference}>
-                        {MOTION_PREFERENCE_LABELS[preference]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="backgroundEffects">Background Effects</Label>
-                <Select
-                  value={backgroundEffects}
-                  onValueChange={(v) =>
-                    setBackgroundEffects(v as AppearanceBackgroundEffects)
-                  }
-                >
-                  <SelectTrigger id="backgroundEffects">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {APPEARANCE_BACKGROUND_EFFECTS.map((effect) => (
-                      <SelectItem key={effect} value={effect}>
-                        {BACKGROUND_EFFECTS_LABELS[effect]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4 rounded-md border p-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <Label>Quality Gates</Label>
-                <p className="text-xs text-muted-foreground">
-                  Checks run across desktop, tablet, mobile, and auth states.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  variant={qualityErrorCount > 0 ? "destructive" : "secondary"}
-                >
-                  <ShieldCheck aria-hidden />
-                  {qualityErrorCount} errors
-                </Badge>
-                <Badge variant="outline">{qualityWarningCount} warnings</Badge>
-              </div>
-            </div>
-            {qualityIssues.length > 0 ? (
-              <ul className="space-y-2 text-sm">
-                {qualityIssues.slice(0, 5).map((issue) => (
-                  <li
-                    key={`${issue.code}:${issue.scenario?.viewport ?? "global"}:${issue.scenario?.authState ?? "global"}`}
-                    className="flex gap-2 text-muted-foreground"
-                  >
-                    <span
-                      className={cn(
-                        "mt-1 size-2 shrink-0 rounded-full",
-                        issue.severity === "error"
-                          ? "bg-destructive"
-                          : "bg-muted-foreground",
-                      )}
-                      aria-hidden
+                  <div className="space-y-2">
+                    <Label>Site Logo</Label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-md border bg-muted overflow-hidden shrink-0">
+                        {logoFileId ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`/api/files/${logoFileId}`}
+                            alt={logoFilename ?? "Site logo"}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <ImageIcon
+                            className="h-6 w-6 text-muted-foreground"
+                            aria-hidden
+                          />
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPickerOpen(true)}
+                          >
+                            {logoFileId
+                              ? "Change logo…"
+                              : "Choose from File Manager…"}
+                          </Button>
+                          {logoFileId && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setLogoFileId(null);
+                                setLogoFilename(null);
+                                setHeaderShowLogo(false);
+                              }}
+                            >
+                              <X className="mr-1 h-4 w-4" /> Remove
+                            </Button>
+                          )}
+                        </div>
+                        {logoFilename && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {logoFilename}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="headerShowLogo">Show Logo</Label>
+                    <Switch
+                      id="headerShowLogo"
+                      checked={headerShowLogo}
+                      onCheckedChange={setHeaderShowLogo}
                     />
-                    <span>{issue.message}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No quality gate issues detected.
-              </p>
-            )}
-          </div>
+                  </div>
+                  <div className="space-y-3 rounded-md border p-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="logoBorderEnabled">
+                        Enable logo border
+                      </Label>
+                      <Switch
+                        id="logoBorderEnabled"
+                        checked={logoBorderEnabled}
+                        onCheckedChange={setLogoBorderEnabled}
+                      />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="logoBorderShape">
+                          Logo border shape
+                        </Label>
+                        <Select
+                          value={logoBorderShape}
+                          onValueChange={(v) =>
+                            setLogoBorderShape(
+                              v as (typeof LOGO_BORDER_SHAPES)[number],
+                            )
+                          }
+                          disabled={!logoBorderEnabled}
+                        >
+                          <SelectTrigger id="logoBorderShape">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LOGO_BORDER_SHAPES.map((shape) => (
+                              <SelectItem key={shape} value={shape}>
+                                {LOGO_BORDER_SHAPE_LABELS[shape]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="logoBorderColorMode">
+                          Logo border color
+                        </Label>
+                        <Select
+                          value={logoBorderColorMode}
+                          onValueChange={(v) => {
+                            const mode =
+                              v as (typeof LOGO_BORDER_COLOR_MODES)[number];
+                            setLogoBorderColorMode(mode);
+                            if (
+                              mode === "custom" &&
+                              !normalizeOptionalHexColor(logoBorderColor)
+                            ) {
+                              setLogoBorderColor("#ffffff");
+                            }
+                          }}
+                          disabled={!logoBorderEnabled}
+                        >
+                          <SelectTrigger id="logoBorderColorMode">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LOGO_BORDER_COLOR_MODES.map((mode) => (
+                              <SelectItem key={mode} value={mode}>
+                                {LOGO_BORDER_COLOR_MODE_LABELS[mode]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {logoBorderColorMode === "custom" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="logoBorderColor">
+                          Custom logo border color
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="logoBorderColor"
+                            type="color"
+                            value={getColorPickerValue(logoBorderColor)}
+                            onChange={(e) => setLogoBorderColor(e.target.value)}
+                            disabled={!logoBorderEnabled}
+                            className="h-9 w-14 p-1"
+                          />
+                          <Input
+                            type="text"
+                            value={logoBorderColor}
+                            onChange={(e) => setLogoBorderColor(e.target.value)}
+                            onBlur={(e) =>
+                              setLogoBorderColor(e.target.value.trim())
+                            }
+                            disabled={!logoBorderEnabled}
+                            placeholder="#ffffff"
+                            maxLength={7}
+                            aria-invalid={!logoBorderColorValid || undefined}
+                          />
+                        </div>
+                        {!logoBorderColorValid && (
+                          <p className="text-xs text-destructive">
+                            Enter a valid hex color like #fff or #ffffff.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="headerShowSiteName">Show Site Name</Label>
+                    <Switch
+                      id="headerShowSiteName"
+                      checked={headerShowSiteName}
+                      onCheckedChange={setHeaderShowSiteName}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="headerSticky">Sticky Header</Label>
+                    <Switch
+                      id="headerSticky"
+                      checked={headerSticky}
+                      onCheckedChange={setHeaderSticky}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="stickyHeaderHeight">
+                      Header Height (px)
+                    </Label>
+                    <Input
+                      id="stickyHeaderHeight"
+                      type="number"
+                      min={0}
+                      max={400}
+                      value={stickyHeaderHeight}
+                      onChange={(e) => setStickyHeaderHeight(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="headerBackground">
+                      Background Color (hex, optional)
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="headerBackground"
+                        type="color"
+                        value={getColorPickerValue(headerBackground)}
+                        onChange={(e) => setHeaderBackground(e.target.value)}
+                        className="h-9 w-14 p-1"
+                      />
+                      <Input
+                        type="text"
+                        value={headerBackground}
+                        onChange={(e) => setHeaderBackground(e.target.value)}
+                        onBlur={(e) =>
+                          setHeaderBackground(e.target.value.trim())
+                        }
+                        placeholder="#ffffff"
+                        maxLength={7}
+                        aria-invalid={!headerBackgroundValid || undefined}
+                      />
+                    </div>
+                    {!headerBackgroundValid && (
+                      <p className="text-xs text-destructive">
+                        Enter a valid hex color like #fff or #ffffff, or leave
+                        it blank.
+                      </p>
+                    )}
+                  </div>
+                  <GlowFields
+                    idPrefix="header"
+                    value={headerGlow}
+                    colorValid={headerGlowColorValid}
+                    onChange={setHeaderGlow}
+                  />
+                  <div className="space-y-3 rounded-md border p-3">
+                    <div>
+                      <h3 className="text-sm font-medium">Header Slots</h3>
+                      <p className="text-xs text-muted-foreground">
+                        These controls enable curated, validated shell pieces.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="siteMenuEnabled">Site Menu</Label>
+                        <Switch
+                          id="siteMenuEnabled"
+                          checked={siteMenuEnabled}
+                          onCheckedChange={setSiteMenuEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="adminMenuEnabled">Admin Menu</Label>
+                        <Switch
+                          id="adminMenuEnabled"
+                          checked={adminMenuEnabled}
+                          onCheckedChange={setAdminMenuEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="authControlsEnabled">
+                          Auth Controls
+                        </Label>
+                        <Switch
+                          id="authControlsEnabled"
+                          checked={authControlsEnabled}
+                          onCheckedChange={setAuthControlsEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="headerCustomHtmlEnabled">
+                          CustomHtml Slot
+                        </Label>
+                        <Switch
+                          id="headerCustomHtmlEnabled"
+                          checked={headerCustomHtmlEnabled}
+                          onCheckedChange={setHeaderCustomHtmlEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="searchEnabled">Search Slot</Label>
+                        <Switch
+                          id="searchEnabled"
+                          checked={searchEnabled}
+                          onCheckedChange={setSearchEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="headerCtaEnabled">CTA Slot</Label>
+                        <Switch
+                          id="headerCtaEnabled"
+                          checked={headerCtaEnabled}
+                          onCheckedChange={setHeaderCtaEnabled}
+                        />
+                      </div>
+                    </div>
+                    {searchEnabled && (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="searchPlaceholder">
+                            Search Placeholder
+                          </Label>
+                          <Input
+                            id="searchPlaceholder"
+                            value={searchPlaceholder}
+                            onChange={(e) =>
+                              setSearchPlaceholder(e.target.value)
+                            }
+                            maxLength={80}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Search Content</Label>
+                          <div className="flex flex-wrap gap-4 rounded-lg border border-border/70 px-3 py-2.5">
+                            <label
+                              htmlFor="searchBlogPosts"
+                              className="flex cursor-pointer items-center gap-2 text-sm"
+                            >
+                              <Checkbox
+                                id="searchBlogPosts"
+                                checked={searchBlogPosts}
+                                onCheckedChange={(checked) =>
+                                  setSearchBlogPosts(checked === true)
+                                }
+                              />
+                              <span>Search blog posts</span>
+                            </label>
+                            <label
+                              htmlFor="searchPages"
+                              className="flex cursor-pointer items-center gap-2 text-sm"
+                            >
+                              <Checkbox
+                                id="searchPages"
+                                checked={searchPages}
+                                onCheckedChange={(checked) =>
+                                  setSearchPages(checked === true)
+                                }
+                              />
+                              <span>Search pages</span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {headerCtaEnabled && (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="headerCtaLabel">
+                            Header CTA Label
+                          </Label>
+                          <Input
+                            id="headerCtaLabel"
+                            value={headerCtaLabel}
+                            onChange={(e) => setHeaderCtaLabel(e.target.value)}
+                            maxLength={80}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="headerCtaHref">Header CTA URL</Label>
+                          <Input
+                            id="headerCtaHref"
+                            value={headerCtaHref}
+                            onChange={(e) => setHeaderCtaHref(e.target.value)}
+                            maxLength={300}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Header CustomHtml (expert)</Label>
+                    <FooterContentEditor
+                      value={headerContent}
+                      onChange={setHeaderContent}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          <div className="space-y-4 rounded-md border p-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <Label htmlFor="recipePortabilityText">
-                  Appearance Recipe JSON
+            <TabsContent value="footer" className="space-y-6">
+              {/* ── Footer ── */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Footer Settings</CardTitle>
+                  <CardDescription>
+                    Select a curated footer layout and structured footer slots.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="footerVariant">Footer Variant</Label>
+                    <Select
+                      value={footerVariant}
+                      onValueChange={(v) =>
+                        setFooterVariant(v as FooterVariant)
+                      }
+                    >
+                      <SelectTrigger id="footerVariant">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FOOTER_VARIANTS.map((variant) => (
+                          <SelectItem key={variant} value={variant}>
+                            {FOOTER_VARIANT_LABELS[variant]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FooterVariantPreview variant={footerVariant} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="footerShowLogo">Show Logo</Label>
+                    <Switch
+                      id="footerShowLogo"
+                      checked={footerShowLogo}
+                      onCheckedChange={setFooterShowLogo}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="footerSticky">Sticky Footer</Label>
+                    <Switch
+                      id="footerSticky"
+                      checked={footerSticky}
+                      onCheckedChange={setFooterSticky}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="stickyFooterHeight">
+                      Footer Height (px)
+                    </Label>
+                    <Input
+                      id="stickyFooterHeight"
+                      type="number"
+                      min={0}
+                      max={400}
+                      value={stickyFooterHeight}
+                      onChange={(e) => setStickyFooterHeight(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="footerBackground">
+                      Background Color (hex, optional)
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="footerBackground"
+                        type="color"
+                        value={getColorPickerValue(footerBackground)}
+                        onChange={(e) => setFooterBackground(e.target.value)}
+                        className="h-9 w-14 p-1"
+                      />
+                      <Input
+                        type="text"
+                        value={footerBackground}
+                        onChange={(e) => setFooterBackground(e.target.value)}
+                        onBlur={(e) =>
+                          setFooterBackground(e.target.value.trim())
+                        }
+                        placeholder="#ffffff"
+                        maxLength={7}
+                        aria-invalid={!footerBackgroundValid || undefined}
+                      />
+                    </div>
+                    {!footerBackgroundValid && (
+                      <p className="text-xs text-destructive">
+                        Enter a valid hex color like #fff or #ffffff, or leave
+                        it blank.
+                      </p>
+                    )}
+                  </div>
+                  <GlowFields
+                    idPrefix="footer"
+                    value={footerGlow}
+                    colorValid={footerGlowColorValid}
+                    onChange={setFooterGlow}
+                  />
+                  <div className="space-y-3 rounded-md border p-3">
+                    <div>
+                      <h3 className="text-sm font-medium">Footer Slots</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Link slots use one item per line in the form: Label |
+                        URL.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="footerCustomHtmlEnabled">
+                          CustomHtml Slot
+                        </Label>
+                        <Switch
+                          id="footerCustomHtmlEnabled"
+                          checked={footerCustomHtmlEnabled}
+                          onCheckedChange={setFooterCustomHtmlEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="copyrightEnabled">Copyright Slot</Label>
+                        <Switch
+                          id="copyrightEnabled"
+                          checked={copyrightEnabled}
+                          onCheckedChange={setCopyrightEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="footerLinksEnabled">Footer Links</Label>
+                        <Switch
+                          id="footerLinksEnabled"
+                          checked={footerLinksEnabled}
+                          onCheckedChange={setFooterLinksEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="legalLinksEnabled">Legal Links</Label>
+                        <Switch
+                          id="legalLinksEnabled"
+                          checked={legalLinksEnabled}
+                          onCheckedChange={setLegalLinksEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="socialLinksEnabled">Social Links</Label>
+                        <Switch
+                          id="socialLinksEnabled"
+                          checked={socialLinksEnabled}
+                          onCheckedChange={setSocialLinksEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="footerCtaEnabled">CTA Slot</Label>
+                        <Switch
+                          id="footerCtaEnabled"
+                          checked={footerCtaEnabled}
+                          onCheckedChange={setFooterCtaEnabled}
+                        />
+                      </div>
+                    </div>
+                    {footerLinksEnabled && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="footerLinksText">Footer Links</Label>
+                        <Textarea
+                          id="footerLinksText"
+                          rows={3}
+                          value={footerLinksText}
+                          onChange={(e) => setFooterLinksText(e.target.value)}
+                          maxLength={2000}
+                        />
+                      </div>
+                    )}
+                    {legalLinksEnabled && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="legalLinksText">Legal Links</Label>
+                        <Textarea
+                          id="legalLinksText"
+                          rows={3}
+                          value={legalLinksText}
+                          onChange={(e) => setLegalLinksText(e.target.value)}
+                          maxLength={2000}
+                        />
+                      </div>
+                    )}
+                    {socialLinksEnabled && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between rounded-md border p-3">
+                          <Label htmlFor="socialLinksGenerateSocialIcons">
+                            Generate Social Link Icons
+                          </Label>
+                          <Switch
+                            id="socialLinksGenerateSocialIcons"
+                            checked={socialLinksGenerateSocialIcons}
+                            onCheckedChange={setSocialLinksGenerateSocialIcons}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="socialLinksText">Social Links</Label>
+                          <Textarea
+                            id="socialLinksText"
+                            rows={3}
+                            value={socialLinksText}
+                            onChange={(e) => setSocialLinksText(e.target.value)}
+                            maxLength={2000}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {footerCtaEnabled && (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="footerCtaLabel">
+                            Footer CTA Label
+                          </Label>
+                          <Input
+                            id="footerCtaLabel"
+                            value={footerCtaLabel}
+                            onChange={(e) => setFooterCtaLabel(e.target.value)}
+                            maxLength={80}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="footerCtaHref">Footer CTA URL</Label>
+                          <Input
+                            id="footerCtaHref"
+                            value={footerCtaHref}
+                            onChange={(e) => setFooterCtaHref(e.target.value)}
+                            maxLength={300}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="footerCopyright">
+                      Copyright Text (optional)
+                    </Label>
+                    <Input
+                      id="footerCopyright"
+                      value={footerCopyright}
+                      onChange={(e) => setFooterCopyright(e.target.value)}
+                      maxLength={200}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Footer CustomHtml (expert)</Label>
+                    <FooterContentEditor
+                      value={footerContent}
+                      onChange={setFooterContent}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="appearance" className="space-y-6">
+              {/* ── Appearance ── */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Appearance</CardTitle>
+                  <CardDescription>
+                    Build a draft shell with presets, slot controls, and
+                    responsive preview before saving.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <Label>Shell Presets</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Presets update the draft recipe while keeping
+                          identity, menus, and content.
+                        </p>
+                        <div className="mt-3 flex gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
+                          <Info
+                            className="mt-0.5 h-4 w-4 shrink-0"
+                            aria-hidden
+                          />
+                          <p>
+                            Presets are starting points. Mix Theme, content
+                            widths, font, radius, shadow, main surface, and
+                            content templates to shape the public pages and blog
+                            posts exactly how you want.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={resetToDraftPreset}
+                      >
+                        <RotateCcw aria-hidden />
+                        Reset to preset
+                      </Button>
+                    </div>
+                    <PresetCards
+                      selectedId={draftPresetId}
+                      onApply={applyPresetDraft}
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="appearance-theme">Theme</Label>
+                      <Select
+                        value={theme}
+                        onValueChange={(v) => setTheme(v as Theme)}
+                      >
+                        <SelectTrigger id="appearance-theme">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {THEMES.map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {t}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="mainVariant">Main Surface Variant</Label>
+                      <Select
+                        value={mainVariant}
+                        onValueChange={(v) =>
+                          setMainVariant(v as MainSurfaceVariant)
+                        }
+                      >
+                        <SelectTrigger id="mainVariant">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MAIN_SURFACE_VARIANTS.map((variant) => (
+                            <SelectItem key={variant} value={variant}>
+                              {MAIN_VARIANT_LABELS[variant]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <ContentWidthField
+                      id="appearance-frontend-width"
+                      label="Frontend Content Width"
+                      value={frontendContentWidth}
+                      onChange={setFrontendContentWidth}
+                    />
+
+                    <ContentWidthField
+                      id="appearance-backend-width"
+                      label="Backend Content Width"
+                      value={backendContentWidth}
+                      onChange={setBackendContentWidth}
+                    />
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="appearance-font">Font Preset</Label>
+                      <Select
+                        value={fontPreset}
+                        onValueChange={(v) => setFontPreset(v as FontPreset)}
+                      >
+                        <SelectTrigger id="appearance-font">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FONT_PRESETS.map((f) => (
+                            <SelectItem key={f} value={f}>
+                              {f}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="appearance-radius">Border Radius</Label>
+                      <Select
+                        value={radiusPreset}
+                        onValueChange={(v) =>
+                          setRadiusPreset(v as RadiusPreset)
+                        }
+                      >
+                        <SelectTrigger id="appearance-radius">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RADIUS_PRESETS.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {r}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="appearance-shadow">Shadow Preset</Label>
+                      <Select
+                        value={shadowPreset}
+                        onValueChange={(v) =>
+                          setShadowPreset(v as ShadowPreset)
+                        }
+                      >
+                        <SelectTrigger id="appearance-shadow">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SHADOW_PRESETS.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 rounded-md border p-3">
+                    <div>
+                      <Label>Content Templates</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Global template selections for public content surfaces.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="pageTemplateVariant">
+                          Page Template
+                        </Label>
+                        <Select
+                          value={pageTemplateVariant}
+                          onValueChange={(v) =>
+                            setPageTemplateVariant(v as PageTemplateVariant)
+                          }
+                        >
+                          <SelectTrigger id="pageTemplateVariant">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PAGE_TEMPLATE_VARIANTS.map((variant) => (
+                              <SelectItem key={variant} value={variant}>
+                                {PAGE_TEMPLATE_LABELS[variant]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="blogCategoryTemplateVariant">
+                          Blog Category Template
+                        </Label>
+                        <Select
+                          value={blogCategoryTemplateVariant}
+                          onValueChange={(v) =>
+                            setBlogCategoryTemplateVariant(
+                              v as BlogCategoryTemplateVariant,
+                            )
+                          }
+                        >
+                          <SelectTrigger id="blogCategoryTemplateVariant">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BLOG_CATEGORY_TEMPLATE_VARIANTS.map((variant) => (
+                              <SelectItem key={variant} value={variant}>
+                                {BLOG_CATEGORY_TEMPLATE_LABELS[variant]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="blogPostMetadataTreatment">
+                          Blog Post Metadata
+                        </Label>
+                        <Select
+                          value={blogPostMetadataTreatment}
+                          onValueChange={(v) =>
+                            setBlogPostMetadataTreatment(
+                              v as BlogPostMetadataTreatment,
+                            )
+                          }
+                        >
+                          <SelectTrigger id="blogPostMetadataTreatment">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BLOG_POST_METADATA_TREATMENTS.map((treatment) => (
+                              <SelectItem key={treatment} value={treatment}>
+                                {BLOG_POST_METADATA_LABELS[treatment]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="blogPostCoverPlacement">
+                          Blog Post Cover
+                        </Label>
+                        <Select
+                          value={blogPostCoverPlacement}
+                          onValueChange={(v) =>
+                            setBlogPostCoverPlacement(
+                              v as BlogPostCoverPlacement,
+                            )
+                          }
+                        >
+                          <SelectTrigger id="blogPostCoverPlacement">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BLOG_POST_COVER_PLACEMENTS.map((placement) => (
+                              <SelectItem key={placement} value={placement}>
+                                {BLOG_POST_COVER_LABELS[placement]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="blogPostExcerptTreatment">
+                          Blog Post Excerpt
+                        </Label>
+                        <Select
+                          value={blogPostExcerptTreatment}
+                          onValueChange={(v) =>
+                            setBlogPostExcerptTreatment(
+                              v as BlogPostExcerptTreatment,
+                            )
+                          }
+                        >
+                          <SelectTrigger id="blogPostExcerptTreatment">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BLOG_POST_EXCERPT_TREATMENTS.map((treatment) => (
+                              <SelectItem key={treatment} value={treatment}>
+                                {BLOG_POST_EXCERPT_LABELS[treatment]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="blogPostCommentsPlacement">
+                          Blog Post Comments
+                        </Label>
+                        <Select
+                          value={blogPostCommentsPlacement}
+                          onValueChange={(v) =>
+                            setBlogPostCommentsPlacement(
+                              v as BlogPostCommentsPlacement,
+                            )
+                          }
+                        >
+                          <SelectTrigger id="blogPostCommentsPlacement">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BLOG_POST_COMMENTS_PLACEMENTS.map((placement) => (
+                              <SelectItem key={placement} value={placement}>
+                                {BLOG_POST_COMMENTS_LABELS[placement]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="blogPostEditPlacement">
+                          Blog Post Edit Link
+                        </Label>
+                        <Select
+                          value={blogPostEditPlacement}
+                          onValueChange={(v) =>
+                            setBlogPostEditPlacement(
+                              v as BlogPostEditAffordancePlacement,
+                            )
+                          }
+                        >
+                          <SelectTrigger id="blogPostEditPlacement">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BLOG_POST_EDIT_AFFORDANCE_PLACEMENTS.map(
+                              (placement) => (
+                                <SelectItem key={placement} value={placement}>
+                                  {BLOG_POST_EDIT_LABELS[placement]}
+                                </SelectItem>
+                              ),
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 rounded-md border p-3">
+                    <div>
+                      <Label>Motion & Effects</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Recipe-level motion policy for animation and background
+                        effects.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="motionPreference">
+                          Motion Preference
+                        </Label>
+                        <Select
+                          value={motionPreference}
+                          onValueChange={(v) =>
+                            setMotionPreference(v as AppearanceMotionPreference)
+                          }
+                        >
+                          <SelectTrigger id="motionPreference">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {APPEARANCE_MOTION_PREFERENCES.map((preference) => (
+                              <SelectItem key={preference} value={preference}>
+                                {MOTION_PREFERENCE_LABELS[preference]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="backgroundEffects">
+                          Background Effects
+                        </Label>
+                        <Select
+                          value={backgroundEffects}
+                          onValueChange={(v) =>
+                            setBackgroundEffects(
+                              v as AppearanceBackgroundEffects,
+                            )
+                          }
+                        >
+                          <SelectTrigger id="backgroundEffects">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {APPEARANCE_BACKGROUND_EFFECTS.map((effect) => (
+                              <SelectItem key={effect} value={effect}>
+                                {BACKGROUND_EFFECTS_LABELS[effect]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 rounded-md border p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <Label>Quality Gates</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Checks run across desktop, tablet, mobile, and auth
+                          states.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge
+                          variant={
+                            qualityErrorCount > 0 ? "destructive" : "secondary"
+                          }
+                        >
+                          <ShieldCheck aria-hidden />
+                          {qualityErrorCount} errors
+                        </Badge>
+                        <Badge variant="outline">
+                          {qualityWarningCount} warnings
+                        </Badge>
+                      </div>
+                    </div>
+                    {qualityIssues.length > 0 ? (
+                      <ul className="space-y-2 text-sm">
+                        {qualityIssues.slice(0, 5).map((issue) => (
+                          <li
+                            key={`${issue.code}:${issue.scenario?.viewport ?? "global"}:${issue.scenario?.authState ?? "global"}`}
+                            className="flex gap-2 text-muted-foreground"
+                          >
+                            <span
+                              className={cn(
+                                "mt-1 size-2 shrink-0 rounded-full",
+                                issue.severity === "error"
+                                  ? "bg-destructive"
+                                  : "bg-muted-foreground",
+                              )}
+                              aria-hidden
+                            />
+                            <span>{issue.message}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No quality gate issues detected.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-4 rounded-md border p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <Label htmlFor="recipePortabilityText">
+                          Appearance Recipe JSON
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Portable recipe data. Imported HTML slots are
+                          disabled.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={exportDraftRecipe}
+                        >
+                          <Download aria-hidden />
+                          Export
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={importDraftRecipe}
+                          disabled={recipePortabilityText.trim().length === 0}
+                        >
+                          <Upload aria-hidden />
+                          Import Draft
+                        </Button>
+                      </div>
+                    </div>
+                    <Textarea
+                      id="recipePortabilityText"
+                      rows={8}
+                      value={recipePortabilityText}
+                      onChange={(e) => setRecipePortabilityText(e.target.value)}
+                      spellCheck={false}
+                      className="font-mono text-xs"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setRecipePortabilityText("");
+                          toast.message("Appearance recipe JSON cleared.");
+                        }}
+                      >
+                        <Clipboard aria-hidden />
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label>Shell Preview</Label>
+                      <Badge variant="outline">
+                        {previewAppearance.frontendContainerMaxWidth}
+                      </Badge>
+                    </div>
+                    <ShellPreview
+                      recipe={draftRecipe}
+                      appearance={previewAppearance}
+                      siteName={siteName}
+                      logoFileId={logoFileId}
+                      logoBorderEnabled={logoBorderEnabled}
+                      logoBorderColorMode={logoBorderColorMode}
+                      logoBorderColor={normalizeOptionalHexColor(
+                        logoBorderColor,
+                      )}
+                      logoBorderShape={logoBorderShape}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Preview reflects current selections only. Save changes to
+                      apply site-wide.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="system" className="space-y-6">
+          {/* ── Uploads ── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload Limits</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="maxUploadMB">
+                  Max Per-File Upload Size (MB)
                 </Label>
+                <Input
+                  id="maxUploadMB"
+                  type="number"
+                  min={1}
+                  value={maxUploadMB}
+                  onChange={(e) => setMaxUploadMB(e.target.value)}
+                />
                 <p className="text-xs text-muted-foreground">
-                  Portable recipe data. Imported HTML slots are disabled.
+                  {(parseInt(maxUploadMB, 10) || 0) * MB} bytes
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={exportDraftRecipe}
-                >
-                  <Download aria-hidden />
-                  Export
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={importDraftRecipe}
-                  disabled={recipePortabilityText.trim().length === 0}
-                >
-                  <Upload aria-hidden />
-                  Import Draft
-                </Button>
+              <div className="space-y-1.5">
+                <Label htmlFor="maxBatchUploadMB">
+                  Max Batch Upload Size (MB)
+                </Label>
+                <Input
+                  id="maxBatchUploadMB"
+                  type="number"
+                  min={1}
+                  value={maxBatchUploadMB}
+                  onChange={(e) => setMaxBatchUploadMB(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {(parseInt(maxBatchUploadMB, 10) || 0) * MB} bytes
+                </p>
               </div>
-            </div>
-            <Textarea
-              id="recipePortabilityText"
-              rows={8}
-              value={recipePortabilityText}
-              onChange={(e) => setRecipePortabilityText(e.target.value)}
-              spellCheck={false}
-              className="font-mono text-xs"
-            />
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setRecipePortabilityText("");
-                  toast.message("Appearance recipe JSON cleared.");
-                }}
-              >
-                <Clipboard aria-hidden />
-                Clear
-              </Button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Label>Shell Preview</Label>
-              <Badge variant="outline">
-                {previewAppearance.frontendContainerMaxWidth}
-              </Badge>
-            </div>
-            <ShellPreview
-              recipe={draftRecipe}
-              appearance={previewAppearance}
-              siteName={siteName}
-              logoFileId={logoFileId}
-              logoBorderEnabled={logoBorderEnabled}
-              logoBorderColorMode={logoBorderColorMode}
-              logoBorderColor={normalizeOptionalHexColor(logoBorderColor)}
-              logoBorderShape={logoBorderShape}
-            />
-            <p className="text-xs text-muted-foreground">
-              Preview reflects current selections only. Save changes to apply
-              site-wide.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Uploads ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload Limits</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="maxUploadMB">Max Per-File Upload Size (MB)</Label>
-            <Input
-              id="maxUploadMB"
-              type="number"
-              min={1}
-              value={maxUploadMB}
-              onChange={(e) => setMaxUploadMB(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {(parseInt(maxUploadMB, 10) || 0) * MB} bytes
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="maxBatchUploadMB">Max Batch Upload Size (MB)</Label>
-            <Input
-              id="maxBatchUploadMB"
-              type="number"
-              min={1}
-              value={maxBatchUploadMB}
-              onChange={(e) => setMaxBatchUploadMB(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {(parseInt(maxBatchUploadMB, 10) || 0) * MB} bytes
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Session Security ── */}
-      <SessionSecurityCard
-        maxSessionMinutes={maxSessionMinutes}
-        setMaxSessionMinutes={setMaxSessionMinutes}
-        idleLogoutMinutes={idleLogoutMinutesInput}
-        setIdleLogoutMinutes={setIdleLogoutMinutesInput}
-      />
+          {/* ── Session Security ── */}
+          <SessionSecurityCard
+            maxSessionMinutes={maxSessionMinutes}
+            setMaxSessionMinutes={setMaxSessionMinutes}
+            idleLogoutMinutes={idleLogoutMinutesInput}
+            setIdleLogoutMinutes={setIdleLogoutMinutesInput}
+          />
+        </TabsContent>
+      </Tabs>
 
       <div ref={bottomSaveButtonRef}>
         <Button type="submit" disabled={settingsSaveDisabled}>
