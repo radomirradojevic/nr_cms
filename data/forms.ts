@@ -9,6 +9,7 @@ import {
   eq,
   gte,
   ilike,
+  lt,
   inArray,
   lte,
   or,
@@ -415,6 +416,7 @@ export type ListSubmissionsParams = {
   status?: SubmissionStatus;
   fromDate?: Date;
   toDate?: Date;
+  toDateExclusive?: Date;
   search?: string;
   limit: number;
   offset: number;
@@ -427,6 +429,8 @@ export async function listSubmissions(
   if (p.status) conds.push(eq(formSubmissions.status, p.status));
   if (p.fromDate) conds.push(gte(formSubmissions.createdAt, p.fromDate));
   if (p.toDate) conds.push(lte(formSubmissions.createdAt, p.toDate));
+  if (p.toDateExclusive)
+    conds.push(lt(formSubmissions.createdAt, p.toDateExclusive));
   if (p.search?.trim()) {
     const q = `%${p.search.trim()}%`;
     conds.push(sql`${formSubmissions.data}::text ILIKE ${q}`);

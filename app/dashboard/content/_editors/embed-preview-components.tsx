@@ -12,6 +12,7 @@ import { fetchGalleryPreview } from "@/app/dashboard/gallerymanager/actions";
 import { Button } from "@/components/ui/button";
 import { CmsFormField, type FieldValue } from "@/components/cms-form-field";
 import { FormSubmissionCell } from "@/components/form-submission-cell";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   collectSubmissionKeys,
@@ -361,6 +362,7 @@ function SubmissionsTablePreview({
   hideId: boolean;
   hideSubmitted: boolean;
 }) {
+  const { formatDateTime } = useRegionalSettings();
   const columns = usePreviewColumns(detail);
 
   if (columns.length === 0 || detail.submissions.length === 0) {
@@ -414,7 +416,7 @@ function SubmissionsTablePreview({
                   ))}
                   {!hideSubmitted && (
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
-                      {new Date(sub.createdAt).toLocaleString()}
+                      {formatDateTime(sub.createdAt)}
                     </td>
                   )}
                 </tr>
@@ -436,6 +438,7 @@ function SubmissionsCardPreview({
   hideId: boolean;
   hideSubmitted: boolean;
 }) {
+  const { formatDateTime } = useRegionalSettings();
   const columns = usePreviewColumns(detail);
 
   if (columns.length === 0 || detail.submissions.length === 0) {
@@ -469,9 +472,7 @@ function SubmissionsCardPreview({
                 {!hideId && (
                   <span className="font-mono">{sub.id.slice(0, 8)}</span>
                 )}
-                {!hideSubmitted && (
-                  <span>{new Date(sub.createdAt).toLocaleString()}</span>
-                )}
+                {!hideSubmitted && <span>{formatDateTime(sub.createdAt)}</span>}
               </div>
             )}
           </div>

@@ -403,6 +403,8 @@ export const globalSettings = pgTable(
     id: integer("id").primaryKey(),
     siteName: text("site_name").notNull().default("Night Raven CMS"),
     publicSiteUrl: text("public_site_url"),
+    defaultLanguage: text("default_language").notNull().default("en-US"),
+    timezone: text("timezone").notNull().default("UTC"),
     siteLogoFileId: uuid("site_logo_file_id").references(() => files.id, {
       onDelete: "set null",
     }),
@@ -466,6 +468,14 @@ export const globalSettings = pgTable(
     check(
       "global_settings_max_batch_check",
       sql`${table.maxBatchUploadSizeBytes} >= ${table.maxUploadSizeBytes}`,
+    ),
+    check(
+      "global_settings_default_language_check",
+      sql`${table.defaultLanguage} IN ('en-US','en-GB','en-CA','en-AU','en-IN','sr-RS','sr-Cyrl-RS','sr-Latn-RS','de-DE','de-AT','de-CH','fr-FR','fr-CA','fr-CH','es-ES','es-MX','es-AR','es-CO','es-CL','it-IT','pt-BR','pt-PT','nl-NL','nl-BE','sv-SE','da-DK','nb-NO','fi-FI','pl-PL','cs-CZ','sk-SK','hu-HU','ro-RO','bg-BG','el-GR','hr-HR','bs-BA','sl-SI','mk-MK','sq-AL','tr-TR','ru-RU','uk-UA','ar-SA','he-IL','hi-IN','bn-BD','ur-PK','fa-IR','zh-CN','zh-TW','ja-JP','ko-KR','th-TH','vi-VN','id-ID','ms-MY')`,
+    ),
+    check(
+      "global_settings_timezone_check",
+      sql`${table.timezone} IN ('UTC','Africa/Cairo','Africa/Casablanca','Africa/Johannesburg','Africa/Lagos','Africa/Nairobi','America/Anchorage','America/Argentina/Buenos_Aires','America/Bogota','America/Caracas','America/Chicago','America/Denver','America/Detroit','America/Edmonton','America/Halifax','America/Lima','America/Los_Angeles','America/Mexico_City','America/Montevideo','America/New_York','America/Phoenix','America/Santiago','America/Sao_Paulo','America/St_Johns','America/Toronto','America/Vancouver','Asia/Almaty','Asia/Amman','Asia/Bahrain','Asia/Baku','Asia/Bangkok','Asia/Beirut','Asia/Dhaka','Asia/Dubai','Asia/Hong_Kong','Asia/Jakarta','Asia/Jerusalem','Asia/Karachi','Asia/Kathmandu','Asia/Kolkata','Asia/Kuala_Lumpur','Asia/Kuwait','Asia/Manila','Asia/Muscat','Asia/Qatar','Asia/Riyadh','Asia/Seoul','Asia/Shanghai','Asia/Singapore','Asia/Taipei','Asia/Tbilisi','Asia/Tehran','Asia/Tokyo','Asia/Yerevan','Australia/Adelaide','Australia/Brisbane','Australia/Melbourne','Australia/Perth','Australia/Sydney','Europe/Amsterdam','Europe/Andorra','Europe/Athens','Europe/Belgrade','Europe/Berlin','Europe/Bratislava','Europe/Brussels','Europe/Bucharest','Europe/Budapest','Europe/Chisinau','Europe/Copenhagen','Europe/Dublin','Europe/Helsinki','Europe/Istanbul','Europe/Kyiv','Europe/Lisbon','Europe/Ljubljana','Europe/London','Europe/Luxembourg','Europe/Madrid','Europe/Malta','Europe/Monaco','Europe/Oslo','Europe/Paris','Europe/Podgorica','Europe/Prague','Europe/Riga','Europe/Rome','Europe/Sarajevo','Europe/Skopje','Europe/Sofia','Europe/Stockholm','Europe/Tallinn','Europe/Tirane','Europe/Vienna','Europe/Vilnius','Europe/Warsaw','Europe/Zurich','Europe/Zagreb','Pacific/Auckland','Pacific/Fiji','Pacific/Honolulu')`,
     ),
     // ─── Appearance enum CHECKs — MUST mirror the arrays in lib/appearance.ts ─
     check(

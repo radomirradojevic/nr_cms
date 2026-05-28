@@ -32,6 +32,12 @@ import {
   type SubmissionStatus,
 } from "@/data/forms";
 import { isLockedBy as isFormLockedBy, logLockEvent } from "@/data/form-locks";
+import { getGlobalSettings } from "@/data/global-settings";
+import {
+  dateOnlyToUtcEndExclusive,
+  dateOnlyToUtcStart,
+  formatRegionalDateTime,
+} from "@/lib/regional-settings";
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -588,9 +594,24 @@ export async function fetchSubmissions(input: {
 }) {
   const caller = await requireAdmin();
   if (!caller) return { error: "Forbidden." };
-  const fromDate = input.fromDate ? new Date(input.fromDate) : undefined;
-  const toDate = input.toDate ? new Date(input.toDate) : undefined;
-  const out = await listSubmissions({ ...input, fromDate, toDate });
+  const settings = await getGlobalSettings();
+  const fromDate = dateOnlyToUtcStart(
+    input.fromDate,
+    settings.regional.timezone,
+  );
+  const toDateExclusive = dateOnlyToUtcEndExclusive(
+    input.toDate,
+    settings.regional.timezone,
+  );
+  const out = await listSubmissions({
+    formId: input.formId,
+    status: input.status,
+    fromDate,
+    toDateExclusive,
+    search: input.search,
+    limit: input.limit,
+    offset: input.offset,
+  });
   return out;
 }
 
@@ -606,21 +627,29 @@ export async function exportSubmissionsCsvAction(input: {
   const detail = await getFormById(input.formId);
   if (!detail) return { error: "Form not found." };
 
-  const fromDate = input.fromDate ? new Date(input.fromDate) : undefined;
-  const toDate = input.toDate ? new Date(input.toDate) : undefined;
+  const settings = await getGlobalSettings();
+  const fromDate = dateOnlyToUtcStart(
+    input.fromDate,
+    settings.regional.timezone,
+  );
+  const toDateExclusive = dateOnlyToUtcEndExclusive(
+    input.toDate,
+    settings.regional.timezone,
+  );
 
   const { rows } = await listSubmissions({
     formId: input.formId,
     status: input.status,
     fromDate,
-    toDate,
+    toDateExclusive,
     search: input.search,
     limit: 5000,
     offset: 0,
   });
 
   const headers = [
-    "created_at",
+    "created_at_utc",
+    "created_at_local",
     "status",
     "email_status",
     "ip_hash",
@@ -631,6 +660,7 @@ export async function exportSubmissionsCsvAction(input: {
     const data = (r.data ?? {}) as Record<string, unknown>;
     const row = [
       r.createdAt.toISOString(),
+      formatRegionalDateTime(r.createdAt, settings.regional),
       r.status,
       r.emailStatus,
       r.ipHash ?? "",

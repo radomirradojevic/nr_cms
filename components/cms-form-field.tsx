@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,7 @@ export function CmsFormField({
   error,
   disabled,
 }: Props) {
+  const { formatDate } = useRegionalSettings();
   const id = useId();
   const labelId = `${id}-label`;
   const helpId = field.helpText ? `${id}-help` : undefined;
@@ -210,7 +212,7 @@ export function CmsFormField({
               >
                 <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
                 {selectedDate
-                  ? format(selectedDate, "PPP")
+                  ? formatDate(selectedDate)
                   : field.placeholder || "Select date"}
               </Button>
             </PopoverTrigger>

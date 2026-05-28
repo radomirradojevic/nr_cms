@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import {
   HEARTBEAT_INTERVAL_SECONDS,
   LEASE_TTL_SECONDS,
@@ -336,6 +337,7 @@ export function FormEditLockProvider({
 
 function FormEditLockBanner() {
   const { state } = useFormEditLock();
+  const { formatTime } = useRegionalSettings();
   if (state.kind === "owner") {
     return (
       <div className="mb-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-200">
@@ -355,8 +357,7 @@ function FormEditLockBanner() {
       <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
         Currently being edited by{" "}
         <strong>{state.holder.userDisplayName}</strong> ({state.holder.userRole}
-        ). Last activity{" "}
-        {new Date(state.holder.lastHeartbeatAt).toLocaleTimeString()}. You can
+        ). Last activity {formatTime(state.holder.lastHeartbeatAt)}. You can
         view but not save changes. Another admin is editing — contact them to
         release the lock, or wait until they close the page.
       </div>

@@ -9,6 +9,7 @@ import {
   inArray,
   count,
   gte,
+  lt,
   lte,
   or,
   sql,
@@ -29,6 +30,7 @@ export async function listFiles(opts: {
   search?: string;
   from?: Date;
   to?: Date;
+  toExclusive?: Date;
   uploadedBy?: string;
   limit: number;
   offset: number;
@@ -46,6 +48,7 @@ export async function listFiles(opts: {
   }
   if (opts.from) conditions.push(gte(files.created, opts.from));
   if (opts.to) conditions.push(lte(files.created, opts.to));
+  if (opts.toExclusive) conditions.push(lt(files.created, opts.toExclusive));
   if (opts.uploadedBy) conditions.push(eq(files.uploadedBy, opts.uploadedBy));
 
   const where = conditions.length ? and(...conditions) : undefined;

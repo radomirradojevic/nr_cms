@@ -3,19 +3,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BlogCommentForm } from "./blog-comment-form";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import type { PublicComment } from "@/data/comments";
 
 type ThreadNode = PublicComment & { replies: PublicComment[] };
-
-function formatDate(d: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(d));
-}
 
 function CommentBody({
   comment,
@@ -24,6 +15,8 @@ function CommentBody({
   comment: PublicComment;
   isReply?: boolean;
 }) {
+  const { formatDateTime } = useRegionalSettings();
+
   return (
     <article
       className={
@@ -36,7 +29,7 @@ function CommentBody({
           className="text-xs text-muted-foreground"
           dateTime={new Date(comment.createdAt).toISOString()}
         >
-          {formatDate(comment.createdAt)}
+          {formatDateTime(comment.createdAt)}
         </time>
       </header>
       <p className="whitespace-pre-wrap text-sm leading-relaxed">

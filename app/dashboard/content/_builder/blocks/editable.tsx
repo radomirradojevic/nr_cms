@@ -21,8 +21,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ImagePickerDialog } from "./image-picker-dialog";
 import { GallerySelectDialog } from "@/app/dashboard/content/_editors/gallery-select-dialog";
+import { ImageInsertDialog } from "@/app/dashboard/content/_editors/image-insert-dialog";
 import { VideoInsertDialog } from "@/app/dashboard/content/_editors/video-insert-dialog";
 import { FormSelectDialog } from "@/app/dashboard/content/_editors/form-select-dialog";
 import {
@@ -717,6 +717,7 @@ export function ImageBlock({
   sizing,
   width,
   height,
+  alignment,
   style,
 }: ImageProps) {
   return (
@@ -727,6 +728,7 @@ export function ImageBlock({
         sizing={sizing}
         width={width}
         height={height}
+        alignment={alignment}
         style={style}
       />
     </NodeWrap>
@@ -746,108 +748,156 @@ function ImageSettings() {
     sizing,
     width,
     height,
+    alignment,
   } = useNode((n) => ({
     src: (n.data.props as ImageProps).src,
     alt: (n.data.props as ImageProps).alt,
     sizing: (n.data.props as ImageProps).sizing ?? "responsive",
     width: (n.data.props as ImageProps).width ?? "",
     height: (n.data.props as ImageProps).height ?? "",
+    alignment: normalizeImageAlignment((n.data.props as ImageProps).alignment),
   }));
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const isFixed = sizing === "fixed";
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const initialWidth = normalizeImageDimensionForDialog(width, sizing);
+  const initialHeight = normalizeImageDimensionForDialog(height, sizing);
   return (
     <>
-      <Field label="Image URL">
-        <Input
-          value={src}
-          onChange={(e) =>
-            setProp((p: ImageProps) => {
-              p.src = e.target.value;
-            })
-          }
-          placeholder="https://…"
-        />
+      <Field label="Selected image">
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          {src ? (
+            <div className="flex min-w-0 gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt={alt || "Selected image"}
+                className="h-14 w-14 shrink-0 rounded border bg-muted object-cover"
+              />
+              <div className="min-w-0">
+                <p className="font-medium">Image selected</p>
+                <p className="truncate text-xs text-muted-foreground">{src}</p>
+                {alt ? (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {alt}
+                  </p>
+                ) : null}
+                <p className="truncate text-xs text-muted-foreground">
+                  {alignment} aligned
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">No image selected.</p>
+          )}
+        </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="mt-2 w-full"
-          onClick={() => setPickerOpen(true)}
+          onClick={() => setDialogOpen(true)}
         >
           <ImageIcon className="h-4 w-4" />
-          Choose from File Manager
+          {src ? "Change Image" : "Choose Image"}
         </Button>
-      </Field>
-      <Field label="Alt text">
-        <Input
-          value={alt}
-          onChange={(e) =>
-            setProp((p: ImageProps) => {
-              p.alt = e.target.value;
-            })
-          }
-        />
-      </Field>
-      <Field label="Sizing mode">
-        <Select
-          value={sizing}
-          onValueChange={(v) =>
-            setProp((p: ImageProps) => {
-              p.sizing = v === "fixed" ? "fixed" : "responsive";
-            })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="responsive">Responsive (%)</SelectItem>
-            <SelectItem value="fixed">Fixed (px)</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label={isFixed ? "Width (px)" : "Width (%)"}>
-          <Input
-            value={width}
-            onChange={(e) =>
+        {src ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-1 w-full"
+            onClick={() =>
               setProp((p: ImageProps) => {
-                p.width = e.target.value;
+                p.src = "";
+                p.alt = "";
+                p.sizing = "responsive";
+                p.width = "";
+                p.height = "";
+                p.alignment = "center";
               })
             }
-            placeholder={isFixed ? "e.g. 640" : "e.g. 50"}
-            inputMode="numeric"
-          />
-        </Field>
-        <Field label={isFixed ? "Height (px)" : "Height (%)"}>
-          <Input
-            value={height}
-            onChange={(e) =>
-              setProp((p: ImageProps) => {
-                p.height = e.target.value;
-              })
-            }
-            placeholder={isFixed ? "e.g. 240" : "auto"}
-            inputMode="numeric"
-          />
-        </Field>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Leave one dimension empty to preserve the original aspect ratio.
-      </p>
-      <ImagePickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        onSelect={({ src: nextSrc, alt: nextAlt }) => {
+          >
+            Clear selection
+          </Button>
+        ) : null}
+      </Field>
+      <ImageInsertDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        mode={src ? "edit" : "insert"}
+        initialValues={
+          src
+            ? {
+                src,
+                alt,
+                width: initialWidth,
+                height: initialHeight,
+                alignment,
+              }
+            : null
+        }
+        onInsert={(values) => {
+          const nextWidth = values.width.trim();
+          const nextHeight = values.height.trim();
+          const sizing = inferImageSizingMode(nextWidth, nextHeight);
           setProp((p: ImageProps) => {
-            p.src = nextSrc;
-            if (!p.alt && nextAlt) p.alt = nextAlt;
+            p.src = values.src;
+            p.alt = values.alt;
+            p.sizing = sizing;
+            p.width = normalizeImageDimensionForBlock(nextWidth, sizing);
+            p.height = normalizeImageDimensionForBlock(nextHeight, sizing);
+            p.alignment = values.alignment ?? "center";
+          });
+        }}
+        onAlignmentChange={(next) => {
+          setProp((p: ImageProps) => {
+            p.alignment = next;
           });
         }}
       />
       <BlockSettingsPanel blockName="Image" />
     </>
   );
+}
+
+function hasImageCssUnit(value: string) {
+  return /[a-z%)]$/i.test(value.trim());
+}
+
+function normalizeImageAlignment(
+  value: unknown,
+): NonNullable<ImageProps["alignment"]> {
+  return value === "left" || value === "right" || value === "center"
+    ? value
+    : "center";
+}
+
+function normalizeImageDimensionForDialog(
+  value: string | null | undefined,
+  sizing: ImageProps["sizing"],
+) {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed || hasImageCssUnit(trimmed)) return trimmed;
+  if (sizing === "responsive") return `${trimmed}%`;
+  return trimmed;
+}
+
+function inferImageSizingMode(
+  width: string,
+  height: string,
+): ImageProps["sizing"] {
+  const values = [width.trim(), height.trim()].filter(Boolean);
+  if (values.some((value) => value.endsWith("%"))) return "responsive";
+  return values.length > 0 ? "fixed" : "responsive";
+}
+
+function normalizeImageDimensionForBlock(
+  value: string,
+  sizing: ImageProps["sizing"],
+) {
+  const trimmed = value.trim();
+  if (!trimmed || /^auto$/i.test(trimmed)) return "";
+  if (hasImageCssUnit(trimmed)) return trimmed;
+  return sizing === "fixed" ? trimmed : `${trimmed}px`;
 }
 
 /* ===================== Button ===================== */
