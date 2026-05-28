@@ -27,6 +27,7 @@ export default async function NewBlogPostPage() {
         currentUserRoles={roles}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         appearance={settings.appearance}
+        sessionSecurity={settings.sessionSecurity}
       />
     </div>
   );

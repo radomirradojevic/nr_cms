@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+  Clock,
   Eye,
   FolderTree,
   ImageIcon,
@@ -58,6 +59,7 @@ import {
   type UpdateContentInput,
 } from "./actions";
 import type { AppearanceSettings } from "@/lib/appearance";
+import type { SessionSecuritySettings } from "@/lib/global-settings";
 import { useContentEditLockOptional } from "@/components/content-edit-lock-provider";
 
 export type ContentFormCategory = { id: string; name: string };
@@ -69,6 +71,7 @@ type Props = {
   currentUserRoles: Role[];
   /** Appearance settings used by the page-builder preview. Defaults if omitted. */
   appearance?: AppearanceSettings;
+  sessionSecurity: SessionSecuritySettings;
   initial?: {
     id: string;
     title: string;
@@ -94,6 +97,7 @@ export function ContentForm({
   categories,
   currentUserRoles,
   appearance,
+  sessionSecurity,
   initial,
 }: Props) {
   const router = useRouter();
@@ -178,6 +182,12 @@ export function ContentForm({
       : "Blog post saved successfully";
   const primarySaveDisabled = pending || lockBlocksSave;
   const primarySaveLabel = mode === "create" ? "Create" : "Save";
+  const idleLogoutLabel = formatSessionMinutes(
+    sessionSecurity.idleLogoutMinutes,
+  );
+  const maxSessionLabel = formatSessionMinutes(
+    sessionSecurity.maxSessionDurationMinutes,
+  );
 
   useEffect(() => {
     function updateFloatingSaveVisibility() {
@@ -633,6 +643,18 @@ export function ContentForm({
         </div>
       )}
 
+      <div className="flex gap-3 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-950 dark:text-cyan-100">
+        <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <div className="space-y-1">
+          <p className="font-medium">Session security</p>
+          <p className="text-cyan-900/80 dark:text-cyan-100/80">
+            You may be signed out after {idleLogoutLabel} of inactivity, or
+            after {maxSessionLabel} total session time. Save your changes before
+            leaving this editor idle.
+          </p>
+        </div>
+      </div>
+
       <fieldset
         disabled={lockBlocksSave}
         className={
@@ -812,4 +834,19 @@ export function ContentForm({
       </fieldset>
     </div>
   );
+}
+
+function formatSessionMinutes(totalMinutes: number) {
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  const parts: string[] = [];
+
+  if (days > 0) parts.push(`${days} ${days === 1 ? "day" : "days"}`);
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? "hour" : "hours"}`);
+  if (minutes > 0 || parts.length === 0) {
+    parts.push(`${minutes} ${minutes === 1 ? "minute" : "minutes"}`);
+  }
+
+  return parts.join(" ");
 }
