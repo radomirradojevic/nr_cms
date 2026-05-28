@@ -16,6 +16,11 @@ import { deleteUpload } from "@/lib/file-storage";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { sanitizeFilename } from "@/lib/file-manager";
 import { getRoles, hasRole } from "@/lib/roles";
+import { getGlobalSettings } from "@/data/global-settings";
+import {
+  dateOnlyToUtcEndExclusive,
+  dateOnlyToUtcStart,
+} from "@/lib/regional-settings";
 
 const ALLOWED_ROLES = ["admin", "publisher", "author"] as const;
 
@@ -133,8 +138,8 @@ export async function deleteFile(input: { id: string }) {
 const listFilesSchema = z.object({
   kind: z.enum(["all", "image", "video", "document"]).default("all"),
   search: z.string().max(200).optional(),
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   uploadedBy: z.string().optional(),
   limit: z.number().int().min(1).max(200).default(60),
   offset: z.number().int().min(0).default(0),
@@ -157,13 +162,14 @@ export async function fetchFiles(
 
   // Non-admins can only see their own files — silently ignore uploadedBy.
   const resolvedUploadedBy = caller.isAdmin ? uploadedBy : undefined;
+  const settings = await getGlobalSettings();
 
   const { rows, total } = await listFiles({
     caller,
     kind: kind as FileKind | "all",
     search,
-    from: from ? new Date(from) : undefined,
-    to: to ? new Date(to) : undefined,
+    from: dateOnlyToUtcStart(from, settings.regional.timezone),
+    toExclusive: dateOnlyToUtcEndExclusive(to, settings.regional.timezone),
     uploadedBy: resolvedUploadedBy,
     limit,
     offset,

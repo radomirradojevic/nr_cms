@@ -15,6 +15,7 @@ import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { canViewContent } from "@/lib/content-visibility";
+import { getDateFormatter } from "@/lib/regional-settings";
 
 type Props = { params: Promise<{ slug: string }> };
 type PublicContentRow = NonNullable<
@@ -116,16 +117,16 @@ export default async function PublicContentPage({ params }: Props) {
     }
   }
 
+  const settings = await getGlobalSettings();
   const displayDate = row.updatedAt ?? row.createdAt;
   const formattedDate = displayDate
-    ? new Intl.DateTimeFormat("en-US", {
+    ? getDateFormatter(settings.regional, {
         year: "numeric",
         month: "long",
         day: "numeric",
       }).format(new Date(displayDate))
     : null;
   const dateTime = displayDate ? new Date(displayDate).toISOString() : null;
-  const settings = await getGlobalSettings();
   const contentTemplates = resolveAppearanceContentTemplates(
     settings.resolvedAppearanceRecipe?.contentTemplates,
   );

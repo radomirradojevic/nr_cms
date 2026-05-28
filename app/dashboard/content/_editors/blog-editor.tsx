@@ -40,7 +40,7 @@ import {
 import { emptyTiptapJson } from "./tiptap-extensions";
 import { tiptapClientExtensions } from "./tiptap-client-extensions";
 import { TableMenu } from "./table-menu";
-import { ImageInsertDialog } from "./image-insert-dialog";
+import { ImageInsertDialog, type ImageAlignment } from "./image-insert-dialog";
 import { VideoInsertDialog } from "./video-insert-dialog";
 import { GallerySelectDialog } from "./gallery-select-dialog";
 import { FormSelectDialog } from "./form-select-dialog";
@@ -129,6 +129,7 @@ type ImageDialogValues = {
   alt?: string | null;
   width?: string | null;
   height?: string | null;
+  alignment?: ImageAlignment | null;
 };
 
 type GalleryDialogValues = {
@@ -605,6 +606,7 @@ export function BlogEditor({
       alt: values.alt || undefined,
       ...(values.width ? { width: values.width } : {}),
       ...(values.height ? { height: values.height } : {}),
+      alignment: values.alignment ?? "center",
     };
 
     if (
@@ -624,6 +626,32 @@ export function BlogEditor({
       .setImage(attrs as unknown as { src: string })
       .run();
     setEditingImage(null);
+  }
+
+  function updateEditingImageAlignment(alignment: ImageAlignment) {
+    if (!editingImage) return;
+    editor!
+      .chain()
+      .focus()
+      .command(({ state, tr }) => {
+        const node = state.doc.nodeAt(editingImage.pos);
+        if (!node || node.type.name !== "image") return false;
+        tr.setNodeMarkup(editingImage.pos, undefined, {
+          ...node.attrs,
+          alignment,
+        });
+        tr.setSelection(NodeSelection.create(tr.doc, editingImage.pos));
+        return true;
+      })
+      .run();
+    setEditingImage((current) =>
+      current
+        ? {
+            ...current,
+            values: { ...current.values, alignment },
+          }
+        : current,
+    );
   }
 
   function saveVideo(values: VideoDialogValues) {
@@ -1210,6 +1238,7 @@ export function BlogEditor({
         mode={editingImage ? "edit" : "insert"}
         initialValues={editingImage?.values ?? null}
         onInsert={saveImage}
+        onAlignmentChange={updateEditingImageAlignment}
       />
       <VideoInsertDialog
         key={
@@ -1463,6 +1492,12 @@ function getSelectedImage(
         typeof selection.attrs.height === "number"
           ? String(selection.attrs.height)
           : "",
+      alignment:
+        selection.attrs.alignment === "left" ||
+        selection.attrs.alignment === "right" ||
+        selection.attrs.alignment === "center"
+          ? selection.attrs.alignment
+          : "center",
     },
   };
 }

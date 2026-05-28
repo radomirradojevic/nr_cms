@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { format } from "date-fns";
 import { Download, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 
 import {
   bulkSubmissionAction,
@@ -82,6 +82,7 @@ export function SubmissionsList({
   initialTotal,
   pageSize: initialPageSize,
 }: Props) {
+  const { formatDateTime } = useRegionalSettings();
   const [rows, setRows] = useState<FormSubmissionRow[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
   const [search, setSearch] = useState("");
@@ -350,7 +351,7 @@ export function SubmissionsList({
                       />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-xs">
-                      {format(new Date(r.createdAt), "PPp")}
+                      {formatDateTime(r.createdAt)}
                     </TableCell>
                     <TableCell>{statusBadge(r.status)}</TableCell>
                     <TableCell className="text-xs">{r.emailStatus}</TableCell>
@@ -460,7 +461,7 @@ export function SubmissionsList({
           <DialogHeader>
             <DialogTitle>Submission detail</DialogTitle>
             <DialogDescription>
-              {detail && format(new Date(detail.createdAt), "PPpp")}
+              {detail && formatDateTime(detail.createdAt)}
             </DialogDescription>
           </DialogHeader>
           {detail && (

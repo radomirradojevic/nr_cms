@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
 import {
   ImageIcon,
   MoreHorizontal,
@@ -36,6 +35,7 @@ import type { CreatorInfo } from "./page";
 import { EditGalleryDialog } from "./edit-gallery-dialog";
 import { DeleteGalleryDialog } from "./delete-gallery-dialog";
 import { ReassignGalleryDialog } from "./reassign-gallery-dialog";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 
 type Props = {
   initialRows: GalleryListItem[];
@@ -52,6 +52,7 @@ export function GalleryList({
   isAdmin,
   creators,
 }: Props) {
+  const { formatDate } = useRegionalSettings();
   const [rows, setRows] = useState<GalleryListItem[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
   const [offset, setOffset] = useState(initialRows.length);
@@ -217,7 +218,7 @@ export function GalleryList({
                 <span>
                   {g.imageCount} image{g.imageCount === 1 ? "" : "s"}
                 </span>
-                <span>{format(new Date(g.created), "PP")}</span>
+                <span>{formatDate(g.created)}</span>
               </CardFooter>
             </Card>
           ))}
