@@ -402,6 +402,7 @@ export const globalSettings = pgTable(
   {
     id: integer("id").primaryKey(),
     siteName: text("site_name").notNull().default("Night Raven CMS"),
+    publicSiteUrl: text("public_site_url"),
     siteLogoFileId: uuid("site_logo_file_id").references(() => files.id, {
       onDelete: "set null",
     }),

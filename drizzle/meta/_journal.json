@@ -162,6 +162,13 @@
       "when": 1781376000000,
       "tag": "0023_appearance_recipe",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1781462400000,
+      "tag": "0024_public_site_url",
+      "breakpoints": true
     }
   ]
 }

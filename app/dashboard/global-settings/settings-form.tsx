@@ -715,6 +715,9 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [siteName, setSiteName] = useState(
     settings?.siteName ?? "Night Raven CMS",
   );
+  const [publicSiteUrl, setPublicSiteUrl] = useState(
+    settings?.publicSiteUrl ?? "",
+  );
   const [headerContent, setHeaderContent] = useState(
     settings?.headerContent ?? "",
   );
@@ -1434,6 +1437,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       const result = await updateGlobalSettings(
         {
           siteName,
+          publicSiteUrl: publicSiteUrl.trim() || null,
           siteLogoFileId: logoFileId,
           headerContent: headerContent || null,
           footerContent: footerContent || null,
@@ -1499,6 +1503,18 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               onChange={(e) => setSiteName(e.target.value)}
               maxLength={120}
               required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="publicSiteUrl">Public site URL</Label>
+            <Input
+              id="publicSiteUrl"
+              type="url"
+              value={publicSiteUrl}
+              onChange={(e) => setPublicSiteUrl(e.target.value)}
+              onBlur={(e) => setPublicSiteUrl(e.target.value.trim())}
+              placeholder="https://example.com"
+              maxLength={2048}
             />
           </div>
         </CardContent>

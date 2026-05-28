@@ -87,6 +87,7 @@ async function loadGlobalSettingsRows(includeAppearanceRecipe: boolean) {
   return db
     .select({
       siteName: globalSettings.siteName,
+      publicSiteUrl: globalSettings.publicSiteUrl,
       siteLogoFileId: globalSettings.siteLogoFileId,
       headerContent: globalSettings.headerContent,
       footerContent: globalSettings.footerContent,
@@ -141,6 +142,7 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
 
   return {
     siteName: row.siteName,
+    publicSiteUrl: row.publicSiteUrl,
     siteLogo:
       row.siteLogoFileId && row.logoStoragePath
         ? {
@@ -243,6 +245,7 @@ export async function updateGlobalSettings(
     : null;
   const values = {
     siteName: input.siteName,
+    publicSiteUrl: input.publicSiteUrl,
     siteLogoFileId: input.siteLogoFileId,
     headerContent,
     footerContent,
