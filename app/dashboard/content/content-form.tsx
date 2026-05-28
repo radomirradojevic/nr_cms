@@ -394,7 +394,14 @@ export function ContentForm({
               checked={visibilityRoles.includes(role)}
               onCheckedChange={(v) => toggleVisibilityRole(role, !!v)}
             />
-            <span className="text-sm capitalize">{role}</span>
+            <span className="text-sm capitalize">
+              {role}
+              {role === "viewer" && (
+                <span className="ml-2 text-xs normal-case text-muted-foreground">
+                  (default role after registration)
+                </span>
+              )}
+            </span>
           </label>
         ))}
         <label className="flex items-center gap-3 pl-1">

@@ -133,9 +133,28 @@ const ContentWidthSchema = z
     return normalized;
   });
 
+const PublicSiteUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .url("Public site URL must be a valid URL.")
+  .refine(
+    (url) => {
+      try {
+        const protocol = new URL(url).protocol;
+        return protocol === "http:" || protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Public site URL must start with http:// or https://." },
+  )
+  .nullable();
+
 export const UpdateGlobalSettingsSchema = z
   .object({
     siteName: z.string().trim().min(1).max(120),
+    publicSiteUrl: PublicSiteUrlSchema,
     siteLogoFileId: z.string().uuid().nullable(),
     headerContent: z.string().max(20_000).nullable(),
     footerContent: z.string().max(20_000).nullable(),
@@ -244,6 +263,7 @@ export type ResolvedSiteLogo = {
 
 export type ResolvedGlobalSettings = {
   siteName: string;
+  publicSiteUrl: string | null;
   siteLogo: ResolvedSiteLogo | null;
   headerContent: string | null;
   footerContent: string | null;
@@ -260,6 +280,7 @@ export type ResolvedGlobalSettings = {
 
 export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
   siteName: "Night Raven CMS",
+  publicSiteUrl: null,
   siteLogo: null,
   headerContent: null,
   footerContent: null,
