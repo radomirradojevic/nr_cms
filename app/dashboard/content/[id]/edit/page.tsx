@@ -68,6 +68,7 @@ export default async function EditContentPage({ params }: Props) {
           currentUserRoles={roles}
           categories={categories.map((c) => ({ id: c.id, name: c.name }))}
           appearance={settings.appearance}
+          sessionSecurity={settings.sessionSecurity}
           initial={{
             id: row.id,
             title: row.title,
