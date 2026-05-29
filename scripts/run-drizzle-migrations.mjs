@@ -25,6 +25,22 @@ const DESTRUCTIVE_ALLOWLIST = new Set([
   "0016_split_content_width",
 ]);
 
+const SUPERSEDED_BY_CMS_SCHEMA = new Set([
+  "0000_stiff_warpath",
+  "0001_safe_martin_li",
+]);
+
+const LEGACY_MIGRATION_HASHES = new Map([
+  [
+    "0011_add_category_created_by",
+    new Set(["77e2c461336832a90e1dca7fa776647c62b35f9832c51ea1660eecab30a12f86"]),
+  ],
+  [
+    "0014_material_jetstream",
+    new Set(["769e0172ee176d8980d625f352c0193617093125375be8f716681494080abf99"]),
+  ],
+]);
+
 const args = new Set(process.argv.slice(2));
 const checkOnly = args.has("--check");
 const dryRun = args.has("--dry-run");
@@ -48,6 +64,117 @@ function readJson(filePath) {
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function normalizeSql(value) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/;$/, "")
+    .trim()
+    .toLowerCase();
+}
+
+function stripOuterParens(value) {
+  let next = value.trim();
+  while (next.startsWith("(") && next.endsWith(")")) {
+    const inner = next.slice(1, -1).trim();
+    if (!inner) break;
+    next = inner;
+  }
+  return next;
+}
+
+function splitTopLevelCommaList(value) {
+  const parts = [];
+  let current = "";
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  for (let i = 0; i < value.length; i += 1) {
+    const char = value[i];
+    const next = value[i + 1];
+
+    if (char === "'" && !inDoubleQuote) {
+      current += char;
+      if (inSingleQuote && next === "'") {
+        current += next;
+        i += 1;
+      } else {
+        inSingleQuote = !inSingleQuote;
+      }
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      current += char;
+      if (inDoubleQuote && next === '"') {
+        current += next;
+        i += 1;
+      } else {
+        inDoubleQuote = !inDoubleQuote;
+      }
+      continue;
+    }
+
+    if (!inSingleQuote && !inDoubleQuote) {
+      if (char === "(") depth += 1;
+      if (char === ")") depth -= 1;
+      if (char === "," && depth === 0) {
+        parts.push(current.trim());
+        current = "";
+        continue;
+      }
+    }
+
+    current += char;
+  }
+
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+}
+
+function extractFirstParenthesizedBlock(value, startIndex) {
+  const openIndex = value.indexOf("(", startIndex);
+  if (openIndex === -1) return null;
+
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  for (let i = openIndex; i < value.length; i += 1) {
+    const char = value[i];
+    const next = value[i + 1];
+
+    if (char === "'" && !inDoubleQuote) {
+      if (inSingleQuote && next === "'") {
+        i += 1;
+      } else {
+        inSingleQuote = !inSingleQuote;
+      }
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      if (inDoubleQuote && next === '"') {
+        i += 1;
+      } else {
+        inDoubleQuote = !inDoubleQuote;
+      }
+      continue;
+    }
+
+    if (inSingleQuote || inDoubleQuote) continue;
+    if (char === "(") depth += 1;
+    if (char === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        return value.slice(openIndex + 1, i);
+      }
+    }
+  }
+
+  return null;
 }
 
 function splitStatements(sql) {
@@ -174,6 +301,267 @@ function shouldUseTransaction(migration) {
     && !/\bCREATE\s+INDEX\s+CONCURRENTLY\b/i.test(migration.sql);
 }
 
+function parseCreateTable(statement) {
+  const tableMatch = statement.match(
+    /\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:"public"\.)?"([^"]+)"/i,
+  );
+  if (!tableMatch) return null;
+
+  const body = extractFirstParenthesizedBlock(statement, tableMatch.index ?? 0);
+  const columns = new Set();
+  const constraints = new Set();
+
+  if (body) {
+    for (const part of splitTopLevelCommaList(body)) {
+      const columnMatch = part.match(/^"([^"]+)"/);
+      if (columnMatch) {
+        columns.add(columnMatch[1]);
+        continue;
+      }
+
+      const constraintMatch = part.match(/^CONSTRAINT\s+"([^"]+)"/i);
+      if (constraintMatch) constraints.add(constraintMatch[1]);
+    }
+  }
+
+  return {
+    kind: "createTable",
+    table: tableMatch[1],
+    columns: [...columns],
+    constraints: [...constraints],
+  };
+}
+
+function analyzeStatement(statement) {
+  const operations = [];
+  const createTable = parseCreateTable(statement);
+  if (createTable) operations.push(createTable);
+
+  for (const match of statement.matchAll(
+    /\bDROP\s+TABLE(?:\s+IF\s+EXISTS)?\s+(?:"public"\.)?"([^"]+)"/gi,
+  )) {
+    operations.push({ kind: "dropTable", table: match[1] });
+  }
+
+  for (const match of statement.matchAll(
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"\s+ADD\s+COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"/gi,
+  )) {
+    operations.push({ kind: "addColumn", table: match[1], column: match[2] });
+  }
+
+  for (const match of statement.matchAll(
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"\s+DROP\s+COLUMN(?:\s+IF\s+EXISTS)?\s+"([^"]+)"/gi,
+  )) {
+    operations.push({ kind: "dropColumn", table: match[1], column: match[2] });
+  }
+
+  for (const match of statement.matchAll(
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"[\s\S]*?\bADD\s+CONSTRAINT\s+"([^"]+)"/gi,
+  )) {
+    operations.push({
+      kind: "addConstraint",
+      table: match[1],
+      constraint: match[2],
+    });
+  }
+
+  for (const match of statement.matchAll(
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"[\s\S]*?\bDROP\s+CONSTRAINT(?:\s+IF\s+EXISTS)?\s+"([^"]+)"/gi,
+  )) {
+    operations.push({
+      kind: "dropConstraint",
+      table: match[1],
+      constraint: match[2],
+    });
+  }
+
+  for (const match of statement.matchAll(
+    /\bCREATE\s+(?:UNIQUE\s+)?INDEX(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"/gi,
+  )) {
+    operations.push({ kind: "createIndex", index: match[1] });
+  }
+
+  const alterTableMatch = statement.match(
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"/i,
+  );
+  if (alterTableMatch) {
+    for (const match of statement.matchAll(
+      /\bALTER\s+COLUMN\s+"([^"]+)"\s+SET\s+DEFAULT\s+([^,;]+)/gi,
+    )) {
+      operations.push({
+        kind: "setDefault",
+        table: alterTableMatch[1],
+        column: match[1],
+        defaultValue: normalizeSql(stripOuterParens(match[2])),
+      });
+    }
+  }
+
+  return operations;
+}
+
+async function loadSchemaState(client) {
+  const tables = await client.query(`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+  `);
+  const columns = await client.query(`
+    SELECT table_name, column_name, column_default
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+  `);
+  const indexes = await client.query(`
+    SELECT indexname
+    FROM pg_indexes
+    WHERE schemaname = 'public'
+  `);
+  const constraints = await client.query(`
+    SELECT c.conname
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname = 'public'
+  `);
+
+  const tableNames = new Set(tables.rows.map((row) => row.table_name));
+  const tableColumns = new Map();
+  const columnDefaults = new Map();
+
+  for (const row of columns.rows) {
+    if (!tableColumns.has(row.table_name)) {
+      tableColumns.set(row.table_name, new Set());
+    }
+    tableColumns.get(row.table_name).add(row.column_name);
+    columnDefaults.set(
+      `${row.table_name}.${row.column_name}`,
+      row.column_default ? normalizeSql(stripOuterParens(row.column_default)) : null,
+    );
+  }
+
+  return {
+    tables: tableNames,
+    tableColumns,
+    columnDefaults,
+    indexes: new Set(indexes.rows.map((row) => row.indexname)),
+    constraints: new Set(constraints.rows.map((row) => row.conname)),
+  };
+}
+
+function operationStatus(operation, schemaState, finalAdds = new Set()) {
+  switch (operation.kind) {
+    case "createTable": {
+      if (!schemaState.tables.has(operation.table)) return { satisfied: false };
+
+      const columns = schemaState.tableColumns.get(operation.table) ?? new Set();
+      const missingColumns = operation.columns.filter((column) => !columns.has(column));
+      const missingConstraints = operation.constraints.filter(
+        (constraint) => !schemaState.constraints.has(constraint),
+      );
+
+      if (missingColumns.length > 0 || missingConstraints.length > 0) {
+        return {
+          satisfied: false,
+          unsafeReason:
+            `table "${operation.table}" already exists but is missing `
+            + [
+              missingColumns.length > 0
+                ? `columns: ${missingColumns.join(", ")}`
+                : null,
+              missingConstraints.length > 0
+                ? `constraints: ${missingConstraints.join(", ")}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join("; "),
+        };
+      }
+
+      return { satisfied: true };
+    }
+    case "dropTable":
+      return { satisfied: !schemaState.tables.has(operation.table) };
+    case "addColumn":
+      return {
+        satisfied:
+          schemaState.tableColumns.get(operation.table)?.has(operation.column) ?? false,
+      };
+    case "dropColumn":
+      return {
+        satisfied:
+          !schemaState.tables.has(operation.table)
+          || !(schemaState.tableColumns.get(operation.table)?.has(operation.column) ?? false),
+      };
+    case "addConstraint":
+      return { satisfied: schemaState.constraints.has(operation.constraint) };
+    case "dropConstraint":
+      if (finalAdds.has(operation.constraint)) return { satisfied: true };
+      return { satisfied: !schemaState.constraints.has(operation.constraint) };
+    case "createIndex":
+      return { satisfied: schemaState.indexes.has(operation.index) };
+    case "setDefault": {
+      const current = schemaState.columnDefaults.get(
+        `${operation.table}.${operation.column}`,
+      );
+      return { satisfied: current === operation.defaultValue };
+    }
+    default:
+      return { satisfied: false };
+  }
+}
+
+function analyzeMigration(migration) {
+  const statements = migration.statements.map((statement) => ({
+    statement,
+    operations: analyzeStatement(statement),
+  }));
+  const finalAdds = new Set(
+    statements
+      .flatMap((statement) => statement.operations)
+      .filter((operation) => operation.kind === "addConstraint")
+      .map((operation) => operation.constraint),
+  );
+
+  return { statements, finalAdds };
+}
+
+function isSupersededLegacyMigration(migration, schemaState) {
+  return (
+    SUPERSEDED_BY_CMS_SCHEMA.has(migration.tag)
+    && schemaState.tables.has("content_categories")
+  );
+}
+
+function migrationEndStateStatus(migration, schemaState) {
+  if (isSupersededLegacyMigration(migration, schemaState)) {
+    return { satisfied: true, reason: "superseded by CMS schema" };
+  }
+
+  const analysis = analyzeMigration(migration);
+  const operations = analysis.statements.flatMap((statement) => statement.operations);
+  if (operations.length === 0) return { satisfied: false };
+
+  for (const operation of operations) {
+    const status = operationStatus(operation, schemaState, analysis.finalAdds);
+    if (!status.satisfied) return { satisfied: false };
+  }
+
+  return { satisfied: true, reason: "schema already satisfies migration" };
+}
+
+function statementStatus(statement, schemaState) {
+  const operations = analyzeStatement(statement);
+  if (operations.length === 0) return { satisfied: false, operations };
+
+  for (const operation of operations) {
+    const status = operationStatus(operation, schemaState);
+    if (status.unsafeReason) return { ...status, operations };
+    if (!status.satisfied) return { satisfied: false, operations };
+  }
+
+  return { satisfied: true, operations };
+}
+
 function createClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -258,9 +646,14 @@ async function loadAppliedRowsReadOnly(client) {
 }
 
 function findAppliedRow(rows, migration) {
+  const hashMatches = (hash) => (
+    hash === migration.hash
+    || (LEGACY_MIGRATION_HASHES.get(migration.tag)?.has(hash) ?? false)
+  );
+
   const byTag = rows.find((row) => row.tag === migration.tag);
   if (byTag) {
-    if (byTag.hash !== migration.hash || Number(byTag.created_at) !== migration.when) {
+    if (!hashMatches(byTag.hash) || Number(byTag.created_at) !== migration.when) {
       fail(
         `${migration.tag} was changed after it was recorded in the database. Restore the applied SQL or create a new migration.`,
       );
@@ -269,7 +662,7 @@ function findAppliedRow(rows, migration) {
   }
 
   const byCreatedAndHash = rows.find(
-    (row) => Number(row.created_at) === migration.when && row.hash === migration.hash,
+    (row) => Number(row.created_at) === migration.when && hashMatches(row.hash),
   );
   if (byCreatedAndHash) return byCreatedAndHash;
 
@@ -306,6 +699,11 @@ async function recordMigration(client, migration) {
   );
 }
 
+async function adoptMigration(client, migration, reason) {
+  log(`adopting ${migration.tag} (${reason})`);
+  await recordMigration(client, migration);
+}
+
 async function applyMigration(client, migration) {
   if (migration.statements.length === 0) {
     fail(`${migration.tag} has no SQL statements`);
@@ -320,6 +718,17 @@ async function applyMigration(client, migration) {
 
   try {
     for (const statement of migration.statements) {
+      const schemaState = await loadSchemaState(client);
+      const status = statementStatus(statement, schemaState);
+
+      if (status.unsafeReason) {
+        fail(`${migration.tag}: ${status.unsafeReason}`);
+      }
+
+      if (status.satisfied) {
+        continue;
+      }
+
       await client.query(statement);
     }
     await recordMigration(client, migration);
@@ -356,13 +765,17 @@ async function main() {
     await client.query("SET statement_timeout = '5min'");
     if (dryRun) {
       const appliedRows = await loadAppliedRowsReadOnly(client);
-      const pending = migrations.filter(
-        (migration) => !findAppliedRow(appliedRows, migration),
-      );
+      const schemaState = await loadSchemaState(client);
+      const pending = migrations
+        .filter((migration) => !findAppliedRow(appliedRows, migration))
+        .map((migration) => {
+          const status = migrationEndStateStatus(migration, schemaState);
+          return `${migration.tag}:${status.satisfied ? "adopt" : "apply"}`;
+        });
       log(
         pending.length === 0
           ? "database is already up to date"
-          : `pending: ${pending.map((migration) => migration.tag).join(", ")}`,
+          : `pending: ${pending.join(", ")}`,
       );
       return;
     }
@@ -372,27 +785,41 @@ async function main() {
 
     try {
       const appliedRows = await loadAppliedRows(client);
-      const pending = [];
+      let adopted = 0;
+      let applied = 0;
 
       for (const migration of migrations) {
-        const applied = findAppliedRow(appliedRows, migration);
-        if (applied) {
-          await backfillTag(client, applied, migration);
-        } else {
-          pending.push(migration);
-        }
+        const appliedRow = findAppliedRow(appliedRows, migration);
+        if (appliedRow) await backfillTag(client, appliedRow, migration);
       }
 
-      if (pending.length === 0) {
+      for (const migration of migrations) {
+        if (findAppliedRow(await loadAppliedRows(client), migration)) {
+          continue;
+        }
+
+        const schemaState = await loadSchemaState(client);
+        const status = migrationEndStateStatus(migration, schemaState);
+
+        if (status.satisfied) {
+          await adoptMigration(client, migration, status.reason);
+          adopted += 1;
+          continue;
+        }
+
+        await applyMigration(client, migration);
+        applied += 1;
+      }
+
+      if (adopted === 0 && applied === 0) {
         log("database is already up to date");
         return;
       }
 
-      for (const migration of pending) {
-        await applyMigration(client, migration);
-      }
-
-      log(`applied ${pending.length} migration${pending.length === 1 ? "" : "s"}`);
+      log(
+        `applied ${applied} migration${applied === 1 ? "" : "s"}`
+        + `, adopted ${adopted}`,
+      );
     } finally {
       await releaseLock(client);
     }
