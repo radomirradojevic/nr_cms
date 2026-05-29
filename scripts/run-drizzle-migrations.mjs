@@ -731,13 +731,18 @@ async function adoptExistingMigrationRecord(client, row, migration, reason) {
   await repairMigrationRecord(client, row, migration);
 }
 
-async function applyMigration(client, migration) {
+async function applyMigration(client, migration, options = {}) {
+  const { existingRow = null } = options;
   if (migration.statements.length === 0) {
     fail(`${migration.tag} has no SQL statements`);
   }
 
   const useTransaction = shouldUseTransaction(migration);
-  log(`applying ${migration.tag} (${migration.statements.length} statements)`);
+  log(
+    existingRow
+      ? `reconciling ${migration.tag} (${migration.statements.length} statements)`
+      : `applying ${migration.tag} (${migration.statements.length} statements)`,
+  );
 
   if (useTransaction) {
     await client.query("BEGIN");
@@ -758,7 +763,11 @@ async function applyMigration(client, migration) {
 
       await client.query(statement);
     }
-    await recordMigration(client, migration);
+    if (existingRow) {
+      await repairMigrationRecord(client, existingRow, migration);
+    } else {
+      await recordMigration(client, migration);
+    }
 
     if (useTransaction) {
       await client.query("COMMIT");
@@ -821,10 +830,8 @@ async function main() {
       let applied = 0;
 
       for (const migration of migrations) {
-        const schemaState = await loadSchemaState(client);
         const appliedRow = findAppliedRow(appliedRows, migration, {
-          tolerateHashMismatch:
-            migrationEndStateStatus(migration, schemaState).satisfied,
+          tolerateHashMismatch: true,
         });
         if (appliedRow) await backfillTag(client, appliedRow, migration);
       }
@@ -833,7 +840,7 @@ async function main() {
         const schemaState = await loadSchemaState(client);
         const status = migrationEndStateStatus(migration, schemaState);
         const appliedRow = findAppliedRow(await loadAppliedRows(client), migration, {
-          tolerateHashMismatch: status.satisfied,
+          tolerateHashMismatch: true,
         });
 
         if (appliedRow) {
@@ -845,6 +852,10 @@ async function main() {
           ) {
             await adoptExistingMigrationRecord(client, appliedRow, migration, status.reason);
             adopted += 1;
+          }
+          if (!status.satisfied) {
+            await applyMigration(client, migration, { existingRow: appliedRow });
+            applied += 1;
           }
           continue;
         }
