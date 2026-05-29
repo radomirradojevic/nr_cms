@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import pg from "pg";
 
 const { Client } = pg;
@@ -639,16 +640,49 @@ function analyzeMigration(migration) {
   return { statements, finalAdds, replacedConstraints };
 }
 
-function isSupersededLegacyMigration(migration, schemaState) {
+function hasGlobalSettingsColumns(schemaState, columns) {
+  const tableColumns = schemaState.tableColumns.get("global_settings");
+  return columns.every((column) => tableColumns?.has(column));
+}
+
+function isSplitAppearanceSchema(schemaState) {
+  const tableColumns = schemaState.tableColumns.get("global_settings");
   return (
-    SUPERSEDED_BY_CMS_SCHEMA.has(migration.tag)
-    && schemaState.tables.has("content_categories")
+    schemaState.tables.has("global_settings") &&
+    hasGlobalSettingsColumns(schemaState, [
+      "theme",
+      "frontend_content_width",
+      "backend_content_width",
+      "font_preset",
+      "radius_preset",
+      "shadow_preset",
+    ]) &&
+    !tableColumns?.has("content_width")
   );
 }
 
+function supersededMigrationReason(migration, schemaState) {
+  if (
+    SUPERSEDED_BY_CMS_SCHEMA.has(migration.tag) &&
+    schemaState.tables.has("content_categories")
+  ) {
+    return "superseded by CMS schema";
+  }
+
+  if (
+    migration.tag === "0015_appearance" &&
+    isSplitAppearanceSchema(schemaState)
+  ) {
+    return "superseded by split appearance schema";
+  }
+
+  return null;
+}
+
 function migrationEndStateStatus(migration, schemaState) {
-  if (isSupersededLegacyMigration(migration, schemaState)) {
-    return { satisfied: true, reason: "superseded by CMS schema" };
+  const supersededReason = supersededMigrationReason(migration, schemaState);
+  if (supersededReason) {
+    return { satisfied: true, reason: supersededReason };
   }
 
   const analysis = analyzeMigration(migration);
@@ -680,6 +714,11 @@ function statementStatus(statement, schemaState) {
 
   return { satisfied: true, operations };
 }
+
+export const __migrationRunnerTesting = {
+  migrationEndStateStatus,
+  supersededMigrationReason,
+};
 
 function createClient() {
   const connectionString = process.env.DATABASE_URL;
@@ -1006,7 +1045,17 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exitCode = 1;
-});
+function isMainModule() {
+  const entry = process.argv[1];
+  return (
+    Boolean(entry) &&
+    import.meta.url === pathToFileURL(path.resolve(entry)).href
+  );
+}
+
+if (isMainModule()) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exitCode = 1;
+  });
+}
