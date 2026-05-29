@@ -83,13 +83,20 @@
       "idx": 11,
       "version": "7",
       "when": 1778610922491,
-      "tag": "0011_add_global_settings",
+      "tag": "0011_add_category_created_by",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778614522491,
+      "tag": "0012_sticky_height_defaults",
       "breakpoints": true
     },
     {
       "idx": 13,
       "version": "7",
-      "when": 1779840000000,
+      "when": 1778900000000,
       "tag": "0013_content_visibility",
       "breakpoints": true
     },
