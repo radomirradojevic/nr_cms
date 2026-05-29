@@ -28,6 +28,7 @@ export default async function NewBlogPostPage() {
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         appearance={settings.appearance}
         sessionSecurity={settings.sessionSecurity}
+        aiWritingAssistantAvailable={settings.aiWritingAssistant.enabled}
       />
     </div>
   );

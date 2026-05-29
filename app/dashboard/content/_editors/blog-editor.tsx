@@ -25,9 +25,11 @@ import {
   Video as VideoIcon,
   LayoutGrid,
   Columns3,
+  Loader2,
   FormInput,
   ClipboardList,
   Link as LinkIcon,
+  Sparkles,
   Undo,
   Redo,
   AlignLeft,
@@ -71,6 +73,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Popover,
   PopoverContent,
@@ -94,6 +97,7 @@ import {
   type CodeLanguage,
 } from "./code-languages";
 import { sanitizeTiptapHtml } from "./sanitize-tiptap-html";
+import { clearAiSuggestion, setAiSuggestion } from "./ai-suggestion-extension";
 
 type Props = {
   /**
@@ -109,6 +113,10 @@ type Props = {
   registerGetValue?: (getValue: () => JSONContent) => void;
   /** Optional notifier; do NOT use to drive parent state on every keystroke. */
   onChange?: (value: JSONContent) => void;
+  /** Global Settings controls whether this editor-level toggle is visible. */
+  aiWritingAssistantAvailable?: boolean;
+  title?: string;
+  excerpt?: string;
 };
 
 type VideoDialogValues = {
@@ -193,6 +201,9 @@ export function BlogEditor({
   defaultValue,
   registerGetValue,
   onChange,
+  aiWritingAssistantAvailable = false,
+  title = "",
+  excerpt = "",
 }: Props) {
   const [initialContent] = useState<JSONContent>(
     () => defaultValue ?? emptyTiptapJson,
@@ -236,9 +247,17 @@ export function BlogEditor({
   const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [aiWritingAssistantActive, setAiWritingAssistantActive] =
+    useState(false);
+  const [aiSuggestionStatus, setAiSuggestionStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
 
   const onChangeRef = useRef(onChange);
   const layoutOverlayRef = useRef(layoutOverlay);
+  const aiRequestRef = useRef<AbortController | null>(null);
+  const aiRequestIdRef = useRef(0);
+  const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
@@ -275,6 +294,104 @@ export function BlogEditor({
     if (!editor) return;
     registerGetValue?.(() => editor.getJSON());
   }, [editor, registerGetValue]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const cancelPending = () => {
+      if (aiDebounceRef.current) {
+        clearTimeout(aiDebounceRef.current);
+        aiDebounceRef.current = null;
+      }
+      aiRequestRef.current?.abort();
+      aiRequestRef.current = null;
+    };
+
+    if (!aiWritingAssistantAvailable || !aiWritingAssistantActive || htmlMode) {
+      cancelPending();
+      clearAiSuggestion(editor);
+      return;
+    }
+
+    const scheduleSuggestion = () => {
+      cancelPending();
+      clearAiSuggestion(editor);
+      setAiSuggestionStatus("idle");
+
+      const request = buildAiSuggestionRequest(editor, { title, excerpt });
+      if (!request) return;
+
+      aiDebounceRef.current = setTimeout(async () => {
+        const controller = new AbortController();
+        const requestId = aiRequestIdRef.current + 1;
+        aiRequestIdRef.current = requestId;
+        aiRequestRef.current = controller;
+        setAiSuggestionStatus("loading");
+
+        try {
+          const response = await fetch("/api/ai-writing-assistant/suggest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request.body),
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            if (requestId === aiRequestIdRef.current) {
+              setAiSuggestionStatus("error");
+            }
+            return;
+          }
+
+          const data = (await response.json()) as { suggestion?: unknown };
+          const suggestion =
+            typeof data.suggestion === "string" ? data.suggestion : "";
+
+          if (
+            requestId !== aiRequestIdRef.current ||
+            !suggestion ||
+            editor.state.selection.from !== request.pos ||
+            !editor.state.selection.empty
+          ) {
+            setAiSuggestionStatus("idle");
+            return;
+          }
+
+          setAiSuggestion(editor, { pos: request.pos, text: suggestion });
+          setAiSuggestionStatus("idle");
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") {
+            return;
+          }
+          if (requestId === aiRequestIdRef.current) {
+            setAiSuggestionStatus("error");
+          }
+        } finally {
+          if (requestId === aiRequestIdRef.current) {
+            aiRequestRef.current = null;
+          }
+        }
+      }, 750);
+    };
+
+    editor.on("update", scheduleSuggestion);
+    editor.on("selectionUpdate", scheduleSuggestion);
+    const initialSchedule = setTimeout(scheduleSuggestion, 0);
+
+    return () => {
+      clearTimeout(initialSchedule);
+      editor.off("update", scheduleSuggestion);
+      editor.off("selectionUpdate", scheduleSuggestion);
+      cancelPending();
+    };
+  }, [
+    aiWritingAssistantActive,
+    aiWritingAssistantAvailable,
+    editor,
+    excerpt,
+    htmlMode,
+    title,
+  ]);
 
   useEffect(() => {
     if (!editor) return;
@@ -465,6 +582,8 @@ export function BlogEditor({
 
   function toggleHtmlMode() {
     if (!htmlMode) {
+      clearAiSuggestion(editor!);
+      setAiSuggestionStatus("idle");
       setHtmlSource(editor!.getHTML());
     } else {
       editor!.commands.setContent(sanitizeTiptapHtml(htmlSource));
@@ -813,6 +932,38 @@ export function BlogEditor({
   return (
     <div className="relative rounded-md border">
       <div className="sticky top-[var(--sticky-header-h,0px)] z-30 flex flex-wrap items-center gap-1 border-b bg-background/95 p-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        {aiWritingAssistantAvailable && (
+          <div className="mr-1 flex h-8 items-center gap-2 rounded-md border bg-background px-2 text-xs">
+            <Sparkles aria-hidden className="h-3.5 w-3.5 text-primary" />
+            <Label
+              htmlFor="blog-ai-writing-assistant"
+              className="whitespace-nowrap text-xs font-medium"
+            >
+              AI writing assistant
+            </Label>
+            {aiSuggestionStatus === "loading" && (
+              <Loader2
+                aria-hidden
+                className="h-3.5 w-3.5 animate-spin text-muted-foreground"
+              />
+            )}
+            {aiSuggestionStatus === "error" && (
+              <span className="text-[0.7rem] text-destructive">Error</span>
+            )}
+            <Switch
+              id="blog-ai-writing-assistant"
+              checked={aiWritingAssistantActive}
+              onCheckedChange={(checked) => {
+                setAiWritingAssistantActive(checked);
+                if (!checked) {
+                  clearAiSuggestion(editor);
+                  setAiSuggestionStatus("idle");
+                }
+              }}
+              className="scale-90"
+            />
+          </div>
+        )}
         <TooltipProvider delayDuration={500}>
           {!htmlMode && (
             <>
@@ -1692,4 +1843,39 @@ function Btn({
 
 function Sep() {
   return <div className="mx-1 h-6 w-px bg-border" />;
+}
+
+function buildAiSuggestionRequest(
+  editor: Editor,
+  meta: { title: string; excerpt: string },
+): {
+  pos: number;
+  body: { title: string; excerpt: string; before: string; after: string };
+} | null {
+  const { selection, doc } = editor.state;
+  if (!editor.isFocused || !selection.empty) return null;
+  if (!selection.$from.parent.isTextblock) return null;
+  if (selection.$from.parent.type.name === "codeBlock") return null;
+
+  const pos = selection.from;
+  const before = doc.textBetween(Math.max(0, pos - 4_000), pos, "\n", "\n");
+  const after = doc.textBetween(
+    pos,
+    Math.min(doc.content.size, pos + 1_000),
+    "\n",
+    "\n",
+  );
+
+  if (before.trim().length < 4 && meta.title.trim().length < 4) return null;
+  if (before.endsWith("\n\n")) return null;
+
+  return {
+    pos,
+    body: {
+      title: meta.title,
+      excerpt: meta.excerpt,
+      before,
+      after,
+    },
+  };
 }

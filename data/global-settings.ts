@@ -4,14 +4,17 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { files, globalSettings } from "@/db/schema";
 import {
+  AI_WRITING_ASSISTANT_DEFAULTS,
   DEFAULT_FOOTER_SETTINGS,
   DEFAULT_HEADER_SETTINGS,
   DEFAULT_RESOLVED_GLOBAL_SETTINGS,
+  AiWritingAssistantSettingsSchema,
   FooterSettingsSchema,
   GLOBAL_SETTINGS_TAG,
   HeaderSettingsSchema,
   SESSION_SECURITY_DEFAULTS,
   parseGlobalSettingsAppearance,
+  type AiWritingAssistantSettings,
   type FooterSettings,
   type HeaderSettings,
   type ResolvedGlobalSettings,
@@ -27,6 +30,16 @@ import {
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 
 export type GlobalSettingsRow = typeof globalSettings.$inferSelect;
+export type GlobalSettingsAdminFormRow = Omit<
+  GlobalSettingsRow,
+  "openaiApiKey"
+> & {
+  openaiApiKeyConfigured: boolean;
+};
+
+export type AiWritingAssistantServerSettings = AiWritingAssistantSettings & {
+  openaiApiKey: string | null;
+};
 
 const SINGLETON_ID = 1;
 
@@ -38,6 +51,11 @@ function parseHeader(value: unknown): HeaderSettings {
 function parseFooter(value: unknown): FooterSettings {
   const parsed = FooterSettingsSchema.safeParse(value);
   return parsed.success ? parsed.data : DEFAULT_FOOTER_SETTINGS;
+}
+
+function parseAiWritingAssistant(value: unknown): AiWritingAssistantSettings {
+  const parsed = AiWritingAssistantSettingsSchema.safeParse(value);
+  return parsed.success ? parsed.data : AI_WRITING_ASSISTANT_DEFAULTS;
 }
 
 function toAppearanceRecipeLegacyInput(
@@ -104,9 +122,30 @@ function isMissingRegionalSettingsColumns(err: unknown): boolean {
   );
 }
 
+function isMissingAiWritingAssistantColumns(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : "";
+  const cause =
+    typeof err === "object" && err !== null && "cause" in err
+      ? (err as { cause?: unknown }).cause
+      : null;
+  const causeCode =
+    typeof cause === "object" && cause !== null && "code" in cause
+      ? (cause as { code?: unknown }).code
+      : null;
+  const causeMessage = cause instanceof Error ? cause.message : "";
+  return (
+    causeCode === "42703" &&
+    (message.includes("ai_writing_assistant") ||
+      message.includes("openai_api_key") ||
+      causeMessage.includes("ai_writing_assistant") ||
+      causeMessage.includes("openai_api_key"))
+  );
+}
+
 async function loadGlobalSettingsRows(
   includeAppearanceRecipe: boolean,
   includeRegionalSettings: boolean,
+  includeAiWritingAssistant: boolean,
 ) {
   return db
     .select({
@@ -136,6 +175,16 @@ async function loadGlobalSettingsRows(
       ...(includeAppearanceRecipe
         ? { appearanceRecipe: globalSettings.appearanceRecipe }
         : {}),
+      ...(includeAiWritingAssistant
+        ? {
+            aiWritingAssistantEnabled: globalSettings.aiWritingAssistantEnabled,
+            aiWritingAssistantModel: globalSettings.aiWritingAssistantModel,
+            aiWritingAssistantMaxOutputTokens:
+              globalSettings.aiWritingAssistantMaxOutputTokens,
+            aiWritingAssistantInstructions:
+              globalSettings.aiWritingAssistantInstructions,
+          }
+        : {}),
       maxSessionDurationMinutes: globalSettings.maxSessionDurationMinutes,
       idleLogoutMinutes: globalSettings.idleLogoutMinutes,
       logoStoragePath: files.storagePath,
@@ -148,28 +197,40 @@ async function loadGlobalSettingsRows(
 }
 
 async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
-  let rows: Awaited<ReturnType<typeof loadGlobalSettingsRows>>;
-  try {
-    rows = await loadGlobalSettingsRows(true, true);
-  } catch (err) {
-    if (isMissingAppearanceRecipeColumn(err)) {
-      try {
-        rows = await loadGlobalSettingsRows(false, true);
-      } catch (fallbackErr) {
-        if (!isMissingRegionalSettingsColumns(fallbackErr)) throw fallbackErr;
-        rows = await loadGlobalSettingsRows(false, false);
+  let includeAppearanceRecipe = true;
+  let includeRegionalSettings = true;
+  let includeAiWritingAssistant = true;
+  let rows: Awaited<ReturnType<typeof loadGlobalSettingsRows>> | null = null;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      rows = await loadGlobalSettingsRows(
+        includeAppearanceRecipe,
+        includeRegionalSettings,
+        includeAiWritingAssistant,
+      );
+      break;
+    } catch (err) {
+      if (includeAppearanceRecipe && isMissingAppearanceRecipeColumn(err)) {
+        includeAppearanceRecipe = false;
+        continue;
       }
-    } else if (isMissingRegionalSettingsColumns(err)) {
-      try {
-        rows = await loadGlobalSettingsRows(true, false);
-      } catch (fallbackErr) {
-        if (!isMissingAppearanceRecipeColumn(fallbackErr)) throw fallbackErr;
-        rows = await loadGlobalSettingsRows(false, false);
+      if (includeRegionalSettings && isMissingRegionalSettingsColumns(err)) {
+        includeRegionalSettings = false;
+        continue;
       }
-    } else {
+      if (
+        includeAiWritingAssistant &&
+        isMissingAiWritingAssistantColumns(err)
+      ) {
+        includeAiWritingAssistant = false;
+        continue;
+      }
       throw err;
     }
   }
+
+  if (!rows) return DEFAULT_RESOLVED_GLOBAL_SETTINGS;
 
   const row = rows[0];
   if (!row) return DEFAULT_RESOLVED_GLOBAL_SETTINGS;
@@ -218,6 +279,24 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
       footerSettings,
       stickyHeaderHeight: row.stickyHeaderHeight,
       stickyFooterHeight: row.stickyFooterHeight,
+    }),
+    aiWritingAssistant: parseAiWritingAssistant({
+      enabled:
+        "aiWritingAssistantEnabled" in row
+          ? row.aiWritingAssistantEnabled
+          : undefined,
+      model:
+        "aiWritingAssistantModel" in row
+          ? row.aiWritingAssistantModel
+          : undefined,
+      maxOutputTokens:
+        "aiWritingAssistantMaxOutputTokens" in row
+          ? row.aiWritingAssistantMaxOutputTokens
+          : undefined,
+      instructions:
+        "aiWritingAssistantInstructions" in row
+          ? row.aiWritingAssistantInstructions
+          : undefined,
     }),
     sessionSecurity: parseSessionSecurity({
       maxSessionDurationMinutes: row.maxSessionDurationMinutes,
@@ -273,6 +352,52 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
   return rows[0] ?? null;
 }
 
+export async function getAdminGlobalSettings(): Promise<GlobalSettingsAdminFormRow | null> {
+  const row = await getRawGlobalSettings();
+  if (!row) return null;
+
+  const { openaiApiKey, ...safeRow } = row;
+  return {
+    ...safeRow,
+    openaiApiKeyConfigured: Boolean(openaiApiKey),
+  };
+}
+
+export async function getAiWritingAssistantServerSettings(): Promise<AiWritingAssistantServerSettings> {
+  try {
+    const rows = await db
+      .select({
+        enabled: globalSettings.aiWritingAssistantEnabled,
+        model: globalSettings.aiWritingAssistantModel,
+        maxOutputTokens: globalSettings.aiWritingAssistantMaxOutputTokens,
+        instructions: globalSettings.aiWritingAssistantInstructions,
+        openaiApiKey: globalSettings.openaiApiKey,
+      })
+      .from(globalSettings)
+      .where(eq(globalSettings.id, SINGLETON_ID))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) {
+      return {
+        ...AI_WRITING_ASSISTANT_DEFAULTS,
+        openaiApiKey: null,
+      };
+    }
+
+    return {
+      ...parseAiWritingAssistant(row),
+      openaiApiKey: row.openaiApiKey ?? null,
+    };
+  } catch (err) {
+    if (!isMissingAiWritingAssistantColumns(err)) throw err;
+    return {
+      ...AI_WRITING_ASSISTANT_DEFAULTS,
+      openaiApiKey: null,
+    };
+  }
+}
+
 export async function updateGlobalSettings(
   input: UpdateGlobalSettingsInput,
   userId: string,
@@ -322,13 +447,30 @@ export async function updateGlobalSettings(
       stickyHeaderHeight: input.stickyHeaderHeight,
       stickyFooterHeight: input.stickyFooterHeight,
     }),
+    aiWritingAssistantEnabled: input.aiWritingAssistantEnabled,
+    aiWritingAssistantModel: input.aiWritingAssistantModel,
+    aiWritingAssistantMaxOutputTokens: input.aiWritingAssistantMaxOutputTokens,
+    aiWritingAssistantInstructions: input.aiWritingAssistantInstructions,
     maxSessionDurationMinutes: input.maxSessionDurationMinutes,
     idleLogoutMinutes: input.idleLogoutMinutes,
     updatedBy: userId,
   };
+  const openaiApiKeyPatch = input.clearOpenaiApiKey
+    ? { openaiApiKey: null }
+    : input.openaiApiKey
+      ? { openaiApiKey: input.openaiApiKey }
+      : {};
+  const insertValues = {
+    id: SINGLETON_ID,
+    ...values,
+    ...(input.openaiApiKey ? { openaiApiKey: input.openaiApiKey } : {}),
+  };
 
   await db
     .insert(globalSettings)
-    .values({ id: SINGLETON_ID, ...values })
-    .onConflictDoUpdate({ target: globalSettings.id, set: values });
+    .values(insertValues)
+    .onConflictDoUpdate({
+      target: globalSettings.id,
+      set: { ...values, ...openaiApiKeyPatch },
+    });
 }

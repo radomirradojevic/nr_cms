@@ -23,7 +23,6 @@ import {
   DEFAULT_REGIONAL_SETTINGS,
   SUPPORTED_LOCALES,
   SUPPORTED_TIMEZONES,
-  normalizeRegionalSettings,
   type RegionalSettings,
 } from "@/lib/regional-settings";
 
@@ -53,6 +52,51 @@ export const SESSION_SECURITY_DEFAULTS = {
   maxSessionDurationMinutes: 480,
   idleLogoutMinutes: 30,
 } as const;
+
+// ─── AI writing assistant ────────────────────────────────────────────────────
+
+export const MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS = 8;
+export const MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS = 160;
+
+export const AI_WRITING_ASSISTANT_MODELS = [
+  "gpt-5.2",
+  "gpt-5.2-pro",
+  "gpt-5.2-chat-latest",
+  "gpt-5.1",
+  "gpt-5.1-chat-latest",
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5-nano",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
+  "gpt-4o",
+  "gpt-4o-mini",
+  "o3",
+  "o4-mini",
+] as const;
+
+export const AI_WRITING_ASSISTANT_DEFAULTS = {
+  enabled: false,
+  model: "gpt-5.2",
+  maxOutputTokens: 48,
+  instructions: null,
+} as const;
+
+export const AiWritingAssistantSettingsSchema = z.object({
+  enabled: z.boolean(),
+  model: z.enum(AI_WRITING_ASSISTANT_MODELS),
+  maxOutputTokens: z
+    .number()
+    .int()
+    .min(MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS)
+    .max(MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS),
+  instructions: z.string().trim().max(2_000).nullable(),
+});
+
+export type AiWritingAssistantSettings = z.infer<
+  typeof AiWritingAssistantSettingsSchema
+>;
 
 export const SessionSecuritySchema = z
   .object({
@@ -195,6 +239,14 @@ export const UpdateGlobalSettingsSchema = z
     radiusPreset: z.enum(RADIUS_PRESETS),
     shadowPreset: z.enum(SHADOW_PRESETS),
     appearanceRecipe: AppearanceRecipeV2Schema.optional(),
+    aiWritingAssistantEnabled: z.boolean(),
+    openaiApiKey: z.string().trim().min(20).max(512).optional(),
+    clearOpenaiApiKey: z.boolean().optional(),
+    aiWritingAssistantModel: AiWritingAssistantSettingsSchema.shape.model,
+    aiWritingAssistantMaxOutputTokens:
+      AiWritingAssistantSettingsSchema.shape.maxOutputTokens,
+    aiWritingAssistantInstructions:
+      AiWritingAssistantSettingsSchema.shape.instructions,
     maxSessionDurationMinutes: z
       .number()
       .int()
@@ -292,6 +344,7 @@ export type ResolvedGlobalSettings = {
   regional: RegionalSettings;
   appearance: AppearanceSettings;
   resolvedAppearanceRecipe: AppearanceRecipe;
+  aiWritingAssistant: AiWritingAssistantSettings;
   sessionSecurity: SessionSecuritySettings;
 };
 
@@ -318,5 +371,6 @@ export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
     stickyHeaderHeight: 80,
     stickyFooterHeight: 110,
   }),
+  aiWritingAssistant: AI_WRITING_ASSISTANT_DEFAULTS,
   sessionSecurity: SESSION_SECURITY_DEFAULTS,
 };
