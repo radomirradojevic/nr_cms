@@ -84,6 +84,75 @@ function stripOuterParens(value) {
   return next;
 }
 
+function extractSqlStringLiterals(value) {
+  const literals = [];
+  let current = "";
+  let inSingleQuote = false;
+
+  for (let i = 0; i < value.length; i += 1) {
+    const char = value[i];
+    const next = value[i + 1];
+
+    if (!inSingleQuote) {
+      if (char === "'") {
+        current = "";
+        inSingleQuote = true;
+      }
+      continue;
+    }
+
+    if (char === "'" && next === "'") {
+      current += "'";
+      i += 1;
+      continue;
+    }
+
+    if (char === "'") {
+      literals.push(current);
+      inSingleQuote = false;
+      continue;
+    }
+
+    current += char;
+  }
+
+  return literals;
+}
+
+function sameStringLiteralSet(left, right) {
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+
+  if (leftSet.size !== rightSet.size) return false;
+
+  for (const value of leftSet) {
+    if (!rightSet.has(value)) return false;
+  }
+
+  return true;
+}
+
+function normalizeConstraintDefinition(value) {
+  return normalizeSql(value)
+    .replace(/"public"\./g, "")
+    .replace(/"([^"]+)"/g, "$1")
+    .replace(/::[a-z_][a-z0-9_]*(?:\[\])?/gi, "");
+}
+
+function constraintDefinitionMatches(expected, current) {
+  if (!expected || !current) return true;
+
+  const expectedLiterals = extractSqlStringLiterals(expected);
+  const currentLiterals = extractSqlStringLiterals(current);
+
+  if (expectedLiterals.length > 0 || currentLiterals.length > 0) {
+    return sameStringLiteralSet(expectedLiterals, currentLiterals);
+  }
+
+  return normalizeConstraintDefinition(expected)
+    === normalizeConstraintDefinition(current);
+}
+
 function splitTopLevelCommaList(value) {
   const parts = [];
   let current = "";
@@ -356,12 +425,13 @@ function analyzeStatement(statement) {
   }
 
   for (const match of statement.matchAll(
-    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"[\s\S]*?\bADD\s+CONSTRAINT\s+"([^"]+)"/gi,
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"[\s\S]*?\bADD\s+CONSTRAINT\s+"([^"]+)"\s+([\s\S]+)$/gi,
   )) {
     operations.push({
       kind: "addConstraint",
       table: match[1],
       constraint: match[2],
+      definition: match[3].trim().replace(/;$/, ""),
     });
   }
 
@@ -417,7 +487,10 @@ async function loadSchemaState(client) {
     WHERE schemaname = 'public'
   `);
   const constraints = await client.query(`
-    SELECT c.conname
+    SELECT
+      c.conname,
+      t.relname AS table_name,
+      pg_get_constraintdef(c.oid) AS definition
     FROM pg_constraint c
     JOIN pg_class t ON t.oid = c.conrelid
     JOIN pg_namespace n ON n.oid = t.relnamespace
@@ -445,10 +518,21 @@ async function loadSchemaState(client) {
     columnDefaults,
     indexes: new Set(indexes.rows.map((row) => row.indexname)),
     constraints: new Set(constraints.rows.map((row) => row.conname)),
+    constraintDefinitions: new Map(
+      constraints.rows.map((row) => [
+        `${row.table_name}.${row.conname}`,
+        row.definition,
+      ]),
+    ),
   };
 }
 
-function operationStatus(operation, schemaState, finalAdds = new Set()) {
+function operationStatus(
+  operation,
+  schemaState,
+  finalAdds = new Set(),
+  definitionSensitiveConstraints = new Set(),
+) {
   switch (operation.kind) {
     case "createTable": {
       if (!schemaState.tables.has(operation.table)) return { satisfied: false };
@@ -493,7 +577,28 @@ function operationStatus(operation, schemaState, finalAdds = new Set()) {
           || !(schemaState.tableColumns.get(operation.table)?.has(operation.column) ?? false),
       };
     case "addConstraint":
-      return { satisfied: schemaState.constraints.has(operation.constraint) };
+      {
+        const constraintKey = `${operation.table}.${operation.constraint}`;
+        const currentDefinition = schemaState.constraintDefinitions.get(constraintKey);
+
+        if (!currentDefinition) {
+          return { satisfied: false };
+        }
+
+        if (
+          definitionSensitiveConstraints.has(operation.constraint)
+          && operation.definition
+        ) {
+          return {
+            satisfied: constraintDefinitionMatches(
+              operation.definition,
+              currentDefinition,
+            ),
+          };
+        }
+
+        return { satisfied: true };
+      }
     case "dropConstraint":
       if (finalAdds.has(operation.constraint)) return { satisfied: true };
       return { satisfied: !schemaState.constraints.has(operation.constraint) };
@@ -521,8 +626,17 @@ function analyzeMigration(migration) {
       .filter((operation) => operation.kind === "addConstraint")
       .map((operation) => operation.constraint),
   );
+  const droppedConstraints = new Set(
+    statements
+      .flatMap((statement) => statement.operations)
+      .filter((operation) => operation.kind === "dropConstraint")
+      .map((operation) => operation.constraint),
+  );
+  const replacedConstraints = new Set(
+    [...finalAdds].filter((constraint) => droppedConstraints.has(constraint)),
+  );
 
-  return { statements, finalAdds };
+  return { statements, finalAdds, replacedConstraints };
 }
 
 function isSupersededLegacyMigration(migration, schemaState) {
@@ -542,7 +656,12 @@ function migrationEndStateStatus(migration, schemaState) {
   if (operations.length === 0) return { satisfied: false };
 
   for (const operation of operations) {
-    const status = operationStatus(operation, schemaState, analysis.finalAdds);
+    const status = operationStatus(
+      operation,
+      schemaState,
+      analysis.finalAdds,
+      analysis.replacedConstraints,
+    );
     if (!status.satisfied) return { satisfied: false };
   }
 
