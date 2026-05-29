@@ -645,7 +645,8 @@ async function loadAppliedRowsReadOnly(client) {
   return result.rows;
 }
 
-function findAppliedRow(rows, migration) {
+function findAppliedRow(rows, migration, options = {}) {
+  const { tolerateHashMismatch = false } = options;
   const hashMatches = (hash) => (
     hash === migration.hash
     || (LEGACY_MIGRATION_HASHES.get(migration.tag)?.has(hash) ?? false)
@@ -654,6 +655,12 @@ function findAppliedRow(rows, migration) {
   const byTag = rows.find((row) => row.tag === migration.tag);
   if (byTag) {
     if (!hashMatches(byTag.hash) || Number(byTag.created_at) !== migration.when) {
+      if (
+        tolerateHashMismatch
+        && Number(byTag.created_at) === migration.when
+      ) {
+        return byTag;
+      }
       fail(
         `${migration.tag} was changed after it was recorded in the database. Restore the applied SQL or create a new migration.`,
       );
@@ -668,6 +675,7 @@ function findAppliedRow(rows, migration) {
 
   const byCreated = rows.find((row) => Number(row.created_at) === migration.when);
   if (byCreated) {
+    if (tolerateHashMismatch) return byCreated;
     fail(
       `${migration.tag} has the same created_at as an applied migration but a different hash.`,
     );
@@ -688,6 +696,20 @@ async function backfillTag(client, row, migration) {
   );
 }
 
+async function repairMigrationRecord(client, row, migration) {
+  await client.query(
+    `
+      UPDATE ${MIGRATIONS_SCHEMA}.${MIGRATIONS_TABLE}
+      SET hash = $1,
+          created_at = $2,
+          tag = $3,
+          statements = COALESCE(statements, $4)
+      WHERE id = $5
+    `,
+    [migration.hash, migration.when, migration.tag, migration.statements.length, row.id],
+  );
+}
+
 async function recordMigration(client, migration) {
   await client.query(
     `
@@ -702,6 +724,11 @@ async function recordMigration(client, migration) {
 async function adoptMigration(client, migration, reason) {
   log(`adopting ${migration.tag} (${reason})`);
   await recordMigration(client, migration);
+}
+
+async function adoptExistingMigrationRecord(client, row, migration, reason) {
+  log(`adopting ${migration.tag} (${reason}; repairing existing history row)`);
+  await repairMigrationRecord(client, row, migration);
 }
 
 async function applyMigration(client, migration) {
@@ -767,7 +794,12 @@ async function main() {
       const appliedRows = await loadAppliedRowsReadOnly(client);
       const schemaState = await loadSchemaState(client);
       const pending = migrations
-        .filter((migration) => !findAppliedRow(appliedRows, migration))
+        .filter(
+          (migration) => !findAppliedRow(appliedRows, migration, {
+            tolerateHashMismatch:
+              migrationEndStateStatus(migration, schemaState).satisfied,
+          }),
+        )
         .map((migration) => {
           const status = migrationEndStateStatus(migration, schemaState);
           return `${migration.tag}:${status.satisfied ? "adopt" : "apply"}`;
@@ -789,17 +821,33 @@ async function main() {
       let applied = 0;
 
       for (const migration of migrations) {
-        const appliedRow = findAppliedRow(appliedRows, migration);
+        const schemaState = await loadSchemaState(client);
+        const appliedRow = findAppliedRow(appliedRows, migration, {
+          tolerateHashMismatch:
+            migrationEndStateStatus(migration, schemaState).satisfied,
+        });
         if (appliedRow) await backfillTag(client, appliedRow, migration);
       }
 
       for (const migration of migrations) {
-        if (findAppliedRow(await loadAppliedRows(client), migration)) {
-          continue;
-        }
-
         const schemaState = await loadSchemaState(client);
         const status = migrationEndStateStatus(migration, schemaState);
+        const appliedRow = findAppliedRow(await loadAppliedRows(client), migration, {
+          tolerateHashMismatch: status.satisfied,
+        });
+
+        if (appliedRow) {
+          if (
+            status.satisfied
+            && (appliedRow.hash !== migration.hash
+              || Number(appliedRow.created_at) !== migration.when
+              || appliedRow.tag !== migration.tag)
+          ) {
+            await adoptExistingMigrationRecord(client, appliedRow, migration, status.reason);
+            adopted += 1;
+          }
+          continue;
+        }
 
         if (status.satisfied) {
           await adoptMigration(client, migration, status.reason);
