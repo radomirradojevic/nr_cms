@@ -21,6 +21,7 @@ import { CmsFormSubmissionsNode } from "./form-submissions-extension";
 import { LayoutColumn, LayoutSection } from "./layout-extension";
 import { lowlight } from "./code-languages";
 import { CmsIndent } from "./indent-extension";
+import { AiSuggestionExtension } from "./ai-suggestion-extension";
 import type { ImageAlignment } from "./image-insert-dialog";
 
 export const codeBlockOptions = {
@@ -161,6 +162,7 @@ export const tiptapExtensions = [
   CmsFormSubmissionsNode,
   LayoutSection,
   LayoutColumn,
+  AiSuggestionExtension,
   TableKit.configure({
     table: {
       resizable: true,

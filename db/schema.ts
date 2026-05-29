@@ -440,6 +440,20 @@ export const globalSettings = pgTable(
     appearanceRecipe: jsonb("appearance_recipe")
       .notNull()
       .default(sql`'{}'::jsonb`),
+    // ─── AI writing assistant ─────────────────────────────────────────────
+    openaiApiKey: text("openai_api_key"),
+    aiWritingAssistantEnabled: boolean("ai_writing_assistant_enabled")
+      .notNull()
+      .default(false),
+    aiWritingAssistantModel: text("ai_writing_assistant_model")
+      .notNull()
+      .default("gpt-5.2"),
+    aiWritingAssistantMaxOutputTokens: integer(
+      "ai_writing_assistant_max_output_tokens",
+    )
+      .notNull()
+      .default(48),
+    aiWritingAssistantInstructions: text("ai_writing_assistant_instructions"),
     // ─── Session security (driven by lib/session-security.ts) ──────────────
     maxSessionDurationMinutes: integer("max_session_duration_minutes")
       .notNull()
@@ -501,6 +515,10 @@ export const globalSettings = pgTable(
     check(
       "global_settings_shadow_preset_check",
       sql`${table.shadowPreset} IN ('none','soft','medium','strong')`,
+    ),
+    check(
+      "global_settings_ai_writing_assistant_max_output_tokens_check",
+      sql`${table.aiWritingAssistantMaxOutputTokens} BETWEEN 8 AND 160`,
     ),
     // ─── Session security CHECKs — MUST mirror SessionSecuritySchema ───────
     check(

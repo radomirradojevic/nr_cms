@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+  Bot,
   Check,
   ChevronsUpDown,
   Clipboard,
   Download,
   ImageIcon,
   Info,
+  KeyRound,
   RotateCcw,
   Save,
   ShieldCheck,
@@ -43,20 +45,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { updateGlobalSettings } from "./actions";
-import type { GlobalSettingsRow } from "@/data/global-settings";
+import type { GlobalSettingsAdminFormRow } from "@/data/global-settings";
 import type { FileRow } from "@/data/files";
 import {
+  AI_WRITING_ASSISTANT_DEFAULTS,
+  AI_WRITING_ASSISTANT_MODELS,
   DEFAULT_FOOTER_SETTINGS,
   DEFAULT_HEADER_SETTINGS,
   FooterSettingsSchema,
   HeaderSettingsSchema,
   LOGO_BORDER_COLOR_MODES,
   LOGO_BORDER_SHAPES,
+  MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
   MAX_MAX_SESSION_MINUTES,
   MB,
+  MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
   MIN_IDLE_MINUTES,
   MIN_MAX_SESSION_MINUTES,
   SESSION_SECURITY_DEFAULTS,
+  type AiWritingAssistantSettings,
 } from "@/lib/global-settings";
 import {
   DEFAULT_GLOW,
@@ -237,11 +244,32 @@ function GlowFields({
 }
 
 interface SettingsFormProps {
-  settings: GlobalSettingsRow | null;
+  settings: GlobalSettingsAdminFormRow | null;
   initialLogoFile: FileRow | null;
 }
 
 const CUSTOM_WIDTH_OPTION = "__custom__";
+
+const AI_WRITING_ASSISTANT_MODEL_LABELS: Record<
+  AiWritingAssistantSettings["model"],
+  string
+> = {
+  "gpt-5.2": "GPT-5.2",
+  "gpt-5.2-pro": "GPT-5.2 pro",
+  "gpt-5.2-chat-latest": "GPT-5.2 ChatGPT",
+  "gpt-5.1": "GPT-5.1",
+  "gpt-5.1-chat-latest": "GPT-5.1 ChatGPT",
+  "gpt-5": "GPT-5",
+  "gpt-5-mini": "GPT-5 mini",
+  "gpt-5-nano": "GPT-5 nano",
+  "gpt-4.1": "GPT-4.1",
+  "gpt-4.1-mini": "GPT-4.1 mini",
+  "gpt-4.1-nano": "GPT-4.1 nano",
+  "gpt-4o": "GPT-4o",
+  "gpt-4o-mini": "GPT-4o mini",
+  o3: "o3",
+  "o4-mini": "o4-mini",
+};
 
 const HEADER_VARIANT_LABELS: Record<HeaderVariant, string> = {
   classic: "Classic",
@@ -1500,6 +1528,33 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     ),
   );
 
+  // ─── AI writing assistant ────────────────────────────────────────────────
+  const [aiWritingAssistantEnabled, setAiWritingAssistantEnabled] = useState(
+    settings?.aiWritingAssistantEnabled ?? false,
+  );
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [clearOpenaiApiKey, setClearOpenaiApiKey] = useState(false);
+  const [aiWritingAssistantModel, setAiWritingAssistantModel] = useState<
+    AiWritingAssistantSettings["model"]
+  >(
+    AI_WRITING_ASSISTANT_MODELS.includes(
+      settings?.aiWritingAssistantModel as AiWritingAssistantSettings["model"],
+    )
+      ? (settings?.aiWritingAssistantModel as AiWritingAssistantSettings["model"])
+      : AI_WRITING_ASSISTANT_DEFAULTS.model,
+  );
+  const [
+    aiWritingAssistantMaxOutputTokens,
+    setAiWritingAssistantMaxOutputTokens,
+  ] = useState(
+    String(
+      settings?.aiWritingAssistantMaxOutputTokens ??
+        AI_WRITING_ASSISTANT_DEFAULTS.maxOutputTokens,
+    ),
+  );
+  const [aiWritingAssistantInstructions, setAiWritingAssistantInstructions] =
+    useState(settings?.aiWritingAssistantInstructions ?? "");
+
   const previewAppearance = useMemo(
     () =>
       resolveAppearance({
@@ -1626,9 +1681,24 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     Number.isFinite(idleLogoutMinutesNum) &&
     idleLogoutMinutesNum >= MIN_IDLE_MINUTES &&
     idleLogoutMinutesNum <= maxSessionMinutesNum;
+  const aiWritingAssistantMaxOutputTokensNum = parseInt(
+    aiWritingAssistantMaxOutputTokens,
+    10,
+  );
+  const aiWritingAssistantSettingsValid =
+    AI_WRITING_ASSISTANT_MODELS.includes(aiWritingAssistantModel) &&
+    Number.isFinite(aiWritingAssistantMaxOutputTokensNum) &&
+    aiWritingAssistantMaxOutputTokensNum >=
+      MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS &&
+    aiWritingAssistantMaxOutputTokensNum <=
+      MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS &&
+    aiWritingAssistantInstructions.trim().length <= 2_000 &&
+    (openaiApiKey.trim().length === 0 ||
+      (openaiApiKey.trim().length >= 20 && openaiApiKey.trim().length <= 512));
   const settingsSaveDisabled =
     isPending ||
     !sessionSecurityValid ||
+    !aiWritingAssistantSettingsValid ||
     !logoBorderColorValid ||
     !backgroundColorsValid ||
     !glowColorsValid ||
@@ -2008,6 +2078,16 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       toast.error("Idle logout cannot exceed max session duration.");
       return;
     }
+    const parsedAiMaxOutputTokens = clampMinutes(
+      aiWritingAssistantMaxOutputTokens,
+      MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
+      MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
+      AI_WRITING_ASSISTANT_DEFAULTS.maxOutputTokens,
+    );
+    if (!aiWritingAssistantSettingsValid) {
+      toast.error("AI writing assistant settings are invalid.");
+      return;
+    }
     startTransition(async () => {
       const result = await updateGlobalSettings(
         {
@@ -2026,6 +2106,13 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
           maxBatchUploadSizeBytes: (parseInt(maxBatchUploadMB, 10) || 500) * MB,
           ...currentAppearanceSettings,
           appearanceRecipe: draftRecipe,
+          aiWritingAssistantEnabled,
+          openaiApiKey: openaiApiKey.trim() || undefined,
+          clearOpenaiApiKey,
+          aiWritingAssistantModel,
+          aiWritingAssistantMaxOutputTokens: parsedAiMaxOutputTokens,
+          aiWritingAssistantInstructions:
+            aiWritingAssistantInstructions.trim() || null,
           maxSessionDurationMinutes: parsedMax,
           idleLogoutMinutes: parsedIdle,
         },
@@ -2070,6 +2157,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="layout-design">Layout &amp; Design</TabsTrigger>
+          <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
         </TabsList>
 
@@ -3354,6 +3442,167 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               </Card>
             </TabsContent>
           </Tabs>
+        </TabsContent>
+
+        <TabsContent value="ai" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <CardTitle className="flex items-center gap-2">
+                    <Bot aria-hidden className="h-5 w-5" />
+                    AI Writing Assistant
+                  </CardTitle>
+                  <CardDescription>
+                    Control whether blog post editors can show the assistant
+                    toggle, and configure the OpenAI connection used behind it.
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="ai-writing-assistant-enabled">
+                    Show in blog editor
+                  </Label>
+                  <Switch
+                    id="ai-writing-assistant-enabled"
+                    checked={aiWritingAssistantEnabled}
+                    onCheckedChange={setAiWritingAssistantEnabled}
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="aiWritingAssistantModel">Model</Label>
+                  <Select
+                    value={aiWritingAssistantModel}
+                    onValueChange={(value) =>
+                      setAiWritingAssistantModel(
+                        value as AiWritingAssistantSettings["model"],
+                      )
+                    }
+                  >
+                    <SelectTrigger id="aiWritingAssistantModel">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AI_WRITING_ASSISTANT_MODELS.map((model) => (
+                        <SelectItem key={model} value={model}>
+                          {AI_WRITING_ASSISTANT_MODEL_LABELS[model]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="aiWritingAssistantMaxOutputTokens">
+                    Max suggestion tokens
+                  </Label>
+                  <Input
+                    id="aiWritingAssistantMaxOutputTokens"
+                    type="number"
+                    min={MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS}
+                    max={MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS}
+                    value={aiWritingAssistantMaxOutputTokens}
+                    onChange={(e) =>
+                      setAiWritingAssistantMaxOutputTokens(e.target.value)
+                    }
+                    aria-invalid={
+                      !Number.isFinite(aiWritingAssistantMaxOutputTokensNum) ||
+                      aiWritingAssistantMaxOutputTokensNum <
+                        MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS ||
+                      aiWritingAssistantMaxOutputTokensNum >
+                        MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS ||
+                      undefined
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="openaiApiKey">OpenAI API key</Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="openaiApiKey"
+                    type="password"
+                    value={openaiApiKey}
+                    onChange={(e) => {
+                      setOpenaiApiKey(e.target.value);
+                      if (e.target.value.trim()) setClearOpenaiApiKey(false);
+                    }}
+                    placeholder={
+                      settings?.openaiApiKeyConfigured
+                        ? "Configured - leave blank to keep current key"
+                        : "sk-..."
+                    }
+                    disabled={clearOpenaiApiKey}
+                    aria-invalid={
+                      openaiApiKey.trim().length > 0 &&
+                      (openaiApiKey.trim().length < 20 ||
+                        openaiApiKey.trim().length > 512 ||
+                        undefined)
+                    }
+                  />
+                  <Badge
+                    variant={
+                      settings?.openaiApiKeyConfigured && !clearOpenaiApiKey
+                        ? "secondary"
+                        : "outline"
+                    }
+                    className="h-10 justify-center gap-2 px-3"
+                  >
+                    <KeyRound aria-hidden className="h-4 w-4" />
+                    {settings?.openaiApiKeyConfigured && !clearOpenaiApiKey
+                      ? "Configured"
+                      : "Not configured"}
+                  </Badge>
+                </div>
+                {settings?.openaiApiKeyConfigured && (
+                  <label className="flex items-center gap-2 pt-1 text-sm">
+                    <Checkbox
+                      checked={clearOpenaiApiKey}
+                      onCheckedChange={(checked) => {
+                        setClearOpenaiApiKey(Boolean(checked));
+                        if (checked) setOpenaiApiKey("");
+                      }}
+                    />
+                    <span>Clear saved OpenAI API key on save</span>
+                  </label>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="aiWritingAssistantInstructions">
+                  Custom instructions
+                </Label>
+                <Textarea
+                  id="aiWritingAssistantInstructions"
+                  rows={5}
+                  value={aiWritingAssistantInstructions}
+                  onChange={(e) =>
+                    setAiWritingAssistantInstructions(e.target.value)
+                  }
+                  placeholder="Optional tone, language, or editorial guidance for blog post suggestions."
+                  aria-invalid={
+                    aiWritingAssistantInstructions.trim().length > 2_000 ||
+                    undefined
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  {aiWritingAssistantInstructions.trim().length}/2000 characters
+                </p>
+              </div>
+
+              {aiWritingAssistantEnabled &&
+                !settings?.openaiApiKeyConfigured &&
+                openaiApiKey.trim().length === 0 && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+                    The blog editor toggle will be visible after save, but
+                    suggestions need an OpenAI API key.
+                  </div>
+                )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6">

@@ -930,6 +930,12 @@ html[data-appearance-background-effects="disabled"] .site-footer {
   content: attr(data-placeholder);
 }
 
+.ProseMirror .tiptap-ai-suggestion {
+  color: color-mix(in oklab, var(--muted-foreground) 72%, transparent);
+  pointer-events: none;
+  white-space: pre-wrap;
+}
+
 /* =========================================================================
    Page-builder block style system
    See `.github/instructions/cms-page-builder-block-properties.instructions.md`

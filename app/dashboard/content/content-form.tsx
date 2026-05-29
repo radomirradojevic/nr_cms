@@ -72,6 +72,7 @@ type Props = {
   /** Appearance settings used by the page-builder preview. Defaults if omitted. */
   appearance?: AppearanceSettings;
   sessionSecurity: SessionSecuritySettings;
+  aiWritingAssistantAvailable?: boolean;
   initial?: {
     id: string;
     title: string;
@@ -98,6 +99,7 @@ export function ContentForm({
   currentUserRoles,
   appearance,
   sessionSecurity,
+  aiWritingAssistantAvailable = false,
   initial,
 }: Props) {
   const router = useRouter();
@@ -775,6 +777,9 @@ export function ContentForm({
             ) : (
               <BlogEditor
                 defaultValue={editorDefaultValue as never}
+                aiWritingAssistantAvailable={aiWritingAssistantAvailable}
+                title={title}
+                excerpt={excerpt}
                 registerGetValue={(getValue) => {
                   getEditorValueRef.current = getValue;
                 }}

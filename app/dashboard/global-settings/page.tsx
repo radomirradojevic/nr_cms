@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
-import { getRawGlobalSettings } from "@/data/global-settings";
+import { getAdminGlobalSettings } from "@/data/global-settings";
 import { getFileByIdUnchecked } from "@/data/files";
 import { AdminSectionLockProvider } from "@/components/admin-section-lock-provider";
 import { SettingsForm } from "./settings-form";
@@ -14,7 +14,7 @@ export default async function GlobalSettingsPage() {
     redirect("/dashboard");
   }
 
-  const settings = await getRawGlobalSettings();
+  const settings = await getAdminGlobalSettings();
   const initialLogoFile = settings?.siteLogoFileId
     ? await getFileByIdUnchecked(settings.siteLogoFileId)
     : null;

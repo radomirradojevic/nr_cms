@@ -69,6 +69,10 @@ export default async function EditContentPage({ params }: Props) {
           categories={categories.map((c) => ({ id: c.id, name: c.name }))}
           appearance={settings.appearance}
           sessionSecurity={settings.sessionSecurity}
+          aiWritingAssistantAvailable={
+            row.contentType === "blog_post" &&
+            settings.aiWritingAssistant.enabled
+          }
           initial={{
             id: row.id,
             title: row.title,
