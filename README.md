@@ -25,6 +25,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 | Variable                                                              | Description                                                                                                                                      | Required         |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
 | `DATABASE_URL`                                                        | Postgres connection string. A Neon HTTP URL (`postgresql://...neon.tech/...`) takes the optimal serverless path; any Postgres works.             | ✅               |
+| `DRIZZLE_AUTO_MIGRATE`                                                | Optional opt-out for build-time migrations. Set to `0`, `false`, or `off` only if a separate deployment step runs `npm run db:migrate`.          | optional         |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`                                   | Clerk frontend key (use a production instance for prod, a dev instance for previews).                                                            | ✅               |
 | `CLERK_SECRET_KEY`                                                    | Clerk backend key.                                                                                                                               | ✅               |
 | `CLERK_WEBHOOK_SECRET`                                                | Svix signing secret for `/api/webhooks/clerk`.                                                                                                   | ✅               |
@@ -80,19 +81,13 @@ Adding a future provider (S3, Cloudflare R2, Supabase Storage, …) is a matter 
    DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require"
    ```
 
-4. Apply migrations from your machine (do **not** run migrations during the Vercel build):
-
-   ```bash
-   npx drizzle-kit migrate
-   ```
-
-5. (Optional) seed initial data:
+4. (Optional) seed initial data after the first deployment:
 
    ```bash
    npx tsx db/seed.ts
    ```
 
-The Drizzle client at `db/index.ts` auto-selects the `@neondatabase/serverless` HTTP driver when the host matches `*.neon.tech`, otherwise it falls back to `node-postgres`.
+The Drizzle client at `db/index.ts` auto-selects the `@neondatabase/serverless` HTTP driver when the host matches `*.neon.tech`, otherwise it falls back to `node-postgres`. Migrations use the standard PostgreSQL protocol through `pg` for both Neon and non-Neon databases so they can run with an advisory lock and transaction support.
 
 ### 2. Set up Clerk
 
@@ -144,7 +139,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 1. Push the repo to GitHub.
 2. In Vercel: **Add New → Project → Import** the repository.
-3. Framework preset: **Next.js** (auto-detected). Leave Build Command (`next build`), Output, and Install Command at defaults.
+3. Framework preset: **Next.js** (auto-detected). Leave Build Command, Output, and Install Command at defaults. Vercel will run `npm run build`, which applies pending migrations before `next build`.
 4. Under **Settings → Environment Variables**, paste every variable from the table above for the **Production** environment (and optionally **Preview**). Do **not** set `UPLOADS_DIR` — it has no effect on Vercel.
 5. **Attach a Vercel Blob store** under **Settings → Storage → Blob → Create**. Vercel automatically injects `BLOB_READ_WRITE_TOKEN` into every deployment, and the storage layer auto-detects it (no need to set `STORAGE_PROVIDER`). For local development against the same store, run `vercel env pull` to materialise the token into `.env.local`.
 6. Click **Deploy**.
@@ -163,7 +158,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 - Promote `master` → Production branch in Vercel; use Preview deployments for PRs with a separate Clerk **dev** instance and a Neon **branch** database.
 - The Hobby plan has a 10-second function timeout. If form submission with attachments or other heavy routes time out, add `export const maxDuration = 60` to that route file or upgrade to Pro.
 - Vercel serverless functions cap request bodies at **4.5 MB** by default (configurable on Fluid Compute). The `proxyClientMaxBodySize: "2gb"` setting in `next.config.ts` only applies to self-hosted deploys. On Vercel, set `VERCEL_FLUID_COMPUTE=1` (or `VERCEL_BLOB_MAX_UPLOAD_BYTES=<bytes>`) once Fluid Compute is enabled — the upload routes return a clear error message when the cap is exceeded. For uploads beyond ~100 MB, switch to Vercel Blob's client-side direct upload flow (`@vercel/blob/client` `handleUpload`).
-- Run migrations from CI (a GitHub Action invoking `drizzle-kit migrate`) before promoting a deployment — **never** during `next build`.
+- Preview deployments should use a separate Neon branch or separate Postgres database if they can contain schema changes. The migration runner serializes concurrent builds with a PostgreSQL advisory lock, but it intentionally applies the committed migration chain for whatever database `DATABASE_URL` points at.
 - Rotate `IP_HASH_SALT`, `CLERK_WEBHOOK_SECRET`, `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY` periodically.
 - Add a custom domain in Vercel → **Domains**, then update Clerk's allowed origins and Turnstile's allowed hostnames.
 - The Content-Security-Policy in `next.config.ts` already allows Clerk, Turnstile, YouTube embeds, and the rsms.me font. Add any other third-party origin you embed.
@@ -176,7 +171,7 @@ The codebase runs as-is on a single VPS (Node 20+) and supports the full File Ma
 
 ```bash
 npm ci
-npx drizzle-kit migrate
+npm run db:migrate
 npm run build
 npm start
 ```
@@ -190,6 +185,20 @@ Recommended setup:
 - All other env vars (Clerk, Turnstile, email, `IP_HASH_SALT`) are the same as on Vercel.
 
 The `proxyClientMaxBodySize: "2gb"` setting in `next.config.ts` is active in this mode, so large uploads up to `MAX_FILE_SIZE` (300 MB) work end-to-end.
+
+---
+
+## Database migrations
+
+Use the project scripts rather than `drizzle-kit migrate` directly:
+
+```bash
+npm run db:generate        # create a reviewed SQL migration from db/schema.ts
+npm run db:migrate:check   # validate journal, SQL files, snapshots, and destructive SQL markers
+npm run db:migrate         # apply pending migrations with a Postgres advisory lock
+```
+
+`npm run build` runs `npm run db:migrate` first, so a fresh Vercel deployment creates or updates the database schema automatically after `DATABASE_URL` is configured. The runner preserves Drizzle's default `drizzle.__drizzle_migrations` table and adds tag metadata for safer repeat runs.
 
 ---
 
