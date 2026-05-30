@@ -43,6 +43,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
+import type { AIProviderId, AiProviderOption } from "@/lib/global-settings";
 
 type Props = {
   /**
@@ -74,6 +75,12 @@ type Props = {
    */
   appearance?: AppearanceSettings;
   settingsPanels?: PageEditorSettingsPanels;
+  aiAssistantAvailable?: boolean;
+  aiAssistantActive?: boolean;
+  onAiAssistantActiveChange?: (active: boolean) => void;
+  aiProviderOptions?: AiProviderOption[];
+  aiProviderId?: AIProviderId;
+  onAiProviderIdChange?: (providerId: AIProviderId) => void;
 };
 
 export type PageEditorSettingsTab =
@@ -95,6 +102,12 @@ export function PageEditor({
   onChange,
   appearance,
   settingsPanels,
+  aiAssistantAvailable = false,
+  aiAssistantActive = false,
+  onAiAssistantActiveChange,
+  aiProviderOptions = [],
+  aiProviderId,
+  onAiProviderIdChange,
 }: Props) {
   // Frame only reads `data` once on mount — derive a stable initial JSON.
   // Computed exactly once; subsequent prop changes are intentionally ignored.
@@ -160,6 +173,12 @@ export function PageEditor({
           onRemountWithJson={handleRemountWithJson}
           appearance={appearance}
           settingsPanels={settingsPanels}
+          aiAssistantAvailable={aiAssistantAvailable}
+          aiAssistantActive={aiAssistantActive}
+          onAiAssistantActiveChange={onAiAssistantActiveChange}
+          aiProviderOptions={aiProviderOptions}
+          aiProviderId={aiProviderId}
+          onAiProviderIdChange={onAiProviderIdChange}
         />
       </Editor>
     </div>
@@ -173,6 +192,12 @@ function Inner({
   onRemountWithJson,
   appearance,
   settingsPanels,
+  aiAssistantAvailable,
+  aiAssistantActive,
+  onAiAssistantActiveChange,
+  aiProviderOptions,
+  aiProviderId,
+  onAiProviderIdChange,
 }: {
   initialJson: string;
   onLatestNodes: (nodes: BuilderData["nodes"]) => void;
@@ -180,6 +205,12 @@ function Inner({
   onRemountWithJson: (json: string) => void;
   appearance?: AppearanceSettings;
   settingsPanels?: PageEditorSettingsPanels;
+  aiAssistantAvailable: boolean;
+  aiAssistantActive: boolean;
+  onAiAssistantActiveChange?: (active: boolean) => void;
+  aiProviderOptions: AiProviderOption[];
+  aiProviderId?: AIProviderId;
+  onAiProviderIdChange?: (providerId: AIProviderId) => void;
 }) {
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [sourceMode, setSourceMode] = useState(false);
@@ -280,6 +311,12 @@ function Inner({
         onRemountWithJson={onRemountWithJson}
         focusMode={focusMode}
         onToggleFocusMode={() => setFocusMode((v) => !v)}
+        aiAssistantAvailable={aiAssistantAvailable}
+        aiAssistantActive={aiAssistantActive}
+        onAiAssistantActiveChange={onAiAssistantActiveChange}
+        aiProviderOptions={aiProviderOptions}
+        aiProviderId={aiProviderId}
+        onAiProviderIdChange={onAiProviderIdChange}
       />
 
       {sourceMode ? (

@@ -11,6 +11,7 @@ import { getRoles, hasRole } from "@/lib/roles";
 const GenerateRequestSchema = z.object({
   providerId: AIProviderIdSchema.optional(),
   field: z.enum(["excerpt", "metaTitle", "metaDescription"]),
+  surface: z.enum(["blogEditor", "pageBuilder"]).default("blogEditor"),
   title: z.string().trim().max(200).optional(),
   excerpt: z.string().trim().max(2_000).optional(),
   content: z.string().trim().max(8_000).optional(),
@@ -55,9 +56,18 @@ export async function POST(request: Request) {
   }
 
   const settings = await getAiWritingAssistantServerSettings();
-  if (!settings.enabled) {
+  const assistantEnabled =
+    body.surface === "pageBuilder"
+      ? settings.pageBuilderEnabled
+      : settings.enabled;
+  if (!assistantEnabled) {
     return NextResponse.json(
-      { error: "AI writing assistant is disabled." },
+      {
+        error:
+          body.surface === "pageBuilder"
+            ? "AI assistant is disabled."
+            : "AI writing assistant is disabled.",
+      },
       { status: 403 },
     );
   }
@@ -111,10 +121,18 @@ export async function POST(request: Request) {
 }
 
 function getContextError(body: z.infer<typeof GenerateRequestSchema>) {
+  if (body.surface === "pageBuilder" && body.field === "excerpt") {
+    return "Page builder AI assistant can generate SEO text only.";
+  }
+
   if (!hasText(body.title)) {
     return body.field === "excerpt"
       ? "Enter a title first so AI has enough context for the excerpt."
       : "Enter a title first so AI has enough context for SEO text.";
+  }
+
+  if (body.surface === "pageBuilder") {
+    return null;
   }
 
   if (
@@ -139,7 +157,9 @@ function buildGenerationPrompt(
   const fieldLabel = getFieldLabel(body.field);
 
   return [
-    "You are an AI writing assistant inside a CMS blog post editor.",
+    body.surface === "pageBuilder"
+      ? "You are an AI assistant inside a CMS page builder."
+      : "You are an AI writing assistant inside a CMS blog post editor.",
     "Write in the same language as the title, excerpt, and content.",
     "Return only the requested field text. Do not include labels, quotes, markdown, or explanations.",
     getGenerationFieldInstruction(body.field),

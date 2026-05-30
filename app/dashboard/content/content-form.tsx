@@ -60,7 +60,12 @@ import dynamic from "next/dynamic";
 import { BlogEditor } from "./_editors/blog-editor";
 import { ImageInsertDialog } from "./_editors/image-insert-dialog";
 import { emptyTiptapJson } from "./_editors/tiptap-extensions";
-import { emptyBuilderData, type BuilderData } from "./_builder/types";
+import {
+  ROOT_NODE_ID,
+  emptyBuilderData,
+  isBuilderData,
+  type BuilderData,
+} from "./_builder/types";
 import type { PageEditorSettingsPanels } from "./_builder/page-editor";
 
 // PageEditor is heavy and uses Craft.js + CodeMirror — load client-only.
@@ -119,6 +124,7 @@ type Props = {
 };
 
 type AiGeneratedField = "excerpt" | "metaTitle" | "metaDescription";
+type AiAssistantSurface = "blogEditor" | "pageBuilder";
 
 export function ContentForm({
   mode,
@@ -170,9 +176,7 @@ export function ContentForm({
   >(initial?.status ?? "unpublished");
   const [aiProviderId, setAiProviderId] = useState<AIProviderId>(
     () =>
-      aiWritingAssistantDefaultProvider ??
-      aiProviderOptions[0]?.id ??
-      "openai",
+      aiWritingAssistantDefaultProvider ?? aiProviderOptions[0]?.id ?? "openai",
   );
   const effectiveAiProviderId = aiProviderOptions.some(
     (provider) => provider.id === aiProviderId,
@@ -232,8 +236,12 @@ export function ContentForm({
       ? getEditorValueRef.current()
       : contentJsonRef.current;
 
-    return tiptapJsonToPlainText(latestContent).slice(0, 8_000);
-  }, []);
+    return (
+      contentType === "page"
+        ? builderDataToPlainText(latestContent)
+        : tiptapJsonToPlainText(latestContent)
+    ).slice(0, 8_000);
+  }, [contentType]);
 
   function onTitleChange(v: string) {
     setTitle(v);
@@ -282,7 +290,9 @@ export function ContentForm({
       excerpt: excerpt.trim(),
       content: getCurrentContentText().trim(),
     };
-    const contextError = getAiFieldContextError(field, context);
+    const surface: AiAssistantSurface =
+      contentType === "page" ? "pageBuilder" : "blogEditor";
+    const contextError = getAiFieldContextError(field, context, surface);
     if (contextError) {
       toast.error(contextError);
       return;
@@ -303,6 +313,7 @@ export function ContentForm({
         body: JSON.stringify({
           providerId: effectiveAiProviderId,
           field,
+          surface,
           title: context.title,
           excerpt: context.excerpt,
           content: context.content,
@@ -580,7 +591,6 @@ export function ContentForm({
   );
 
   const aiFieldsEnabled =
-    contentType === "blog_post" &&
     aiWritingAssistantAvailable &&
     aiProviderOptions.length > 0 &&
     aiWritingAssistantActive;
@@ -599,6 +609,7 @@ export function ContentForm({
         contentProvider={getCurrentContentText}
         onGenerate={generateAiField}
         generating={aiGenerationField === "metaTitle"}
+        suggestionsEnabled={contentType === "blog_post"}
       />
       <AiTextAssistField
         id="meta-desc"
@@ -612,6 +623,7 @@ export function ContentForm({
         contentProvider={getCurrentContentText}
         onGenerate={generateAiField}
         generating={aiGenerationField === "metaDescription"}
+        suggestionsEnabled={contentType === "blog_post"}
         multiline
         rows={3}
       />
@@ -936,6 +948,14 @@ export function ContentForm({
                 onChange={(d: BuilderData) => {
                   contentJsonRef.current = d;
                 }}
+                aiAssistantAvailable={
+                  aiWritingAssistantAvailable && aiProviderOptions.length > 0
+                }
+                aiAssistantActive={aiWritingAssistantActive}
+                onAiAssistantActiveChange={setAiWritingAssistantActive}
+                aiProviderOptions={aiProviderOptions}
+                aiProviderId={effectiveAiProviderId}
+                onAiProviderIdChange={setAiProviderId}
               />
             ) : (
               <BlogEditor
@@ -944,9 +964,7 @@ export function ContentForm({
                   aiWritingAssistantAvailable && aiProviderOptions.length > 0
                 }
                 aiWritingAssistantActive={aiWritingAssistantActive}
-                onAiWritingAssistantActiveChange={
-                  setAiWritingAssistantActive
-                }
+                onAiWritingAssistantActiveChange={setAiWritingAssistantActive}
                 aiProviderOptions={aiProviderOptions}
                 aiProviderId={effectiveAiProviderId}
                 onAiProviderIdChange={setAiProviderId}
@@ -1038,6 +1056,7 @@ type AiTextAssistFieldProps = {
   contentProvider: () => string;
   onGenerate: (field: AiGeneratedField) => void;
   generating: boolean;
+  suggestionsEnabled?: boolean;
   multiline?: boolean;
   rows?: number;
   placeholder?: string;
@@ -1055,6 +1074,7 @@ function AiTextAssistField({
   contentProvider,
   onGenerate,
   generating,
+  suggestionsEnabled = true,
   multiline = false,
   rows,
   placeholder,
@@ -1084,7 +1104,7 @@ function AiTextAssistField({
     requestRef.current?.abort();
     requestRef.current = null;
 
-    if (!aiEnabled || !focused) return;
+    if (!aiEnabled || !suggestionsEnabled || !focused) return;
 
     const control = controlRef.current;
     if (!control || document.activeElement !== control) return;
@@ -1150,7 +1170,16 @@ function AiTextAssistField({
         }
       }
     }, 750);
-  }, [aiEnabled, contentProvider, excerpt, field, focused, title, value]);
+  }, [
+    aiEnabled,
+    contentProvider,
+    excerpt,
+    field,
+    focused,
+    suggestionsEnabled,
+    title,
+    value,
+  ]);
 
   function syncSelection(control: HTMLInputElement | HTMLTextAreaElement) {
     selectionRef.current = {
@@ -1272,7 +1301,7 @@ function AiTextAssistField({
       ) : (
         <Input {...sharedProps} ref={controlRef as Ref<HTMLInputElement>} />
       )}
-      {aiEnabled && suggestion && (
+      {aiEnabled && suggestionsEnabled && suggestion && (
         <button
           id={`${id}-ai-suggestion`}
           type="button"
@@ -1300,11 +1329,16 @@ function AiTextAssistField({
 function getAiFieldContextError(
   field: AiGeneratedField,
   context: { title: string; excerpt: string; content: string },
+  surface: AiAssistantSurface = "blogEditor",
 ) {
   if (!context.title.trim()) {
     return field === "excerpt"
       ? "Enter a title first so AI has enough context for the excerpt."
       : "Enter a title first so AI has enough context for SEO text.";
+  }
+
+  if (surface === "pageBuilder") {
+    return null;
   }
 
   if (
@@ -1318,12 +1352,70 @@ function getAiFieldContextError(
   return null;
 }
 
+function builderDataToPlainText(value: unknown) {
+  if (!isBuilderData(value)) return "";
+
+  const builderData = value;
+  const parts: string[] = [];
+  const visited = new Set<string>();
+
+  function visitNode(id: string) {
+    if (visited.has(id)) return;
+    visited.add(id);
+
+    const node = builderData.nodes[id];
+    if (!node || node.hidden) return;
+
+    collectBuilderPropsText(node.props, parts);
+
+    for (const childId of node.nodes ?? []) {
+      visitNode(childId);
+    }
+
+    for (const linkedNodeId of Object.values(node.linkedNodes ?? {})) {
+      visitNode(linkedNodeId);
+    }
+  }
+
+  visitNode(ROOT_NODE_ID);
+
+  return normalizePlainText(parts.join("\n"));
+}
+
+function collectBuilderPropsText(
+  props: Record<string, unknown>,
+  parts: string[],
+) {
+  for (const [key, propValue] of Object.entries(props)) {
+    if (
+      key === "content" ||
+      key === "title" ||
+      key === "subtitle" ||
+      key === "label"
+    ) {
+      const text =
+        typeof propValue === "string"
+          ? propValue
+          : tiptapJsonToPlainText(propValue);
+      if (text.trim()) parts.push(text);
+    }
+
+    if (key === "html" && typeof propValue === "string") {
+      const text = propValue.replace(/<[^>]*>/g, " ");
+      if (text.trim()) parts.push(text);
+    }
+  }
+}
+
 function tiptapJsonToPlainText(value: unknown) {
   const parts: string[] = [];
   collectTiptapText(value, parts);
 
-  return parts
-    .join("")
+  return normalizePlainText(parts.join(""));
+}
+
+function normalizePlainText(value: string) {
+  return value
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/[ \t]{2,}/g, " ")

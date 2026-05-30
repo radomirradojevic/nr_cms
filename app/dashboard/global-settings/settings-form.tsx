@@ -1570,16 +1570,20 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [aiWritingAssistantEnabled, setAiWritingAssistantEnabled] = useState(
     settings?.aiWritingAssistantEnabled ?? false,
   );
+  const [aiPageBuilderAssistantEnabled, setAiPageBuilderAssistantEnabled] =
+    useState(settings?.aiPageBuilderAssistantEnabled ?? false);
   const [aiProviders, setAiProviders] = useState<AiProviderFormStateById>(() =>
     buildInitialAiProviderFormState(settings?.aiProviderSettings),
   );
-  const [aiDefaultProvider, setAiDefaultProvider] = useState<AIProviderId>(() => {
-    const configured = settings?.aiDefaultProvider;
-    return configured &&
-      (AI_PROVIDER_IDS as readonly string[]).includes(configured)
-      ? (configured as AIProviderId)
-      : AI_WRITING_ASSISTANT_DEFAULTS.defaultProvider;
-  });
+  const [aiDefaultProvider, setAiDefaultProvider] = useState<AIProviderId>(
+    () => {
+      const configured = settings?.aiDefaultProvider;
+      return configured &&
+        (AI_PROVIDER_IDS as readonly string[]).includes(configured)
+        ? (configured as AIProviderId)
+        : AI_WRITING_ASSISTANT_DEFAULTS.defaultProvider;
+    },
+  );
 
   const previewAppearance = useMemo(
     () =>
@@ -1716,6 +1720,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   )
     ? aiDefaultProvider
     : (enabledAiProviderIds[0] ?? aiDefaultProvider);
+  const aiAssistantShownInEditors =
+    aiWritingAssistantEnabled || aiPageBuilderAssistantEnabled;
   const aiWritingAssistantSettingsValid =
     AI_PROVIDER_IDS.every((id) => {
       const provider = aiProviders[id];
@@ -1733,7 +1739,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
             provider.apiKey.trim().length <= 512))
       );
     }) &&
-    (!aiWritingAssistantEnabled || enabledAiProviderIds.length > 0);
+    (!aiAssistantShownInEditors || enabledAiProviderIds.length > 0);
   const settingsSaveDisabled =
     isPending ||
     !sessionSecurityValid ||
@@ -2134,8 +2140,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       toast.error("AI writing assistant settings are invalid.");
       return;
     }
-    if (aiWritingAssistantEnabled && enabledAiProviderIds.length === 0) {
-      toast.error("Enable at least one AI provider before showing the assistant.");
+    if (aiAssistantShownInEditors && enabledAiProviderIds.length === 0) {
+      toast.error(
+        "Enable at least one AI provider before showing the assistant.",
+      );
       return;
     }
     const parsedAiProviders = Object.fromEntries(
@@ -2189,6 +2197,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
           ...currentAppearanceSettings,
           appearanceRecipe: draftRecipe,
           aiWritingAssistantEnabled,
+          aiPageBuilderAssistantEnabled,
           aiDefaultProvider: effectiveAiDefaultProvider,
           aiProviders: parsedAiProviders,
           maxSessionDurationMinutes: parsedMax,
@@ -2200,29 +2209,30 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       if ("error" in result) {
         toast.error(result.error);
       } else {
-        setAiProviders((current) =>
-          Object.fromEntries(
-            AI_PROVIDER_IDS.map((id) => {
-              const saved = parsedAiProviders[id];
-              const keyIsConfigured = saved.clearApiKey
-                ? false
-                : Boolean(saved.apiKey) || current[id].apiKeyConfigured;
+        setAiProviders(
+          (current) =>
+            Object.fromEntries(
+              AI_PROVIDER_IDS.map((id) => {
+                const saved = parsedAiProviders[id];
+                const keyIsConfigured = saved.clearApiKey
+                  ? false
+                  : Boolean(saved.apiKey) || current[id].apiKeyConfigured;
 
-              return [
-                id,
-                {
-                  ...current[id],
-                  enabled: saved.enabled,
-                  apiKey: "",
-                  clearApiKey: false,
-                  model: saved.model,
-                  maxOutputTokens: String(saved.maxOutputTokens),
-                  instructions: saved.instructions ?? "",
-                  apiKeyConfigured: keyIsConfigured,
-                },
-              ];
-            }),
-          ) as AiProviderFormStateById,
+                return [
+                  id,
+                  {
+                    ...current[id],
+                    enabled: saved.enabled,
+                    apiKey: "",
+                    clearApiKey: false,
+                    model: saved.model,
+                    maxOutputTokens: String(saved.maxOutputTokens),
+                    instructions: saved.instructions ?? "",
+                    apiKeyConfigured: keyIsConfigured,
+                  },
+                ];
+              }),
+            ) as AiProviderFormStateById,
         );
         setAiDefaultProvider(effectiveAiDefaultProvider);
         toast.success("Settings saved.");
@@ -3556,25 +3566,44 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                   AI Settings
                 </CardTitle>
                 <CardDescription>
-                  Configure provider access for the blog editor assistant.
+                  Configure provider access for editor AI assistants.
                 </CardDescription>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
-                <div className="space-y-0.5">
-                  <Label htmlFor="ai-writing-assistant-enabled">
-                    Show in blog editor
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Controls the visibility of the AI Writer Assistant UI.
-                  </p>
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="ai-writing-assistant-enabled">
+                      Show in blog editor
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Controls the visibility of the AI Writing Assistant UI.
+                    </p>
+                  </div>
+                  <Switch
+                    id="ai-writing-assistant-enabled"
+                    checked={aiWritingAssistantEnabled}
+                    onCheckedChange={setAiWritingAssistantEnabled}
+                  />
                 </div>
-                <Switch
-                  id="ai-writing-assistant-enabled"
-                  checked={aiWritingAssistantEnabled}
-                  onCheckedChange={setAiWritingAssistantEnabled}
-                />
+
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="ai-page-builder-assistant-enabled">
+                      Show in page builder
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Controls the visibility of the page builder AI Assistant
+                      UI.
+                    </p>
+                  </div>
+                  <Switch
+                    id="ai-page-builder-assistant-enabled"
+                    checked={aiPageBuilderAssistantEnabled}
+                    onCheckedChange={setAiPageBuilderAssistantEnabled}
+                  />
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -3663,7 +3692,9 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                               }
                             />
                             <Badge
-                              variant={apiKeyConfigured ? "secondary" : "outline"}
+                              variant={
+                                apiKeyConfigured ? "secondary" : "outline"
+                              }
                               className="h-10 justify-center gap-2 px-3"
                             >
                               <KeyRound aria-hidden className="h-4 w-4" />
@@ -3770,9 +3801,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="ai-default-provider">
-                  Default Provider
-                </Label>
+                <Label htmlFor="ai-default-provider">Default Provider</Label>
                 <Select
                   value={effectiveAiDefaultProvider}
                   onValueChange={(value) =>
@@ -3793,14 +3822,15 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                 </Select>
               </div>
 
-              {aiWritingAssistantEnabled && enabledAiProviderIds.length === 0 && (
-                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
-                  Enable at least one provider before showing the assistant in
-                  the blog editor.
-                </div>
-              )}
+              {aiAssistantShownInEditors &&
+                enabledAiProviderIds.length === 0 && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+                    Enable at least one provider before showing the assistant in
+                    editors.
+                  </div>
+                )}
 
-              {aiWritingAssistantEnabled &&
+              {aiAssistantShownInEditors &&
                 enabledAiProviderIds.length > 0 &&
                 (() => {
                   const providerId = effectiveAiDefaultProvider;
@@ -3811,7 +3841,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
 
                   return hasKey ? null : (
                     <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
-                      The blog editor toggle will be visible after save, but
+                      The assistant toggle will be visible after save, but
                       suggestions need a {AI_PROVIDER_LABELS[providerId]} API
                       key.
                     </div>
