@@ -7,8 +7,12 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 
 const SuggestionRequestSchema = z.object({
+  field: z
+    .enum(["content", "excerpt", "metaTitle", "metaDescription"])
+    .optional(),
   title: z.string().trim().max(200).optional(),
-  excerpt: z.string().trim().max(1_000).optional(),
+  excerpt: z.string().trim().max(2_000).optional(),
+  content: z.string().trim().max(8_000).optional(),
   before: z.string().max(4_000),
   after: z.string().max(1_000).optional(),
 });
@@ -110,10 +114,12 @@ function buildSuggestionPrompt(
     "Do not explain, do not wrap the answer in quotes, and do not repeat the text before the cursor.",
     "Keep the continuation short: usually a phrase or one sentence.",
     "Include leading whitespace only when it is needed to continue naturally.",
+    getSuggestionFieldInstruction(body.field ?? "content"),
     customInstructions ? `Editorial instructions: ${customInstructions}` : "",
     "",
     `Title: ${body.title ?? ""}`,
     `Excerpt: ${body.excerpt ?? ""}`,
+    body.content ? `Content context: ${body.content}` : "",
     "",
     "Text before cursor:",
     body.before,
@@ -123,6 +129,22 @@ function buildSuggestionPrompt(
   ]
     .filter((line) => line.length > 0)
     .join("\n");
+}
+
+function getSuggestionFieldInstruction(
+  field: NonNullable<z.infer<typeof SuggestionRequestSchema>["field"]>,
+) {
+  switch (field) {
+    case "excerpt":
+      return "The active field is Excerpt. Continue a concise blog summary and avoid repeating the title.";
+    case "metaTitle":
+      return "The active field is Meta title. Keep the final title concise, SEO-friendly, and ideally under 70 characters.";
+    case "metaDescription":
+      return "The active field is Meta description. Keep the final description SEO-friendly, specific, and ideally under 170 characters.";
+    case "content":
+    default:
+      return "The active field is the main blog content.";
+  }
 }
 
 function extractOutputText(value: unknown): string {

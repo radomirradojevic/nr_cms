@@ -1,6 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ChangeEvent,
+  type FocusEvent,
+  type KeyboardEvent,
+  type Ref,
+  type SyntheticEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -14,6 +25,7 @@ import {
   Rocket,
   Save,
   Search,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +41,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { slugify } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn, slugify } from "@/lib/utils";
 import { hasRole, type Role } from "@/lib/roles";
 import {
   DEFAULT_VISIBILITY,
@@ -92,6 +110,8 @@ type Props = {
   };
 };
 
+type AiGeneratedField = "excerpt" | "metaTitle" | "metaDescription";
+
 export function ContentForm({
   mode,
   contentType,
@@ -129,6 +149,10 @@ export function ContentForm({
   const [status, setStatus] = useState<
     "published" | "unpublished" | "archived"
   >(initial?.status ?? "unpublished");
+  const [aiWritingAssistantActive, setAiWritingAssistantActive] =
+    useState(false);
+  const [aiGenerationField, setAiGenerationField] =
+    useState<AiGeneratedField | null>(null);
   const [homepage, setHomepage] = useState(initial?.homepage ?? false);
   const [enableComments, setEnableComments] = useState(
     initial?.enableComments ?? false,
@@ -173,6 +197,14 @@ export function ContentForm({
   const contentJsonRef = useRef<unknown>(editorDefaultValue);
   const getEditorValueRef = useRef<(() => unknown) | null>(null);
 
+  const getCurrentContentText = useCallback(() => {
+    const latestContent = getEditorValueRef.current
+      ? getEditorValueRef.current()
+      : contentJsonRef.current;
+
+    return tiptapJsonToPlainText(latestContent).slice(0, 8_000);
+  }, []);
+
   function onTitleChange(v: string) {
     setTitle(v);
     if (!slugTouched) setSlug(slugify(v));
@@ -205,6 +237,77 @@ export function ContentForm({
       window.removeEventListener("scroll", updateFloatingSaveVisibility);
     };
   }, []);
+
+  async function generateAiField(field: AiGeneratedField) {
+    if (!aiWritingAssistantAvailable || !aiWritingAssistantActive) return;
+
+    const context = {
+      title: title.trim(),
+      excerpt: excerpt.trim(),
+      content: getCurrentContentText().trim(),
+    };
+    const contextError = getAiFieldContextError(field, context);
+    if (contextError) {
+      toast.error(contextError);
+      return;
+    }
+
+    const currentValue =
+      field === "excerpt"
+        ? excerpt
+        : field === "metaTitle"
+          ? metaTitle
+          : metaDescription;
+
+    setAiGenerationField(field);
+    try {
+      const response = await fetch("/api/ai-writing-assistant/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          field,
+          title: context.title,
+          excerpt: context.excerpt,
+          content: context.content,
+          currentValue,
+        }),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        text?: unknown;
+        error?: unknown;
+      } | null;
+
+      if (!response.ok) {
+        toast.error(
+          typeof data?.error === "string"
+            ? data.error
+            : "AI generation failed.",
+        );
+        return;
+      }
+
+      const text = typeof data?.text === "string" ? data.text.trim() : "";
+      if (!text) {
+        toast.error("AI did not return usable text.");
+        return;
+      }
+
+      if (field === "excerpt") {
+        setExcerpt(text);
+      } else if (field === "metaTitle") {
+        setMetaTitle(text);
+      } else {
+        setMetaDescription(text);
+      }
+
+      toast.success(`${AI_FIELD_LABELS[field]} generated.`);
+    } catch {
+      toast.error("AI generation failed.");
+    } finally {
+      setAiGenerationField(null);
+    }
+  }
 
   function submitPrimary() {
     if (mode === "create") {
@@ -439,25 +542,41 @@ export function ContentForm({
     </div>
   );
 
+  const aiFieldsEnabled =
+    contentType === "blog_post" &&
+    aiWritingAssistantAvailable &&
+    aiWritingAssistantActive;
+
   const seoSettings = (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="meta-title">Meta title</Label>
-        <Input
-          id="meta-title"
-          value={metaTitle}
-          onChange={(e) => setMetaTitle(e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="meta-desc">Meta description</Label>
-        <Textarea
-          id="meta-desc"
-          value={metaDescription}
-          onChange={(e) => setMetaDescription(e.target.value)}
-          rows={3}
-        />
-      </div>
+      <AiTextAssistField
+        id="meta-title"
+        label="Meta title"
+        field="metaTitle"
+        value={metaTitle}
+        onChange={setMetaTitle}
+        aiEnabled={aiFieldsEnabled}
+        title={title}
+        excerpt={excerpt}
+        contentProvider={getCurrentContentText}
+        onGenerate={generateAiField}
+        generating={aiGenerationField === "metaTitle"}
+      />
+      <AiTextAssistField
+        id="meta-desc"
+        label="Meta description"
+        field="metaDescription"
+        value={metaDescription}
+        onChange={setMetaDescription}
+        aiEnabled={aiFieldsEnabled}
+        title={title}
+        excerpt={excerpt}
+        contentProvider={getCurrentContentText}
+        onGenerate={generateAiField}
+        generating={aiGenerationField === "metaDescription"}
+        multiline
+        rows={3}
+      />
     </div>
   );
 
@@ -713,16 +832,22 @@ export function ContentForm({
 
           {contentType === "blog_post" && (
             <>
-              <div className="space-y-2">
-                <Label htmlFor="excerpt">Excerpt</Label>
-                <Textarea
-                  id="excerpt"
-                  value={excerpt}
-                  onChange={(e) => setExcerpt(e.target.value)}
-                  rows={3}
-                  placeholder="Short summary"
-                />
-              </div>
+              <AiTextAssistField
+                id="excerpt"
+                label="Excerpt"
+                field="excerpt"
+                value={excerpt}
+                onChange={setExcerpt}
+                aiEnabled={aiFieldsEnabled}
+                title={title}
+                excerpt={excerpt}
+                contentProvider={getCurrentContentText}
+                onGenerate={generateAiField}
+                generating={aiGenerationField === "excerpt"}
+                multiline
+                rows={3}
+                placeholder="Short summary"
+              />
               <div className="space-y-2">
                 <Label htmlFor="cover">Cover image URL</Label>
                 <div className="flex gap-2">
@@ -778,6 +903,10 @@ export function ContentForm({
               <BlogEditor
                 defaultValue={editorDefaultValue as never}
                 aiWritingAssistantAvailable={aiWritingAssistantAvailable}
+                aiWritingAssistantActive={aiWritingAssistantActive}
+                onAiWritingAssistantActiveChange={
+                  setAiWritingAssistantActive
+                }
                 title={title}
                 excerpt={excerpt}
                 registerGetValue={(getValue) => {
@@ -845,6 +974,361 @@ export function ContentForm({
         )}
       </fieldset>
     </div>
+  );
+}
+
+const AI_FIELD_LABELS: Record<AiGeneratedField, string> = {
+  excerpt: "Excerpt",
+  metaTitle: "Meta title",
+  metaDescription: "Meta description",
+};
+
+type AiTextAssistFieldProps = {
+  id: string;
+  label: string;
+  field: AiGeneratedField;
+  value: string;
+  onChange: (value: string) => void;
+  aiEnabled: boolean;
+  title: string;
+  excerpt: string;
+  contentProvider: () => string;
+  onGenerate: (field: AiGeneratedField) => void;
+  generating: boolean;
+  multiline?: boolean;
+  rows?: number;
+  placeholder?: string;
+};
+
+function AiTextAssistField({
+  id,
+  label,
+  field,
+  value,
+  onChange,
+  aiEnabled,
+  title,
+  excerpt,
+  contentProvider,
+  onGenerate,
+  generating,
+  multiline = false,
+  rows,
+  placeholder,
+}: AiTextAssistFieldProps) {
+  const controlRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(
+    null,
+  );
+  const selectionRef = useRef({ start: value.length, end: value.length });
+  const requestRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [focused, setFocused] = useState(false);
+  const [suggestion, setSuggestion] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      requestRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    requestRef.current?.abort();
+    requestRef.current = null;
+
+    if (!aiEnabled || !focused) return;
+
+    const control = controlRef.current;
+    if (!control || document.activeElement !== control) return;
+
+    const start = control.selectionStart ?? value.length;
+    const end = control.selectionEnd ?? value.length;
+    selectionRef.current = { start, end };
+
+    if (start !== end) return;
+
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    if (before.trim().length < 3) return;
+
+    const content = contentProvider().trim();
+    if (getAiFieldContextError(field, { title, excerpt, content })) return;
+
+    debounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      requestRef.current = controller;
+
+      try {
+        const response = await fetch("/api/ai-writing-assistant/suggest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            field,
+            title,
+            excerpt: field === "excerpt" ? value : excerpt,
+            content,
+            before,
+            after,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok || requestId !== requestIdRef.current) return;
+
+        const data = (await response.json()) as { suggestion?: unknown };
+        const nextSuggestion =
+          typeof data.suggestion === "string" ? data.suggestion : "";
+
+        if (!nextSuggestion || requestId !== requestIdRef.current) return;
+
+        const latest = controlRef.current;
+        if (
+          !latest ||
+          document.activeElement !== latest ||
+          (latest.selectionStart ?? value.length) !== start ||
+          latest.selectionEnd !== end
+        ) {
+          return;
+        }
+
+        setSuggestion(nextSuggestion);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      } finally {
+        if (requestId === requestIdRef.current) {
+          requestRef.current = null;
+        }
+      }
+    }, 750);
+  }, [aiEnabled, contentProvider, excerpt, field, focused, title, value]);
+
+  function syncSelection(control: HTMLInputElement | HTMLTextAreaElement) {
+    selectionRef.current = {
+      start: control.selectionStart ?? value.length,
+      end: control.selectionEnd ?? value.length,
+    };
+  }
+
+  function acceptSuggestion() {
+    if (!suggestion) return;
+
+    const control = controlRef.current;
+    const start = control?.selectionStart ?? selectionRef.current.start;
+    const end = control?.selectionEnd ?? selectionRef.current.end;
+    const nextValue = value.slice(0, start) + suggestion + value.slice(end);
+    const nextPosition = start + suggestion.length;
+
+    onChange(nextValue);
+    setSuggestion("");
+
+    requestAnimationFrame(() => {
+      const latest = controlRef.current;
+      if (!latest) return;
+      latest.focus();
+      latest.setSelectionRange(nextPosition, nextPosition);
+      selectionRef.current = { start: nextPosition, end: nextPosition };
+    });
+  }
+
+  function handleChange(
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    syncSelection(event.currentTarget);
+    setSuggestion("");
+    onChange(event.currentTarget.value);
+  }
+
+  function handleFocus(
+    event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    setFocused(true);
+    syncSelection(event.currentTarget);
+  }
+
+  function handleBlur() {
+    setFocused(false);
+    setSuggestion("");
+  }
+
+  function handleSelect(
+    event: SyntheticEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    syncSelection(event.currentTarget);
+    setSuggestion("");
+  }
+
+  function handleKeyDown(
+    event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    if (event.key === "Tab" && suggestion) {
+      event.preventDefault();
+      acceptSuggestion();
+      return;
+    }
+
+    if (event.key === "Escape" && suggestion) {
+      event.preventDefault();
+      setSuggestion("");
+    }
+  }
+
+  const sharedProps = {
+    id,
+    value,
+    onChange: handleChange,
+    onFocus: handleFocus,
+    onBlur: handleBlur,
+    onSelect: handleSelect,
+    onKeyDown: handleKeyDown,
+    placeholder,
+    "aria-describedby": suggestion ? `${id}-ai-suggestion` : undefined,
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex min-h-6 items-center gap-1.5">
+        <Label htmlFor={id}>{label}</Label>
+        {aiEnabled && (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 text-primary hover:text-primary"
+                  disabled={generating}
+                  aria-label={`Generate ${label} with AI`}
+                  onClick={() => onGenerate(field)}
+                >
+                  {generating ? (
+                    <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles aria-hidden className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Generate {label} with AI</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+      {multiline ? (
+        <Textarea
+          {...sharedProps}
+          ref={controlRef as Ref<HTMLTextAreaElement>}
+          rows={rows}
+        />
+      ) : (
+        <Input {...sharedProps} ref={controlRef as Ref<HTMLInputElement>} />
+      )}
+      {aiEnabled && suggestion && (
+        <button
+          id={`${id}-ai-suggestion`}
+          type="button"
+          aria-label={`Accept AI suggestion: ${suggestion}`}
+          className={cn(
+            "flex max-w-full items-start gap-1.5 text-left text-xs",
+            "text-muted-foreground transition hover:text-foreground",
+          )}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={acceptSuggestion}
+        >
+          <Sparkles
+            aria-hidden
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
+          />
+          <span className="min-w-0">
+            <span className="break-words">{suggestion}</span>
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function getAiFieldContextError(
+  field: AiGeneratedField,
+  context: { title: string; excerpt: string; content: string },
+) {
+  if (!context.title.trim()) {
+    return field === "excerpt"
+      ? "Enter a title first so AI has enough context for the excerpt."
+      : "Enter a title first so AI has enough context for SEO text.";
+  }
+
+  if (
+    field !== "excerpt" &&
+    !context.excerpt.trim() &&
+    !context.content.trim()
+  ) {
+    return "Enter an excerpt or content first so AI has enough context for SEO text.";
+  }
+
+  return null;
+}
+
+function tiptapJsonToPlainText(value: unknown) {
+  const parts: string[] = [];
+  collectTiptapText(value, parts);
+
+  return parts
+    .join("")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function collectTiptapText(value: unknown, parts: string[]) {
+  if (typeof value !== "object" || value === null) return;
+
+  const node = value as {
+    type?: unknown;
+    text?: unknown;
+    content?: unknown;
+  };
+
+  const type = typeof node.type === "string" ? node.type : "";
+  const isBlock = isTiptapBlockNode(type);
+
+  if (isBlock && parts.length > 0 && parts.at(-1) !== "\n") {
+    parts.push("\n");
+  }
+
+  if (typeof node.text === "string") {
+    parts.push(node.text);
+  }
+
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) {
+      collectTiptapText(child, parts);
+    }
+  }
+
+  if (isBlock && parts.at(-1) !== "\n") {
+    parts.push("\n");
+  }
+}
+
+function isTiptapBlockNode(type: string) {
+  return (
+    type === "paragraph" ||
+    type === "heading" ||
+    type === "blockquote" ||
+    type === "listItem" ||
+    type === "codeBlock" ||
+    type === "tableRow" ||
+    type === "tableCell" ||
+    type === "tableHeader"
   );
 }
 

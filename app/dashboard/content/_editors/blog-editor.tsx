@@ -115,6 +115,8 @@ type Props = {
   onChange?: (value: JSONContent) => void;
   /** Global Settings controls whether this editor-level toggle is visible. */
   aiWritingAssistantAvailable?: boolean;
+  aiWritingAssistantActive?: boolean;
+  onAiWritingAssistantActiveChange?: (active: boolean) => void;
   title?: string;
   excerpt?: string;
 };
@@ -202,6 +204,8 @@ export function BlogEditor({
   registerGetValue,
   onChange,
   aiWritingAssistantAvailable = false,
+  aiWritingAssistantActive: controlledAiWritingAssistantActive,
+  onAiWritingAssistantActiveChange,
   title = "",
   excerpt = "",
 }: Props) {
@@ -247,8 +251,10 @@ export function BlogEditor({
   const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
-  const [aiWritingAssistantActive, setAiWritingAssistantActive] =
+  const [localAiWritingAssistantActive, setLocalAiWritingAssistantActive] =
     useState(false);
+  const aiWritingAssistantActive =
+    controlledAiWritingAssistantActive ?? localAiWritingAssistantActive;
   const [aiSuggestionStatus, setAiSuggestionStatus] = useState<
     "idle" | "loading" | "error"
   >("idle");
@@ -589,6 +595,11 @@ export function BlogEditor({
       editor!.commands.setContent(sanitizeTiptapHtml(htmlSource));
     }
     setHtmlMode((prev) => !prev);
+  }
+
+  function updateAiWritingAssistantActive(active: boolean) {
+    setLocalAiWritingAssistantActive(active);
+    onAiWritingAssistantActiveChange?.(active);
   }
 
   function openVideoDialog() {
@@ -954,7 +965,7 @@ export function BlogEditor({
               id="blog-ai-writing-assistant"
               checked={aiWritingAssistantActive}
               onCheckedChange={(checked) => {
-                setAiWritingAssistantActive(checked);
+                updateAiWritingAssistantActive(checked);
                 if (!checked) {
                   clearAiSuggestion(editor);
                   setAiSuggestionStatus("idle");
