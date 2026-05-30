@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getContentById } from "@/data/content";
 import { getCategoriesByType } from "@/data/content-categories";
 import { getGlobalSettings } from "@/data/global-settings";
+import { getEnabledAiProviderOptions } from "@/lib/global-settings";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { ContentForm } from "../../content-form";
@@ -72,6 +73,14 @@ export default async function EditContentPage({ params }: Props) {
           aiWritingAssistantAvailable={
             row.contentType === "blog_post" &&
             settings.aiWritingAssistant.enabled
+          }
+          aiWritingAssistantProviders={
+            row.contentType === "blog_post"
+              ? getEnabledAiProviderOptions(settings.aiWritingAssistant)
+              : []
+          }
+          aiWritingAssistantDefaultProvider={
+            settings.aiWritingAssistant.defaultProvider
           }
           initial={{
             id: row.id,

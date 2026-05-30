@@ -98,6 +98,11 @@ import {
 } from "./code-languages";
 import { sanitizeTiptapHtml } from "./sanitize-tiptap-html";
 import { clearAiSuggestion, setAiSuggestion } from "./ai-suggestion-extension";
+import {
+  AI_PROVIDER_LABELS,
+  type AIProviderId,
+  type AiProviderOption,
+} from "@/lib/global-settings";
 
 type Props = {
   /**
@@ -115,6 +120,11 @@ type Props = {
   onChange?: (value: JSONContent) => void;
   /** Global Settings controls whether this editor-level toggle is visible. */
   aiWritingAssistantAvailable?: boolean;
+  aiWritingAssistantActive?: boolean;
+  onAiWritingAssistantActiveChange?: (active: boolean) => void;
+  aiProviderOptions?: AiProviderOption[];
+  aiProviderId?: AIProviderId;
+  onAiProviderIdChange?: (providerId: AIProviderId) => void;
   title?: string;
   excerpt?: string;
 };
@@ -202,6 +212,11 @@ export function BlogEditor({
   registerGetValue,
   onChange,
   aiWritingAssistantAvailable = false,
+  aiWritingAssistantActive: controlledAiWritingAssistantActive,
+  onAiWritingAssistantActiveChange,
+  aiProviderOptions = [],
+  aiProviderId: controlledAiProviderId,
+  onAiProviderIdChange,
   title = "",
   excerpt = "",
 }: Props) {
@@ -247,8 +262,22 @@ export function BlogEditor({
   const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
-  const [aiWritingAssistantActive, setAiWritingAssistantActive] =
+  const [localAiWritingAssistantActive, setLocalAiWritingAssistantActive] =
     useState(false);
+  const [localAiProviderId, setLocalAiProviderId] = useState<AIProviderId>(
+    () => aiProviderOptions[0]?.id ?? "openai",
+  );
+  const aiWritingAssistantActive =
+    controlledAiWritingAssistantActive ?? localAiWritingAssistantActive;
+  const aiProviderId = controlledAiProviderId ?? localAiProviderId;
+  const effectiveAiProviderId = aiProviderOptions.some(
+    (provider) => provider.id === aiProviderId,
+  )
+    ? aiProviderId
+    : (aiProviderOptions[0]?.id ?? aiProviderId);
+  const selectedAiProviderLabel =
+    aiProviderOptions.find((provider) => provider.id === effectiveAiProviderId)
+      ?.label ?? AI_PROVIDER_LABELS[effectiveAiProviderId];
   const [aiSuggestionStatus, setAiSuggestionStatus] = useState<
     "idle" | "loading" | "error"
   >("idle");
@@ -332,7 +361,10 @@ export function BlogEditor({
           const response = await fetch("/api/ai-writing-assistant/suggest", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(request.body),
+            body: JSON.stringify({
+              ...request.body,
+              providerId: effectiveAiProviderId,
+            }),
             signal: controller.signal,
           });
 
@@ -387,6 +419,7 @@ export function BlogEditor({
   }, [
     aiWritingAssistantActive,
     aiWritingAssistantAvailable,
+    effectiveAiProviderId,
     editor,
     excerpt,
     htmlMode,
@@ -589,6 +622,16 @@ export function BlogEditor({
       editor!.commands.setContent(sanitizeTiptapHtml(htmlSource));
     }
     setHtmlMode((prev) => !prev);
+  }
+
+  function updateAiWritingAssistantActive(active: boolean) {
+    setLocalAiWritingAssistantActive(active);
+    onAiWritingAssistantActiveChange?.(active);
+  }
+
+  function updateAiProviderId(nextProviderId: AIProviderId) {
+    setLocalAiProviderId(nextProviderId);
+    onAiProviderIdChange?.(nextProviderId);
   }
 
   function openVideoDialog() {
@@ -954,7 +997,7 @@ export function BlogEditor({
               id="blog-ai-writing-assistant"
               checked={aiWritingAssistantActive}
               onCheckedChange={(checked) => {
-                setAiWritingAssistantActive(checked);
+                updateAiWritingAssistantActive(checked);
                 if (!checked) {
                   clearAiSuggestion(editor);
                   setAiSuggestionStatus("idle");
@@ -962,6 +1005,37 @@ export function BlogEditor({
               }}
               className="scale-90"
             />
+            {aiProviderOptions.length > 0 && (
+              <div className="flex min-w-0 items-center gap-1 border-l pl-2">
+                <span className="text-muted-foreground">Provider:</span>
+                {aiProviderOptions.length > 1 ? (
+                  <Select
+                    value={effectiveAiProviderId}
+                    onValueChange={(value) =>
+                      updateAiProviderId(value as AIProviderId)
+                    }
+                  >
+                    <SelectTrigger
+                      aria-label="AI provider"
+                      className="h-7 w-28 rounded-md px-2 text-xs"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {aiProviderOptions.map((provider) => (
+                        <SelectItem key={provider.id} value={provider.id}>
+                          {provider.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="truncate font-medium">
+                    {selectedAiProviderLabel}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
         <TooltipProvider delayDuration={500}>
