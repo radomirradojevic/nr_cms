@@ -58,34 +58,96 @@ export const SESSION_SECURITY_DEFAULTS = {
 export const MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS = 8;
 export const MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS = 160;
 
-export const AI_WRITING_ASSISTANT_MODELS = [
-  "gpt-5.2",
-  "gpt-5.2-pro",
-  "gpt-5.2-chat-latest",
-  "gpt-5.1",
-  "gpt-5.1-chat-latest",
-  "gpt-5",
-  "gpt-5-mini",
-  "gpt-5-nano",
-  "gpt-4.1",
-  "gpt-4.1-mini",
-  "gpt-4.1-nano",
-  "gpt-4o",
-  "gpt-4o-mini",
-  "o3",
-  "o4-mini",
+export const AI_PROVIDER_IDS = [
+  "openai",
+  "anthropic",
+  "google",
+  "mistral",
+  "xai",
 ] as const;
 
-export const AI_WRITING_ASSISTANT_DEFAULTS = {
-  enabled: false,
-  model: "gpt-5.2",
-  maxOutputTokens: 48,
-  instructions: null,
-} as const;
+export type AIProviderId = (typeof AI_PROVIDER_IDS)[number];
 
-export const AiWritingAssistantSettingsSchema = z.object({
+export const AIProviderIdSchema = z.enum(AI_PROVIDER_IDS);
+
+export const AI_PROVIDER_LABELS: Record<AIProviderId, string> = {
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  google: "Google",
+  mistral: "Mistral",
+  xai: "xAI",
+};
+
+export type AIProviderModelOption = {
+  id: string;
+  label: string;
+};
+
+export const AI_PROVIDER_MODEL_OPTIONS = {
+  openai: [
+    { id: "gpt-4.1-nano", label: "GPT-4.1 nano" },
+    { id: "gpt-4o-mini", label: "GPT-4o mini" },
+    { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+    { id: "gpt-5-nano", label: "GPT-5 nano" },
+    { id: "o4-mini", label: "o4-mini" },
+    { id: "gpt-5-mini", label: "GPT-5 mini" },
+    { id: "gpt-5.4-nano", label: "GPT-5.4 nano" },
+    { id: "gpt-5.4-mini", label: "GPT-5.4 mini" },
+    { id: "gpt-4o", label: "GPT-4o" },
+    { id: "gpt-4.1", label: "GPT-4.1" },
+    { id: "gpt-5", label: "GPT-5" },
+    { id: "gpt-5.4", label: "GPT-5.4" },
+    { id: "gpt-5.5", label: "GPT-5.5" },
+  ],
+  anthropic: [
+    { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+    { id: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5" },
+    { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+    { id: "claude-opus-4-1-20250805", label: "Claude Opus 4.1" },
+    { id: "claude-opus-4-5-20251101", label: "Claude Opus 4.5" },
+    { id: "claude-opus-4-6", label: "Claude Opus 4.6" },
+    { id: "claude-opus-4-7", label: "Claude Opus 4.7" },
+    { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  ],
+  google: [
+    { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite" },
+    { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash-Lite" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { id: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview" },
+    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview" },
+  ],
+  mistral: [
+    { id: "ministral-3b-2512", label: "Ministral 3 3B" },
+    { id: "ministral-8b-2512", label: "Ministral 3 8B" },
+    { id: "open-mistral-nemo-2407", label: "Mistral Nemo 12B (legacy)" },
+    { id: "ministral-14b-2512", label: "Ministral 3 14B" },
+    { id: "mistral-small-2603", label: "Mistral Small 4" },
+    { id: "mistral-small-latest", label: "Mistral Small latest" },
+    { id: "mistral-medium-2505", label: "Mistral Medium 3" },
+    { id: "mistral-large-2512", label: "Mistral Large 3" },
+    { id: "mistral-medium-2508", label: "Mistral Medium 3.1 (legacy)" },
+    { id: "mistral-medium-3-5", label: "Mistral Medium 3.5" },
+  ],
+  xai: [
+    { id: "grok-3-mini-fast", label: "Grok 3 mini fast (alias)" },
+    { id: "grok-3-mini", label: "Grok 3 mini (alias)" },
+    { id: "grok-4.3", label: "Grok 4.3" },
+  ],
+} as const satisfies Record<AIProviderId, readonly AIProviderModelOption[]>;
+
+export const AI_PROVIDER_DEFAULT_MODELS: Record<AIProviderId, string> = {
+  openai: "gpt-5.5",
+  anthropic: "claude-sonnet-4-6",
+  google: "gemini-3.5-flash",
+  mistral: "mistral-medium-3-5",
+  xai: "grok-4.3",
+};
+
+export const AiProviderSettingsSchema = z.object({
   enabled: z.boolean(),
-  model: z.enum(AI_WRITING_ASSISTANT_MODELS),
+  model: z.string().trim().min(1).max(120),
   maxOutputTokens: z
     .number()
     .int()
@@ -94,9 +156,301 @@ export const AiWritingAssistantSettingsSchema = z.object({
   instructions: z.string().trim().max(2_000).nullable(),
 });
 
+export const AiProviderSettingsByIdSchema = z.object({
+  openai: AiProviderSettingsSchema,
+  anthropic: AiProviderSettingsSchema,
+  google: AiProviderSettingsSchema,
+  mistral: AiProviderSettingsSchema,
+  xai: AiProviderSettingsSchema,
+});
+
+export const AiWritingAssistantSettingsSchema = z
+  .object({
+    enabled: z.boolean(),
+    defaultProvider: AIProviderIdSchema,
+    providers: AiProviderSettingsByIdSchema,
+  })
+  .refine((v) => !v.enabled || v.providers[v.defaultProvider].enabled, {
+    path: ["defaultProvider"],
+    message: "Default provider must be enabled.",
+  });
+
+export type AiProviderSettings = z.infer<typeof AiProviderSettingsSchema>;
+export type AiProviderSettingsById = z.infer<
+  typeof AiProviderSettingsByIdSchema
+>;
+export type AiProviderServerSettings = AiProviderSettings & {
+  apiKey: string | null;
+};
+export type AiProviderServerSettingsById = Record<
+  AIProviderId,
+  AiProviderServerSettings
+>;
+export type AiProviderAdminSettings = AiProviderSettings & {
+  apiKeyConfigured: boolean;
+};
+export type AiProviderAdminSettingsById = Record<
+  AIProviderId,
+  AiProviderAdminSettings
+>;
+export type AiProviderOption = {
+  id: AIProviderId;
+  label: string;
+};
+
 export type AiWritingAssistantSettings = z.infer<
   typeof AiWritingAssistantSettingsSchema
 >;
+
+export type AiWritingAssistantServerSettings = Omit<
+  AiWritingAssistantSettings,
+  "providers"
+> & {
+  providers: AiProviderServerSettingsById;
+};
+
+export const AI_WRITING_ASSISTANT_DEFAULTS: AiWritingAssistantSettings = {
+  enabled: false,
+  defaultProvider: "openai",
+  providers: createDefaultAiProviderSettingsById(),
+};
+
+export function createDefaultAiProviderSettings(
+  id: AIProviderId,
+): AiProviderSettings {
+  return {
+    enabled: false,
+    model: AI_PROVIDER_DEFAULT_MODELS[id],
+    maxOutputTokens: 48,
+    instructions: null,
+  };
+}
+
+export function createDefaultAiProviderSettingsById(): AiProviderSettingsById {
+  return Object.fromEntries(
+    AI_PROVIDER_IDS.map((id) => [id, createDefaultAiProviderSettings(id)]),
+  ) as AiProviderSettingsById;
+}
+
+export function createDefaultAiProviderServerSettingsById(): AiProviderServerSettingsById {
+  return Object.fromEntries(
+    AI_PROVIDER_IDS.map((id) => [
+      id,
+      { ...createDefaultAiProviderSettings(id), apiKey: null },
+    ]),
+  ) as AiProviderServerSettingsById;
+}
+
+export function getEnabledAiProviderOptions(
+  settings: AiWritingAssistantSettings,
+): AiProviderOption[] {
+  return AI_PROVIDER_IDS.filter((id) => settings.providers[id].enabled).map(
+    (id) => ({
+      id,
+      label: AI_PROVIDER_LABELS[id],
+    }),
+  );
+}
+
+export function toAiProviderAdminSettingsById(
+  providers: AiProviderServerSettingsById,
+): AiProviderAdminSettingsById {
+  return Object.fromEntries(
+    AI_PROVIDER_IDS.map((id) => {
+      const { apiKey, ...provider } = providers[id];
+      return [id, { ...provider, apiKeyConfigured: Boolean(apiKey) }];
+    }),
+  ) as AiProviderAdminSettingsById;
+}
+
+export function toAiProviderPublicSettingsById(
+  providers: AiProviderServerSettingsById,
+): AiProviderSettingsById {
+  return Object.fromEntries(
+    AI_PROVIDER_IDS.map((id) => {
+      const provider = providers[id];
+      return [
+        id,
+        {
+          enabled: provider.enabled,
+          model: provider.model,
+          maxOutputTokens: provider.maxOutputTokens,
+          instructions: provider.instructions,
+        },
+      ];
+    }),
+  ) as AiProviderSettingsById;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOwn(value: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function normalizeProviderModel(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim().slice(0, 120)
+    : fallback;
+}
+
+function normalizeAiProviderInstructions(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed.slice(0, 2_000) : null;
+}
+
+function normalizeAiProviderTokenLimit(
+  value: unknown,
+  fallback: number,
+): number {
+  const raw = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(raw)) return fallback;
+
+  return Math.max(
+    MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
+    Math.min(MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS, Math.floor(raw)),
+  );
+}
+
+function normalizeOptionalApiKey(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function normalizeAiProviderId(
+  value: unknown,
+  fallback: AIProviderId = "openai",
+): AIProviderId {
+  return typeof value === "string" &&
+    (AI_PROVIDER_IDS as readonly string[]).includes(value)
+    ? (value as AIProviderId)
+    : fallback;
+}
+
+type LegacyOpenAISettingsInput = {
+  enabled?: unknown;
+  model?: unknown;
+  maxOutputTokens?: unknown;
+  instructions?: unknown;
+  openaiApiKey?: unknown;
+};
+
+export function parseAiProviderServerSettingsById(
+  value: unknown,
+  legacyOpenAI: LegacyOpenAISettingsInput = {},
+): AiProviderServerSettingsById {
+  const rawProviders = isRecord(value) ? value : {};
+
+  return Object.fromEntries(
+    AI_PROVIDER_IDS.map((id) => {
+      const defaults = createDefaultAiProviderSettings(id);
+      const raw = isRecord(rawProviders[id]) ? rawProviders[id] : {};
+      const legacy = id === "openai" ? legacyOpenAI : {};
+      const legacyApiKey = normalizeOptionalApiKey(legacy.openaiApiKey);
+      const apiKey = hasOwn(raw, "apiKey")
+        ? normalizeOptionalApiKey(raw.apiKey)
+        : legacyApiKey;
+      const enabled =
+        typeof raw.enabled === "boolean"
+          ? raw.enabled
+          : id === "openai" && typeof legacy.enabled === "boolean"
+            ? legacy.enabled || Boolean(apiKey)
+            : defaults.enabled;
+
+      return [
+        id,
+        {
+          enabled,
+          apiKey,
+          model: normalizeProviderModel(
+            raw.model,
+            id === "openai" && typeof legacy.model === "string"
+              ? legacy.model
+              : defaults.model,
+          ),
+          maxOutputTokens: normalizeAiProviderTokenLimit(
+            raw.maxOutputTokens,
+            id === "openai" && legacy.maxOutputTokens !== undefined
+              ? normalizeAiProviderTokenLimit(
+                  legacy.maxOutputTokens,
+                  defaults.maxOutputTokens,
+                )
+              : defaults.maxOutputTokens,
+          ),
+          instructions: hasOwn(raw, "instructions")
+            ? normalizeAiProviderInstructions(raw.instructions)
+            : id === "openai"
+              ? normalizeAiProviderInstructions(legacy.instructions)
+              : defaults.instructions,
+        },
+      ];
+    }),
+  ) as AiProviderServerSettingsById;
+}
+
+export function parseAiWritingAssistantSettings(value: {
+  enabled?: unknown;
+  defaultProvider?: unknown;
+  providerSettings?: unknown;
+  model?: unknown;
+  maxOutputTokens?: unknown;
+  instructions?: unknown;
+  openaiApiKey?: unknown;
+}): AiWritingAssistantSettings {
+  const providers = toAiProviderPublicSettingsById(
+    parseAiProviderServerSettingsById(value.providerSettings, {
+      enabled: value.enabled,
+      model: value.model,
+      maxOutputTokens: value.maxOutputTokens,
+      instructions: value.instructions,
+      openaiApiKey: value.openaiApiKey,
+    }),
+  );
+  const requestedDefault = normalizeAiProviderId(value.defaultProvider);
+  const fallbackDefault =
+    AI_PROVIDER_IDS.find((id) => providers[id].enabled) ?? requestedDefault;
+
+  return {
+    enabled: typeof value.enabled === "boolean" ? value.enabled : false,
+    defaultProvider: providers[requestedDefault].enabled
+      ? requestedDefault
+      : fallbackDefault,
+    providers,
+  };
+}
+
+export function parseAiWritingAssistantServerSettings(value: {
+  enabled?: unknown;
+  defaultProvider?: unknown;
+  providerSettings?: unknown;
+  model?: unknown;
+  maxOutputTokens?: unknown;
+  instructions?: unknown;
+  openaiApiKey?: unknown;
+}): AiWritingAssistantServerSettings {
+  const providers = parseAiProviderServerSettingsById(value.providerSettings, {
+    enabled: value.enabled,
+    model: value.model,
+    maxOutputTokens: value.maxOutputTokens,
+    instructions: value.instructions,
+    openaiApiKey: value.openaiApiKey,
+  });
+  const requestedDefault = normalizeAiProviderId(value.defaultProvider);
+  const fallbackDefault =
+    AI_PROVIDER_IDS.find((id) => providers[id].enabled) ?? requestedDefault;
+
+  return {
+    enabled: typeof value.enabled === "boolean" ? value.enabled : false,
+    defaultProvider: providers[requestedDefault].enabled
+      ? requestedDefault
+      : fallbackDefault,
+    providers,
+  };
+}
 
 export const SessionSecuritySchema = z
   .object({
@@ -209,6 +563,19 @@ const PublicSiteUrlSchema = z
   )
   .nullable();
 
+const AiProviderUpdateSettingsSchema = AiProviderSettingsSchema.extend({
+  apiKey: z.string().trim().min(20).max(512).optional(),
+  clearApiKey: z.boolean().optional(),
+});
+
+const AiProviderUpdateSettingsByIdSchema = z.object({
+  openai: AiProviderUpdateSettingsSchema,
+  anthropic: AiProviderUpdateSettingsSchema,
+  google: AiProviderUpdateSettingsSchema,
+  mistral: AiProviderUpdateSettingsSchema,
+  xai: AiProviderUpdateSettingsSchema,
+});
+
 export const UpdateGlobalSettingsSchema = z
   .object({
     siteName: z.string().trim().min(1).max(120),
@@ -240,13 +607,8 @@ export const UpdateGlobalSettingsSchema = z
     shadowPreset: z.enum(SHADOW_PRESETS),
     appearanceRecipe: AppearanceRecipeV2Schema.optional(),
     aiWritingAssistantEnabled: z.boolean(),
-    openaiApiKey: z.string().trim().min(20).max(512).optional(),
-    clearOpenaiApiKey: z.boolean().optional(),
-    aiWritingAssistantModel: AiWritingAssistantSettingsSchema.shape.model,
-    aiWritingAssistantMaxOutputTokens:
-      AiWritingAssistantSettingsSchema.shape.maxOutputTokens,
-    aiWritingAssistantInstructions:
-      AiWritingAssistantSettingsSchema.shape.instructions,
+    aiDefaultProvider: AIProviderIdSchema,
+    aiProviders: AiProviderUpdateSettingsByIdSchema,
     maxSessionDurationMinutes: z
       .number()
       .int()
@@ -262,7 +624,26 @@ export const UpdateGlobalSettingsSchema = z
   .refine((v) => v.idleLogoutMinutes <= v.maxSessionDurationMinutes, {
     message: "Idle logout cannot exceed max session duration.",
     path: ["idleLogoutMinutes"],
-  });
+  })
+  .refine(
+    (v) =>
+      !v.aiWritingAssistantEnabled ||
+      AI_PROVIDER_IDS.some((id) => v.aiProviders[id].enabled),
+    {
+      message:
+        "Enable at least one AI provider before showing the assistant in the blog editor.",
+      path: ["aiProviders"],
+    }
+  )
+  .refine(
+    (v) =>
+      !v.aiWritingAssistantEnabled ||
+      v.aiProviders[v.aiDefaultProvider].enabled,
+    {
+      message: "Default provider must be enabled.",
+      path: ["aiDefaultProvider"],
+    }
+  );
 
 export type UpdateGlobalSettingsInput = z.infer<
   typeof UpdateGlobalSettingsSchema

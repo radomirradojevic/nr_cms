@@ -3,17 +3,22 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getAiWritingAssistantServerSettings } from "@/data/global-settings";
+import { createAIProvider } from "@/lib/ai-provider-registry";
+import { AI_PROVIDER_LABELS, AIProviderIdSchema } from "@/lib/global-settings";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 
 const SuggestionRequestSchema = z.object({
+  providerId: AIProviderIdSchema.optional(),
+  field: z
+    .enum(["content", "excerpt", "metaTitle", "metaDescription"])
+    .optional(),
   title: z.string().trim().max(200).optional(),
-  excerpt: z.string().trim().max(1_000).optional(),
+  excerpt: z.string().trim().max(2_000).optional(),
+  content: z.string().trim().max(8_000).optional(),
   before: z.string().max(4_000),
   after: z.string().max(1_000).optional(),
 });
-
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -53,50 +58,43 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
-  if (!settings.openaiApiKey) {
+
+  const body = parsed.data;
+  const providerId = body.providerId ?? settings.defaultProvider;
+  const providerSettings = settings.providers[providerId];
+  if (!providerSettings.enabled) {
     return NextResponse.json(
-      { error: "OpenAI API key is not configured." },
+      { error: `${AI_PROVIDER_LABELS[providerId]} is not enabled.` },
+      { status: 403 },
+    );
+  }
+  if (!providerSettings.apiKey) {
+    return NextResponse.json(
+      { error: `${AI_PROVIDER_LABELS[providerId]} API key is not configured.` },
       { status: 400 },
     );
   }
 
-  const body = parsed.data;
-  const prompt = buildSuggestionPrompt(body, settings.instructions);
+  const prompt = buildSuggestionPrompt(body, providerSettings.instructions);
+  const provider = createAIProvider(providerId, {
+    apiKey: providerSettings.apiKey,
+    model: providerSettings.model,
+    maxOutputTokens: providerSettings.maxOutputTokens,
+    timeoutMs: 12_000,
+  });
 
-  let response: Response;
+  let output: string;
   try {
-    response = await fetch(OPENAI_RESPONSES_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${settings.openaiApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        input: prompt,
-        max_output_tokens: settings.maxOutputTokens,
-        store: false,
-      }),
-      signal: AbortSignal.timeout(12_000),
-    });
+    output = await provider.generateCompletion(prompt, "");
   } catch (err) {
-    console.error("[ai-writing-assistant] OpenAI request failed:", err);
+    console.error("[ai-writing-assistant] provider request failed:", err);
     return NextResponse.json(
       { error: "AI suggestion service is unavailable." },
       { status: 502 },
     );
   }
 
-  const data = (await response.json().catch(() => null)) as unknown;
-  if (!response.ok) {
-    console.error("[ai-writing-assistant] OpenAI error:", data);
-    return NextResponse.json(
-      { error: "AI suggestion request failed." },
-      { status: 502 },
-    );
-  }
-
-  const suggestion = normalizeSuggestion(extractOutputText(data), body.before);
+  const suggestion = normalizeSuggestion(output, body.before);
   return NextResponse.json({ suggestion });
 }
 
@@ -110,10 +108,12 @@ function buildSuggestionPrompt(
     "Do not explain, do not wrap the answer in quotes, and do not repeat the text before the cursor.",
     "Keep the continuation short: usually a phrase or one sentence.",
     "Include leading whitespace only when it is needed to continue naturally.",
+    getSuggestionFieldInstruction(body.field ?? "content"),
     customInstructions ? `Editorial instructions: ${customInstructions}` : "",
     "",
     `Title: ${body.title ?? ""}`,
     `Excerpt: ${body.excerpt ?? ""}`,
+    body.content ? `Content context: ${body.content}` : "",
     "",
     "Text before cursor:",
     body.before,
@@ -125,31 +125,20 @@ function buildSuggestionPrompt(
     .join("\n");
 }
 
-function extractOutputText(value: unknown): string {
-  if (typeof value !== "object" || value === null) return "";
-  if (
-    "output_text" in value &&
-    typeof (value as { output_text?: unknown }).output_text === "string"
-  ) {
-    return (value as { output_text: string }).output_text;
+function getSuggestionFieldInstruction(
+  field: NonNullable<z.infer<typeof SuggestionRequestSchema>["field"]>,
+) {
+  switch (field) {
+    case "excerpt":
+      return "The active field is Excerpt. Continue a concise blog summary and avoid repeating the title.";
+    case "metaTitle":
+      return "The active field is Meta title. Keep the final title concise, SEO-friendly, and ideally under 70 characters.";
+    case "metaDescription":
+      return "The active field is Meta description. Keep the final description SEO-friendly, specific, and ideally under 170 characters.";
+    case "content":
+    default:
+      return "The active field is the main blog content.";
   }
-
-  const output = (value as { output?: unknown }).output;
-  if (!Array.isArray(output)) return "";
-
-  const parts: string[] = [];
-  for (const item of output) {
-    if (typeof item !== "object" || item === null) continue;
-    const content = (item as { content?: unknown }).content;
-    if (!Array.isArray(content)) continue;
-    for (const contentPart of content) {
-      if (typeof contentPart !== "object" || contentPart === null) continue;
-      const text = (contentPart as { text?: unknown }).text;
-      if (typeof text === "string") parts.push(text);
-    }
-  }
-
-  return parts.join("");
 }
 
 function normalizeSuggestion(value: string, before: string): string {

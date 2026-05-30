@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCategoriesByType } from "@/data/content-categories";
 import { getGlobalSettings } from "@/data/global-settings";
+import { getEnabledAiProviderOptions } from "@/lib/global-settings";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { ContentForm } from "../../content-form";
@@ -29,6 +30,12 @@ export default async function NewBlogPostPage() {
         appearance={settings.appearance}
         sessionSecurity={settings.sessionSecurity}
         aiWritingAssistantAvailable={settings.aiWritingAssistant.enabled}
+        aiWritingAssistantProviders={getEnabledAiProviderOptions(
+          settings.aiWritingAssistant,
+        )}
+        aiWritingAssistantDefaultProvider={
+          settings.aiWritingAssistant.defaultProvider
+        }
       />
     </div>
   );
