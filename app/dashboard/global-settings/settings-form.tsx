@@ -48,8 +48,11 @@ import { updateGlobalSettings } from "./actions";
 import type { GlobalSettingsAdminFormRow } from "@/data/global-settings";
 import type { FileRow } from "@/data/files";
 import {
+  AI_PROVIDER_DEFAULT_MODELS,
+  AI_PROVIDER_IDS,
+  AI_PROVIDER_LABELS,
+  AI_PROVIDER_MODEL_OPTIONS,
   AI_WRITING_ASSISTANT_DEFAULTS,
-  AI_WRITING_ASSISTANT_MODELS,
   DEFAULT_FOOTER_SETTINGS,
   DEFAULT_HEADER_SETTINGS,
   FooterSettingsSchema,
@@ -63,7 +66,8 @@ import {
   MIN_IDLE_MINUTES,
   MIN_MAX_SESSION_MINUTES,
   SESSION_SECURITY_DEFAULTS,
-  type AiWritingAssistantSettings,
+  type AIProviderId,
+  type AiProviderAdminSettingsById,
 } from "@/lib/global-settings";
 import {
   DEFAULT_GLOW,
@@ -250,26 +254,60 @@ interface SettingsFormProps {
 
 const CUSTOM_WIDTH_OPTION = "__custom__";
 
-const AI_WRITING_ASSISTANT_MODEL_LABELS: Record<
-  AiWritingAssistantSettings["model"],
-  string
-> = {
-  "gpt-5.2": "GPT-5.2",
-  "gpt-5.2-pro": "GPT-5.2 pro",
-  "gpt-5.2-chat-latest": "GPT-5.2 ChatGPT",
-  "gpt-5.1": "GPT-5.1",
-  "gpt-5.1-chat-latest": "GPT-5.1 ChatGPT",
-  "gpt-5": "GPT-5",
-  "gpt-5-mini": "GPT-5 mini",
-  "gpt-5-nano": "GPT-5 nano",
-  "gpt-4.1": "GPT-4.1",
-  "gpt-4.1-mini": "GPT-4.1 mini",
-  "gpt-4.1-nano": "GPT-4.1 nano",
-  "gpt-4o": "GPT-4o",
-  "gpt-4o-mini": "GPT-4o mini",
-  o3: "o3",
-  "o4-mini": "o4-mini",
+type AiProviderFormState = {
+  enabled: boolean;
+  apiKey: string;
+  clearApiKey: boolean;
+  model: string;
+  maxOutputTokens: string;
+  instructions: string;
+  apiKeyConfigured: boolean;
 };
+
+type AiProviderFormStateById = Record<AIProviderId, AiProviderFormState>;
+
+function buildInitialAiProviderFormState(
+  providers: AiProviderAdminSettingsById | null | undefined,
+): AiProviderFormStateById {
+  return Object.fromEntries(
+    AI_PROVIDER_IDS.map((id) => {
+      const provider = providers?.[id];
+
+      return [
+        id,
+        {
+          enabled: provider?.enabled ?? false,
+          apiKey: "",
+          clearApiKey: false,
+          model: provider?.model ?? AI_PROVIDER_DEFAULT_MODELS[id],
+          maxOutputTokens: String(provider?.maxOutputTokens ?? 48),
+          instructions: provider?.instructions ?? "",
+          apiKeyConfigured: provider?.apiKeyConfigured ?? false,
+        },
+      ];
+    }),
+  ) as AiProviderFormStateById;
+}
+
+function getAiProviderModelOptions(
+  providerId: AIProviderId,
+  selectedModel: string,
+) {
+  const options = AI_PROVIDER_MODEL_OPTIONS[providerId];
+  const normalizedModel = selectedModel.trim();
+
+  if (
+    normalizedModel.length === 0 ||
+    options.some((option) => option.id === normalizedModel)
+  ) {
+    return options;
+  }
+
+  return [
+    { id: normalizedModel, label: `${normalizedModel} (saved value)` },
+    ...options,
+  ];
+}
 
 const HEADER_VARIANT_LABELS: Record<HeaderVariant, string> = {
   classic: "Classic",
@@ -1532,28 +1570,16 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [aiWritingAssistantEnabled, setAiWritingAssistantEnabled] = useState(
     settings?.aiWritingAssistantEnabled ?? false,
   );
-  const [openaiApiKey, setOpenaiApiKey] = useState("");
-  const [clearOpenaiApiKey, setClearOpenaiApiKey] = useState(false);
-  const [aiWritingAssistantModel, setAiWritingAssistantModel] = useState<
-    AiWritingAssistantSettings["model"]
-  >(
-    AI_WRITING_ASSISTANT_MODELS.includes(
-      settings?.aiWritingAssistantModel as AiWritingAssistantSettings["model"],
-    )
-      ? (settings?.aiWritingAssistantModel as AiWritingAssistantSettings["model"])
-      : AI_WRITING_ASSISTANT_DEFAULTS.model,
+  const [aiProviders, setAiProviders] = useState<AiProviderFormStateById>(() =>
+    buildInitialAiProviderFormState(settings?.aiProviderSettings),
   );
-  const [
-    aiWritingAssistantMaxOutputTokens,
-    setAiWritingAssistantMaxOutputTokens,
-  ] = useState(
-    String(
-      settings?.aiWritingAssistantMaxOutputTokens ??
-        AI_WRITING_ASSISTANT_DEFAULTS.maxOutputTokens,
-    ),
-  );
-  const [aiWritingAssistantInstructions, setAiWritingAssistantInstructions] =
-    useState(settings?.aiWritingAssistantInstructions ?? "");
+  const [aiDefaultProvider, setAiDefaultProvider] = useState<AIProviderId>(() => {
+    const configured = settings?.aiDefaultProvider;
+    return configured &&
+      (AI_PROVIDER_IDS as readonly string[]).includes(configured)
+      ? (configured as AIProviderId)
+      : AI_WRITING_ASSISTANT_DEFAULTS.defaultProvider;
+  });
 
   const previewAppearance = useMemo(
     () =>
@@ -1681,20 +1707,33 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     Number.isFinite(idleLogoutMinutesNum) &&
     idleLogoutMinutesNum >= MIN_IDLE_MINUTES &&
     idleLogoutMinutesNum <= maxSessionMinutesNum;
-  const aiWritingAssistantMaxOutputTokensNum = parseInt(
-    aiWritingAssistantMaxOutputTokens,
-    10,
+  const enabledAiProviderIds = useMemo(
+    () => AI_PROVIDER_IDS.filter((id) => aiProviders[id].enabled),
+    [aiProviders],
   );
+  const effectiveAiDefaultProvider = enabledAiProviderIds.includes(
+    aiDefaultProvider,
+  )
+    ? aiDefaultProvider
+    : (enabledAiProviderIds[0] ?? aiDefaultProvider);
   const aiWritingAssistantSettingsValid =
-    AI_WRITING_ASSISTANT_MODELS.includes(aiWritingAssistantModel) &&
-    Number.isFinite(aiWritingAssistantMaxOutputTokensNum) &&
-    aiWritingAssistantMaxOutputTokensNum >=
-      MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS &&
-    aiWritingAssistantMaxOutputTokensNum <=
-      MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS &&
-    aiWritingAssistantInstructions.trim().length <= 2_000 &&
-    (openaiApiKey.trim().length === 0 ||
-      (openaiApiKey.trim().length >= 20 && openaiApiKey.trim().length <= 512));
+    AI_PROVIDER_IDS.every((id) => {
+      const provider = aiProviders[id];
+      const maxOutputTokens = parseInt(provider.maxOutputTokens, 10);
+
+      return (
+        provider.model.trim().length > 0 &&
+        provider.model.trim().length <= 120 &&
+        Number.isFinite(maxOutputTokens) &&
+        maxOutputTokens >= MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS &&
+        maxOutputTokens <= MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS &&
+        provider.instructions.trim().length <= 2_000 &&
+        (provider.apiKey.trim().length === 0 ||
+          (provider.apiKey.trim().length >= 20 &&
+            provider.apiKey.trim().length <= 512))
+      );
+    }) &&
+    (!aiWritingAssistantEnabled || enabledAiProviderIds.length > 0);
   const settingsSaveDisabled =
     isPending ||
     !sessionSecurityValid ||
@@ -2044,6 +2083,19 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     toast.success("Appearance recipe imported as a draft.");
   }
 
+  function updateAiProvider(
+    id: AIProviderId,
+    patch: Partial<AiProviderFormState>,
+  ) {
+    setAiProviders((current) => ({
+      ...current,
+      [id]: {
+        ...current[id],
+        ...patch,
+      },
+    }));
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSave) {
@@ -2078,16 +2130,46 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       toast.error("Idle logout cannot exceed max session duration.");
       return;
     }
-    const parsedAiMaxOutputTokens = clampMinutes(
-      aiWritingAssistantMaxOutputTokens,
-      MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
-      MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
-      AI_WRITING_ASSISTANT_DEFAULTS.maxOutputTokens,
-    );
     if (!aiWritingAssistantSettingsValid) {
       toast.error("AI writing assistant settings are invalid.");
       return;
     }
+    if (aiWritingAssistantEnabled && enabledAiProviderIds.length === 0) {
+      toast.error("Enable at least one AI provider before showing the assistant.");
+      return;
+    }
+    const parsedAiProviders = Object.fromEntries(
+      AI_PROVIDER_IDS.map((id) => {
+        const provider = aiProviders[id];
+
+        return [
+          id,
+          {
+            enabled: provider.enabled,
+            apiKey: provider.apiKey.trim() || undefined,
+            clearApiKey: provider.clearApiKey,
+            model: provider.model.trim() || AI_PROVIDER_DEFAULT_MODELS[id],
+            maxOutputTokens: clampMinutes(
+              provider.maxOutputTokens,
+              MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
+              MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
+              48,
+            ),
+            instructions: provider.instructions.trim() || null,
+          },
+        ];
+      }),
+    ) as Record<
+      AIProviderId,
+      {
+        enabled: boolean;
+        apiKey?: string;
+        clearApiKey: boolean;
+        model: string;
+        maxOutputTokens: number;
+        instructions: string | null;
+      }
+    >;
     startTransition(async () => {
       const result = await updateGlobalSettings(
         {
@@ -2107,12 +2189,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
           ...currentAppearanceSettings,
           appearanceRecipe: draftRecipe,
           aiWritingAssistantEnabled,
-          openaiApiKey: openaiApiKey.trim() || undefined,
-          clearOpenaiApiKey,
-          aiWritingAssistantModel,
-          aiWritingAssistantMaxOutputTokens: parsedAiMaxOutputTokens,
-          aiWritingAssistantInstructions:
-            aiWritingAssistantInstructions.trim() || null,
+          aiDefaultProvider: effectiveAiDefaultProvider,
+          aiProviders: parsedAiProviders,
           maxSessionDurationMinutes: parsedMax,
           idleLogoutMinutes: parsedIdle,
         },
@@ -2122,6 +2200,31 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       if ("error" in result) {
         toast.error(result.error);
       } else {
+        setAiProviders((current) =>
+          Object.fromEntries(
+            AI_PROVIDER_IDS.map((id) => {
+              const saved = parsedAiProviders[id];
+              const keyIsConfigured = saved.clearApiKey
+                ? false
+                : Boolean(saved.apiKey) || current[id].apiKeyConfigured;
+
+              return [
+                id,
+                {
+                  ...current[id],
+                  enabled: saved.enabled,
+                  apiKey: "",
+                  clearApiKey: false,
+                  model: saved.model,
+                  maxOutputTokens: String(saved.maxOutputTokens),
+                  instructions: saved.instructions ?? "",
+                  apiKeyConfigured: keyIsConfigured,
+                },
+              ];
+            }),
+          ) as AiProviderFormStateById,
+        );
+        setAiDefaultProvider(effectiveAiDefaultProvider);
         toast.success("Settings saved.");
       }
     });
@@ -3447,160 +3550,273 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         <TabsContent value="ai" className="space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <CardTitle className="flex items-center gap-2">
-                    <Bot aria-hidden className="h-5 w-5" />
-                    AI Writing Assistant
-                  </CardTitle>
-                  <CardDescription>
-                    Control whether blog post editors can show the assistant
-                    toggle, and configure the OpenAI connection used behind it.
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-3">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2">
+                  <Bot aria-hidden className="h-5 w-5" />
+                  AI Settings
+                </CardTitle>
+                <CardDescription>
+                  Configure provider access for the blog editor assistant.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                <div className="space-y-0.5">
                   <Label htmlFor="ai-writing-assistant-enabled">
                     Show in blog editor
                   </Label>
-                  <Switch
-                    id="ai-writing-assistant-enabled"
-                    checked={aiWritingAssistantEnabled}
-                    onCheckedChange={setAiWritingAssistantEnabled}
-                  />
+                  <p className="text-xs text-muted-foreground">
+                    Controls the visibility of the AI Writer Assistant UI.
+                  </p>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="aiWritingAssistantModel">Model</Label>
-                  <Select
-                    value={aiWritingAssistantModel}
-                    onValueChange={(value) =>
-                      setAiWritingAssistantModel(
-                        value as AiWritingAssistantSettings["model"],
-                      )
-                    }
-                  >
-                    <SelectTrigger id="aiWritingAssistantModel">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AI_WRITING_ASSISTANT_MODELS.map((model) => (
-                        <SelectItem key={model} value={model}>
-                          {AI_WRITING_ASSISTANT_MODEL_LABELS[model]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="aiWritingAssistantMaxOutputTokens">
-                    Max suggestion tokens
-                  </Label>
-                  <Input
-                    id="aiWritingAssistantMaxOutputTokens"
-                    type="number"
-                    min={MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS}
-                    max={MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS}
-                    value={aiWritingAssistantMaxOutputTokens}
-                    onChange={(e) =>
-                      setAiWritingAssistantMaxOutputTokens(e.target.value)
-                    }
-                    aria-invalid={
-                      !Number.isFinite(aiWritingAssistantMaxOutputTokensNum) ||
-                      aiWritingAssistantMaxOutputTokensNum <
-                        MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS ||
-                      aiWritingAssistantMaxOutputTokensNum >
-                        MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS ||
-                      undefined
-                    }
-                  />
-                </div>
+                <Switch
+                  id="ai-writing-assistant-enabled"
+                  checked={aiWritingAssistantEnabled}
+                  onCheckedChange={setAiWritingAssistantEnabled}
+                />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="openaiApiKey">OpenAI API key</Label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    id="openaiApiKey"
-                    type="password"
-                    value={openaiApiKey}
-                    onChange={(e) => {
-                      setOpenaiApiKey(e.target.value);
-                      if (e.target.value.trim()) setClearOpenaiApiKey(false);
-                    }}
-                    placeholder={
-                      settings?.openaiApiKeyConfigured
-                        ? "Configured - leave blank to keep current key"
-                        : "sk-..."
-                    }
-                    disabled={clearOpenaiApiKey}
-                    aria-invalid={
-                      openaiApiKey.trim().length > 0 &&
-                      (openaiApiKey.trim().length < 20 ||
-                        openaiApiKey.trim().length > 512 ||
-                        undefined)
-                    }
-                  />
-                  <Badge
-                    variant={
-                      settings?.openaiApiKeyConfigured && !clearOpenaiApiKey
-                        ? "secondary"
-                        : "outline"
-                    }
-                    className="h-10 justify-center gap-2 px-3"
-                  >
-                    <KeyRound aria-hidden className="h-4 w-4" />
-                    {settings?.openaiApiKeyConfigured && !clearOpenaiApiKey
-                      ? "Configured"
-                      : "Not configured"}
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label>Providers</Label>
+                  <Badge variant="outline">
+                    {enabledAiProviderIds.length} enabled
                   </Badge>
                 </div>
-                {settings?.openaiApiKeyConfigured && (
-                  <label className="flex items-center gap-2 pt-1 text-sm">
-                    <Checkbox
-                      checked={clearOpenaiApiKey}
-                      onCheckedChange={(checked) => {
-                        setClearOpenaiApiKey(Boolean(checked));
-                        if (checked) setOpenaiApiKey("");
-                      }}
-                    />
-                    <span>Clear saved OpenAI API key on save</span>
-                  </label>
-                )}
+
+                <Tabs defaultValue="openai" className="space-y-4">
+                  <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+                    {AI_PROVIDER_IDS.map((providerId) => (
+                      <TabsTrigger key={providerId} value={providerId}>
+                        {AI_PROVIDER_LABELS[providerId]}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+
+                  {AI_PROVIDER_IDS.map((providerId) => {
+                    const provider = aiProviders[providerId];
+                    const providerLabel = AI_PROVIDER_LABELS[providerId];
+                    const maxOutputTokensNum = parseInt(
+                      provider.maxOutputTokens,
+                      10,
+                    );
+                    const modelOptions = getAiProviderModelOptions(
+                      providerId,
+                      provider.model,
+                    );
+                    const apiKeyConfigured =
+                      provider.apiKeyConfigured && !provider.clearApiKey;
+
+                    return (
+                      <TabsContent
+                        key={providerId}
+                        value={providerId}
+                        className="space-y-5 rounded-md border p-4"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <Label htmlFor={`${providerId}-enabled`}>
+                              Enabled
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Authors can use {providerLabel} when enabled.
+                            </p>
+                          </div>
+                          <Switch
+                            id={`${providerId}-enabled`}
+                            checked={provider.enabled}
+                            onCheckedChange={(enabled) =>
+                              updateAiProvider(providerId, { enabled })
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`${providerId}-api-key`}>
+                            API key
+                          </Label>
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <Input
+                              id={`${providerId}-api-key`}
+                              type="password"
+                              value={provider.apiKey}
+                              onChange={(e) => {
+                                updateAiProvider(providerId, {
+                                  apiKey: e.target.value,
+                                  clearApiKey: e.target.value.trim()
+                                    ? false
+                                    : provider.clearApiKey,
+                                });
+                              }}
+                              placeholder={
+                                apiKeyConfigured
+                                  ? "Configured - leave blank to keep current key"
+                                  : "Paste API key"
+                              }
+                              disabled={provider.clearApiKey}
+                              aria-invalid={
+                                provider.apiKey.trim().length > 0 &&
+                                (provider.apiKey.trim().length < 20 ||
+                                  provider.apiKey.trim().length > 512 ||
+                                  undefined)
+                              }
+                            />
+                            <Badge
+                              variant={apiKeyConfigured ? "secondary" : "outline"}
+                              className="h-10 justify-center gap-2 px-3"
+                            >
+                              <KeyRound aria-hidden className="h-4 w-4" />
+                              {apiKeyConfigured
+                                ? "Configured"
+                                : "Not configured"}
+                            </Badge>
+                          </div>
+                          {provider.apiKeyConfigured && (
+                            <label className="flex items-center gap-2 pt-1 text-sm">
+                              <Checkbox
+                                checked={provider.clearApiKey}
+                                onCheckedChange={(checked) =>
+                                  updateAiProvider(providerId, {
+                                    clearApiKey: Boolean(checked),
+                                    apiKey: checked ? "" : provider.apiKey,
+                                  })
+                                }
+                              />
+                              <span>
+                                Clear saved {providerLabel} API key on save
+                              </span>
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`${providerId}-model`}>Model</Label>
+                          <Select
+                            value={provider.model}
+                            onValueChange={(model) =>
+                              updateAiProvider(providerId, { model })
+                            }
+                          >
+                            <SelectTrigger id={`${providerId}-model`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {modelOptions.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  {model.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`${providerId}-max-tokens`}>
+                              Max suggestion tokens
+                            </Label>
+                            <Input
+                              id={`${providerId}-max-tokens`}
+                              type="number"
+                              min={MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS}
+                              max={MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS}
+                              value={provider.maxOutputTokens}
+                              onChange={(e) =>
+                                updateAiProvider(providerId, {
+                                  maxOutputTokens: e.target.value,
+                                })
+                              }
+                              aria-invalid={
+                                !Number.isFinite(maxOutputTokensNum) ||
+                                maxOutputTokensNum <
+                                  MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS ||
+                                maxOutputTokensNum >
+                                  MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS ||
+                                undefined
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`${providerId}-instructions`}>
+                            Custom instructions
+                          </Label>
+                          <Textarea
+                            id={`${providerId}-instructions`}
+                            rows={5}
+                            value={provider.instructions}
+                            onChange={(e) =>
+                              updateAiProvider(providerId, {
+                                instructions: e.target.value,
+                              })
+                            }
+                            placeholder="Optional tone, language, or editorial guidance for blog post suggestions."
+                            aria-invalid={
+                              provider.instructions.trim().length > 2_000 ||
+                              undefined
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {provider.instructions.trim().length}/2000
+                            characters
+                          </p>
+                        </div>
+                      </TabsContent>
+                    );
+                  })}
+                </Tabs>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="aiWritingAssistantInstructions">
-                  Custom instructions
+                <Label htmlFor="ai-default-provider">
+                  Default Provider
                 </Label>
-                <Textarea
-                  id="aiWritingAssistantInstructions"
-                  rows={5}
-                  value={aiWritingAssistantInstructions}
-                  onChange={(e) =>
-                    setAiWritingAssistantInstructions(e.target.value)
+                <Select
+                  value={effectiveAiDefaultProvider}
+                  onValueChange={(value) =>
+                    setAiDefaultProvider(value as AIProviderId)
                   }
-                  placeholder="Optional tone, language, or editorial guidance for blog post suggestions."
-                  aria-invalid={
-                    aiWritingAssistantInstructions.trim().length > 2_000 ||
-                    undefined
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  {aiWritingAssistantInstructions.trim().length}/2000 characters
-                </p>
+                  disabled={enabledAiProviderIds.length === 0}
+                >
+                  <SelectTrigger id="ai-default-provider">
+                    <SelectValue placeholder="Enable a provider first" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {enabledAiProviderIds.map((providerId) => (
+                      <SelectItem key={providerId} value={providerId}>
+                        {AI_PROVIDER_LABELS[providerId]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
+              {aiWritingAssistantEnabled && enabledAiProviderIds.length === 0 && (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+                  Enable at least one provider before showing the assistant in
+                  the blog editor.
+                </div>
+              )}
+
               {aiWritingAssistantEnabled &&
-                !settings?.openaiApiKeyConfigured &&
-                openaiApiKey.trim().length === 0 && (
-                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
-                    The blog editor toggle will be visible after save, but
-                    suggestions need an OpenAI API key.
-                  </div>
-                )}
+                enabledAiProviderIds.length > 0 &&
+                (() => {
+                  const providerId = effectiveAiDefaultProvider;
+                  const provider = aiProviders[providerId];
+                  const hasKey =
+                    provider.apiKey.trim().length > 0 ||
+                    (provider.apiKeyConfigured && !provider.clearApiKey);
+
+                  return hasKey ? null : (
+                    <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+                      The blog editor toggle will be visible after save, but
+                      suggestions need a {AI_PROVIDER_LABELS[providerId]} API
+                      key.
+                    </div>
+                  );
+                })()}
             </CardContent>
           </Card>
         </TabsContent>

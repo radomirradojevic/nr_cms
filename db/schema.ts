@@ -445,9 +445,13 @@ export const globalSettings = pgTable(
     aiWritingAssistantEnabled: boolean("ai_writing_assistant_enabled")
       .notNull()
       .default(false),
+    aiDefaultProvider: text("ai_default_provider").notNull().default("openai"),
+    aiProviderSettings: jsonb("ai_provider_settings")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     aiWritingAssistantModel: text("ai_writing_assistant_model")
       .notNull()
-      .default("gpt-5.2"),
+      .default("gpt-5.5"),
     aiWritingAssistantMaxOutputTokens: integer(
       "ai_writing_assistant_max_output_tokens",
     )
@@ -515,6 +519,10 @@ export const globalSettings = pgTable(
     check(
       "global_settings_shadow_preset_check",
       sql`${table.shadowPreset} IN ('none','soft','medium','strong')`,
+    ),
+    check(
+      "global_settings_ai_default_provider_check",
+      sql`${table.aiDefaultProvider} IN ('openai','anthropic','google','mistral','xai')`,
     ),
     check(
       "global_settings_ai_writing_assistant_max_output_tokens_check",

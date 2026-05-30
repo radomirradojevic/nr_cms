@@ -4,17 +4,23 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { files, globalSettings } from "@/db/schema";
 import {
+  AI_PROVIDER_IDS,
   AI_WRITING_ASSISTANT_DEFAULTS,
   DEFAULT_FOOTER_SETTINGS,
   DEFAULT_HEADER_SETTINGS,
   DEFAULT_RESOLVED_GLOBAL_SETTINGS,
-  AiWritingAssistantSettingsSchema,
   FooterSettingsSchema,
   GLOBAL_SETTINGS_TAG,
   HeaderSettingsSchema,
   SESSION_SECURITY_DEFAULTS,
+  parseAiProviderServerSettingsById,
+  parseAiWritingAssistantServerSettings,
+  parseAiWritingAssistantSettings,
   parseGlobalSettingsAppearance,
-  type AiWritingAssistantSettings,
+  toAiProviderAdminSettingsById,
+  type AiProviderAdminSettingsById,
+  type AiProviderServerSettingsById,
+  type AiWritingAssistantServerSettings,
   type FooterSettings,
   type HeaderSettings,
   type ResolvedGlobalSettings,
@@ -32,13 +38,10 @@ import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 export type GlobalSettingsRow = typeof globalSettings.$inferSelect;
 export type GlobalSettingsAdminFormRow = Omit<
   GlobalSettingsRow,
-  "openaiApiKey"
+  "openaiApiKey" | "aiProviderSettings"
 > & {
   openaiApiKeyConfigured: boolean;
-};
-
-export type AiWritingAssistantServerSettings = AiWritingAssistantSettings & {
-  openaiApiKey: string | null;
+  aiProviderSettings: AiProviderAdminSettingsById;
 };
 
 const SINGLETON_ID = 1;
@@ -51,11 +54,6 @@ function parseHeader(value: unknown): HeaderSettings {
 function parseFooter(value: unknown): FooterSettings {
   const parsed = FooterSettingsSchema.safeParse(value);
   return parsed.success ? parsed.data : DEFAULT_FOOTER_SETTINGS;
-}
-
-function parseAiWritingAssistant(value: unknown): AiWritingAssistantSettings {
-  const parsed = AiWritingAssistantSettingsSchema.safeParse(value);
-  return parsed.success ? parsed.data : AI_WRITING_ASSISTANT_DEFAULTS;
 }
 
 function toAppearanceRecipeLegacyInput(
@@ -136,8 +134,12 @@ function isMissingAiWritingAssistantColumns(err: unknown): boolean {
   return (
     causeCode === "42703" &&
     (message.includes("ai_writing_assistant") ||
+      message.includes("ai_default_provider") ||
+      message.includes("ai_provider_settings") ||
       message.includes("openai_api_key") ||
       causeMessage.includes("ai_writing_assistant") ||
+      causeMessage.includes("ai_default_provider") ||
+      causeMessage.includes("ai_provider_settings") ||
       causeMessage.includes("openai_api_key"))
   );
 }
@@ -178,6 +180,8 @@ async function loadGlobalSettingsRows(
       ...(includeAiWritingAssistant
         ? {
             aiWritingAssistantEnabled: globalSettings.aiWritingAssistantEnabled,
+            aiDefaultProvider: globalSettings.aiDefaultProvider,
+            aiProviderSettings: globalSettings.aiProviderSettings,
             aiWritingAssistantModel: globalSettings.aiWritingAssistantModel,
             aiWritingAssistantMaxOutputTokens:
               globalSettings.aiWritingAssistantMaxOutputTokens,
@@ -280,11 +284,15 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
       stickyHeaderHeight: row.stickyHeaderHeight,
       stickyFooterHeight: row.stickyFooterHeight,
     }),
-    aiWritingAssistant: parseAiWritingAssistant({
+    aiWritingAssistant: parseAiWritingAssistantSettings({
       enabled:
         "aiWritingAssistantEnabled" in row
           ? row.aiWritingAssistantEnabled
           : undefined,
+      defaultProvider:
+        "aiDefaultProvider" in row ? row.aiDefaultProvider : undefined,
+      providerSettings:
+        "aiProviderSettings" in row ? row.aiProviderSettings : undefined,
       model:
         "aiWritingAssistantModel" in row
           ? row.aiWritingAssistantModel
@@ -339,27 +347,99 @@ export const getGlobalSettings = unstable_cache(
       return normalizeResolvedGlobalSettings(DEFAULT_RESOLVED_GLOBAL_SETTINGS);
     }
   },
-  ["global-settings:resolved:v5"],
+  ["global-settings:resolved:v6"],
   { tags: [GLOBAL_SETTINGS_TAG] },
 );
 
-export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> {
-  const rows = await db
-    .select()
+async function loadRawGlobalSettingsRows(includeAiProviderSettings: boolean) {
+  return db
+    .select({
+      id: globalSettings.id,
+      siteName: globalSettings.siteName,
+      publicSiteUrl: globalSettings.publicSiteUrl,
+      defaultLanguage: globalSettings.defaultLanguage,
+      timezone: globalSettings.timezone,
+      siteLogoFileId: globalSettings.siteLogoFileId,
+      headerContent: globalSettings.headerContent,
+      headerSettings: globalSettings.headerSettings,
+      footerContent: globalSettings.footerContent,
+      footerSettings: globalSettings.footerSettings,
+      stickyHeaderHeight: globalSettings.stickyHeaderHeight,
+      stickyFooterHeight: globalSettings.stickyFooterHeight,
+      maxUploadSizeBytes: globalSettings.maxUploadSizeBytes,
+      maxBatchUploadSizeBytes: globalSettings.maxBatchUploadSizeBytes,
+      theme: globalSettings.theme,
+      frontendContentWidth: globalSettings.frontendContentWidth,
+      backendContentWidth: globalSettings.backendContentWidth,
+      fontPreset: globalSettings.fontPreset,
+      radiusPreset: globalSettings.radiusPreset,
+      shadowPreset: globalSettings.shadowPreset,
+      appearanceRecipe: globalSettings.appearanceRecipe,
+      openaiApiKey: globalSettings.openaiApiKey,
+      aiWritingAssistantEnabled: globalSettings.aiWritingAssistantEnabled,
+      ...(includeAiProviderSettings
+        ? {
+            aiDefaultProvider: globalSettings.aiDefaultProvider,
+            aiProviderSettings: globalSettings.aiProviderSettings,
+          }
+        : {}),
+      aiWritingAssistantModel: globalSettings.aiWritingAssistantModel,
+      aiWritingAssistantMaxOutputTokens:
+        globalSettings.aiWritingAssistantMaxOutputTokens,
+      aiWritingAssistantInstructions:
+        globalSettings.aiWritingAssistantInstructions,
+      maxSessionDurationMinutes: globalSettings.maxSessionDurationMinutes,
+      idleLogoutMinutes: globalSettings.idleLogoutMinutes,
+      updatedAt: globalSettings.updatedAt,
+      updatedBy: globalSettings.updatedBy,
+    })
     .from(globalSettings)
     .where(eq(globalSettings.id, SINGLETON_ID))
     .limit(1);
-  return rows[0] ?? null;
+}
+
+export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> {
+  let rows: Awaited<ReturnType<typeof loadRawGlobalSettingsRows>>;
+  let includeAiProviderSettings = true;
+
+  try {
+    rows = await loadRawGlobalSettingsRows(includeAiProviderSettings);
+  } catch (err) {
+    if (!isMissingAiWritingAssistantColumns(err)) throw err;
+    includeAiProviderSettings = false;
+    rows = await loadRawGlobalSettingsRows(includeAiProviderSettings);
+  }
+
+  if (!includeAiProviderSettings) {
+    return rows[0]
+      ? ({
+          ...rows[0],
+          aiDefaultProvider: "openai",
+          aiProviderSettings: {},
+        } as GlobalSettingsRow)
+      : null;
+  }
+
+  return rows[0] ? (rows[0] as GlobalSettingsRow) : null;
 }
 
 export async function getAdminGlobalSettings(): Promise<GlobalSettingsAdminFormRow | null> {
   const row = await getRawGlobalSettings();
   if (!row) return null;
 
-  const { openaiApiKey, ...safeRow } = row;
+  const { openaiApiKey, aiProviderSettings, ...safeRow } = row;
+  const providers = parseAiProviderServerSettingsById(aiProviderSettings, {
+    enabled: row.aiWritingAssistantEnabled,
+    model: row.aiWritingAssistantModel,
+    maxOutputTokens: row.aiWritingAssistantMaxOutputTokens,
+    instructions: row.aiWritingAssistantInstructions,
+    openaiApiKey,
+  });
+
   return {
     ...safeRow,
     openaiApiKeyConfigured: Boolean(openaiApiKey),
+    aiProviderSettings: toAiProviderAdminSettingsById(providers),
   };
 }
 
@@ -368,6 +448,8 @@ export async function getAiWritingAssistantServerSettings(): Promise<AiWritingAs
     const rows = await db
       .select({
         enabled: globalSettings.aiWritingAssistantEnabled,
+        defaultProvider: globalSettings.aiDefaultProvider,
+        providerSettings: globalSettings.aiProviderSettings,
         model: globalSettings.aiWritingAssistantModel,
         maxOutputTokens: globalSettings.aiWritingAssistantMaxOutputTokens,
         instructions: globalSettings.aiWritingAssistantInstructions,
@@ -379,22 +461,13 @@ export async function getAiWritingAssistantServerSettings(): Promise<AiWritingAs
 
     const row = rows[0];
     if (!row) {
-      return {
-        ...AI_WRITING_ASSISTANT_DEFAULTS,
-        openaiApiKey: null,
-      };
+      return parseAiWritingAssistantServerSettings(AI_WRITING_ASSISTANT_DEFAULTS);
     }
 
-    return {
-      ...parseAiWritingAssistant(row),
-      openaiApiKey: row.openaiApiKey ?? null,
-    };
+    return parseAiWritingAssistantServerSettings(row);
   } catch (err) {
     if (!isMissingAiWritingAssistantColumns(err)) throw err;
-    return {
-      ...AI_WRITING_ASSISTANT_DEFAULTS,
-      openaiApiKey: null,
-    };
+    return parseAiWritingAssistantServerSettings(AI_WRITING_ASSISTANT_DEFAULTS);
   }
 }
 
@@ -418,6 +491,42 @@ export async function updateGlobalSettings(
   const footerContent = input.footerContent
     ? sanitizeCmsHtml(input.footerContent)
     : null;
+  const existing = await getRawGlobalSettings();
+  const existingProviders = parseAiProviderServerSettingsById(
+    existing?.aiProviderSettings,
+    {
+      enabled: existing?.aiWritingAssistantEnabled,
+      model: existing?.aiWritingAssistantModel,
+      maxOutputTokens: existing?.aiWritingAssistantMaxOutputTokens,
+      instructions: existing?.aiWritingAssistantInstructions,
+      openaiApiKey: existing?.openaiApiKey,
+    },
+  );
+  const aiProviderSettings = Object.fromEntries(
+    AI_PROVIDER_IDS.map((id) => {
+      const next = input.aiProviders[id];
+      const current = existingProviders[id];
+      return [
+        id,
+        {
+          enabled: next.enabled,
+          apiKey: next.clearApiKey
+            ? null
+            : (next.apiKey ?? current.apiKey ?? null),
+          model: next.model,
+          maxOutputTokens: next.maxOutputTokens,
+          instructions: next.instructions,
+        },
+      ];
+    }),
+  ) as AiProviderServerSettingsById;
+  const enabledProviderIds = AI_PROVIDER_IDS.filter(
+    (id) => input.aiProviders[id].enabled,
+  );
+  const aiDefaultProvider = enabledProviderIds.includes(input.aiDefaultProvider)
+    ? input.aiDefaultProvider
+    : (enabledProviderIds[0] ?? input.aiDefaultProvider);
+  const openaiProvider = aiProviderSettings.openai;
   const values = {
     siteName: input.siteName,
     publicSiteUrl: input.publicSiteUrl,
@@ -448,22 +557,19 @@ export async function updateGlobalSettings(
       stickyFooterHeight: input.stickyFooterHeight,
     }),
     aiWritingAssistantEnabled: input.aiWritingAssistantEnabled,
-    aiWritingAssistantModel: input.aiWritingAssistantModel,
-    aiWritingAssistantMaxOutputTokens: input.aiWritingAssistantMaxOutputTokens,
-    aiWritingAssistantInstructions: input.aiWritingAssistantInstructions,
+    aiDefaultProvider,
+    aiProviderSettings,
+    openaiApiKey: openaiProvider.apiKey,
+    aiWritingAssistantModel: openaiProvider.model,
+    aiWritingAssistantMaxOutputTokens: openaiProvider.maxOutputTokens,
+    aiWritingAssistantInstructions: openaiProvider.instructions,
     maxSessionDurationMinutes: input.maxSessionDurationMinutes,
     idleLogoutMinutes: input.idleLogoutMinutes,
     updatedBy: userId,
   };
-  const openaiApiKeyPatch = input.clearOpenaiApiKey
-    ? { openaiApiKey: null }
-    : input.openaiApiKey
-      ? { openaiApiKey: input.openaiApiKey }
-      : {};
   const insertValues = {
     id: SINGLETON_ID,
     ...values,
-    ...(input.openaiApiKey ? { openaiApiKey: input.openaiApiKey } : {}),
   };
 
   await db
@@ -471,6 +577,6 @@ export async function updateGlobalSettings(
     .values(insertValues)
     .onConflictDoUpdate({
       target: globalSettings.id,
-      set: { ...values, ...openaiApiKeyPatch },
+      set: values,
     });
 }

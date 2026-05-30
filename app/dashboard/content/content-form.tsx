@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useTransition,
@@ -77,7 +78,12 @@ import {
   type UpdateContentInput,
 } from "./actions";
 import type { AppearanceSettings } from "@/lib/appearance";
-import type { SessionSecuritySettings } from "@/lib/global-settings";
+import {
+  AI_PROVIDER_LABELS,
+  type AIProviderId,
+  type AiProviderOption,
+  type SessionSecuritySettings,
+} from "@/lib/global-settings";
 import { useContentEditLockOptional } from "@/components/content-edit-lock-provider";
 
 export type ContentFormCategory = { id: string; name: string };
@@ -91,6 +97,8 @@ type Props = {
   appearance?: AppearanceSettings;
   sessionSecurity: SessionSecuritySettings;
   aiWritingAssistantAvailable?: boolean;
+  aiWritingAssistantProviders?: AiProviderOption[];
+  aiWritingAssistantDefaultProvider?: AIProviderId;
   initial?: {
     id: string;
     title: string;
@@ -120,6 +128,8 @@ export function ContentForm({
   appearance,
   sessionSecurity,
   aiWritingAssistantAvailable = false,
+  aiWritingAssistantProviders,
+  aiWritingAssistantDefaultProvider,
   initial,
 }: Props) {
   const router = useRouter();
@@ -133,6 +143,15 @@ export function ContentForm({
   const isAdmin = hasRole(currentUserRoles, "admin");
   const isPublisher = hasRole(currentUserRoles, "publisher");
   const canChooseStatus = isAdmin || isPublisher;
+  const aiProviderOptions = useMemo<AiProviderOption[]>(() => {
+    if (aiWritingAssistantProviders !== undefined) {
+      return aiWritingAssistantProviders;
+    }
+
+    return aiWritingAssistantAvailable
+      ? [{ id: "openai", label: AI_PROVIDER_LABELS.openai }]
+      : [];
+  }, [aiWritingAssistantAvailable, aiWritingAssistantProviders]);
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [slug, setSlug] = useState(initial?.slug ?? "");
@@ -149,6 +168,17 @@ export function ContentForm({
   const [status, setStatus] = useState<
     "published" | "unpublished" | "archived"
   >(initial?.status ?? "unpublished");
+  const [aiProviderId, setAiProviderId] = useState<AIProviderId>(
+    () =>
+      aiWritingAssistantDefaultProvider ??
+      aiProviderOptions[0]?.id ??
+      "openai",
+  );
+  const effectiveAiProviderId = aiProviderOptions.some(
+    (provider) => provider.id === aiProviderId,
+  )
+    ? aiProviderId
+    : (aiProviderOptions[0]?.id ?? aiProviderId);
   const [aiWritingAssistantActive, setAiWritingAssistantActive] =
     useState(false);
   const [aiGenerationField, setAiGenerationField] =
@@ -239,7 +269,13 @@ export function ContentForm({
   }, []);
 
   async function generateAiField(field: AiGeneratedField) {
-    if (!aiWritingAssistantAvailable || !aiWritingAssistantActive) return;
+    if (
+      !aiWritingAssistantAvailable ||
+      aiProviderOptions.length === 0 ||
+      !aiWritingAssistantActive
+    ) {
+      return;
+    }
 
     const context = {
       title: title.trim(),
@@ -265,6 +301,7 @@ export function ContentForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          providerId: effectiveAiProviderId,
           field,
           title: context.title,
           excerpt: context.excerpt,
@@ -545,6 +582,7 @@ export function ContentForm({
   const aiFieldsEnabled =
     contentType === "blog_post" &&
     aiWritingAssistantAvailable &&
+    aiProviderOptions.length > 0 &&
     aiWritingAssistantActive;
 
   const seoSettings = (
@@ -902,11 +940,16 @@ export function ContentForm({
             ) : (
               <BlogEditor
                 defaultValue={editorDefaultValue as never}
-                aiWritingAssistantAvailable={aiWritingAssistantAvailable}
+                aiWritingAssistantAvailable={
+                  aiWritingAssistantAvailable && aiProviderOptions.length > 0
+                }
                 aiWritingAssistantActive={aiWritingAssistantActive}
                 onAiWritingAssistantActiveChange={
                   setAiWritingAssistantActive
                 }
+                aiProviderOptions={aiProviderOptions}
+                aiProviderId={effectiveAiProviderId}
+                onAiProviderIdChange={setAiProviderId}
                 title={title}
                 excerpt={excerpt}
                 registerGetValue={(getValue) => {

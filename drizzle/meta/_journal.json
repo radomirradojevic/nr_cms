@@ -204,6 +204,20 @@
       "when": 1781654400001,
       "tag": "0028_worried_warpath",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1781654400002,
+      "tag": "0029_magical_tomas",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1781654400003,
+      "tag": "0030_bent_moonstone",
+      "breakpoints": true
     }
   ]
 }
