@@ -71,11 +71,15 @@ export default async function EditContentPage({ params }: Props) {
           appearance={settings.appearance}
           sessionSecurity={settings.sessionSecurity}
           aiWritingAssistantAvailable={
-            row.contentType === "blog_post" &&
-            settings.aiWritingAssistant.enabled
+            row.contentType === "blog_post"
+              ? settings.aiWritingAssistant.enabled
+              : settings.aiWritingAssistant.pageBuilderEnabled
           }
           aiWritingAssistantProviders={
-            row.contentType === "blog_post"
+            (row.contentType === "blog_post" &&
+              settings.aiWritingAssistant.enabled) ||
+            (row.contentType === "page" &&
+              settings.aiWritingAssistant.pageBuilderEnabled)
               ? getEnabledAiProviderOptions(settings.aiWritingAssistant)
               : []
           }

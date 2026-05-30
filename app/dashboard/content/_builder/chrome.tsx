@@ -6,6 +6,15 @@ import dynamic from "next/dynamic";
 import type { EditorState } from "@craftjs/core/lib/interfaces/editor";
 import type { NodeTree } from "@craftjs/core/lib/interfaces/nodes";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Heading1,
   Type,
@@ -44,6 +53,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { AIProviderId, AiProviderOption } from "@/lib/global-settings";
 import {
   getLayoutColumnCount,
   layoutPresets,
@@ -476,6 +486,12 @@ export function Toolbar({
   onRemountWithJson,
   focusMode,
   onToggleFocusMode,
+  aiAssistantAvailable = false,
+  aiAssistantActive = false,
+  onAiAssistantActiveChange,
+  aiProviderOptions = [],
+  aiProviderId,
+  onAiProviderIdChange,
 }: {
   onToggleSource: () => void;
   sourceMode: boolean;
@@ -487,6 +503,12 @@ export function Toolbar({
   onRemountWithJson: (json: string) => void;
   focusMode: boolean;
   onToggleFocusMode: () => void;
+  aiAssistantAvailable?: boolean;
+  aiAssistantActive?: boolean;
+  onAiAssistantActiveChange?: (active: boolean) => void;
+  aiProviderOptions?: AiProviderOption[];
+  aiProviderId?: AIProviderId;
+  onAiProviderIdChange?: (providerId: AIProviderId) => void;
 }) {
   const { canUndo, canRedo, actions, query, selectedId, isDeletable } =
     useEditor((state, query) => {
@@ -506,6 +528,15 @@ export function Toolbar({
         isDeletable: deletable,
       };
     });
+
+  const effectiveAiProviderId = aiProviderOptions.some(
+    (provider) => provider.id === aiProviderId,
+  )
+    ? aiProviderId
+    : aiProviderOptions[0]?.id;
+  const selectedAiProviderLabel =
+    aiProviderOptions.find((provider) => provider.id === effectiveAiProviderId)
+      ?.label ?? "Provider";
 
   function handleDelete() {
     if (!selectedId || selectedId === ROOT_NODE_ID) return;
@@ -615,6 +646,54 @@ export function Toolbar({
         <Trash2 className="h-4 w-4" />
         <span className="hidden sm:inline">Delete</span>
       </Button>
+      {aiAssistantAvailable && onAiAssistantActiveChange && (
+        <div className="flex h-8 items-center gap-2 rounded-md border bg-background px-2 text-xs">
+          <Sparkles aria-hidden className="h-3.5 w-3.5 text-primary" />
+          <Label
+            htmlFor="page-builder-ai-assistant"
+            className="whitespace-nowrap text-xs font-medium"
+          >
+            AI assistant
+          </Label>
+          <Switch
+            id="page-builder-ai-assistant"
+            checked={aiAssistantActive}
+            onCheckedChange={onAiAssistantActiveChange}
+            className="scale-90"
+          />
+          {aiProviderOptions.length > 0 && effectiveAiProviderId && (
+            <div className="flex min-w-0 items-center gap-1 border-l pl-2">
+              <span className="text-muted-foreground">Provider:</span>
+              {aiProviderOptions.length > 1 ? (
+                <Select
+                  value={effectiveAiProviderId}
+                  onValueChange={(value) =>
+                    onAiProviderIdChange?.(value as AIProviderId)
+                  }
+                >
+                  <SelectTrigger
+                    aria-label="AI provider"
+                    className="h-7 w-28 rounded-md px-2 text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {aiProviderOptions.map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id}>
+                        {provider.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="truncate font-medium">
+                  {selectedAiProviderLabel}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div className="ml-auto flex items-center gap-1">
         <Button
           type="button"

@@ -167,13 +167,19 @@ export const AiProviderSettingsByIdSchema = z.object({
 export const AiWritingAssistantSettingsSchema = z
   .object({
     enabled: z.boolean(),
+    pageBuilderEnabled: z.boolean(),
     defaultProvider: AIProviderIdSchema,
     providers: AiProviderSettingsByIdSchema,
   })
-  .refine((v) => !v.enabled || v.providers[v.defaultProvider].enabled, {
-    path: ["defaultProvider"],
-    message: "Default provider must be enabled.",
-  });
+  .refine(
+    (v) =>
+      (!v.enabled && !v.pageBuilderEnabled) ||
+      v.providers[v.defaultProvider].enabled,
+    {
+      path: ["defaultProvider"],
+      message: "Default provider must be enabled.",
+    },
+  );
 
 export type AiProviderSettings = z.infer<typeof AiProviderSettingsSchema>;
 export type AiProviderSettingsById = z.infer<
@@ -211,6 +217,7 @@ export type AiWritingAssistantServerSettings = Omit<
 
 export const AI_WRITING_ASSISTANT_DEFAULTS: AiWritingAssistantSettings = {
   enabled: false,
+  pageBuilderEnabled: false,
   defaultProvider: "openai",
   providers: createDefaultAiProviderSettingsById(),
 };
@@ -394,6 +401,7 @@ export function parseAiProviderServerSettingsById(
 
 export function parseAiWritingAssistantSettings(value: {
   enabled?: unknown;
+  pageBuilderEnabled?: unknown;
   defaultProvider?: unknown;
   providerSettings?: unknown;
   model?: unknown;
@@ -416,6 +424,10 @@ export function parseAiWritingAssistantSettings(value: {
 
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : false,
+    pageBuilderEnabled:
+      typeof value.pageBuilderEnabled === "boolean"
+        ? value.pageBuilderEnabled
+        : false,
     defaultProvider: providers[requestedDefault].enabled
       ? requestedDefault
       : fallbackDefault,
@@ -425,6 +437,7 @@ export function parseAiWritingAssistantSettings(value: {
 
 export function parseAiWritingAssistantServerSettings(value: {
   enabled?: unknown;
+  pageBuilderEnabled?: unknown;
   defaultProvider?: unknown;
   providerSettings?: unknown;
   model?: unknown;
@@ -445,6 +458,10 @@ export function parseAiWritingAssistantServerSettings(value: {
 
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : false,
+    pageBuilderEnabled:
+      typeof value.pageBuilderEnabled === "boolean"
+        ? value.pageBuilderEnabled
+        : false,
     defaultProvider: providers[requestedDefault].enabled
       ? requestedDefault
       : fallbackDefault,
@@ -607,6 +624,7 @@ export const UpdateGlobalSettingsSchema = z
     shadowPreset: z.enum(SHADOW_PRESETS),
     appearanceRecipe: AppearanceRecipeV2Schema.optional(),
     aiWritingAssistantEnabled: z.boolean(),
+    aiPageBuilderAssistantEnabled: z.boolean(),
     aiDefaultProvider: AIProviderIdSchema,
     aiProviders: AiProviderUpdateSettingsByIdSchema,
     maxSessionDurationMinutes: z
@@ -627,22 +645,22 @@ export const UpdateGlobalSettingsSchema = z
   })
   .refine(
     (v) =>
-      !v.aiWritingAssistantEnabled ||
+      (!v.aiWritingAssistantEnabled && !v.aiPageBuilderAssistantEnabled) ||
       AI_PROVIDER_IDS.some((id) => v.aiProviders[id].enabled),
     {
       message:
-        "Enable at least one AI provider before showing the assistant in the blog editor.",
+        "Enable at least one AI provider before showing the assistant in editors.",
       path: ["aiProviders"],
-    }
+    },
   )
   .refine(
     (v) =>
-      !v.aiWritingAssistantEnabled ||
+      (!v.aiWritingAssistantEnabled && !v.aiPageBuilderAssistantEnabled) ||
       v.aiProviders[v.aiDefaultProvider].enabled,
     {
       message: "Default provider must be enabled.",
       path: ["aiDefaultProvider"],
-    }
+    },
   );
 
 export type UpdateGlobalSettingsInput = z.infer<

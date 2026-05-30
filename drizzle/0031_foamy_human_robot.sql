@@ -1,0 +1,1 @@
+ALTER TABLE "global_settings" ADD COLUMN "ai_page_builder_assistant_enabled" boolean DEFAULT false NOT NULL;
