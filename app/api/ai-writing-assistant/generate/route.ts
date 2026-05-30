@@ -3,18 +3,19 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getAiWritingAssistantServerSettings } from "@/data/global-settings";
+import { createAIProvider } from "@/lib/ai-provider-registry";
+import { AI_PROVIDER_LABELS, AIProviderIdSchema } from "@/lib/global-settings";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 
 const GenerateRequestSchema = z.object({
+  providerId: AIProviderIdSchema.optional(),
   field: z.enum(["excerpt", "metaTitle", "metaDescription"]),
   title: z.string().trim().max(200).optional(),
   excerpt: z.string().trim().max(2_000).optional(),
   content: z.string().trim().max(8_000).optional(),
   currentValue: z.string().trim().max(2_000).optional(),
 });
-
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -60,52 +61,45 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
-  if (!settings.openaiApiKey) {
+
+  const providerId = body.providerId ?? settings.defaultProvider;
+  const providerSettings = settings.providers[providerId];
+  if (!providerSettings.enabled) {
     return NextResponse.json(
-      { error: "OpenAI API key is not configured." },
+      { error: `${AI_PROVIDER_LABELS[providerId]} is not enabled.` },
+      { status: 403 },
+    );
+  }
+  if (!providerSettings.apiKey) {
+    return NextResponse.json(
+      { error: `${AI_PROVIDER_LABELS[providerId]} API key is not configured.` },
       { status: 400 },
     );
   }
 
-  const prompt = buildGenerationPrompt(body, settings.instructions);
+  const prompt = buildGenerationPrompt(body, providerSettings.instructions);
+  const provider = createAIProvider(providerId, {
+    apiKey: providerSettings.apiKey,
+    model: providerSettings.model,
+    maxOutputTokens: getGenerationTokenLimit(
+      body.field,
+      providerSettings.maxOutputTokens,
+    ),
+    timeoutMs: 15_000,
+  });
 
-  let response: Response;
+  let output: string;
   try {
-    response = await fetch(OPENAI_RESPONSES_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${settings.openaiApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        input: prompt,
-        max_output_tokens: getGenerationTokenLimit(
-          body.field,
-          settings.maxOutputTokens,
-        ),
-        store: false,
-      }),
-      signal: AbortSignal.timeout(15_000),
-    });
+    output = await provider.generateCompletion(prompt, "");
   } catch (err) {
-    console.error("[ai-writing-assistant] OpenAI request failed:", err);
+    console.error("[ai-writing-assistant] provider request failed:", err);
     return NextResponse.json(
       { error: "AI generation service is unavailable." },
       { status: 502 },
     );
   }
 
-  const data = (await response.json().catch(() => null)) as unknown;
-  if (!response.ok) {
-    console.error("[ai-writing-assistant] OpenAI error:", data);
-    return NextResponse.json(
-      { error: "AI generation request failed." },
-      { status: 502 },
-    );
-  }
-
-  const text = normalizeGeneratedText(extractOutputText(data), body.field);
+  const text = normalizeGeneratedText(output, body.field);
   if (!text) {
     return NextResponse.json(
       { error: "AI did not return usable text." },
@@ -193,33 +187,6 @@ function getFieldLabel(field: z.infer<typeof GenerateRequestSchema>["field"]) {
     case "metaDescription":
       return "Meta description";
   }
-}
-
-function extractOutputText(value: unknown): string {
-  if (typeof value !== "object" || value === null) return "";
-  if (
-    "output_text" in value &&
-    typeof (value as { output_text?: unknown }).output_text === "string"
-  ) {
-    return (value as { output_text: string }).output_text;
-  }
-
-  const output = (value as { output?: unknown }).output;
-  if (!Array.isArray(output)) return "";
-
-  const parts: string[] = [];
-  for (const item of output) {
-    if (typeof item !== "object" || item === null) continue;
-    const content = (item as { content?: unknown }).content;
-    if (!Array.isArray(content)) continue;
-    for (const contentPart of content) {
-      if (typeof contentPart !== "object" || contentPart === null) continue;
-      const text = (contentPart as { text?: unknown }).text;
-      if (typeof text === "string") parts.push(text);
-    }
-  }
-
-  return parts.join("");
 }
 
 function normalizeGeneratedText(
