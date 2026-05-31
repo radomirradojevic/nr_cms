@@ -61,7 +61,7 @@ export function DeleteFileDialog({
           <AlertDialogTitle>
             Delete {count === 1 ? "file" : `${count} files`}?
           </AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription className="max-w-full">
             You are about to permanently delete{" "}
             <span className="font-medium">{target}</span>. References to{" "}
             {count === 1 ? "this file" : "these files"} inside content items
