@@ -24,7 +24,7 @@ type AllowedPageSize = 10 | 20 | 30;
 
 export type ContentRow = {
   id: string;
-  contentType: "page" | "blog_post";
+  contentType: "page" | "blog_post" | "hero_slider";
   categoryId: string;
   categoryName: string;
   title: string;
@@ -177,7 +177,11 @@ export function ContentTable({
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
-                      {row.contentType === "page" ? "Page" : "Blog post"}
+                      {row.contentType === "page"
+                        ? "Page"
+                        : row.contentType === "hero_slider"
+                          ? "Hero Slider"
+                          : "Blog post"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm">{row.categoryName}</TableCell>

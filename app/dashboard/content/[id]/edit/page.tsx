@@ -51,7 +51,7 @@ export default async function EditContentPage({ params }: Props) {
   if (!canEdit) redirect("/dashboard/content");
 
   const [categories, settings] = await Promise.all([
-    getCategoriesByType(row.contentType as "page" | "blog_post"),
+    getCategoriesByType(row.contentType === "blog_post" ? "blog_post" : "page"),
     getGlobalSettings(),
   ]);
 
@@ -65,7 +65,7 @@ export default async function EditContentPage({ params }: Props) {
       >
         <ContentForm
           mode="edit"
-          contentType={row.contentType as "page" | "blog_post"}
+          contentType={row.contentType as "page" | "blog_post" | "hero_slider"}
           currentUserRoles={roles}
           categories={categories.map((c) => ({ id: c.id, name: c.name }))}
           appearance={settings.appearance}
@@ -73,7 +73,8 @@ export default async function EditContentPage({ params }: Props) {
           aiWritingAssistantAvailable={
             row.contentType === "blog_post"
               ? settings.aiWritingAssistant.enabled
-              : settings.aiWritingAssistant.pageBuilderEnabled
+              : row.contentType === "page" &&
+                settings.aiWritingAssistant.pageBuilderEnabled
           }
           aiWritingAssistantProviders={
             (row.contentType === "blog_post" &&

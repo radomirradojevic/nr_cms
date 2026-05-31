@@ -13,6 +13,7 @@ import {
   existsSlug,
   getContentById,
   updateContentById,
+  type ContentType,
   type ContentRow,
 } from "@/data/content";
 import { getCategoryById } from "@/data/content-categories";
@@ -91,14 +92,18 @@ function canSetHomepage(actor: Actor): boolean {
   return hasRole(actor.roles, "admin");
 }
 
+function categoryTypeForContent(
+  contentType: ContentType,
+): "page" | "blog_post" {
+  return contentType === "blog_post" ? "blog_post" : "page";
+}
+
 // ─── HTML rendering ───────────────────────────────────────────────────────────
 
-function renderHtml(
-  contentType: "page" | "blog_post",
-  contentJson: unknown,
-): string {
-  if (contentType === "page") {
+function renderHtml(contentType: ContentType, contentJson: unknown): string {
+  if (contentType === "page" || contentType === "hero_slider") {
     // Pages are rendered at request time using Puck's RSC <Render>.
+    // Hero sliders are rendered from their JSON configuration.
     // Storing an empty string keeps the column non-null for blog posts.
     return "";
   }
@@ -138,7 +143,7 @@ const visibilitySchema = z
   .optional();
 
 const createSchema = z.object({
-  contentType: z.enum(["page", "blog_post"]),
+  contentType: z.enum(["page", "blog_post", "hero_slider"]),
   status: z.enum(["published", "unpublished", "archived"]).optional(),
   homepage: z.boolean().optional(),
   visibility: visibilitySchema,
@@ -175,7 +180,7 @@ export async function createContent(input: CreateContentInput) {
 
   const category = await getCategoryById(data.categoryId);
   if (!category) return { error: "Selected category does not exist." };
-  if (category.contentType !== data.contentType) {
+  if (category.contentType !== categoryTypeForContent(data.contentType)) {
     return {
       error: "Selected category does not match the chosen content type.",
     };
@@ -287,7 +292,10 @@ export async function updateContent(input: UpdateContentInput) {
 
   const category = await getCategoryById(data.categoryId);
   if (!category) return { error: "Selected category does not exist." };
-  if (category.contentType !== target.contentType) {
+  if (
+    category.contentType !==
+    categoryTypeForContent(target.contentType as ContentType)
+  ) {
     return {
       error: "Selected category does not match this content's type.",
     };
@@ -308,8 +316,7 @@ export async function updateContent(input: UpdateContentInput) {
     const stillOwns = await isLockedBy({
       contentId: target.id,
       userId: actor.userId,
-      sessionId:
-        (await auth()).sessionId ?? "",
+      sessionId: (await auth()).sessionId ?? "",
       clientId: data.lockClientId,
     });
     if (!stillOwns) {
@@ -355,10 +362,7 @@ export async function updateContent(input: UpdateContentInput) {
 
   let html = "";
   try {
-    html = renderHtml(
-      target.contentType as "page" | "blog_post",
-      data.contentJson,
-    );
+    html = renderHtml(target.contentType as ContentType, data.contentJson);
   } catch (err) {
     console.error("[updateContent] render error", err);
     return { error: "Failed to render content." };

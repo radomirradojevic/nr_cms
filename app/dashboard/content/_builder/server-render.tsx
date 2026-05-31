@@ -54,6 +54,16 @@ export const defaultStaticRegistry: StaticRegistry = {
   Image: ImageStatic as never,
   Button: ButtonStatic as never,
   Hero: HeroStatic as never,
+  HeroSlider: ({
+    heroSliderName,
+  }: Record<string, unknown> & { children?: ReactNode }) => (
+    <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+      Hero Slider
+      {typeof heroSliderName === "string" && heroSliderName
+        ? `: ${heroSliderName}`
+        : ""}
+    </div>
+  ),
   RawHtml: RawHtmlStatic as never,
   // Synchronous client-safe placeholder. The RSC entry overrides this
   // with the async `GalleryStatic` that fetches & renders real images.
