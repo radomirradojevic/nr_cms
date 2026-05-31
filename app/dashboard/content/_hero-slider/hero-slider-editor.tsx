@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -1643,7 +1644,9 @@ function UploadButton({
   disabled: boolean;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
-  const inputId = useMemo(() => makeHeroSliderId("upload"), []);
+  const reactId = useId();
+  const inputId = `upload-${reactId}`;
+
   return (
     <label htmlFor={inputId}>
       <input
