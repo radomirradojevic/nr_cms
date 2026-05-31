@@ -301,6 +301,7 @@ const AppearanceRegionBaseV1Schema = z
 
 export const HeaderRegionV1Schema = AppearanceRegionBaseV1Schema.extend({
   variant: z.enum(HEADER_VARIANTS).default("classic"),
+  hidden: z.boolean().default(false),
   sticky: z.boolean().default(false),
   heightPx: z
     .number()
@@ -313,6 +314,7 @@ export const HeaderRegionV1Schema = AppearanceRegionBaseV1Schema.extend({
 
 export const FooterRegionV1Schema = AppearanceRegionBaseV1Schema.extend({
   variant: z.enum(FOOTER_VARIANTS).default("classic"),
+  hidden: z.boolean().default(false),
   sticky: z.boolean().default(false),
   minHeightPx: z
     .number()
@@ -434,11 +436,13 @@ export type AppearanceRecipeLegacyInput = {
   headerSettings: {
     showLogo: boolean;
     showSiteName: boolean;
+    hidden?: boolean;
     sticky: boolean;
     background?: string;
     glow?: GlowEffect;
   };
   footerSettings: {
+    hidden?: boolean;
     sticky: boolean;
     background?: string;
     glow?: GlowEffect;
@@ -506,6 +510,7 @@ export function buildDefaultClassicAppearanceRecipe(
     shell: {
       header: {
         variant: "classic",
+        hidden: legacy.headerSettings.hidden ?? false,
         sticky: legacy.headerSettings.sticky,
         heightPx: clampRegionHeight(legacy.stickyHeaderHeight, 80),
         ...(legacy.headerSettings.background
@@ -575,6 +580,7 @@ export function buildDefaultClassicAppearanceRecipe(
       },
       footer: {
         variant: "classic",
+        hidden: legacy.footerSettings.hidden ?? false,
         sticky: legacy.footerSettings.sticky,
         minHeightPx: clampRegionHeight(legacy.stickyFooterHeight, 110),
         ...(legacy.footerSettings.background
@@ -769,6 +775,7 @@ export function resolveAppearanceRecipeForWrite(
       header: {
         ...fallback.shell.header,
         variant: migrated.shell.header.variant,
+        hidden: fallback.shell.header.hidden || migrated.shell.header.hidden,
         slots: mergeRegionSlots(
           fallback.shell.header.slots,
           migrated.shell.header.slots,
@@ -780,6 +787,10 @@ export function resolveAppearanceRecipeForWrite(
       footer: {
         ...fallback.shell.footer,
         variant: migrated.shell.footer.variant,
+        hidden:
+          fallback.shell.footer.hidden ||
+          migrated.shell.footer.hidden ||
+          migrated.shell.footer.variant === "hidden",
         slots: mergeRegionSlots(
           fallback.shell.footer.slots,
           migrated.shell.footer.slots,
@@ -1037,9 +1048,14 @@ export function runAppearanceRecipeQualityChecks(
   }
 
   for (const scenario of scenarios) {
-    const visibleHeaderSlots = recipe.shell.header.slots.filter((slot) =>
-      recipeSlotIsVisible(slot, scenario.authState),
-    );
+    const headerHidden = recipe.shell.header.hidden;
+    const footerHidden =
+      recipe.shell.footer.hidden || recipe.shell.footer.variant === "hidden";
+    const visibleHeaderSlots = headerHidden
+      ? []
+      : recipe.shell.header.slots.filter((slot) =>
+          recipeSlotIsVisible(slot, scenario.authState),
+        );
     const brandIndex = visibleHeaderSlots.findIndex(
       (slot) => slot.type === "Brand",
     );
@@ -1049,7 +1065,14 @@ export function runAppearanceRecipeQualityChecks(
       ),
     );
 
-    if (brandIndex === -1) {
+    if (headerHidden) {
+      addQualityIssue(issues, seen, {
+        code: "landmark-header-hidden",
+        severity: "warning",
+        message: "Header landmark is intentionally hidden for this recipe.",
+        scenario,
+      });
+    } else if (brandIndex === -1) {
       addQualityIssue(issues, seen, {
         code: "landmark-header-brand",
         severity: "warning",
@@ -1088,11 +1111,12 @@ export function runAppearanceRecipeQualityChecks(
     }
 
     const viewportHeight = QA_VIEWPORT_HEIGHTS[scenario.viewport];
-    const stickyHeaderHeight = recipe.shell.header.sticky
-      ? recipe.shell.header.heightPx
-      : 0;
+    const stickyHeaderHeight =
+      !headerHidden && recipe.shell.header.sticky
+        ? recipe.shell.header.heightPx
+        : 0;
     const stickyFooterHeight =
-      recipe.shell.footer.sticky && recipe.shell.footer.variant !== "hidden"
+      !footerHidden && recipe.shell.footer.sticky
         ? recipe.shell.footer.minHeightPx
         : 0;
 
@@ -1122,7 +1146,7 @@ export function runAppearanceRecipeQualityChecks(
       });
     }
 
-    if (recipe.shell.footer.variant === "hidden") {
+    if (footerHidden) {
       addQualityIssue(issues, seen, {
         code: "landmark-footer-hidden",
         severity: "warning",
@@ -1753,6 +1777,7 @@ export function applyAppearancePresetToRecipe(
       header: {
         ...recipe.shell.header,
         variant: preset.header.variant,
+        hidden: false,
         sticky: preset.header.sticky,
         heightPx: preset.header.heightPx,
         slots: headerSlots,
@@ -1763,6 +1788,7 @@ export function applyAppearancePresetToRecipe(
       footer: {
         ...recipe.shell.footer,
         variant: preset.footer.variant,
+        hidden: preset.footer.variant === "hidden",
         sticky: preset.footer.sticky,
         minHeightPx: preset.footer.minHeightPx,
         slots: footerSlots,

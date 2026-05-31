@@ -461,6 +461,25 @@ test("parseAppearanceRecipe resolves missing or empty JSONB to the legacy classi
   );
 });
 
+test("appearance recipes preserve hidden header and footer settings", () => {
+  const recipe = buildDefaultClassicAppearanceRecipe({
+    ...classicLegacyInput,
+    headerSettings: {
+      ...classicLegacyInput.headerSettings,
+      hidden: true,
+    },
+    footerSettings: {
+      ...classicLegacyInput.footerSettings,
+      hidden: true,
+    },
+  });
+
+  assert.equal(recipe.shell.header.hidden, true);
+  assert.equal(recipe.shell.footer.hidden, true);
+  assert.equal(recipe.shell.header.heightPx, 96);
+  assert.equal(recipe.shell.footer.minHeightPx, 128);
+});
+
 test("migrateAppearanceRecipeToCurrent upgrades v1 and unversioned recipes", () => {
   const v1Recipe = AppearanceRecipeV1Schema.parse({
     version: 1,
@@ -1007,6 +1026,17 @@ test("SiteFooter hidden variant renders no footer", () => {
   const html = renderToStaticMarkup(
     createElement(SiteFooter, {
       region: { ...recipe.shell.footer, variant: "hidden" },
+    }),
+  );
+
+  assert.equal(html, "");
+});
+
+test("SiteFooter hidden setting renders no footer", () => {
+  const recipe = buildDefaultClassicAppearanceRecipe(classicLegacyInput);
+  const html = renderToStaticMarkup(
+    createElement(SiteFooter, {
+      region: { ...recipe.shell.footer, hidden: true },
     }),
   );
 
