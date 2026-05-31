@@ -43,6 +43,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 type Props = {
+  menuId: string;
   parentId: string | null;
   categories: BlogCategoryPickerItem[];
   onSuccess?: () => void;
@@ -51,6 +52,7 @@ type Props = {
 };
 
 export function AddCategoryDialog({
+  menuId,
   parentId,
   categories,
   onSuccess,
@@ -70,6 +72,7 @@ export function AddCategoryDialog({
     const result = await createMenuItem(
       {
         kind: "category",
+        menuId,
         categoryId: values.categoryId,
         label: values.label?.trim() ? values.label.trim() : undefined,
         target: values.target,

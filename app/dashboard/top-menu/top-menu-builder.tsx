@@ -44,12 +44,18 @@ import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
 const INDENT = 24;
 
 type Props = {
+  menuId: string;
   initialTree: TopMenuTreeNode[];
   pickable: ContentPickerItem[];
   categories: BlogCategoryPickerItem[];
 };
 
-export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
+export function TopMenuBuilder({
+  menuId,
+  initialTree,
+  pickable,
+  categories,
+}: Props) {
   const router = useRouter();
   const lock = useAdminSectionLock();
   const canEdit = lock.isEditor;
@@ -142,6 +148,7 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
       const result = await createMenuItem(
         {
           kind: "content",
+          menuId,
           contentId: dropActiveData.contentId,
           parentId,
         },
@@ -175,7 +182,7 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
     // Optimistic UI: rebuild tree from flat
     setTree(rebuildTree(withProjection));
 
-    const result = await reorderMenu({ updates }, lock.clientId);
+    const result = await reorderMenu({ menuId, updates }, lock.clientId);
     if ("error" in result && result.error) {
       setError(result.error);
       // rollback
@@ -212,6 +219,7 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
             <h2 className="text-sm font-semibold">Menu structure</h2>
             <div className="flex items-center gap-2">
               <AddCategoryDialog
+                menuId={menuId}
                 parentId={null}
                 categories={categories}
                 onSuccess={refresh}
@@ -219,6 +227,7 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
                 clientId={lock.clientId}
               />
               <AddItemDialog
+                menuId={menuId}
                 parentId={null}
                 onSuccess={refresh}
                 disabled={!canEdit}
@@ -260,6 +269,7 @@ export function TopMenuBuilder({ initialTree, pickable, categories }: Props) {
                     onMutated={refresh}
                     disabled={!canEdit}
                     clientId={lock.clientId}
+                    menuId={menuId}
                   />
                 );
               })}

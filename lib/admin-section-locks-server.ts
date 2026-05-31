@@ -1,7 +1,7 @@
 // Shared helpers for admin-section-lock API routes. Not a route handler.
 //
 // Mirrors lib/content-locks-server.ts but restricted to admin users —
-// admin sections (e.g. /dashboard/global-settings, /dashboard/top-menu) are
+// admin sections (e.g. /dashboard/global-settings, /dashboard/menus) are
 // admin-only by definition.
 
 import { auth } from "@clerk/nextjs/server";
