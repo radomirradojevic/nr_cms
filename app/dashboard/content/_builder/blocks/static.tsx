@@ -389,11 +389,11 @@ export function HeroStatic({ title, subtitle, style }: HeroProps) {
         )}
       >
         <h1
-          className="text-4xl font-bold tracking-tight"
+          className="cms-builder-hero-title text-4xl font-bold tracking-tight"
           dangerouslySetInnerHTML={{ __html: renderInlineHtml(title) }}
         />
         <div
-          className="mt-4 text-lg text-muted-foreground [&_p]:my-1"
+          className="cms-builder-hero-subtitle mt-4 text-lg [&_p]:my-1"
           dangerouslySetInnerHTML={{
             __html: renderInlineHtml(subtitle),
           }}

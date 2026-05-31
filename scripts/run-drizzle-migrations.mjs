@@ -140,6 +140,11 @@ function normalizeConstraintDefinition(value) {
     .replace(/::[a-z_][a-z0-9_]*(?:\[\])?/gi, "");
 }
 
+function normalizeColumnDefault(value) {
+  return normalizeSql(stripOuterParens(value))
+    .replace(/::[a-z_][a-z0-9_]*(?:\[\])?/gi, "");
+}
+
 function constraintDefinitionMatches(expected, current) {
   if (!expected || !current) return true;
 
@@ -463,7 +468,7 @@ function analyzeStatement(statement) {
         kind: "setDefault",
         table: alterTableMatch[1],
         column: match[1],
-        defaultValue: normalizeSql(stripOuterParens(match[2])),
+        defaultValue: normalizeColumnDefault(match[2]),
       });
     }
   }
@@ -509,7 +514,7 @@ async function loadSchemaState(client) {
     tableColumns.get(row.table_name).add(row.column_name);
     columnDefaults.set(
       `${row.table_name}.${row.column_name}`,
-      row.column_default ? normalizeSql(stripOuterParens(row.column_default)) : null,
+      row.column_default ? normalizeColumnDefault(row.column_default) : null,
     );
   }
 
@@ -717,6 +722,7 @@ function statementStatus(statement, schemaState) {
 
 export const __migrationRunnerTesting = {
   migrationEndStateStatus,
+  normalizeColumnDefault,
   supersededMigrationReason,
 };
 

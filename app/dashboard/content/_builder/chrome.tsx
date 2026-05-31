@@ -7,6 +7,7 @@ import type { EditorState } from "@craftjs/core/lib/interfaces/editor";
 import type { NodeTree } from "@craftjs/core/lib/interfaces/nodes";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -36,13 +37,22 @@ import {
   PanelLeftOpen,
   Maximize2,
   Minimize2,
+  Loader2,
+  Wand2,
 } from "lucide-react";
 import { resolver } from "./blocks/editable";
-import { ROOT_NODE_ID, type SerializedNode } from "./types";
+import {
+  ROOT_NODE_ID,
+  emptyBuilderData,
+  isBuilderData,
+  type BuilderData,
+  type SerializedNode,
+} from "./types";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -53,6 +63,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { AIProviderId, AiProviderOption } from "@/lib/global-settings";
 import {
   getLayoutColumnCount,
@@ -489,9 +500,11 @@ export function Toolbar({
   aiAssistantAvailable = false,
   aiAssistantActive = false,
   onAiAssistantActiveChange,
+  onAiSeoGenerated,
   aiProviderOptions = [],
   aiProviderId,
   onAiProviderIdChange,
+  pageTitle,
 }: {
   onToggleSource: () => void;
   sourceMode: boolean;
@@ -506,9 +519,14 @@ export function Toolbar({
   aiAssistantAvailable?: boolean;
   aiAssistantActive?: boolean;
   onAiAssistantActiveChange?: (active: boolean) => void;
+  onAiSeoGenerated?: (seo: {
+    metaTitle?: string;
+    metaDescription?: string;
+  }) => void;
   aiProviderOptions?: AiProviderOption[];
   aiProviderId?: AIProviderId;
   onAiProviderIdChange?: (providerId: AIProviderId) => void;
+  pageTitle?: string;
 }) {
   const { canUndo, canRedo, actions, query, selectedId, isDeletable } =
     useEditor((state, query) => {
@@ -537,6 +555,12 @@ export function Toolbar({
   const selectedAiProviderLabel =
     aiProviderOptions.find((provider) => provider.id === effectiveAiProviderId)
       ?.label ?? "Provider";
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiInsertMode, setAiInsertMode] = useState<"replace" | "append">(
+    "replace",
+  );
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   function handleDelete() {
     if (!selectedId || selectedId === ROOT_NODE_ID) return;
@@ -606,6 +630,80 @@ export function Toolbar({
     }
 
     onRemountWithJson(JSON.stringify(tree));
+  }
+
+  async function handleGeneratePage() {
+    const prompt = aiPrompt.trim();
+    if (!prompt) {
+      toast.error("Enter a prompt first.");
+      return;
+    }
+    if (!effectiveAiProviderId) {
+      toast.error("Choose an AI provider first.");
+      return;
+    }
+
+    if (aiInsertMode === "replace" && hasCurrentRootChildren(query)) {
+      const confirmed = window.confirm(
+        "Replace the current page content with the AI-generated page?",
+      );
+      if (!confirmed) return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const existingContent =
+        aiInsertMode === "append" ? builderNodesToPlainText(query) : "";
+      const response = await fetch("/api/ai-page-builder/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerId: effectiveAiProviderId,
+          mode: aiInsertMode,
+          prompt,
+          title: pageTitle?.trim() ?? "",
+          existingContent,
+        }),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        builderData?: unknown;
+        seo?: unknown;
+        error?: unknown;
+      } | null;
+
+      if (!response.ok) {
+        toast.error(
+          typeof data?.error === "string"
+            ? data.error
+            : "AI page generation failed.",
+        );
+        return;
+      }
+
+      if (!isBuilderData(data?.builderData)) {
+        toast.error("AI did not return usable page blocks.");
+        return;
+      }
+
+      const nextNodes =
+        aiInsertMode === "append"
+          ? appendGeneratedNodes(query, data.builderData.nodes)
+          : data.builderData.nodes;
+      onRemountWithJson(JSON.stringify(nextNodes));
+      emitGeneratedSeo(data.seo, onAiSeoGenerated);
+      setAiDialogOpen(false);
+      setAiPrompt("");
+      toast.success(
+        aiInsertMode === "append"
+          ? "AI sections appended."
+          : "AI page generated.",
+      );
+    } catch {
+      toast.error("AI page generation failed.");
+    } finally {
+      setAiGenerating(false);
+    }
   }
 
   return (
@@ -694,6 +792,20 @@ export function Toolbar({
           )}
         </div>
       )}
+      {aiAssistantAvailable && aiAssistantActive && (
+        <Button
+          type="button"
+          size="sm"
+          variant="default"
+          disabled={sourceMode || !effectiveAiProviderId}
+          onClick={() => setAiDialogOpen(true)}
+          aria-label="Generate page with AI"
+          title="Generate page with AI"
+        >
+          <Wand2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Generate page</span>
+        </Button>
+      )}
       <div className="ml-auto flex items-center gap-1">
         <Button
           type="button"
@@ -724,8 +836,263 @@ export function Toolbar({
           {sourceMode ? "Visual" : "Source"}
         </Button>
       </div>
+      <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>AI page builder</DialogTitle>
+            <DialogDescription className="sr-only">
+              Generate Craft.js page blocks from a prompt.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="page-builder-ai-prompt">Prompt</Label>
+              <Textarea
+                id="page-builder-ai-prompt"
+                value={aiPrompt}
+                onChange={(event) => setAiPrompt(event.target.value)}
+                rows={5}
+                maxLength={2_000}
+                placeholder="Create landing page for DevOps consulting company"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="page-builder-ai-mode">Mode</Label>
+              <Select
+                value={aiInsertMode}
+                onValueChange={(value) =>
+                  setAiInsertMode(value as "replace" | "append")
+                }
+              >
+                <SelectTrigger id="page-builder-ai-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="replace">Replace page</SelectItem>
+                  <SelectItem value="append">Append sections</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAiDialogOpen(false)}
+              disabled={aiGenerating}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleGeneratePage}
+              disabled={aiGenerating || aiPrompt.trim().length < 8}
+            >
+              {aiGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4" />
+              )}
+              Generate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+type EditorQuery = {
+  serialize: () => string;
+};
+
+function hasCurrentRootChildren(query: EditorQuery) {
+  try {
+    const nodes = JSON.parse(query.serialize()) as BuilderData["nodes"];
+    return (nodes[ROOT_NODE_ID]?.nodes ?? []).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function appendGeneratedNodes(
+  query: EditorQuery,
+  generatedNodes: BuilderData["nodes"],
+) {
+  const currentNodes = readCurrentBuilderNodes(query);
+  const next = cloneNodes(currentNodes);
+  next[ROOT_NODE_ID] ??= cloneNodes(emptyBuilderData.nodes)[ROOT_NODE_ID];
+
+  const generatedRoot = generatedNodes[ROOT_NODE_ID];
+  const generatedChildIds = generatedRoot?.nodes ?? [];
+  const usedIds = new Set(Object.keys(next));
+  const idMap = new Map<string, string>();
+
+  for (const id of Object.keys(generatedNodes)) {
+    if (id === ROOT_NODE_ID) continue;
+    const nextId = uniqueNodeId(id, usedIds);
+    idMap.set(id, nextId);
+    usedIds.add(nextId);
+  }
+
+  for (const [oldId, node] of Object.entries(generatedNodes)) {
+    if (oldId === ROOT_NODE_ID) continue;
+    const newId = idMap.get(oldId);
+    if (!newId) continue;
+
+    const parent =
+      node.parent === ROOT_NODE_ID
+        ? ROOT_NODE_ID
+        : node.parent
+          ? (idMap.get(node.parent) ?? ROOT_NODE_ID)
+          : null;
+
+    next[newId] = {
+      ...cloneNode(node),
+      parent,
+      nodes: (node.nodes ?? [])
+        .map((childId) => idMap.get(childId))
+        .filter((childId): childId is string => !!childId),
+      linkedNodes: Object.fromEntries(
+        Object.entries(node.linkedNodes ?? {})
+          .map(([slotId, childId]) => [slotId, idMap.get(childId)])
+          .filter((entry): entry is [string, string] => !!entry[1]),
+      ),
+    };
+  }
+
+  const appendedRootChildren = generatedChildIds
+    .map((id) => idMap.get(id))
+    .filter((id): id is string => !!id && !!next[id]);
+  for (const childId of appendedRootChildren) {
+    next[childId].parent = ROOT_NODE_ID;
+  }
+  next[ROOT_NODE_ID].nodes = [
+    ...(next[ROOT_NODE_ID].nodes ?? []),
+    ...appendedRootChildren,
+  ];
+
+  return next;
+}
+
+function readCurrentBuilderNodes(query: EditorQuery): BuilderData["nodes"] {
+  try {
+    const nodes = JSON.parse(query.serialize()) as BuilderData["nodes"];
+    if (nodes && typeof nodes === "object" && nodes[ROOT_NODE_ID]) {
+      return nodes;
+    }
+  } catch {
+    /* ignore */
+  }
+  return emptyBuilderData.nodes;
+}
+
+function builderNodesToPlainText(query: EditorQuery) {
+  const nodes = readCurrentBuilderNodes(query);
+  const parts: string[] = [];
+  const visited = new Set<string>();
+
+  function visit(nodeId: string) {
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+    const node = nodes[nodeId];
+    if (!node || node.hidden) return;
+
+    collectNodeText(node.props, parts);
+    for (const childId of node.nodes ?? []) visit(childId);
+    for (const childId of Object.values(node.linkedNodes ?? {})) visit(childId);
+  }
+
+  visit(ROOT_NODE_ID);
+  return normalizePlainText(parts.join("\n")).slice(0, 8_000);
+}
+
+function collectNodeText(props: Record<string, unknown>, parts: string[]) {
+  for (const [key, value] of Object.entries(props)) {
+    if (
+      key === "content" ||
+      key === "title" ||
+      key === "subtitle" ||
+      key === "label"
+    ) {
+      const text = typeof value === "string" ? value : tiptapToPlainText(value);
+      if (text.trim()) parts.push(text);
+    }
+  }
+}
+
+function tiptapToPlainText(value: unknown) {
+  const parts: string[] = [];
+  collectTiptapText(value, parts);
+  return normalizePlainText(parts.join(""));
+}
+
+function collectTiptapText(value: unknown, parts: string[]) {
+  if (!value || typeof value !== "object") return;
+  const node = value as {
+    type?: unknown;
+    text?: unknown;
+    content?: unknown;
+  };
+  const type = typeof node.type === "string" ? node.type : "";
+  const isBlock =
+    type === "paragraph" ||
+    type === "heading" ||
+    type === "blockquote" ||
+    type === "listItem";
+
+  if (isBlock && parts.length > 0 && parts.at(-1) !== "\n") parts.push("\n");
+  if (typeof node.text === "string") parts.push(node.text);
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) collectTiptapText(child, parts);
+  }
+  if (isBlock && parts.at(-1) !== "\n") parts.push("\n");
+}
+
+function normalizePlainText(value: string) {
+  return value
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function cloneNodes(nodes: BuilderData["nodes"]): BuilderData["nodes"] {
+  return JSON.parse(JSON.stringify(nodes)) as BuilderData["nodes"];
+}
+
+function cloneNode(node: SerializedNode): SerializedNode {
+  return JSON.parse(JSON.stringify(node)) as SerializedNode;
+}
+
+function uniqueNodeId(baseId: string, usedIds: Set<string>) {
+  if (!usedIds.has(baseId)) return baseId;
+  let index = 1;
+  let candidate = `${baseId}_${index}`;
+  while (usedIds.has(candidate)) {
+    index += 1;
+    candidate = `${baseId}_${index}`;
+  }
+  return candidate;
+}
+
+function emitGeneratedSeo(
+  value: unknown,
+  onAiSeoGenerated:
+    | ((seo: { metaTitle?: string; metaDescription?: string }) => void)
+    | undefined,
+) {
+  if (!onAiSeoGenerated || !value || typeof value !== "object") return;
+  const seo = value as { metaTitle?: unknown; metaDescription?: unknown };
+  const metaTitle =
+    typeof seo.metaTitle === "string" ? seo.metaTitle.trim() : undefined;
+  const metaDescription =
+    typeof seo.metaDescription === "string"
+      ? seo.metaDescription.trim()
+      : undefined;
+  if (!metaTitle && !metaDescription) return;
+  onAiSeoGenerated({ metaTitle, metaDescription });
 }
 
 /* ===================== Change watcher ===================== */

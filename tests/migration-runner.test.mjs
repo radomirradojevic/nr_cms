@@ -53,3 +53,10 @@ test("migration runner still applies appearance migration before split columns e
 
   assert.equal(reason, null);
 });
+
+test("migration runner normalizes postgres text casts in column defaults", () => {
+  assert.equal(
+    __migrationRunnerTesting.normalizeColumnDefault("('gpt-5.5'::text)"),
+    "'gpt-5.5'",
+  );
+});
