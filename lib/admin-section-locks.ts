@@ -1,7 +1,7 @@
 // Admin section edit lock — shared constants, types, and authorization helpers.
 //
 // Mirrors lib/content-locks.ts but for admin-only singleton sections
-// (e.g. /dashboard/global-settings, /dashboard/top-menu) that are not tied
+// (e.g. /dashboard/global-settings, /dashboard/menus) that are not tied
 // to a single `content` row. The pattern (short-lived leases + heartbeats +
 // optimistic save check) is identical; only the resource identifier changes
 // from a `content.id` UUID to a string `section_key`.
@@ -21,7 +21,11 @@ export const TAKEOVER_GRACE_SECONDS = 5;
  * Closed allowlist of admin sections that participate in the locking system.
  * Any value not in this list MUST be rejected at the API boundary.
  */
-export const ADMIN_SECTION_KEYS = ["global-settings", "top-menu"] as const;
+export const ADMIN_SECTION_KEYS = [
+  "global-settings",
+  "top-menu",
+  "menus",
+] as const;
 export type AdminSectionKey = (typeof ADMIN_SECTION_KEYS)[number];
 
 export function isAdminSectionKey(value: string): value is AdminSectionKey {

@@ -20,17 +20,19 @@ function isExternal(url: string) {
 }
 
 export async function SiteTopMenu({
+  menuId,
   isBackendUser = false,
   isAdmin = false,
   isLoggedIn = false,
 }: {
+  menuId: string;
   isBackendUser?: boolean;
   isAdmin?: boolean;
   isLoggedIn?: boolean;
 }) {
   const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
-  const tree = await getTopMenuTreeForViewer(viewerRoles);
+  const tree = await getTopMenuTreeForViewer(menuId, viewerRoles);
 
   return (
     <>

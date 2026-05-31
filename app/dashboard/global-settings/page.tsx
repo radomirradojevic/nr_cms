@@ -3,6 +3,7 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
 import { getAdminGlobalSettings } from "@/data/global-settings";
 import { getFileByIdUnchecked } from "@/data/files";
+import { listMenuOptions } from "@/data/top-menu";
 import { AdminSectionLockProvider } from "@/components/admin-section-lock-provider";
 import { SettingsForm } from "./settings-form";
 
@@ -14,7 +15,10 @@ export default async function GlobalSettingsPage() {
     redirect("/dashboard");
   }
 
-  const settings = await getAdminGlobalSettings();
+  const [settings, navigationMenus] = await Promise.all([
+    getAdminGlobalSettings(),
+    listMenuOptions(),
+  ]);
   const initialLogoFile = settings?.siteLogoFileId
     ? await getFileByIdUnchecked(settings.siteLogoFileId)
     : null;
@@ -31,7 +35,11 @@ export default async function GlobalSettingsPage() {
         sectionKey="global-settings"
         currentUserId={user!.id}
       >
-        <SettingsForm settings={settings} initialLogoFile={initialLogoFile} />
+        <SettingsForm
+          settings={settings}
+          initialLogoFile={initialLogoFile}
+          navigationMenus={navigationMenus}
+        />
       </AdminSectionLockProvider>
     </div>
   );

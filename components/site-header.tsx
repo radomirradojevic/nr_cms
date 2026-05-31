@@ -188,19 +188,22 @@ function renderHeaderHtmlSlot(
 
 function renderSiteMenuSlot({
   slot,
+  navigationMenuId,
   isBackendUser,
   isAdmin,
   isLoggedIn,
 }: {
   slot: SlotOf<"SiteMenu"> | null;
+  navigationMenuId: string | null;
   isBackendUser: boolean;
   isAdmin: boolean;
   isLoggedIn: boolean;
 }) {
-  if (!slot) return null;
+  if (!slot || !navigationMenuId) return null;
 
   return (
     <SiteTopMenu
+      menuId={navigationMenuId}
       isBackendUser={isBackendUser}
       isAdmin={isAdmin}
       isLoggedIn={isLoggedIn}
@@ -363,6 +366,7 @@ export function SiteHeader({
   const customContent = renderHeaderHtmlSlot(customHtmlSlot ?? richTextSlot);
   const siteMenu = renderSiteMenuSlot({
     slot: siteMenuSlot,
+    navigationMenuId: headerSettings.navigationMenuId,
     isBackendUser,
     isAdmin,
     isLoggedIn,
