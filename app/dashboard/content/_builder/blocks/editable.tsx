@@ -972,7 +972,7 @@ export function Hero({ title, subtitle, style }: HeroProps) {
           blockTextAlign && "[&_.ProseMirror_p]:!text-inherit",
         )}
       >
-        <h1 className="text-4xl font-bold tracking-tight">
+        <h1 className="cms-builder-hero-title text-4xl font-bold tracking-tight">
           <InlineRichText
             singleLine
             value={title ?? emptyInlineDoc}
@@ -983,7 +983,7 @@ export function Hero({ title, subtitle, style }: HeroProps) {
             }
           />
         </h1>
-        <div className="mt-4 text-lg text-muted-foreground">
+        <div className="cms-builder-hero-subtitle mt-4 text-lg">
           <InlineRichText
             value={subtitle ?? emptyInlineDoc}
             onChange={(v) =>

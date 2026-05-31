@@ -75,9 +75,14 @@ type Props = {
    */
   appearance?: AppearanceSettings;
   settingsPanels?: PageEditorSettingsPanels;
+  pageTitle?: string;
   aiAssistantAvailable?: boolean;
   aiAssistantActive?: boolean;
   onAiAssistantActiveChange?: (active: boolean) => void;
+  onAiSeoGenerated?: (seo: {
+    metaTitle?: string;
+    metaDescription?: string;
+  }) => void;
   aiProviderOptions?: AiProviderOption[];
   aiProviderId?: AIProviderId;
   onAiProviderIdChange?: (providerId: AIProviderId) => void;
@@ -102,9 +107,11 @@ export function PageEditor({
   onChange,
   appearance,
   settingsPanels,
+  pageTitle,
   aiAssistantAvailable = false,
   aiAssistantActive = false,
   onAiAssistantActiveChange,
+  onAiSeoGenerated,
   aiProviderOptions = [],
   aiProviderId,
   onAiProviderIdChange,
@@ -173,9 +180,11 @@ export function PageEditor({
           onRemountWithJson={handleRemountWithJson}
           appearance={appearance}
           settingsPanels={settingsPanels}
+          pageTitle={pageTitle}
           aiAssistantAvailable={aiAssistantAvailable}
           aiAssistantActive={aiAssistantActive}
           onAiAssistantActiveChange={onAiAssistantActiveChange}
+          onAiSeoGenerated={onAiSeoGenerated}
           aiProviderOptions={aiProviderOptions}
           aiProviderId={aiProviderId}
           onAiProviderIdChange={onAiProviderIdChange}
@@ -192,9 +201,11 @@ function Inner({
   onRemountWithJson,
   appearance,
   settingsPanels,
+  pageTitle,
   aiAssistantAvailable,
   aiAssistantActive,
   onAiAssistantActiveChange,
+  onAiSeoGenerated,
   aiProviderOptions,
   aiProviderId,
   onAiProviderIdChange,
@@ -205,9 +216,14 @@ function Inner({
   onRemountWithJson: (json: string) => void;
   appearance?: AppearanceSettings;
   settingsPanels?: PageEditorSettingsPanels;
+  pageTitle?: string;
   aiAssistantAvailable: boolean;
   aiAssistantActive: boolean;
   onAiAssistantActiveChange?: (active: boolean) => void;
+  onAiSeoGenerated?: (seo: {
+    metaTitle?: string;
+    metaDescription?: string;
+  }) => void;
   aiProviderOptions: AiProviderOption[];
   aiProviderId?: AIProviderId;
   onAiProviderIdChange?: (providerId: AIProviderId) => void;
@@ -314,9 +330,11 @@ function Inner({
         aiAssistantAvailable={aiAssistantAvailable}
         aiAssistantActive={aiAssistantActive}
         onAiAssistantActiveChange={onAiAssistantActiveChange}
+        onAiSeoGenerated={onAiSeoGenerated}
         aiProviderOptions={aiProviderOptions}
         aiProviderId={aiProviderId}
         onAiProviderIdChange={onAiProviderIdChange}
+        pageTitle={pageTitle}
       />
 
       {sourceMode ? (
