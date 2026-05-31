@@ -29,7 +29,7 @@ const securityHeaders = [
       "font-src 'self' https://rsms.me https://fonts.gstatic.com",
       "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com https://challenges.cloudflare.com",
       "frame-src 'self' https://*.clerk.accounts.dev https://www.youtube.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
-      "media-src 'self' blob: data:",
+      "media-src 'self' blob: data: https://*.public.blob.vercel-storage.com",
       "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
