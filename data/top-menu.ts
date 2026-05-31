@@ -1,11 +1,22 @@
-import { asc, eq, isNull, max, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, max } from "drizzle-orm";
 import { db } from "@/db";
-import { topMenuItems, content, contentCategories } from "@/db/schema";
+import { content, contentCategories, menus, topMenuItems } from "@/db/schema";
 import { canViewContent } from "@/lib/content-visibility";
 import type { Role } from "@/lib/roles";
 
+export type MenuRow = typeof menus.$inferSelect;
 export type TopMenuItemRow = typeof topMenuItems.$inferSelect;
 export type NewTopMenuItem = typeof topMenuItems.$inferInsert;
+
+export type MenuListItem = MenuRow & {
+  totalItems: number;
+  nestedItems: number;
+};
+
+export type MenuOption = {
+  id: string;
+  name: string;
+};
 
 export type TopMenuTreeNode = {
   id: string;
@@ -21,10 +32,68 @@ export type TopMenuTreeNode = {
 
 export const TOP_MENU_TAG = "top-menu";
 
-async function fetchAllRows(): Promise<TopMenuItemRow[]> {
+export async function listMenus(): Promise<MenuRow[]> {
+  return db.select().from(menus).orderBy(asc(menus.name));
+}
+
+export async function listMenuOptions(): Promise<MenuOption[]> {
+  const rows = await db
+    .select({ id: menus.id, name: menus.name })
+    .from(menus)
+    .orderBy(asc(menus.name));
+  return rows;
+}
+
+export async function listMenusWithItemCounts(): Promise<MenuListItem[]> {
+  const [menuRows, itemRows] = await Promise.all([
+    listMenus(),
+    db
+      .select({
+        menuId: topMenuItems.menuId,
+        parentId: topMenuItems.parentId,
+      })
+      .from(topMenuItems),
+  ]);
+
+  const counts = new Map<string, { totalItems: number; nestedItems: number }>();
+  for (const item of itemRows) {
+    const current = counts.get(item.menuId) ?? {
+      totalItems: 0,
+      nestedItems: 0,
+    };
+    current.totalItems += 1;
+    if (item.parentId) current.nestedItems += 1;
+    counts.set(item.menuId, current);
+  }
+
+  return menuRows.map((menu) => ({
+    ...menu,
+    totalItems: counts.get(menu.id)?.totalItems ?? 0,
+    nestedItems: counts.get(menu.id)?.nestedItems ?? 0,
+  }));
+}
+
+export async function getMenuById(id: string): Promise<MenuRow | undefined> {
+  const rows = await db.select().from(menus).where(eq(menus.id, id)).limit(1);
+  return rows[0];
+}
+
+export async function getMenuByName(
+  name: string,
+): Promise<MenuRow | undefined> {
+  const rows = await db
+    .select()
+    .from(menus)
+    .where(eq(menus.name, name))
+    .limit(1);
+  return rows[0];
+}
+
+async function fetchAllRows(menuId: string): Promise<TopMenuItemRow[]> {
   return db
     .select()
     .from(topMenuItems)
+    .where(eq(topMenuItems.menuId, menuId))
     .orderBy(asc(topMenuItems.parentId), asc(topMenuItems.order));
 }
 
@@ -59,13 +128,17 @@ function buildTree(rows: TopMenuItemRow[]): TopMenuTreeNode[] {
   return roots;
 }
 
-export const getTopMenuTree = async (): Promise<TopMenuTreeNode[]> => {
-  const rows = await fetchAllRows();
+export const getTopMenuTree = async (
+  menuId: string,
+): Promise<TopMenuTreeNode[]> => {
+  const rows = await fetchAllRows(menuId);
   return buildTree(rows);
 };
 
-export async function getTopMenuFlat(): Promise<TopMenuItemRow[]> {
-  return fetchAllRows();
+export async function getTopMenuFlat(
+  menuId: string,
+): Promise<TopMenuItemRow[]> {
+  return fetchAllRows(menuId);
 }
 
 export async function getTopMenuItemById(
@@ -79,14 +152,29 @@ export async function getTopMenuItemById(
   return rows[0];
 }
 
-export async function getMaxOrder(parentId: string | null): Promise<number> {
-  const where = parentId
+export async function getTopMenuItemInMenu(
+  menuId: string,
+  id: string,
+): Promise<TopMenuItemRow | undefined> {
+  const rows = await db
+    .select()
+    .from(topMenuItems)
+    .where(and(eq(topMenuItems.menuId, menuId), eq(topMenuItems.id, id)))
+    .limit(1);
+  return rows[0];
+}
+
+export async function getMaxOrder(
+  menuId: string,
+  parentId: string | null,
+): Promise<number> {
+  const parentWhere = parentId
     ? eq(topMenuItems.parentId, parentId)
     : isNull(topMenuItems.parentId);
   const [{ value }] = await db
     .select({ value: max(topMenuItems.order) })
     .from(topMenuItems)
-    .where(where);
+    .where(and(eq(topMenuItems.menuId, menuId), parentWhere));
   return value ?? -1;
 }
 
@@ -176,7 +264,7 @@ function collectLinkedIds(nodes: TopMenuTreeNode[]): {
 }
 
 /**
- * Return the top menu tree filtered for a specific viewer.
+ * Return the selected menu tree filtered for a specific viewer.
  *
  * Items are dropped when:
  *   - they link to a `content` row that is not visible to the viewer
@@ -187,9 +275,12 @@ function collectLinkedIds(nodes: TopMenuTreeNode[]): {
  * Pass `null` for an anonymous (signed-out) viewer.
  */
 export async function getTopMenuTreeForViewer(
+  menuId: string | null,
   viewerRoles: Role[] | null,
 ): Promise<TopMenuTreeNode[]> {
-  const tree = await getTopMenuTree();
+  if (!menuId) return [];
+
+  const tree = await getTopMenuTree(menuId);
   const { contentIds, categoryIds } = collectLinkedIds(tree);
 
   // Look up linked content visibility + status.

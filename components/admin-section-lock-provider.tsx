@@ -64,7 +64,7 @@ function createClientId(): string {
 
 /**
  * Wraps an admin singleton page (e.g. /dashboard/global-settings,
- * /dashboard/top-menu) with the same edit-lock behaviour as the content
+ * /dashboard/menus) with the same edit-lock behaviour as the content
  * editor: acquire on mount, heartbeat while active, release on real
  * navigation/close (pagehide), poll /status while locked-out so the second
  * admin sees the lock free up automatically when the holder leaves.

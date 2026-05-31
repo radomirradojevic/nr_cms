@@ -136,15 +136,16 @@ async function DashboardCards({ roles }: { roles: string[] }) {
         ]}
       />
       <DashboardCard
-        title="Top Menu"
-        description="Navigation menu items"
+        title="Menus"
+        description="Reusable navigation menus"
         icon={Menu}
-        href="/dashboard/top-menu"
-        actionLabel="Manage Top Menu"
+        href="/dashboard/menus"
+        actionLabel="Manage Menus"
         showAction={isAdmin}
         stats={[
-          { label: "Total Items", value: stats.topMenu.totalItems },
-          { label: "Nested Items", value: stats.topMenu.nestedItems },
+          { label: "Total Menus", value: stats.menus.totalMenus },
+          { label: "Total Items", value: stats.menus.totalItems },
+          { label: "Nested Items", value: stats.menus.nestedItems },
         ]}
       />
       <DashboardCard

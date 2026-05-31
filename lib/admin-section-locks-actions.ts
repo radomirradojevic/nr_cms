@@ -2,7 +2,7 @@ import "server-only";
 
 // Server-side helper to validate that an admin section action carries a
 // valid edit-lock owned by the calling user. Use this in EVERY mutating
-// server action for /dashboard/global-settings and /dashboard/top-menu.
+// server action for /dashboard/global-settings and /dashboard/menus.
 //
 // Returns null on success, or a typed error suitable for returning from
 // the action ({ error: string }).

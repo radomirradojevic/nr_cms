@@ -6,6 +6,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getFileByIdUnchecked } from "@/data/files";
+import { getMenuById } from "@/data/top-menu";
 import {
   GLOBAL_SETTINGS_TAG,
   UpdateGlobalSettingsSchema,
@@ -43,6 +44,11 @@ export async function updateGlobalSettings(
     if (file.kind !== "image") {
       return { error: "Selected logo must be an image." };
     }
+  }
+
+  if (input.headerSettings.navigationMenuId) {
+    const menu = await getMenuById(input.headerSettings.navigationMenuId);
+    if (!menu) return { error: "Selected navigation menu does not exist." };
   }
 
   try {

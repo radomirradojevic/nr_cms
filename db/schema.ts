@@ -98,10 +98,29 @@ export const content = pgTable(
   ],
 );
 
+export const menus = pgTable(
+  "menus",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [unique("menus_name_unique").on(table.name)],
+);
+
 export const topMenuItems = pgTable(
   "top_menu_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    menuId: uuid("menu_id")
+      .notNull()
+      .references(() => menus.id, { onDelete: "cascade" }),
     label: text("label").notNull(),
     url: text("url").notNull(),
     parentId: uuid("parent_id").references((): AnyPgColumn => topMenuItems.id, {
@@ -128,7 +147,13 @@ export const topMenuItems = pgTable(
       "top_menu_items_target_check",
       sql`${table.target} IN ('_self','_blank')`,
     ),
+    index("top_menu_items_menu_id_idx").on(table.menuId),
     index("top_menu_items_parent_id_idx").on(table.parentId),
+    index("top_menu_items_menu_parent_order_idx").on(
+      table.menuId,
+      table.parentId,
+      table.order,
+    ),
     index("top_menu_items_parent_order_idx").on(table.parentId, table.order),
     index("top_menu_items_content_id_idx").on(table.contentId),
     index("top_menu_items_category_id_idx").on(table.categoryId),

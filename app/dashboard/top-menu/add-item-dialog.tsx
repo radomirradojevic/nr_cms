@@ -49,6 +49,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 type Props = {
+  menuId: string;
   parentId: string | null;
   onSuccess?: () => void;
   disabled?: boolean;
@@ -56,6 +57,7 @@ type Props = {
 };
 
 export function AddItemDialog({
+  menuId,
   parentId,
   onSuccess,
   disabled,
@@ -74,6 +76,7 @@ export function AddItemDialog({
     const result = await createMenuItem(
       {
         kind: "custom",
+        menuId,
         label: values.label,
         url: values.url,
         target: values.target,
