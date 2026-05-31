@@ -942,6 +942,7 @@ export function ContentForm({
                 defaultValue={editorDefaultValue}
                 appearance={appearance}
                 settingsPanels={pageEditorSettingsPanels}
+                pageTitle={title}
                 registerGetValue={(getValue) => {
                   getEditorValueRef.current = getValue;
                 }}
@@ -953,6 +954,14 @@ export function ContentForm({
                 }
                 aiAssistantActive={aiWritingAssistantActive}
                 onAiAssistantActiveChange={setAiWritingAssistantActive}
+                onAiSeoGenerated={(seo) => {
+                  if (seo.metaTitle && !metaTitle.trim()) {
+                    setMetaTitle(seo.metaTitle);
+                  }
+                  if (seo.metaDescription && !metaDescription.trim()) {
+                    setMetaDescription(seo.metaDescription);
+                  }
+                }}
                 aiProviderOptions={aiProviderOptions}
                 aiProviderId={effectiveAiProviderId}
                 onAiProviderIdChange={setAiProviderId}

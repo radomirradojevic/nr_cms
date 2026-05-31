@@ -225,6 +225,13 @@
       "when": 1781654400004,
       "tag": "0031_foamy_human_robot",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1781654400005,
+      "tag": "0032_wealthy_apocalypse",
+      "breakpoints": true
     }
   ]
 }

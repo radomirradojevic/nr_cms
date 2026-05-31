@@ -10,6 +10,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteMain } from "@/components/site-main";
 import {
   DEFAULT_APPEARANCE,
+  THEMES,
   getContentWidthValue,
   normalizeContentWidth,
   parseCustomContentWidth,
@@ -113,6 +114,66 @@ test("resolveAppearance keeps the protected public shell themes addressable", ()
       background: "oklch(0.14 0.05 270)",
       foreground: "oklch(0.96 0.03 180)",
     },
+    {
+      theme: "nordic",
+      htmlClass: "theme-nordic",
+      background: "oklch(0.985 0.01 245)",
+      foreground: "oklch(0.2 0.035 250)",
+    },
+    {
+      theme: "graphite",
+      htmlClass: "dark theme-graphite",
+      background: "oklch(0.18 0.005 250)",
+      foreground: "oklch(0.94 0.006 250)",
+    },
+    {
+      theme: "paper",
+      htmlClass: "theme-paper",
+      background: "oklch(0.985 0.012 95)",
+      foreground: "oklch(0.2 0.03 70)",
+    },
+    {
+      theme: "sage",
+      htmlClass: "theme-sage",
+      background: "oklch(0.975 0.012 145)",
+      foreground: "oklch(0.2 0.035 160)",
+    },
+    {
+      theme: "terracotta",
+      htmlClass: "theme-terracotta",
+      background: "oklch(0.975 0.018 75)",
+      foreground: "oklch(0.22 0.04 45)",
+    },
+    {
+      theme: "lavender",
+      htmlClass: "theme-lavender",
+      background: "oklch(0.985 0.015 300)",
+      foreground: "oklch(0.22 0.045 285)",
+    },
+    {
+      theme: "monochrome",
+      htmlClass: "theme-monochrome",
+      background: "oklch(0.995 0 0)",
+      foreground: "oklch(0.12 0 0)",
+    },
+    {
+      theme: "terminal",
+      htmlClass: "dark theme-terminal",
+      background: "oklch(0.11 0.03 145)",
+      foreground: "oklch(0.91 0.06 145)",
+    },
+    {
+      theme: "rose",
+      htmlClass: "theme-rose",
+      background: "oklch(0.985 0.012 5)",
+      foreground: "oklch(0.22 0.04 350)",
+    },
+    {
+      theme: "high-contrast",
+      htmlClass: "dark theme-high-contrast",
+      background: "oklch(0.05 0 0)",
+      foreground: "oklch(1 0 0)",
+    },
   ];
 
   for (const expected of smokeThemes) {
@@ -126,6 +187,22 @@ test("resolveAppearance keeps the protected public shell themes addressable", ()
     assert.equal(appearance.cssVars["--foreground"], expected.foreground);
     assert.ok(appearance.cssVars["--primary"]);
     assert.ok(appearance.cssVars["--primary-foreground"]);
+  }
+});
+
+test("resolveAppearance covers every registered theme option", () => {
+  for (const theme of THEMES) {
+    const appearance = resolveAppearance({
+      ...DEFAULT_APPEARANCE,
+      theme,
+    });
+
+    assert.ok(appearance.htmlClass.includes(`theme-${theme}`));
+    assert.ok(appearance.cssVars["--background"]);
+    assert.ok(appearance.cssVars["--foreground"]);
+    assert.ok(appearance.cssVars["--card"]);
+    assert.ok(appearance.cssVars["--sidebar"]);
+    assert.ok(appearance.cssVars["--ring"]);
   }
 });
 

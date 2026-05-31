@@ -722,6 +722,20 @@ html[data-appearance-background-effects="disabled"] .site-footer {
 .cms-builder-layout > * {
   min-width: 0;
 }
+.cms-builder-hero-title .ProseMirror,
+.cms-builder-hero-subtitle .ProseMirror {
+  color: inherit;
+  line-height: inherit;
+}
+.cms-builder-hero-title :where(p) {
+  margin: 0;
+}
+.cms-builder-hero-subtitle {
+  color: var(--cms-text-color, var(--muted-foreground));
+}
+.cms-builder-hero-subtitle :where(p) {
+  margin-block: 0.25rem;
+}
 .cms-builder-layout[data-layout-preset="1-col"] {
   grid-template-columns: minmax(0, 1fr);
 }
