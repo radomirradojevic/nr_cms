@@ -232,6 +232,13 @@
       "when": 1781654400005,
       "tag": "0032_wealthy_apocalypse",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1781654400006,
+      "tag": "0033_lyrical_scorpion",
+      "breakpoints": true
     }
   ]
 }

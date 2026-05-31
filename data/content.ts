@@ -16,7 +16,7 @@ import {
 import { buildVisibilityWhere } from "@/lib/content-visibility";
 import type { Role } from "@/lib/roles";
 
-export type ContentType = "page" | "blog_post";
+export type ContentType = "page" | "blog_post" | "hero_slider";
 export type ContentStatus = "published" | "unpublished" | "archived";
 
 export type ContentRow = typeof content.$inferSelect;
@@ -149,7 +149,7 @@ function normalizeSearchTypes(contentTypes: ContentType[]): ContentType[] {
     new Set(
       contentTypes.filter(
         (type): type is ContentType =>
-          type === "blog_post" || type === "page",
+          type === "blog_post" || type === "page" || type === "hero_slider",
       ),
     ),
   );
@@ -170,12 +170,15 @@ function plainText(value: string | null | undefined): string {
     .trim();
 }
 
-function buildSnippet(row: {
-  title: string;
-  excerpt: string | null;
-  metaDescription: string | null;
-  content: string | null;
-}, query: string): string {
+function buildSnippet(
+  row: {
+    title: string;
+    excerpt: string | null;
+    metaDescription: string | null;
+    content: string | null;
+  },
+  query: string,
+): string {
   const text =
     plainText(row.excerpt) ||
     plainText(row.metaDescription) ||

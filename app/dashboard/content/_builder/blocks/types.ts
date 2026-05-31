@@ -48,6 +48,10 @@ export type HeroProps = StyledProps & {
   title: JSONContent;
   subtitle: JSONContent;
 };
+export type HeroSliderBlockProps = StyledProps & {
+  heroSliderId: string;
+  heroSliderName: string;
+};
 export type RawHtmlProps = StyledProps & { html: string };
 export type GalleryProps = StyledProps & {
   galleryId: string;
@@ -82,6 +86,7 @@ export const blockNames = [
   "Image",
   "Button",
   "Hero",
+  "HeroSlider",
   "RawHtml",
   "Gallery",
   "Video",
@@ -144,6 +149,10 @@ export const defaults = {
       ],
     },
   } satisfies HeroProps,
+  HeroSlider: {
+    heroSliderId: "",
+    heroSliderName: "",
+  } satisfies HeroSliderBlockProps,
   RawHtml: {
     html: "<p>Raw HTML block — edit in settings.</p>",
   } satisfies RawHtmlProps,

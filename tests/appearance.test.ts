@@ -1019,8 +1019,6 @@ test("SiteMain renders full-bleed and framed surface variants", () => {
       SiteMain,
       {
         region: { variant: "full-bleed-builder" },
-        headerPaddingPx: 10,
-        footerPaddingPx: 20,
       },
       createElement("div", null, "Builder"),
     ),
@@ -1030,16 +1028,14 @@ test("SiteMain renders full-bleed and framed surface variants", () => {
       SiteMain,
       {
         region: { variant: "framed" },
-        headerPaddingPx: 0,
-        footerPaddingPx: 0,
       },
       createElement("div", null, "Framed"),
     ),
   );
 
   assert.ok(fullBleed.includes('data-main-variant="full-bleed-builder"'));
-  assert.ok(fullBleed.includes("padding-top:10px"));
-  assert.ok(fullBleed.includes("padding-bottom:calc(20px"));
+  assert.ok(!fullBleed.includes("padding-top"));
+  assert.ok(!fullBleed.includes("padding-bottom"));
   assert.ok(framed.includes('data-main-variant="framed"'));
   assert.ok(framed.includes("rounded-lg border bg-background"));
 });

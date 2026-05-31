@@ -3,8 +3,6 @@ import { cn } from "@/lib/utils";
 
 type SiteMainProps = {
   region: MainRegionV1;
-  headerPaddingPx: number;
-  footerPaddingPx: number;
   children?: React.ReactNode;
 };
 
@@ -52,12 +50,7 @@ function mainSurfaceClassName(variant: MainRegionV1["variant"]): string {
   }
 }
 
-export function SiteMain({
-  region,
-  headerPaddingPx,
-  footerPaddingPx,
-  children,
-}: SiteMainProps) {
+export function SiteMain({ region, children }: SiteMainProps) {
   const variant = region.variant;
   const surfaceClassName = mainSurfaceClassName(variant);
 
@@ -65,14 +58,6 @@ export function SiteMain({
     <main
       className={cn("site-main flex-1", mainOuterClassName(variant))}
       data-main-variant={variant}
-      style={{
-        ...(headerPaddingPx > 0 ? { paddingTop: `${headerPaddingPx}px` } : {}),
-        ...(footerPaddingPx > 0
-          ? {
-              paddingBottom: `calc(${footerPaddingPx}px + env(safe-area-inset-bottom, 0px))`,
-            }
-          : {}),
-      }}
     >
       <div className={mainInnerClassName(variant)}>
         {surfaceClassName ? (

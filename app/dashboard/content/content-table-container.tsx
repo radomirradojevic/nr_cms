@@ -31,7 +31,9 @@ export function ContentTableContainer({
 }: Props) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [type, setType] = useState<"all" | "page" | "blog_post">("all");
+  const [type, setType] = useState<
+    "all" | "page" | "blog_post" | "hero_slider"
+  >("all");
   const [status, setStatus] = useState<
     "all" | "published" | "unpublished" | "archived"
   >("all");
@@ -98,9 +100,11 @@ export function ContentTableContainer({
   const availableCategories =
     type === "page"
       ? pageCategories
-      : type === "blog_post"
-        ? blogCategories
-        : [...pageCategories, ...blogCategories];
+      : type === "hero_slider"
+        ? pageCategories
+        : type === "blog_post"
+          ? blogCategories
+          : [...pageCategories, ...blogCategories];
 
   return (
     <div className="space-y-3">
@@ -119,6 +123,7 @@ export function ContentTableContainer({
             <SelectItem value="all">All types</SelectItem>
             <SelectItem value="page">Page</SelectItem>
             <SelectItem value="blog_post">Blog post</SelectItem>
+            <SelectItem value="hero_slider">Hero Slider</SelectItem>
           </SelectContent>
         </Select>
         <Select

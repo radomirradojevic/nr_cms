@@ -27,7 +27,7 @@ export default async function ContentPage() {
         <div>
           <h1 className="text-2xl font-semibold">Content</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Manage pages and blog posts.
+            Manage pages, blog posts, and hero sliders.
           </p>
         </div>
         <Button asChild>
