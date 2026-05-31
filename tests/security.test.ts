@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   ButtonStatic,
+  HeroStatic,
   ImageStatic,
 } from "@/app/dashboard/content/_builder/blocks/static";
 import { buildResponsiveCss } from "@/app/dashboard/content/_builder/blocks/style/serialize";
@@ -55,6 +56,27 @@ test("builder static renderers neutralize unsafe URLs", () => {
   );
   assert.doesNotMatch(image, /<img/i);
   assert.doesNotMatch(image, /javascript:/i);
+});
+
+test("hero static renderer lets block text color drive subtitle color", () => {
+  const doc = (text: string) => ({
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+  });
+
+  const hero = renderToStaticMarkup(
+    createElement(HeroStatic, {
+      title: doc("Hero title"),
+      subtitle: doc("Hero subtitle"),
+      style: {
+        colors: { background: "accent", text: "accent-foreground" },
+      },
+    }),
+  );
+
+  assert.match(hero, /cms-builder-hero-subtitle/);
+  assert.match(hero, /--cms-text-color:var\(--accent-foreground\)/);
+  assert.doesNotMatch(hero, /text-muted-foreground/);
 });
 
 test("builder responsive CSS cannot break out of style tags", () => {
