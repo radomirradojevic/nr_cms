@@ -362,7 +362,48 @@ function HeaderPreviewBlock({
   );
 }
 
-function HeaderVariantPreview({ variant }: { variant: HeaderVariant }) {
+function HeaderVariantPreview({
+  variant,
+  hidden = false,
+}: {
+  variant: HeaderVariant;
+  hidden?: boolean;
+}) {
+  if (hidden) {
+    return (
+      <div className="overflow-hidden rounded-md border bg-muted/20">
+        <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] sm:items-center">
+          <div
+            className="relative min-h-28 overflow-hidden rounded border bg-background p-3"
+            aria-hidden="true"
+          >
+            <HeaderPreviewBlock
+              className="absolute right-3 top-3 size-6 rounded-full"
+              label="Menu"
+              tone="border"
+            />
+            <div className="flex h-full items-center justify-center pt-8">
+              <HeaderPreviewBlock
+                className="h-6 w-28 border-dashed"
+                label="Header hidden"
+                tone="border"
+              />
+            </div>
+          </div>
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium">Hidden</h3>
+              <Badge variant="outline">Header preview</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Backend users get a compact menu launcher in the top-right corner.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-md border bg-muted/20">
       <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] sm:items-center">
@@ -561,6 +602,11 @@ const FOOTER_VARIANT_LABELS: Record<FooterVariant, string> = {
   CTA: "CTA",
   hidden: "Hidden",
 };
+
+const FOOTER_LAYOUT_VARIANTS = FOOTER_VARIANTS.filter(
+  (variant): variant is Exclude<FooterVariant, "hidden"> =>
+    variant !== "hidden",
+);
 
 const FOOTER_VARIANT_SUMMARIES: Record<FooterVariant, string> = {
   classic: "Simple legacy footer: CustomHtml and copyright only.",
@@ -1294,6 +1340,16 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     stickyHeaderHeight: settings?.stickyHeaderHeight ?? 80,
     stickyFooterHeight: settings?.stickyFooterHeight ?? 110,
   });
+  const initialHeaderHidden =
+    headerSettings.hidden || initialRecipe.shell.header.hidden;
+  const initialFooterHidden =
+    footerSettings.hidden ||
+    initialRecipe.shell.footer.hidden ||
+    initialRecipe.shell.footer.variant === "hidden";
+  const initialFooterVariant =
+    initialRecipe.shell.footer.variant === "hidden"
+      ? "classic"
+      : initialRecipe.shell.footer.variant;
   const initialHeaderSlots = initialRecipe.shell.header.slots;
   const initialFooterSlots = initialRecipe.shell.footer.slots;
   const initialHeaderCustomHtmlSlot = findRecipeSlot(
@@ -1370,6 +1426,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [headerShowSiteName, setHeaderShowSiteName] = useState(
     headerSettings.showSiteName,
   );
+  const [headerHidden, setHeaderHidden] = useState(initialHeaderHidden);
   const [headerSticky, setHeaderSticky] = useState(headerSettings.sticky);
   const [logoBorderEnabled, setLogoBorderEnabled] = useState(
     headerSettings.logoBorderEnabled,
@@ -1435,7 +1492,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [headerCtaHref, setHeaderCtaHref] = useState(
     initialHeaderCtaSlot?.href ?? "",
   );
-  const [footerShowLogo, setFooterShowLogo] = useState(footerSettings.showLogo);
+  const [footerHidden, setFooterHidden] = useState(initialFooterHidden);
   const [footerCopyright, setFooterCopyright] = useState(
     footerSettings.copyright ?? "",
   );
@@ -1449,9 +1506,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   const [stickyFooterHeight, setStickyFooterHeight] = useState(
     String(settings?.stickyFooterHeight ?? 110),
   );
-  const [footerVariant, setFooterVariant] = useState<FooterVariant>(
-    initialRecipe.shell.footer.variant,
-  );
+  const [footerVariant, setFooterVariant] =
+    useState<FooterVariant>(initialFooterVariant);
   const [footerCustomHtmlEnabled, setFooterCustomHtmlEnabled] = useState(
     initialFooterCustomHtmlSlot?.enabled ?? Boolean(settings?.footerContent),
   );
@@ -1616,6 +1672,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     () => ({
       showLogo: headerShowLogo,
       showSiteName: headerShowSiteName,
+      hidden: headerHidden,
       sticky: headerSticky,
       logoBorderEnabled,
       logoBorderColorMode,
@@ -1630,6 +1687,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     [
       headerShowLogo,
       headerShowSiteName,
+      headerHidden,
       headerSticky,
       logoBorderEnabled,
       logoBorderColorMode,
@@ -1641,19 +1699,13 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   );
   const currentFooterSettings = useMemo(
     () => ({
-      showLogo: footerShowLogo,
+      hidden: footerHidden,
       copyright: footerCopyright || undefined,
       sticky: footerSticky,
       background: normalizeOptionalHexColor(footerBackground),
       glow: normalizeOptionalGlowEffect(footerGlow),
     }),
-    [
-      footerShowLogo,
-      footerCopyright,
-      footerSticky,
-      footerBackground,
-      footerGlow,
-    ],
+    [footerHidden, footerCopyright, footerSticky, footerBackground, footerGlow],
   );
   const currentAppearanceSettings = useMemo(
     () => ({
@@ -1815,6 +1867,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         header: {
           ...recipe.shell.header,
           variant: headerVariant,
+          hidden: headerHidden,
           slots: recipe.shell.header.slots.map((slot) => {
             if (
               slot.type === "CustomHtml" &&
@@ -1863,7 +1916,8 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
         },
         footer: {
           ...recipe.shell.footer,
-          variant: footerVariant,
+          variant: footerVariant === "hidden" ? "classic" : footerVariant,
+          hidden: footerHidden,
           slots: recipe.shell.footer.slots.map((slot) => {
             if (
               slot.type === "CustomHtml" &&
@@ -1997,7 +2051,11 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     setShadowPreset(recipe.tokens.shadowPreset);
     setHeaderVariant(recipe.shell.header.variant);
     setMainVariant(recipe.shell.main.variant);
-    setFooterVariant(recipe.shell.footer.variant);
+    setFooterVariant(
+      recipe.shell.footer.variant === "hidden"
+        ? "classic"
+        : recipe.shell.footer.variant,
+    );
     setBlogPostMetadataTreatment(
       recipe.contentTemplates.blogPost.metadataTreatment,
     );
@@ -2017,6 +2075,10 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     setPageTemplateVariant(recipe.contentTemplates.page.variant);
     setMotionPreference(recipe.motion.motionPreference);
     setBackgroundEffects(recipe.motion.backgroundEffects);
+    setHeaderHidden(recipe.shell.header.hidden);
+    setFooterHidden(
+      recipe.shell.footer.hidden || recipe.shell.footer.variant === "hidden",
+    );
     setHeaderSticky(recipe.shell.header.sticky);
     setFooterSticky(recipe.shell.footer.sticky);
     setStickyHeaderHeight(String(recipe.shell.header.heightPx));
@@ -2381,7 +2443,18 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                         ))}
                       </SelectContent>
                     </Select>
-                    <HeaderVariantPreview variant={headerVariant} />
+                    <HeaderVariantPreview
+                      variant={headerVariant}
+                      hidden={headerHidden}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="headerHidden">Hidden Header</Label>
+                    <Switch
+                      id="headerHidden"
+                      checked={headerHidden}
+                      onCheckedChange={setHeaderHidden}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Site Logo</Label>
@@ -2781,21 +2854,23 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {FOOTER_VARIANTS.map((variant) => (
+                        {FOOTER_LAYOUT_VARIANTS.map((variant) => (
                           <SelectItem key={variant} value={variant}>
                             {FOOTER_VARIANT_LABELS[variant]}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FooterVariantPreview variant={footerVariant} />
+                    <FooterVariantPreview
+                      variant={footerHidden ? "hidden" : footerVariant}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="footerShowLogo">Show Logo</Label>
+                    <Label htmlFor="footerHidden">Hidden Footer</Label>
                     <Switch
-                      id="footerShowLogo"
-                      checked={footerShowLogo}
-                      onCheckedChange={setFooterShowLogo}
+                      id="footerHidden"
+                      checked={footerHidden}
+                      onCheckedChange={setFooterHidden}
                     />
                   </div>
                   <div className="flex items-center justify-between">

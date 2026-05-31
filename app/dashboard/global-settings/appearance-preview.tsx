@@ -631,6 +631,16 @@ function PreviewHeader({
     <PreviewChip tone="border">Menu</PreviewChip>
   ) : null;
 
+  if (header.hidden) {
+    return (
+      <div className="flex min-h-12 items-center justify-end border-b px-3 py-2 text-xs">
+        <PreviewChip className="h-7 w-14 rounded-full px-1" tone="border">
+          Menu
+        </PreviewChip>
+      </div>
+    );
+  }
+
   if (header.variant === "centered") {
     return (
       <div className="flex min-h-20 flex-col items-center justify-center gap-2 border-b px-3 py-3 text-center text-xs">
@@ -768,7 +778,7 @@ function PreviewFooter({
       <PreviewChip tone="primary">{footerCtaSlot.label}</PreviewChip>
     ) : null;
 
-  if (footer.variant === "hidden") return null;
+  if (footer.hidden || footer.variant === "hidden") return null;
 
   if (footer.variant === "centered") {
     return (
