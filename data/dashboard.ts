@@ -5,6 +5,7 @@ import {
   galleries,
   galleryImages,
   contentCategories,
+  menus,
   topMenuItems,
   forms,
   formSubmissions,
@@ -22,7 +23,7 @@ export type DashboardStats = {
   files: { total: number; images: number; videos: number; documents: number };
   galleries: { totalGalleries: number; totalImages: number };
   categories: { total: number; pageCategories: number; blogCategories: number };
-  topMenu: { totalItems: number; nestedItems: number };
+  menus: { totalMenus: number; totalItems: number; nestedItems: number };
   forms: { totalForms: number; totalSubmissions: number };
   users: {
     total: number;
@@ -40,7 +41,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     galleriesCount,
     galleryImagesCount,
     categoryRows,
-    topMenuCount,
+    menusCount,
+    menuItemsCount,
     nestedMenuCount,
     formsCount,
     submissionsCount,
@@ -73,6 +75,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       })
       .from(contentCategories)
       .groupBy(contentCategories.contentType),
+
+    db.select({ count: sql<number>`count(*)::int` }).from(menus),
 
     db.select({ count: sql<number>`count(*)::int` }).from(topMenuItems),
 
@@ -133,8 +137,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       totalImages: galleryImagesCount[0]?.count ?? 0,
     },
     categories: { total: totalCategories, pageCategories, blogCategories },
-    topMenu: {
-      totalItems: topMenuCount[0]?.count ?? 0,
+    menus: {
+      totalMenus: menusCount[0]?.count ?? 0,
+      totalItems: menuItemsCount[0]?.count ?? 0,
       nestedItems: nestedMenuCount[0]?.count ?? 0,
     },
     forms: {

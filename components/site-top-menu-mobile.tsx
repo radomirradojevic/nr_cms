@@ -154,7 +154,7 @@ const BACKEND_LINKS = [
 
 const ADMIN_LINKS = [
   { href: "/dashboard/users", label: "Users" },
-  { href: "/dashboard/top-menu", label: "Top Menu" },
+  { href: "/dashboard/menus", label: "Menus" },
   { href: "/dashboard/form-builder", label: "Form Builder" },
 ];
 

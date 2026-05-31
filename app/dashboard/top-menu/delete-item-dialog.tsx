@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { deleteMenuItem } from "./actions";
 
 type Props = {
+  menuId: string;
   item: { id: string; label: string };
   childCount?: number;
   onSuccess?: () => void;
@@ -25,6 +26,7 @@ type Props = {
 };
 
 export function DeleteItemDialog({
+  menuId,
   item,
   childCount = 0,
   onSuccess,
@@ -38,7 +40,7 @@ export function DeleteItemDialog({
   async function handleDelete() {
     setLoading(true);
     setServerError(null);
-    const result = await deleteMenuItem({ id: item.id }, clientId);
+    const result = await deleteMenuItem({ menuId, id: item.id }, clientId);
     setLoading(false);
     if ("error" in result && result.error) {
       setServerError(result.error);

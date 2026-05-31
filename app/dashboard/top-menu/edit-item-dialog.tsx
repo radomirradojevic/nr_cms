@@ -34,6 +34,7 @@ import {
 import { updateMenuItem } from "./actions";
 
 type Props = {
+  menuId: string;
   item: {
     id: string;
     label: string;
@@ -47,7 +48,13 @@ type Props = {
   clientId?: string;
 };
 
-export function EditItemDialog({ item, onSuccess, disabled, clientId }: Props) {
+export function EditItemDialog({
+  menuId,
+  item,
+  onSuccess,
+  disabled,
+  clientId,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -83,6 +90,7 @@ export function EditItemDialog({ item, onSuccess, disabled, clientId }: Props) {
     setServerError(null);
     const result = await updateMenuItem(
       {
+        menuId,
         id: item.id,
         label: values.label,
         target: values.target,

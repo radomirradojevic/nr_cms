@@ -2,21 +2,28 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
-import { eq, and, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { topMenuItems } from "@/db/schema";
+import { menus, topMenuItems } from "@/db/schema";
+import { getRawGlobalSettings } from "@/data/global-settings";
+import {
+  TOP_MENU_TAG,
+  getMaxOrder,
+  getMenuById,
+  getMenuByName,
+  getTopMenuFlat,
+  getTopMenuItemInMenu,
+} from "@/data/top-menu";
+import { getCategoryById } from "@/data/content-categories";
+import { getContentById } from "@/data/content";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { requireAdminSectionLock } from "@/lib/admin-section-locks-actions";
 import {
-  TOP_MENU_TAG,
-  getMaxOrder,
-  getTopMenuFlat,
-  getTopMenuItemById,
-} from "@/data/top-menu";
-import { getContentById } from "@/data/content";
-import { getCategoryById } from "@/data/content-categories";
+  DEFAULT_HEADER_SETTINGS,
+  HeaderSettingsSchema,
+} from "@/lib/global-settings";
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -28,17 +35,147 @@ async function requireAdmin() {
   return user;
 }
 
-function bumpCaches() {
+function bumpCaches(menuId?: string) {
   // Use updateTag (write-through / immediate expiration) instead of
   // revalidateTag(tag, "default"), which only marks the tag stale and serves
   // the previous value to the next request via stale-while-revalidate. With
-  // SWR semantics the public site keeps rendering the old top-menu tree until
-  // a background refresh completes, which manifests in production as missing
+  // SWR semantics the public site keeps rendering the old menu tree until a
+  // background refresh completes, which manifests in production as missing
   // child items right after a save. updateTag guarantees the next render of
   // any consumer of getTopMenuTree() sees the fresh tree.
   updateTag(TOP_MENU_TAG);
   revalidatePath("/", "layout");
+  revalidatePath("/dashboard/menus");
   revalidatePath("/dashboard/top-menu");
+  if (menuId) revalidatePath(`/dashboard/menus/${menuId}`);
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  const cause =
+    typeof err === "object" && err !== null && "cause" in err
+      ? (err as { cause?: unknown }).cause
+      : null;
+  const code =
+    typeof err === "object" && err !== null && "code" in err
+      ? (err as { code?: unknown }).code
+      : typeof cause === "object" && cause !== null && "code" in cause
+        ? (cause as { code?: unknown }).code
+        : null;
+  return code === "23505";
+}
+
+async function selectedHeaderMenuId(): Promise<string | null> {
+  const settings = await getRawGlobalSettings();
+  const parsed = HeaderSettingsSchema.safeParse(settings?.headerSettings);
+  return (parsed.success ? parsed.data : DEFAULT_HEADER_SETTINGS)
+    .navigationMenuId;
+}
+
+async function requireMenu(menuId: string) {
+  const menu = await getMenuById(menuId);
+  return menu ?? null;
+}
+
+// ─── Menu management ──────────────────────────────────────────────────────────
+
+const menuNameSchema = z.object({
+  name: z.string().trim().min(1, "Menu name is required.").max(120),
+});
+
+const menuIdSchema = z.object({
+  id: z.string().uuid(),
+});
+
+const renameMenuSchema = menuIdSchema.extend({
+  name: menuNameSchema.shape.name,
+});
+
+export async function createMenu(input: unknown, clientId?: string) {
+  if (!(await requireAdmin())) return { error: "Forbidden." };
+  const lockError = await requireAdminSectionLock("menus", clientId);
+  if (lockError) return lockError;
+
+  const parsed = menuNameSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const name = parsed.data.name;
+
+  const existing = await getMenuByName(name);
+  if (existing) return { error: "A menu with that name already exists." };
+
+  try {
+    const rows = await db
+      .insert(menus)
+      .values({ name })
+      .returning({ id: menus.id });
+    bumpCaches(rows[0]?.id);
+    return { success: true, id: rows[0]?.id };
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return { error: "A menu with that name already exists." };
+    }
+    console.error("[createMenu] error", err);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function renameMenu(input: unknown, clientId?: string) {
+  if (!(await requireAdmin())) return { error: "Forbidden." };
+  const lockError = await requireAdminSectionLock("menus", clientId);
+  if (lockError) return lockError;
+
+  const parsed = renameMenuSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { id, name } = parsed.data;
+
+  const target = await getMenuById(id);
+  if (!target) return { error: "Menu not found." };
+
+  const existing = await getMenuByName(name);
+  if (existing && existing.id !== id) {
+    return { error: "A menu with that name already exists." };
+  }
+
+  try {
+    await db.update(menus).set({ name }).where(eq(menus.id, id));
+    bumpCaches(id);
+    return { success: true };
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return { error: "A menu with that name already exists." };
+    }
+    console.error("[renameMenu] error", err);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function deleteMenu(input: unknown, clientId?: string) {
+  if (!(await requireAdmin())) return { error: "Forbidden." };
+  const lockError = await requireAdminSectionLock("menus", clientId);
+  if (lockError) return lockError;
+
+  const parsed = menuIdSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid menu id." };
+  const { id } = parsed.data;
+
+  const target = await getMenuById(id);
+  if (!target) return { error: "Menu not found." };
+
+  const selectedMenuId = await selectedHeaderMenuId();
+  if (selectedMenuId === id) {
+    return {
+      error:
+        'This menu is assigned to the Header. Select another menu or "Without menu" in Header Settings before deleting it.',
+    };
+  }
+
+  try {
+    await db.delete(menus).where(eq(menus.id, id));
+    bumpCaches(id);
+    return { success: true };
+  } catch (err) {
+    console.error("[deleteMenu] error", err);
+    return { error: "Something went wrong." };
+  }
 }
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -54,8 +191,9 @@ const urlSchema = z
   );
 
 const targetSchema = z.enum(["_self", "_blank"]);
+const menuIdField = z.object({ menuId: z.string().uuid() });
 
-const createContentItemSchema = z.object({
+const createContentItemSchema = menuIdField.extend({
   kind: z.literal("content"),
   contentId: z.string().uuid(),
   label: z.string().min(1).max(200).optional(),
@@ -63,7 +201,7 @@ const createContentItemSchema = z.object({
   target: targetSchema.optional(),
 });
 
-const createCustomItemSchema = z.object({
+const createCustomItemSchema = menuIdField.extend({
   kind: z.literal("custom"),
   label: z.string().min(1, "Label is required.").max(200),
   url: urlSchema,
@@ -71,7 +209,7 @@ const createCustomItemSchema = z.object({
   target: targetSchema.optional(),
 });
 
-const createCategoryItemSchema = z.object({
+const createCategoryItemSchema = menuIdField.extend({
   kind: z.literal("category"),
   categoryId: z.string().uuid(),
   label: z.string().min(1).max(200).optional(),
@@ -94,25 +232,29 @@ export async function createMenuItem(
   clientId?: string,
 ) {
   if (!(await requireAdmin())) return { error: "Forbidden." };
-  const lockError = await requireAdminSectionLock("top-menu", clientId);
+  const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const data = parsed.data;
 
+  const menu = await requireMenu(data.menuId);
+  if (!menu) return { error: "Menu not found." };
+
   if (data.parentId) {
-    const parent = await getTopMenuItemById(data.parentId);
+    const parent = await getTopMenuItemInMenu(data.menuId, data.parentId);
     if (!parent) return { error: "Parent menu item does not exist." };
   }
 
-  const order = (await getMaxOrder(data.parentId)) + 1;
+  const order = (await getMaxOrder(data.menuId, data.parentId)) + 1;
 
   try {
     if (data.kind === "content") {
       const c = await getContentById(data.contentId);
       if (!c) return { error: "Selected content item does not exist." };
       await db.insert(topMenuItems).values({
+        menuId: data.menuId,
         label: data.label?.trim() || c.title,
         url: "/" + c.slug,
         parentId: data.parentId,
@@ -127,6 +269,7 @@ export async function createMenuItem(
         return { error: "Only blog post categories can be linked." };
       }
       await db.insert(topMenuItems).values({
+        menuId: data.menuId,
         label: data.label?.trim() || cat.name,
         url: "/blog-category/" + cat.id,
         parentId: data.parentId,
@@ -136,15 +279,17 @@ export async function createMenuItem(
       });
     } else {
       await db.insert(topMenuItems).values({
+        menuId: data.menuId,
         label: data.label.trim(),
         url: data.url.trim(),
         parentId: data.parentId,
         order,
         contentId: null,
+        categoryId: null,
         target: data.target ?? "_self",
       });
     }
-    bumpCaches();
+    bumpCaches(data.menuId);
     return { success: true };
   } catch (err) {
     console.error("[createMenuItem] error", err);
@@ -154,7 +299,7 @@ export async function createMenuItem(
 
 // ─── Update ───────────────────────────────────────────────────────────────────
 
-const updateSchema = z.object({
+const updateSchema = menuIdField.extend({
   id: z.string().uuid(),
   label: z.string().min(1).max(200).optional(),
   url: urlSchema.optional(),
@@ -168,20 +313,20 @@ export async function updateMenuItem(
   clientId?: string,
 ) {
   if (!(await requireAdmin())) return { error: "Forbidden." };
-  const lockError = await requireAdminSectionLock("top-menu", clientId);
+  const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const data = parsed.data;
 
-  const target = await getTopMenuItemById(data.id);
+  const target = await getTopMenuItemInMenu(data.menuId, data.id);
   if (!target) return { error: "Menu item not found." };
 
   if (data.url !== undefined && (target.contentId || target.categoryId)) {
     return {
       error:
-        "URL cannot be edited for linked items \u2014 it follows the linked content or category.",
+        "URL cannot be edited for linked items -- it follows the linked content or category.",
     };
   }
 
@@ -196,8 +341,10 @@ export async function updateMenuItem(
     await db
       .update(topMenuItems)
       .set(updates)
-      .where(eq(topMenuItems.id, data.id));
-    bumpCaches();
+      .where(
+        and(eq(topMenuItems.menuId, data.menuId), eq(topMenuItems.id, data.id)),
+      );
+    bumpCaches(data.menuId);
     return { success: true };
   } catch (err) {
     console.error("[updateMenuItem] error", err);
@@ -207,7 +354,7 @@ export async function updateMenuItem(
 
 // ─── Reorder ──────────────────────────────────────────────────────────────────
 
-const reorderSchema = z.object({
+const reorderSchema = menuIdField.extend({
   updates: z
     .array(
       z.object({
@@ -223,15 +370,18 @@ export type ReorderMenuInput = z.infer<typeof reorderSchema>;
 
 export async function reorderMenu(input: ReorderMenuInput, clientId?: string) {
   if (!(await requireAdmin())) return { error: "Forbidden." };
-  const lockError = await requireAdminSectionLock("top-menu", clientId);
+  const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
   const parsed = reorderSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { updates } = parsed.data;
+  const { menuId, updates } = parsed.data;
+
+  const menu = await requireMenu(menuId);
+  if (!menu) return { error: "Menu not found." };
 
   // Load current state to validate ids/parents and detect cycles
-  const all = await getTopMenuFlat();
+  const all = await getTopMenuFlat(menuId);
   const byId = new Map(all.map((r) => [r.id, r]));
 
   // Apply pending parents in-memory and check no cycles
@@ -273,10 +423,12 @@ export async function reorderMenu(input: ReorderMenuInput, clientId?: string) {
         db
           .update(topMenuItems)
           .set({ parentId: u.parentId, order: u.order })
-          .where(eq(topMenuItems.id, u.id)),
+          .where(
+            and(eq(topMenuItems.menuId, menuId), eq(topMenuItems.id, u.id)),
+          ),
       ),
     );
-    bumpCaches();
+    bumpCaches(menuId);
     return { success: true };
   } catch (err) {
     console.error("[reorderMenu] error", err);
@@ -286,27 +438,33 @@ export async function reorderMenu(input: ReorderMenuInput, clientId?: string) {
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
-const deleteSchema = z.object({ id: z.string().uuid() });
+const deleteSchema = menuIdField.extend({ id: z.string().uuid() });
 
-export async function deleteMenuItem(input: { id: string }, clientId?: string) {
+export async function deleteMenuItem(
+  input: { menuId: string; id: string },
+  clientId?: string,
+) {
   if (!(await requireAdmin())) return { error: "Forbidden." };
-  const lockError = await requireAdminSectionLock("top-menu", clientId);
+  const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
   const parsed = deleteSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid id." };
+  const { menuId, id } = parsed.data;
 
-  const target = await getTopMenuItemById(parsed.data.id);
+  const target = await getTopMenuItemInMenu(menuId, id);
   if (!target) return { error: "Menu item not found." };
 
   try {
     // FK cascade deletes children automatically.
-    await db.delete(topMenuItems).where(eq(topMenuItems.id, parsed.data.id));
+    await db
+      .delete(topMenuItems)
+      .where(and(eq(topMenuItems.menuId, menuId), eq(topMenuItems.id, id)));
 
     // Re-pack siblings to keep `order` dense
-    await repackSiblings(target.parentId);
+    await repackSiblings(menuId, target.parentId);
 
-    bumpCaches();
+    bumpCaches(menuId);
     return { success: true };
   } catch (err) {
     console.error("[deleteMenuItem] error", err);
@@ -314,14 +472,14 @@ export async function deleteMenuItem(input: { id: string }, clientId?: string) {
   }
 }
 
-async function repackSiblings(parentId: string | null) {
-  const where = parentId
+async function repackSiblings(menuId: string, parentId: string | null) {
+  const parentWhere = parentId
     ? eq(topMenuItems.parentId, parentId)
     : isNull(topMenuItems.parentId);
   const siblings = await db
     .select({ id: topMenuItems.id, order: topMenuItems.order })
     .from(topMenuItems)
-    .where(where);
+    .where(and(eq(topMenuItems.menuId, menuId), parentWhere));
   siblings.sort((a, b) => a.order - b.order);
   await Promise.all(
     siblings.map((s, i) =>
@@ -330,10 +488,9 @@ async function repackSiblings(parentId: string | null) {
         : db
             .update(topMenuItems)
             .set({ order: i })
-            .where(eq(topMenuItems.id, s.id)),
+            .where(
+              and(eq(topMenuItems.menuId, menuId), eq(topMenuItems.id, s.id)),
+            ),
     ),
   );
 }
-
-// Suppress unused import warnings in some toolchains
-void and;

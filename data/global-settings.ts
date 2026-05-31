@@ -355,7 +355,7 @@ export const getGlobalSettings = unstable_cache(
       return normalizeResolvedGlobalSettings(DEFAULT_RESOLVED_GLOBAL_SETTINGS);
     }
   },
-  ["global-settings:resolved:v9"],
+  ["global-settings:resolved:v10"],
   { tags: [GLOBAL_SETTINGS_TAG] },
 );
 

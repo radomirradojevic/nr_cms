@@ -172,7 +172,7 @@ export function SiteAdminMenu({
                 <SiteTopMenuLink href="/dashboard/users" label="Users" />
               </NavigationMenuItem>
               <NavigationMenuItem>
-                <SiteTopMenuLink href="/dashboard/top-menu" label="Top Menu" />
+                <SiteTopMenuLink href="/dashboard/menus" label="Menus" />
               </NavigationMenuItem>
               <NavigationMenuItem>
                 <SiteTopMenuLink
@@ -251,7 +251,7 @@ export function SiteAdminMenuLauncher({
                     <Link href="/dashboard/users">Users</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard/top-menu">Top Menu</Link>
+                    <Link href="/dashboard/menus">Menus</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard/form-builder">Form Builder</Link>

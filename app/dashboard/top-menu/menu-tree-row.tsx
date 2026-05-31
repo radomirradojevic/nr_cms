@@ -9,6 +9,7 @@ import { EditItemDialog } from "./edit-item-dialog";
 import { DeleteItemDialog } from "./delete-item-dialog";
 
 type Props = {
+  menuId: string;
   item: FlatItem;
   depth: number;
   indent: number;
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function MenuTreeRow({
+  menuId,
   item,
   depth,
   indent,
@@ -96,6 +98,7 @@ export function MenuTreeRow({
 
       <div className="flex items-center gap-1 shrink-0">
         <EditItemDialog
+          menuId={menuId}
           item={{
             id: item.id,
             label: item.label,
@@ -109,6 +112,7 @@ export function MenuTreeRow({
           clientId={clientId}
         />
         <DeleteItemDialog
+          menuId={menuId}
           item={{ id: item.id, label: item.label }}
           onSuccess={onMutated}
           disabled={disabled}

@@ -47,6 +47,7 @@ import { Button } from "@/components/ui/button";
 import { updateGlobalSettings } from "./actions";
 import type { GlobalSettingsAdminFormRow } from "@/data/global-settings";
 import type { FileRow } from "@/data/files";
+import type { MenuOption } from "@/data/top-menu";
 import {
   AI_PROVIDER_DEFAULT_MODELS,
   AI_PROVIDER_IDS,
@@ -250,9 +251,11 @@ function GlowFields({
 interface SettingsFormProps {
   settings: GlobalSettingsAdminFormRow | null;
   initialLogoFile: FileRow | null;
+  navigationMenus: MenuOption[];
 }
 
 const CUSTOM_WIDTH_OPTION = "__custom__";
+const WITHOUT_MENU_VALUE = "__without_menu__";
 
 type AiProviderFormState = {
   enabled: boolean;
@@ -1302,7 +1305,11 @@ function SessionSecurityCard({
   );
 }
 
-export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
+export function SettingsForm({
+  settings,
+  initialLogoFile,
+  navigationMenus,
+}: SettingsFormProps) {
   const headerSettings =
     HeaderSettingsSchema.safeParse(settings?.headerSettings).data ??
     DEFAULT_HEADER_SETTINGS;
@@ -1403,6 +1410,11 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
     "CTA",
     "footer-cta",
   );
+  const initialNavigationMenuId =
+    headerSettings.navigationMenuId &&
+    navigationMenus.some((menu) => menu.id === headerSettings.navigationMenuId)
+      ? headerSettings.navigationMenuId
+      : null;
 
   const [siteName, setSiteName] = useState(
     settings?.siteName ?? "Night Raven CMS",
@@ -1428,6 +1440,9 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
   );
   const [headerHidden, setHeaderHidden] = useState(initialHeaderHidden);
   const [headerSticky, setHeaderSticky] = useState(headerSettings.sticky);
+  const [navigationMenuId, setNavigationMenuId] = useState<string | null>(
+    initialNavigationMenuId,
+  );
   const [logoBorderEnabled, setLogoBorderEnabled] = useState(
     headerSettings.logoBorderEnabled,
   );
@@ -1674,6 +1689,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       showSiteName: headerShowSiteName,
       hidden: headerHidden,
       sticky: headerSticky,
+      navigationMenuId,
       logoBorderEnabled,
       logoBorderColorMode,
       logoBorderColor:
@@ -1689,6 +1705,7 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
       headerShowSiteName,
       headerHidden,
       headerSticky,
+      navigationMenuId,
       logoBorderEnabled,
       logoBorderColorMode,
       logoBorderColor,
@@ -2455,6 +2472,31 @@ export function SettingsForm({ settings, initialLogoFile }: SettingsFormProps) {
                       checked={headerHidden}
                       onCheckedChange={setHeaderHidden}
                     />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="navigationMenuId">Navigation Menu</Label>
+                    <Select
+                      value={navigationMenuId ?? WITHOUT_MENU_VALUE}
+                      onValueChange={(value) =>
+                        setNavigationMenuId(
+                          value === WITHOUT_MENU_VALUE ? null : value,
+                        )
+                      }
+                    >
+                      <SelectTrigger id="navigationMenuId">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={WITHOUT_MENU_VALUE}>
+                          Without menu
+                        </SelectItem>
+                        {navigationMenus.map((menu) => (
+                          <SelectItem key={menu.id} value={menu.id}>
+                            {menu.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Site Logo</Label>
