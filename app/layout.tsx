@@ -60,20 +60,35 @@ export default async function RootLayout({
   const headerRegion = recipe.shell.header;
   const footerRegion = recipe.shell.footer;
   const mainRegion = recipe.shell.main;
-  const headerIsSticky = headerRegion.sticky;
-  const footerIsSticky = footerRegion.sticky;
-  const headerH = resolveHeaderHeight(headerRegion);
-  const footerMinHeight = resolveFooterMinHeight(footerRegion);
+  const headerIsHidden = headerRegion.hidden || settings.headerSettings.hidden;
+  const footerIsHidden =
+    footerRegion.hidden ||
+    settings.footerSettings.hidden ||
+    footerRegion.variant === "hidden";
+  const headerRegionForRender = headerIsHidden
+    ? { ...headerRegion, hidden: true }
+    : headerRegion;
+  const footerRegionForRender = footerIsHidden
+    ? { ...footerRegion, hidden: true }
+    : footerRegion;
+  const headerIsSticky = !headerIsHidden && headerRegion.sticky;
+  const footerIsSticky = !footerIsHidden && footerRegion.sticky;
+  const headerH = headerIsHidden ? 0 : resolveHeaderHeight(headerRegion);
+  const footerMinHeight = footerIsHidden
+    ? 0
+    : resolveFooterMinHeight(footerRegion);
   const stickyFooterH = footerMinHeight;
   const appearance = resolveAppearance(recipe.tokens);
   const motion = resolveAppearanceMotionAttributes(recipe.motion);
   const backgroundEffectsEnabled = motion.backgroundEffects !== "disabled";
-  const headerGlowVars = backgroundEffectsEnabled
-    ? resolveGlowCssVars(headerRegion.glow, "header", "bottom")
-    : {};
-  const footerGlowVars = backgroundEffectsEnabled
-    ? resolveGlowCssVars(footerRegion.glow, "footer", "top")
-    : {};
+  const headerGlowVars =
+    backgroundEffectsEnabled && !headerIsHidden
+      ? resolveGlowCssVars(headerRegion.glow, "header", "bottom")
+      : {};
+  const footerGlowVars =
+    backgroundEffectsEnabled && !footerIsHidden
+      ? resolveGlowCssVars(footerRegion.glow, "footer", "top")
+      : {};
   const rootStyle = {
     ...cssVarsToInlineStyle(appearance.cssVars),
     ...(headerGlowVars as React.CSSProperties),
@@ -119,7 +134,7 @@ export default async function RootLayout({
               idleLogoutMinutes={sessionSecurity.idleLogoutMinutes}
             >
               <SiteHeader
-                region={headerRegion}
+                region={headerRegionForRender}
                 siteName={siteName}
                 siteLogo={settings.siteLogo}
                 logoUrl={logoUrl}
@@ -130,7 +145,7 @@ export default async function RootLayout({
               />
               <SiteMain region={mainRegion}>{children}</SiteMain>
               <SiteFooter
-                region={footerRegion}
+                region={footerRegionForRender}
                 isBackendUser={isBackendUser}
                 isAdmin={isAdmin}
                 isLoggedIn={!!user}
