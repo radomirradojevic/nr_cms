@@ -2,7 +2,10 @@ import { Show, SignInButton, SignUpButton } from "@clerk/nextjs";
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
-import { SiteAdminMenu } from "@/components/site-admin-menu";
+import {
+  SiteAdminMenu,
+  SiteAdminMenuLauncher,
+} from "@/components/site-admin-menu";
 import { SiteSearch } from "@/components/site-search";
 import { SiteTopMenu } from "@/components/site-top-menu";
 import { Button } from "@/components/ui/button";
@@ -72,6 +75,7 @@ function findEnabledTypeSlot<T extends AppearanceSlotV1["type"]>(
 }
 
 export function resolveHeaderHeight(region: HeaderRegionV1): number {
+  if (region.hidden) return 0;
   return region.heightPx > 0 ? region.heightPx : 64;
 }
 
@@ -317,6 +321,16 @@ export function SiteHeader({
   isAdmin,
   isLoggedIn,
 }: SiteHeaderProps) {
+  if (region.hidden || headerSettings.hidden) {
+    return (
+      <SiteAdminMenuLauncher
+        fallbackIsBackendUser={isBackendUser}
+        fallbackIsAdmin={isAdmin}
+        fallbackIsLoggedIn={isLoggedIn}
+      />
+    );
+  }
+
   const context = { isBackendUser, isAdmin, isLoggedIn };
   const brandSlot = findEnabledSlot(region.slots, "Brand", context);
   const customHtmlSlot = findEnabledSlot(region.slots, "CustomHtml", context);

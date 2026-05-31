@@ -194,7 +194,7 @@ function firstEnabledSlot<T extends AppearanceSlotV1["type"]>(
 }
 
 export function resolveFooterMinHeight(region: FooterRegionV1): number {
-  return region.variant === "hidden" ? 0 : region.minHeightPx;
+  return region.hidden || region.variant === "hidden" ? 0 : region.minHeightPx;
 }
 
 function renderSlotLink({
@@ -343,7 +343,7 @@ export function SiteFooter({
   isAdmin = false,
   isLoggedIn = false,
 }: SiteFooterProps) {
-  if (region.variant === "hidden") return null;
+  if (region.hidden || region.variant === "hidden") return null;
 
   const context = { isBackendUser, isAdmin, isLoggedIn };
   const customHtmlSlots = enabledSlots(region.slots, "CustomHtml", context);

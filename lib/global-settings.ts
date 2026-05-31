@@ -502,6 +502,7 @@ export const LOGO_BORDER_SHAPES = ["circle", "square"] as const;
 export const HeaderSettingsSchema = z.object({
   showLogo: z.boolean().default(true),
   showSiteName: z.boolean().default(true),
+  hidden: z.boolean().default(false),
   sticky: z.boolean().default(false),
   background: z.string().regex(HEX_COLOR).optional(),
   glow: GlowEffectSchema.optional(),
@@ -512,7 +513,7 @@ export const HeaderSettingsSchema = z.object({
 });
 
 export const FooterSettingsSchema = z.object({
-  showLogo: z.boolean().default(false),
+  hidden: z.boolean().default(false),
   copyright: z.string().max(200).optional(),
   sticky: z.boolean().default(false),
   background: z.string().regex(HEX_COLOR).optional(),
@@ -525,6 +526,7 @@ export type FooterSettings = z.infer<typeof FooterSettingsSchema>;
 export const DEFAULT_HEADER_SETTINGS: HeaderSettings = {
   showLogo: true,
   showSiteName: true,
+  hidden: false,
   sticky: false,
   glow: DEFAULT_GLOW,
   logoBorderEnabled: true,
@@ -533,7 +535,7 @@ export const DEFAULT_HEADER_SETTINGS: HeaderSettings = {
 };
 
 export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
-  showLogo: false,
+  hidden: false,
   sticky: false,
   glow: DEFAULT_GLOW,
 };
