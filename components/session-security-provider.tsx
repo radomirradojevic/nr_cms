@@ -20,8 +20,9 @@ interface SessionSecurityProviderProps {
   children: React.ReactNode;
 }
 
-const ABSOLUTE_KEY = "nr_cms.session.absoluteDeadline";
-const IDLE_KEY = "nr_cms.session.idleDeadline";
+const LEGACY_ABSOLUTE_KEY = "nr_cms.session.absoluteDeadline";
+const LEGACY_IDLE_KEY = "nr_cms.session.idleDeadline";
+const SESSION_STORAGE_PREFIX = "nr_cms.session";
 const ACTIVITY_THROTTLE_MS = 5_000;
 const TICK_MS = 1_000;
 
@@ -64,6 +65,18 @@ function safeRemove(key: string): void {
   }
 }
 
+function getSessionStorageKey(
+  sessionId: string,
+  name: "absoluteDeadline" | "idleDeadline",
+): string {
+  return `${SESSION_STORAGE_PREFIX}.${encodeURIComponent(sessionId)}.${name}`;
+}
+
+function clearLegacySessionDeadlines(): void {
+  safeRemove(LEGACY_ABSOLUTE_KEY);
+  safeRemove(LEGACY_IDLE_KEY);
+}
+
 function formatMmSs(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   const m = Math.floor(s / 60);
@@ -76,18 +89,24 @@ export function SessionSecurityProvider({
   idleLogoutMinutes,
   children,
 }: SessionSecurityProviderProps) {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, sessionId } = useAuth();
   const { session } = useSession();
   const { signOut } = useClerk();
 
-  if (!isLoaded || !isSignedIn || !session) {
+  if (!isLoaded || !isSignedIn || !session || !sessionId) {
     return <>{children}</>;
   }
+
+  const absoluteKey = getSessionStorageKey(sessionId, "absoluteDeadline");
+  const idleKey = getSessionStorageKey(sessionId, "idleDeadline");
 
   return (
     <>
       <SessionSecurityTimers
+        key={sessionId}
+        absoluteKey={absoluteKey}
         maxSessionDurationMinutes={maxSessionDurationMinutes}
+        idleKey={idleKey}
         idleLogoutMinutes={idleLogoutMinutes}
         signInAtMs={
           session.lastActiveAt?.getTime() ?? session.createdAt?.getTime()
@@ -104,14 +123,18 @@ export function SessionSecurityProvider({
 }
 
 interface TimersProps {
+  absoluteKey: string;
   maxSessionDurationMinutes: number;
+  idleKey: string;
   idleLogoutMinutes: number;
   signInAtMs?: number;
   onSignOut: () => void;
 }
 
 function SessionSecurityTimers({
+  absoluteKey,
   maxSessionDurationMinutes,
+  idleKey,
   idleLogoutMinutes,
   signInAtMs,
   onSignOut,
@@ -134,30 +157,33 @@ function SessionSecurityTimers({
   const performSignOut = useCallback(() => {
     if (signedOutRef.current) return;
     signedOutRef.current = true;
-    safeRemove(ABSOLUTE_KEY);
-    safeRemove(IDLE_KEY);
+    safeRemove(absoluteKey);
+    safeRemove(idleKey);
+    clearLegacySessionDeadlines();
     onSignOut();
-  }, [onSignOut]);
+  }, [absoluteKey, idleKey, onSignOut]);
 
   const effectiveSignInAtMs = signInAtMs ?? fallbackSignInAtMs;
 
   const resetIdle = useCallback(() => {
     const next = Date.now() + idleMs;
-    safeSetNumber(IDLE_KEY, next);
+    safeSetNumber(idleKey, next);
     setWarning(null);
-  }, [idleMs]);
+  }, [idleKey, idleMs]);
 
   // ─── Initialize / clamp deadlines on mount + when settings change ─────────
   useEffect(() => {
     if (signedOutRef.current) return;
+    clearLegacySessionDeadlines();
+
     const nowMs = Date.now();
 
     // Absolute: persist if missing, clamp to min(existing, signInAt+max).
-    const existingAbs = safeGetNumber(ABSOLUTE_KEY);
+    const existingAbs = safeGetNumber(absoluteKey);
     const computedAbs = effectiveSignInAtMs + maxMs;
     const nextAbs =
       existingAbs === null ? computedAbs : Math.min(existingAbs, computedAbs);
-    safeSetNumber(ABSOLUTE_KEY, nextAbs);
+    safeSetNumber(absoluteKey, nextAbs);
 
     if (nowMs >= nextAbs) {
       performSignOut();
@@ -166,14 +192,21 @@ function SessionSecurityTimers({
 
     // Idle: reset to now+idleMs on mount or when idleMs grows; keep existing
     // when it's still in the future and shorter than the new max.
-    const existingIdle = safeGetNumber(IDLE_KEY);
+    const existingIdle = safeGetNumber(idleKey);
     if (existingIdle === null || existingIdle <= nowMs) {
-      safeSetNumber(IDLE_KEY, nowMs + idleMs);
+      safeSetNumber(idleKey, nowMs + idleMs);
     } else {
       // Re-clamp to the new idle window if it shrank.
-      safeSetNumber(IDLE_KEY, Math.min(existingIdle, nowMs + idleMs));
+      safeSetNumber(idleKey, Math.min(existingIdle, nowMs + idleMs));
     }
-  }, [idleMs, maxMs, effectiveSignInAtMs, performSignOut]);
+  }, [
+    absoluteKey,
+    idleKey,
+    idleMs,
+    maxMs,
+    effectiveSignInAtMs,
+    performSignOut,
+  ]);
 
   // ─── Activity listeners (throttled) ───────────────────────────────────────
   useEffect(() => {
@@ -185,7 +218,7 @@ function SessionSecurityTimers({
       const nowMs = Date.now();
       if (nowMs - lastActivityWriteRef.current < ACTIVITY_THROTTLE_MS) return;
       lastActivityWriteRef.current = nowMs;
-      safeSetNumber(IDLE_KEY, nowMs + idleMs);
+      safeSetNumber(idleKey, nowMs + idleMs);
     };
 
     const onVisibility = () => {
@@ -205,15 +238,15 @@ function SessionSecurityTimers({
       }
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [idleMs, warningOpen]);
+  }, [idleKey, idleMs, warningOpen]);
 
   // ─── Cross-tab sync ───────────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== IDLE_KEY && e.key !== ABSOLUTE_KEY) return;
+      if (e.key !== idleKey && e.key !== absoluteKey) return;
       // If another tab cleared the keys (sign-out), mirror that here.
-      if (e.key === ABSOLUTE_KEY && e.newValue === null) {
+      if (e.key === absoluteKey && e.newValue === null) {
         performSignOut();
         return;
       }
@@ -222,7 +255,7 @@ function SessionSecurityTimers({
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [performSignOut]);
+  }, [absoluteKey, idleKey, performSignOut]);
 
   // ─── 1s tick: check deadlines + drive countdown UI ────────────────────────
   useEffect(() => {
@@ -231,8 +264,8 @@ function SessionSecurityTimers({
       const nowMs = Date.now();
       setNow(nowMs);
 
-      const abs = safeGetNumber(ABSOLUTE_KEY);
-      const idle = safeGetNumber(IDLE_KEY);
+      const abs = safeGetNumber(absoluteKey);
+      const idle = safeGetNumber(idleKey);
 
       if (abs !== null && nowMs >= abs) {
         performSignOut();
@@ -256,11 +289,11 @@ function SessionSecurityTimers({
       }
     }, TICK_MS);
     return () => window.clearInterval(id);
-  }, [performSignOut, warningLeadMs]);
+  }, [absoluteKey, idleKey, performSignOut, warningLeadMs]);
 
   // ─── Render warning dialog ────────────────────────────────────────────────
-  const abs = safeGetNumber(ABSOLUTE_KEY) ?? Number.POSITIVE_INFINITY;
-  const idle = safeGetNumber(IDLE_KEY) ?? Number.POSITIVE_INFINITY;
+  const abs = safeGetNumber(absoluteKey) ?? Number.POSITIVE_INFINITY;
+  const idle = safeGetNumber(idleKey) ?? Number.POSITIVE_INFINITY;
   const deadline = warning
     ? Math.min(warning.deadline, abs, idle)
     : Math.min(abs, idle);
