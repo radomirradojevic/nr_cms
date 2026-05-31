@@ -3,6 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import nextConfig from "@/next.config";
 import {
   ButtonStatic,
   HeroStatic,
@@ -32,6 +33,21 @@ test("URL safety helpers reject executable protocols", () => {
   assert.equal(
     sanitizeMediaSrc("/api/files/11111111-1111-4111-8111-111111111111"),
     "/api/files/11111111-1111-4111-8111-111111111111",
+  );
+});
+
+test("CSP allows Vercel Blob videos as media sources", async () => {
+  const routes = await nextConfig.headers?.();
+  assert.ok(routes);
+
+  const csp = routes
+    .flatMap((route) => route.headers)
+    .find((header) => header.key === "Content-Security-Policy")?.value;
+
+  assert.ok(csp);
+  assert.match(
+    csp,
+    /media-src[^;]*https:\/\/\*\.public\.blob\.vercel-storage\.com/,
   );
 });
 
