@@ -126,7 +126,7 @@ export type ContentPickerItem = {
   id: string;
   title: string;
   slug: string;
-  contentType: "page" | "blog_post";
+  contentType: "page" | "blog_post" | "hero_slider";
   status: string;
 };
 
@@ -145,7 +145,7 @@ export async function listPickableContent(): Promise<ContentPickerItem[]> {
     id: r.id,
     title: r.title,
     slug: r.slug,
-    contentType: r.contentType as "page" | "blog_post",
+    contentType: r.contentType as "page" | "blog_post" | "hero_slider",
     status: r.status,
   }));
 }

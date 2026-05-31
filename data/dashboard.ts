@@ -14,7 +14,11 @@ import { sql } from "drizzle-orm";
 import { getRoles } from "@/lib/roles";
 
 export type DashboardStats = {
-  content: { totalPages: number; totalBlogPosts: number };
+  content: {
+    totalPages: number;
+    totalBlogPosts: number;
+    totalHeroSliders: number;
+  };
   files: { total: number; images: number; videos: number; documents: number };
   galleries: { totalGalleries: number; totalImages: number };
   categories: { total: number; pageCategories: number; blogCategories: number };
@@ -88,6 +92,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     contentRows.find((r) => r.contentType === "page")?.count ?? 0;
   const totalBlogPosts =
     contentRows.find((r) => r.contentType === "blog_post")?.count ?? 0;
+  const totalHeroSliders =
+    contentRows.find((r) => r.contentType === "hero_slider")?.count ?? 0;
 
   const totalImages = fileRows.find((r) => r.kind === "image")?.count ?? 0;
   const totalVideos = fileRows.find((r) => r.kind === "video")?.count ?? 0;
@@ -115,7 +121,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 
   return {
-    content: { totalPages, totalBlogPosts },
+    content: { totalPages, totalBlogPosts, totalHeroSliders },
     files: {
       total: totalFiles,
       images: totalImages,

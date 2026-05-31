@@ -50,6 +50,7 @@ export type BlockName =
   | "Image"
   | "Button"
   | "Hero"
+  | "HeroSlider"
   | "RawHtml"
   | "Gallery"
   | "Video"
@@ -114,6 +115,16 @@ export const blockStyleCapabilities: Record<BlockName, Capabilities> = {
     responsive: true,
     animation: true,
     flexContainer: true,
+  },
+  HeroSlider: {
+    typography: false,
+    colors: false,
+    spacing: true,
+    layout: true,
+    effects: true,
+    background: false,
+    responsive: true,
+    animation: true,
   },
   Heading: {
     typography: true,

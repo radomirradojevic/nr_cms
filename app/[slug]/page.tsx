@@ -6,6 +6,7 @@ import { renderTiptapHtml } from "@/app/dashboard/content/_editors/render-tiptap
 import { BlogContent } from "@/components/blog-content";
 import { BlogComments } from "@/components/blog-comments";
 import { BlogPostTemplate } from "@/components/blog-post-template";
+import { HeroSliderRenderer } from "@/components/hero-slider-renderer";
 import { ContentUnauthorized } from "@/components/content-unauthorized";
 import { ContentUnpublished } from "@/components/content-unpublished";
 import { PageTemplate } from "@/components/page-template";
@@ -135,6 +136,14 @@ export default async function PublicContentPage({ params }: Props) {
     return (
       <PageTemplate template={contentTemplates.page}>
         <BuilderRender data={row.contentJson} />
+      </PageTemplate>
+    );
+  }
+
+  if (row.contentType === "hero_slider") {
+    return (
+      <PageTemplate template={contentTemplates.page}>
+        <HeroSliderRenderer data={row.contentJson} label={row.title} />
       </PageTemplate>
     );
   }

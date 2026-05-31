@@ -58,6 +58,7 @@ import {
 } from "@/lib/content-visibility";
 import dynamic from "next/dynamic";
 import { BlogEditor } from "./_editors/blog-editor";
+import { HeroSliderEditor } from "./_hero-slider/hero-slider-editor";
 import { ImageInsertDialog } from "./_editors/image-insert-dialog";
 import { emptyTiptapJson } from "./_editors/tiptap-extensions";
 import {
@@ -67,6 +68,10 @@ import {
   type BuilderData,
 } from "./_builder/types";
 import type { PageEditorSettingsPanels } from "./_builder/page-editor";
+import {
+  createDefaultHeroSlider,
+  heroSliderToPlainText,
+} from "@/lib/hero-slider";
 
 // PageEditor is heavy and uses Craft.js + CodeMirror — load client-only.
 const PageEditor = dynamic(
@@ -95,7 +100,7 @@ export type ContentFormCategory = { id: string; name: string };
 
 type Props = {
   mode: "create" | "edit";
-  contentType: "page" | "blog_post";
+  contentType: "page" | "blog_post" | "hero_slider";
   categories: ContentFormCategory[];
   currentUserRoles: Role[];
   /** Appearance settings used by the page-builder preview. Defaults if omitted. */
@@ -226,7 +231,9 @@ export function ContentForm({
       ? JSON.parse(JSON.stringify(initial.contentJson))
       : contentType === "page"
         ? emptyBuilderData
-        : emptyTiptapJson,
+        : contentType === "hero_slider"
+          ? createDefaultHeroSlider()
+          : emptyTiptapJson,
   );
   const contentJsonRef = useRef<unknown>(editorDefaultValue);
   const getEditorValueRef = useRef<(() => unknown) | null>(null);
@@ -239,7 +246,9 @@ export function ContentForm({
     return (
       contentType === "page"
         ? builderDataToPlainText(latestContent)
-        : tiptapJsonToPlainText(latestContent)
+        : contentType === "hero_slider"
+          ? heroSliderToPlainText(latestContent)
+          : tiptapJsonToPlainText(latestContent)
     ).slice(0, 8_000);
   }, [contentType]);
 
@@ -248,10 +257,7 @@ export function ContentForm({
     if (!slugTouched) setSlug(slugify(v));
   }
 
-  const savedToastMessage =
-    contentType === "page"
-      ? "Page saved successfully"
-      : "Blog post saved successfully";
+  const savedToastMessage = `${contentTypeLabel(contentType)} saved successfully`;
   const primarySaveDisabled = pending || lockBlocksSave;
   const primarySaveLabel = mode === "create" ? "Create" : "Save";
   const idleLogoutLabel = formatSessionMinutes(
@@ -291,7 +297,7 @@ export function ContentForm({
       content: getCurrentContentText().trim(),
     };
     const surface: AiAssistantSurface =
-      contentType === "page" ? "pageBuilder" : "blogEditor";
+      contentType === "blog_post" ? "blogEditor" : "pageBuilder";
     const contextError = getAiFieldContextError(field, context, surface);
     if (contextError) {
       toast.error(contextError);
@@ -755,12 +761,10 @@ export function ContentForm({
         <div>
           <h1 className="text-2xl font-semibold">
             {mode === "create" ? "Create" : "Edit"}{" "}
-            {contentType === "page" ? "Page" : "Blog Post"}
+            {contentTypeLabel(contentType)}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {contentType === "page"
-              ? "Visual page builder."
-              : "Rich-text blog post editor."}
+            {contentTypeDescription(contentType)}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -847,7 +851,9 @@ export function ContentForm({
       >
         <div className="min-w-0 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">
+              {contentType === "hero_slider" ? "Name" : "Title"}
+            </Label>
             <Input
               id="title"
               value={title}
@@ -935,8 +941,30 @@ export function ContentForm({
             </>
           )}
 
+          {contentType === "hero_slider" && (
+            <AiTextAssistField
+              id="excerpt"
+              label="Description"
+              field="excerpt"
+              value={excerpt}
+              onChange={setExcerpt}
+              aiEnabled={false}
+              title={title}
+              excerpt={excerpt}
+              contentProvider={getCurrentContentText}
+              onGenerate={generateAiField}
+              generating={false}
+              suggestionsEnabled={false}
+              multiline
+              rows={3}
+              placeholder="Short internal or SEO description"
+            />
+          )}
+
           <div className="space-y-2">
-            <Label>Content</Label>
+            <Label>
+              {contentType === "hero_slider" ? "Slides" : "Content"}
+            </Label>
             {contentType === "page" ? (
               <PageEditor
                 defaultValue={editorDefaultValue}
@@ -966,6 +994,16 @@ export function ContentForm({
                 aiProviderId={effectiveAiProviderId}
                 onAiProviderIdChange={setAiProviderId}
               />
+            ) : contentType === "hero_slider" ? (
+              <HeroSliderEditor
+                defaultValue={editorDefaultValue}
+                registerGetValue={(getValue) => {
+                  getEditorValueRef.current = getValue;
+                }}
+                onChange={(value) => {
+                  contentJsonRef.current = value;
+                }}
+              />
             ) : (
               <BlogEditor
                 defaultValue={editorDefaultValue as never}
@@ -990,13 +1028,13 @@ export function ContentForm({
           </div>
         </div>
 
-        {contentType === "blog_post" && (
+        {contentType !== "page" && (
           <aside className="min-w-0 space-y-4 lg:sticky lg:top-[var(--sticky-header-h,0px)] lg:self-start">
             <Tabs
               defaultValue="publishing"
               className="gap-0 rounded-lg border bg-background"
             >
-              <TabsList className="m-2 grid h-auto w-auto grid-cols-3 gap-1 p-1">
+              <TabsList className="m-2 grid h-auto w-auto grid-cols-2 gap-1 p-1">
                 <TabsTrigger
                   value="publishing"
                   className="min-w-0 px-2 text-xs"
@@ -1019,10 +1057,15 @@ export function ContentForm({
                   <Search className="h-4 w-4" />
                   <span className="truncate">SEO</span>
                 </TabsTrigger>
-                <TabsTrigger value="comments" className="min-w-0 px-2 text-xs">
-                  <MessageSquare className="h-4 w-4" />
-                  <span className="truncate">Comments</span>
-                </TabsTrigger>
+                {contentType === "blog_post" && (
+                  <TabsTrigger
+                    value="comments"
+                    className="min-w-0 px-2 text-xs"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    <span className="truncate">Comments</span>
+                  </TabsTrigger>
+                )}
               </TabsList>
               <TabsContent value="publishing" className="m-0 p-4 pt-2">
                 {publishingSettings}
@@ -1036,9 +1079,11 @@ export function ContentForm({
               <TabsContent value="seo" className="m-0 p-4 pt-2">
                 {seoSettings}
               </TabsContent>
-              <TabsContent value="comments" className="m-0 p-4 pt-2">
-                {commentsSettings}
-              </TabsContent>
+              {contentType === "blog_post" && (
+                <TabsContent value="comments" className="m-0 p-4 pt-2">
+                  {commentsSettings}
+                </TabsContent>
+              )}
             </Tabs>
           </aside>
         )}
@@ -1052,6 +1097,20 @@ const AI_FIELD_LABELS: Record<AiGeneratedField, string> = {
   metaTitle: "Meta title",
   metaDescription: "Meta description",
 };
+
+function contentTypeLabel(contentType: Props["contentType"]) {
+  if (contentType === "page") return "Page";
+  if (contentType === "hero_slider") return "Hero Slider";
+  return "Blog Post";
+}
+
+function contentTypeDescription(contentType: Props["contentType"]) {
+  if (contentType === "page") return "Visual page builder.";
+  if (contentType === "hero_slider") {
+    return "Hero slider editor for page builder embeds.";
+  }
+  return "Rich-text blog post editor.";
+}
 
 type AiTextAssistFieldProps = {
   id: string;

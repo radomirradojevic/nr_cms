@@ -2,6 +2,7 @@ import "server-only";
 import { GalleryStatic } from "./blocks/gallery-static";
 import { FormStatic } from "./blocks/form-static";
 import { FormSubmissionsStatic } from "./blocks/form-submissions-static";
+import { HeroSliderStatic } from "./blocks/hero-slider-static";
 import {
   defaultStaticRegistry,
   renderTree,
@@ -17,6 +18,7 @@ import { isBuilderData } from "./types";
 const rscRegistry: StaticRegistry = {
   ...defaultStaticRegistry,
   Gallery: GalleryStatic as never,
+  HeroSlider: HeroSliderStatic as never,
   Form: FormStatic as never,
   FormSubmissions: FormSubmissionsStatic as never,
 };
