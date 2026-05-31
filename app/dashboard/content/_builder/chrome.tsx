@@ -168,6 +168,11 @@ const items: Array<{
   { name: "Button", label: "Button", icon: <Square className="h-4 w-4" /> },
   { name: "Hero", label: "Hero", icon: <Sparkles className="h-4 w-4" /> },
   {
+    name: "HeroSlider",
+    label: "Hero Slider",
+    icon: <Images className="h-4 w-4" />,
+  },
+  {
     name: "RawHtml",
     label: "Raw HTML",
     icon: <FileCode2 className="h-4 w-4" />,

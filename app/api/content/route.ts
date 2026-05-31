@@ -5,7 +5,7 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 
 const ALLOWED_PAGE_SIZES = [10, 20, 30];
-const ALLOWED_TYPES = ["page", "blog_post"] as const;
+const ALLOWED_TYPES = ["page", "blog_post", "hero_slider"] as const;
 const ALLOWED_STATUSES = ["published", "unpublished", "archived"] as const;
 const ALLOWED_SORTS = [
   "updated_desc",
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   const rawType = searchParams.get("type");
   const contentType =
     rawType && (ALLOWED_TYPES as readonly string[]).includes(rawType)
-      ? (rawType as "page" | "blog_post")
+      ? (rawType as "page" | "blog_post" | "hero_slider")
       : undefined;
 
   const rawStatus = searchParams.get("status");

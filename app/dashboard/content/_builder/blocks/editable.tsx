@@ -25,6 +25,12 @@ import { GallerySelectDialog } from "@/app/dashboard/content/_editors/gallery-se
 import { ImageInsertDialog } from "@/app/dashboard/content/_editors/image-insert-dialog";
 import { VideoInsertDialog } from "@/app/dashboard/content/_editors/video-insert-dialog";
 import { FormSelectDialog } from "@/app/dashboard/content/_editors/form-select-dialog";
+import { HeroSliderRenderer } from "@/components/hero-slider-renderer";
+import {
+  fetchHeroSliderPreview,
+  type HeroSliderPickerItem,
+} from "@/app/dashboard/content/_builder/hero-slider-actions";
+import { HeroSliderSelectDialog } from "./hero-slider-select-dialog";
 import {
   CmsFormEditorPreview,
   FormSubmissionsEditorPreview,
@@ -64,6 +70,7 @@ import {
   type GalleryProps,
   type HeadingProps,
   type HeroProps,
+  type HeroSliderBlockProps,
   type ImageProps,
   type LayoutProps,
   type RawHtmlProps,
@@ -1007,6 +1014,135 @@ function HeroSettings() {
   return <BlockSettingsPanel blockName="Hero" />;
 }
 
+/* ===================== Hero Slider ===================== */
+
+export function HeroSliderBlock({
+  heroSliderId,
+  heroSliderName,
+  style,
+}: HeroSliderBlockProps) {
+  const [preview, setPreview] = useState<{
+    sourceId: string;
+    item: HeroSliderPickerItem & { contentJson: unknown };
+  } | null>(null);
+  const [, startPreview] = useTransition();
+
+  useEffect(() => {
+    if (!heroSliderId) {
+      const timeout = window.setTimeout(() => setPreview(null), 0);
+      return () => window.clearTimeout(timeout);
+    }
+    let cancelled = false;
+    startPreview(async () => {
+      const result = await fetchHeroSliderPreview({ id: heroSliderId });
+      if (cancelled) return;
+      if ("error" in result) {
+        setPreview(null);
+        return;
+      }
+      setPreview({ sourceId: heroSliderId, item: result.item });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [heroSliderId, startPreview]);
+
+  return (
+    <NodeWrap style={style}>
+      {!heroSliderId ? (
+        <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <Images className="mx-auto mb-2 h-6 w-6" />
+          Hero Slider placeholder - pick a slider in the block settings.
+        </div>
+      ) : preview?.sourceId === heroSliderId ? (
+        <div className="pointer-events-none my-4 overflow-hidden rounded-md border">
+          <HeroSliderRenderer
+            data={preview.item.contentJson}
+            label={preview.item.name}
+            preview
+          />
+        </div>
+      ) : (
+        <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+          Loading hero slider{heroSliderName ? ` "${heroSliderName}"` : ""}...
+        </div>
+      )}
+    </NodeWrap>
+  );
+}
+HeroSliderBlock.craft = {
+  displayName: "Hero Slider",
+  props: defaults.HeroSlider,
+  related: { settings: HeroSliderSettings },
+};
+
+function HeroSliderSettings() {
+  const {
+    actions: { setProp },
+    heroSliderId,
+    heroSliderName,
+  } = useNode((n) => ({
+    heroSliderId: (n.data.props as HeroSliderBlockProps).heroSliderId,
+    heroSliderName: (n.data.props as HeroSliderBlockProps).heroSliderName,
+  }));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  return (
+    <>
+      <Field label="Selected Hero Slider">
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          {heroSliderId ? (
+            <>
+              <p className="font-medium">{heroSliderName || "(untitled)"}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {heroSliderId}
+              </p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">No hero slider selected.</p>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 w-full"
+          onClick={() => setPickerOpen(true)}
+        >
+          <Images className="h-4 w-4" />
+          {heroSliderId ? "Change hero slider" : "Choose hero slider"}
+        </Button>
+        {heroSliderId ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-1 w-full"
+            onClick={() =>
+              setProp((p: HeroSliderBlockProps) => {
+                p.heroSliderId = "";
+                p.heroSliderName = "";
+              })
+            }
+          >
+            Clear selection
+          </Button>
+        ) : null}
+      </Field>
+      <HeroSliderSelectDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onSelect={(item) => {
+          setProp((p: HeroSliderBlockProps) => {
+            p.heroSliderId = item.id;
+            p.heroSliderName = item.name;
+          });
+        }}
+      />
+      <BlockSettingsPanel blockName="HeroSlider" />
+    </>
+  );
+}
+
 /* ===================== Raw HTML ===================== */
 
 export function RawHtml({ html, style }: RawHtmlProps) {
@@ -1621,6 +1757,7 @@ export const resolver = {
   Image: ImageBlock,
   Button: ButtonBlock,
   Hero,
+  HeroSlider: HeroSliderBlock,
   RawHtml,
   Gallery,
   Video,

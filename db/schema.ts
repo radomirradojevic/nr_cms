@@ -43,7 +43,7 @@ export const content = pgTable(
   "content",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    contentType: text("content_type").notNull(), // "page" | "blog_post"
+    contentType: text("content_type").notNull(), // "page" | "blog_post" | "hero_slider"
     categoryId: uuid("category_id")
       .notNull()
       .references(() => contentCategories.id, { onDelete: "restrict" }),
@@ -81,7 +81,7 @@ export const content = pgTable(
   (table) => [
     check(
       "content_type_check",
-      sql`${table.contentType} IN ('page','blog_post')`,
+      sql`${table.contentType} IN ('page','blog_post','hero_slider')`,
     ),
     check(
       "content_status_check",

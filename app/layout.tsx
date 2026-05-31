@@ -128,15 +128,7 @@ export default async function RootLayout({
                 isAdmin={isAdmin}
                 isLoggedIn={!!user}
               />
-              <SiteMain
-                region={mainRegion}
-                headerPaddingPx={headerIsSticky && headerH > 0 ? headerH : 0}
-                footerPaddingPx={
-                  footerIsSticky && stickyFooterH > 0 ? stickyFooterH : 0
-                }
-              >
-                {children}
-              </SiteMain>
+              <SiteMain region={mainRegion}>{children}</SiteMain>
               <SiteFooter
                 region={footerRegion}
                 isBackendUser={isBackendUser}

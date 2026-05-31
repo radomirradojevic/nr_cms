@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, LayoutTemplate } from "lucide-react";
+import { FileText, Images, LayoutTemplate } from "lucide-react";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 
@@ -21,7 +21,7 @@ export default async function NewContentChoicePage() {
           Choose what you want to create.
         </p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link
           href="/dashboard/content/new/page"
           className="rounded-lg border p-6 hover:border-primary transition-colors group"
@@ -40,6 +40,16 @@ export default async function NewContentChoicePage() {
           <h2 className="mt-4 text-lg font-semibold">Blog post</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Write a blog post with the rich-text editor.
+          </p>
+        </Link>
+        <Link
+          href="/dashboard/content/new/hero_slider"
+          className="rounded-lg border p-6 hover:border-primary transition-colors group"
+        >
+          <Images className="h-10 w-10 text-muted-foreground group-hover:text-primary" />
+          <h2 className="mt-4 text-lg font-semibold">Hero Slider</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Create reusable hero slides for page builder embeds.
           </p>
         </Link>
       </div>
