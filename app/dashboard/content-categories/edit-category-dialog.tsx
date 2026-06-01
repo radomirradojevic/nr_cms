@@ -24,13 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
 import {
   updateCategory,
   reassignCategoryOwner,
@@ -46,20 +40,18 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-type AdminUser = { id: string; name: string };
-
 type Props = {
   category: {
     id: string;
     name: string;
     contentType: string;
     createdBy: string | null;
+    createdByName: string | null;
   };
-  admins: AdminUser[];
   onSuccess?: () => void;
 };
 
-export function EditCategoryDialog({ category, admins, onSuccess }: Props) {
+export function EditCategoryDialog({ category, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -154,20 +146,23 @@ export function EditCategoryDialog({ category, admins, onSuccess }: Props) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Author</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an admin…" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper">
-                      {admins.map((admin) => (
-                        <SelectItem key={admin.id} value={admin.id}>
-                          {admin.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <BackendUserCombobox
+                      value={field.value}
+                      selectedUser={
+                        category.createdBy
+                          ? {
+                              id: category.createdBy,
+                              name:
+                                category.createdByName ?? category.createdBy,
+                            }
+                          : null
+                      }
+                      currentUserId={category.createdBy}
+                      placeholder="Select a user..."
+                      onValueChange={(user) => field.onChange(user.id)}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

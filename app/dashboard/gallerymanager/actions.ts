@@ -1,10 +1,11 @@
 "use server";
 
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { getBackendUserOptionById } from "@/lib/backend-users";
 import { getRoles, hasRole } from "@/lib/roles";
 import {
   addImagesToGallery as addImagesToGalleryRow,
@@ -275,34 +276,6 @@ export type GalleryPickerPreviewImage = {
   title: string;
 };
 
-// ─── Fetch CMS users (admin only) ────────────────────────────────────────────
-
-export type CmsUser = { id: string; name: string };
-
-export async function fetchCmsUsers(): Promise<
-  { error: string } | { success: true; users: CmsUser[] }
-> {
-  const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
-  if (!caller.isAdmin) return { error: "Forbidden." };
-
-  try {
-    const client = await clerkClient();
-    const { data: users } = await client.users.getUserList({ limit: 200 });
-    const result: CmsUser[] = users.map((u) => ({
-      id: u.id,
-      name:
-        [u.firstName, u.lastName].filter(Boolean).join(" ") ||
-        u.username ||
-        u.emailAddresses[0]?.emailAddress ||
-        "Unknown",
-    }));
-    return { success: true, users: result };
-  } catch {
-    return { error: "Failed to load users." };
-  }
-}
-
 // ─── Reassign gallery owner (admin only) ──────────────────────────────────────
 
 const reassignSchema = z.object({
@@ -322,6 +295,9 @@ export async function reassignGallery(input: {
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
+    const owner = await getBackendUserOptionById(parsed.data.newOwnerId);
+    if (!owner) return { error: "Target user must be a backend user." };
+
     const row = await reassignGalleryRow(
       parsed.data.id,
       parsed.data.newOwnerId,

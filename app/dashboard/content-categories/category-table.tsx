@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { PageSizeSelector } from "@/app/dashboard/page-size-selector";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
 import { CreateCategoryDialog } from "./create-category-dialog";
 import { EditCategoryDialog } from "./edit-category-dialog";
 import { DeleteCategoryDialog } from "./delete-category-dialog";
@@ -37,15 +38,16 @@ type CategoryRow = {
   contentType: string;
   createdBy: string | null;
   createdByName: string | null;
+  updatedBy: string | null;
+  updatedByName: string | null;
+  created: string;
+  updated: string;
   itemCount: number;
 };
-
-type AdminUser = { id: string; name: string };
 
 type Props = {
   contentType: "page" | "blog_post";
   categories: CategoryRow[];
-  admins: AdminUser[];
   total: number;
   loading: boolean;
   safePage: number;
@@ -60,7 +62,6 @@ type Props = {
 export function CategoryTable({
   contentType,
   categories,
-  admins,
   total,
   loading,
   safePage,
@@ -75,6 +76,7 @@ export function CategoryTable({
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const { formatDate, formatDateTime } = useRegionalSettings();
 
   const allSelected =
     categories.length > 0 && categories.every((c) => selectedIds.has(c.id));
@@ -204,6 +206,7 @@ export function CategoryTable({
                 <TableHead>Name</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Author</TableHead>
+                <TableHead>Updated</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -232,12 +235,18 @@ export function CategoryTable({
                     {category.createdByName ?? (
                       <span className="italic">—</span>
                     )}
+                    <div className="mt-0.5">{formatDate(category.created)}</div>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    <div>{formatDateTime(category.updated)}</div>
+                    <div className="mt-0.5">
+                      by {category.updatedByName ?? "Unknown"}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <EditCategoryDialog
                         category={category}
-                        admins={admins}
                         onSuccess={onMutated}
                       />
                       <DeleteCategoryDialog

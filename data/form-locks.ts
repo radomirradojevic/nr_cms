@@ -1,6 +1,6 @@
 // Race-safe primitives for Form Builder edit locks.
 
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { formEditLockAudit, formEditLocks } from "@/db/schema";
@@ -187,6 +187,38 @@ export async function getLock(formId: string): Promise<FormLockHolder | null> {
     .limit(1);
   if (rows.length === 0) return null;
   return rowToHolder(rows[0]);
+}
+
+export async function listActiveLocksForFormIds(
+  formIds: string[],
+): Promise<Map<string, FormLockHolder>> {
+  const uniqueIds = Array.from(new Set(formIds)).filter(Boolean);
+  const locks = new Map<string, FormLockHolder>();
+  if (uniqueIds.length === 0) return locks;
+
+  await db
+    .delete(formEditLocks)
+    .where(
+      and(
+        inArray(formEditLocks.formId, uniqueIds),
+        lt(formEditLocks.leaseExpiresAt, sql`now()`),
+      ),
+    );
+
+  const rows = await db
+    .select()
+    .from(formEditLocks)
+    .where(
+      and(
+        inArray(formEditLocks.formId, uniqueIds),
+        sql`${formEditLocks.leaseExpiresAt} > now()`,
+      ),
+    );
+
+  for (const row of rows) {
+    locks.set(row.formId, rowToHolder(row));
+  }
+  return locks;
 }
 
 export async function isLockedBy(input: HeartbeatInput): Promise<boolean> {

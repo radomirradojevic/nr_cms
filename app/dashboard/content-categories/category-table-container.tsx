@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CategoryTable } from "./category-table";
+import type { ContentCategoryAuthorInfo } from "@/data/content-categories";
 
 type CategoryRow = {
   id: string;
@@ -10,37 +18,31 @@ type CategoryRow = {
   contentType: string;
   createdBy: string | null;
   createdByName: string | null;
+  updatedBy: string | null;
+  updatedByName: string | null;
+  created: string;
+  updated: string;
   itemCount: number;
 };
-
-type AdminUser = { id: string; name: string };
 
 type AllowedPageSize = 10 | 20 | 30;
 
 type Props = {
   contentType: "page" | "blog_post";
+  authors: ContentCategoryAuthorInfo[];
 };
 
-export function CategoryTableContainer({ contentType }: Props) {
+export function CategoryTableContainer({ contentType, authors }: Props) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [authorId, setAuthorId] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<AllowedPageSize>(10);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [admins, setAdmins] = useState<AdminUser[]>([]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    fetch("/api/admins")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.admins) setAdmins(data.admins);
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -65,6 +67,7 @@ export function CategoryTableContainer({ contentType }: Props) {
         pageSize: String(pageSize),
       });
       if (debouncedQuery) params.set("search", debouncedQuery);
+      if (authorId !== "all") params.set("author", authorId);
       const res = await fetch(`/api/content-categories?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
@@ -74,7 +77,7 @@ export function CategoryTableContainer({ contentType }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [contentType, safePage, pageSize, debouncedQuery]);
+  }, [contentType, safePage, pageSize, debouncedQuery, authorId]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -90,16 +93,38 @@ export function CategoryTableContainer({ contentType }: Props) {
 
   return (
     <div className="space-y-3">
-      <Input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by name…"
-        className="max-w-xs"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name…"
+          className="max-w-xs"
+        />
+        {authors.length > 0 && (
+          <Select
+            value={authorId}
+            onValueChange={(value) => {
+              setAuthorId(value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Author" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All authors</SelectItem>
+              {authors.map((author) => (
+                <SelectItem key={author.id} value={author.id}>
+                  {author.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
       <CategoryTable
         contentType={contentType}
         categories={categories}
-        admins={admins}
         total={total}
         loading={loading}
         safePage={safePage}

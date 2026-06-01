@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ContentTable, type ContentRow } from "./content-table";
+import type { ContentAuthorInfo } from "@/data/content";
 import type { Role } from "@/lib/roles";
 
 type AllowedPageSize = 10 | 20 | 30;
@@ -21,6 +22,7 @@ type Props = {
   currentUserRoles: Role[];
   pageCategories: CategoryOption[];
   blogCategories: CategoryOption[];
+  authors: ContentAuthorInfo[];
 };
 
 export function ContentTableContainer({
@@ -28,6 +30,7 @@ export function ContentTableContainer({
   currentUserRoles,
   pageCategories,
   blogCategories,
+  authors,
 }: Props) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -38,6 +41,7 @@ export function ContentTableContainer({
     "all" | "published" | "unpublished" | "archived"
   >("all");
   const [categoryId, setCategoryId] = useState<string>("all");
+  const [authorId, setAuthorId] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<AllowedPageSize>(10);
   const [rows, setRows] = useState<ContentRow[]>([]);
@@ -59,33 +63,53 @@ export function ContentTableContainer({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
 
-  const fetchRows = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: String(safePage),
-        pageSize: String(pageSize),
-      });
-      if (debouncedQuery) params.set("search", debouncedQuery);
-      if (type !== "all") params.set("type", type);
-      if (status !== "all") params.set("status", status);
-      if (categoryId !== "all") params.set("category", categoryId);
-      const res = await fetch(`/api/content?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setRows(data.rows);
-        setTotal(data.total);
+  const fetchRows = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!options?.silent) setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: String(safePage),
+          pageSize: String(pageSize),
+        });
+        if (debouncedQuery) params.set("search", debouncedQuery);
+        if (type !== "all") params.set("type", type);
+        if (status !== "all") params.set("status", status);
+        if (categoryId !== "all") params.set("category", categoryId);
+        if (authorId !== "all") params.set("author", authorId);
+        const res = await fetch(`/api/content?${params.toString()}`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setRows(data.rows);
+          setTotal(data.total);
+        }
+      } finally {
+        if (!options?.silent) setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [safePage, pageSize, debouncedQuery, type, status, categoryId]);
+    },
+    [safePage, pageSize, debouncedQuery, type, status, categoryId, authorId],
+  );
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       void fetchRows();
     }, 0);
     return () => window.clearTimeout(timeout);
+  }, [fetchRows]);
+
+  useEffect(() => {
+    const refreshLocks = () => {
+      void fetchRows({ silent: true });
+    };
+    window.addEventListener("focus", refreshLocks);
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshLocks();
+    }, 15000);
+    return () => {
+      window.removeEventListener("focus", refreshLocks);
+      window.clearInterval(intervalId);
+    };
   }, [fetchRows]);
 
   // Reset filters that depend on type
@@ -162,6 +186,27 @@ export function ContentTableContainer({
             ))}
           </SelectContent>
         </Select>
+        {authors.length > 0 && (
+          <Select
+            value={authorId}
+            onValueChange={(v) => {
+              setAuthorId(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Author" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All authors</SelectItem>
+              {authors.map((author) => (
+                <SelectItem key={author.id} value={author.id}>
+                  {author.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
       <ContentTable
         rows={rows}

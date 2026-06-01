@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Pencil, Star } from "lucide-react";
+import { Loader2, Lock, Pencil, Star } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { PageSizeSelector } from "@/app/dashboard/page-size-selector";
 import { type Role, hasRole } from "@/lib/roles";
+import type { LockHolder } from "@/lib/content-locks";
 import { ContentRowActions } from "./content-row-actions";
 import { BatchActions } from "./batch-actions";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
@@ -33,8 +34,11 @@ export type ContentRow = {
   homepage: boolean;
   authorId: string;
   authorName: string;
+  createdAt: string;
+  updatedByName: string | null;
   updatedAt: string;
   publishedAt: string | null;
+  editLock: LockHolder | null;
 };
 
 type Props = {
@@ -73,17 +77,41 @@ export function ContentTable({
   onPageSizeChange,
   onMutated,
 }: Props) {
-  const { formatDate } = useRegionalSettings();
+  const { formatDate, formatDateTime, formatTime } = useRegionalSettings();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const selectableIds = new Set(
+        rows.filter((row) => !row.editLock).map((row) => row.id),
+      );
+      setSelectedIds((prev) => {
+        const next = new Set([...prev].filter((id) => selectableIds.has(id)));
+        return next.size === prev.size ? prev : next;
+      });
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [rows]);
+
+  const selectableRows = rows.filter((row) => !row.editLock);
+  const selectableIdSet = new Set(selectableRows.map((row) => row.id));
+  const selectedSelectableIds = Array.from(selectedIds).filter((id) =>
+    selectableIdSet.has(id),
+  );
+  const selectedSelectableSet = new Set(selectedSelectableIds);
   const allSelected =
-    rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
-  const someSelected = selectedIds.size > 0;
+    selectableRows.length > 0 &&
+    selectableRows.every((r) => selectedSelectableSet.has(r.id));
+  const someSelected = selectedSelectableIds.length > 0;
 
   function toggleAll(checked: boolean) {
-    setSelectedIds(checked ? new Set(rows.map((r) => r.id)) : new Set());
+    setSelectedIds(
+      checked ? new Set(selectableRows.map((row) => row.id)) : new Set(),
+    );
   }
   function toggleOne(id: string, checked: boolean) {
+    const row = rows.find((r) => r.id === id);
+    if (!row || row.editLock) return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (checked) next.add(id);
@@ -100,7 +128,7 @@ export function ContentTable({
     <div className="space-y-3">
       {someSelected && (
         <BatchActions
-          ids={Array.from(selectedIds)}
+          ids={selectedSelectableIds}
           canPublish={canPublishAny}
           onCleared={() => {
             setSelectedIds(new Set());
@@ -124,7 +152,14 @@ export function ContentTable({
               <TableRow>
                 <TableHead className="w-[40px]">
                   <Checkbox
-                    checked={allSelected}
+                    checked={
+                      allSelected
+                        ? true
+                        : someSelected
+                          ? "indeterminate"
+                          : false
+                    }
+                    disabled={selectableRows.length === 0}
                     onCheckedChange={(c) => toggleAll(!!c)}
                     aria-label="Select all"
                   />
@@ -139,79 +174,108 @@ export function ContentTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={selectedIds.has(row.id) ? "selected" : undefined}
-                >
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedIds.has(row.id)}
-                      onCheckedChange={(c) => toggleOne(row.id, !!c)}
-                      aria-label={`Select ${row.title}`}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/dashboard/content/${row.id}/edit`}
-                        className="hover:underline"
-                      >
-                        {row.title}
-                      </Link>
-                      {row.homepage && (
-                        <Badge variant="outline" className="gap-1">
-                          <Star className="h-3 w-3 fill-current" />
-                          Homepage
-                        </Badge>
-                      )}
-                    </div>
-                    <a
-                      href={`/${row.slug}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-muted-foreground mt-0.5 hover:underline"
-                    >
-                      /{row.slug}
-                    </a>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {row.contentType === "page"
-                        ? "Page"
-                        : row.contentType === "hero_slider"
-                          ? "Hero Slider"
-                          : "Blog post"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">{row.categoryName}</TableCell>
-                  <TableCell className="text-sm">{row.authorName}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant[row.status]}>
-                      {row.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatDate(row.updatedAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/dashboard/content/${row.id}/edit`}>
-                          <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Link>
-                      </Button>
-                      <ContentRowActions
-                        row={row}
-                        currentUserId={currentUserId}
-                        currentUserRoles={currentUserRoles}
-                        onMutated={onMutated}
+              {rows.map((row) => {
+                const locked = Boolean(row.editLock);
+                const selected = !locked && selectedSelectableSet.has(row.id);
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={selected ? "selected" : undefined}
+                  >
+                    <TableCell>
+                      <Checkbox
+                        checked={selected}
+                        disabled={locked}
+                        onCheckedChange={(c) => toggleOne(row.id, !!c)}
+                        aria-label={
+                          locked
+                            ? `${row.title} is locked for editing`
+                            : `Select ${row.title}`
+                        }
                       />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/dashboard/content/${row.id}/edit`}
+                          className="hover:underline"
+                        >
+                          {row.title}
+                        </Link>
+                        {row.editLock && (
+                          <Badge
+                            variant="outline"
+                            className="max-w-[280px] gap-1 text-xs"
+                            title={`Currently being edited by ${row.editLock.userDisplayName}. Last activity ${formatTime(row.editLock.lastHeartbeatAt)}.`}
+                          >
+                            <Lock className="h-3 w-3 shrink-0" />
+                            <span className="truncate">
+                              Currently edited by {row.editLock.userDisplayName}
+                            </span>
+                          </Badge>
+                        )}
+                        {row.homepage && (
+                          <Badge variant="outline" className="gap-1">
+                            <Star className="h-3 w-3 fill-current" />
+                            Homepage
+                          </Badge>
+                        )}
+                      </div>
+                      <a
+                        href={`/${row.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground mt-0.5 hover:underline"
+                      >
+                        /{row.slug}
+                      </a>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {row.contentType === "page"
+                          ? "Page"
+                          : row.contentType === "hero_slider"
+                            ? "Hero Slider"
+                            : "Blog post"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {row.categoryName}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <div>{row.authorName}</div>
+                      <div className="mt-0.5">{formatDate(row.createdAt)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant[row.status]}>
+                        {row.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <div>{formatDateTime(row.updatedAt)}</div>
+                      <div className="mt-0.5">
+                        by {row.updatedByName ?? "Unknown"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/dashboard/content/${row.id}/edit`}>
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Link>
+                        </Button>
+                        <ContentRowActions
+                          row={row}
+                          currentUserId={currentUserId}
+                          currentUserRoles={currentUserRoles}
+                          onMutated={onMutated}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           <div className="flex items-center justify-between mt-4">

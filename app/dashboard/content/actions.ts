@@ -18,6 +18,7 @@ import {
 } from "@/data/content";
 import { getCategoryById } from "@/data/content-categories";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
+import { getBackendUserOptionById } from "@/lib/backend-users";
 import {
   DEFAULT_VISIBILITY,
   sanitizeVisibilityInput,
@@ -27,6 +28,7 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { slugify } from "@/lib/utils";
 import { renderTiptapHtml } from "./_editors/render-tiptap-html";
 import {
+  getLock,
   isLockedBy,
   logLockEvent,
   updateContentWithVersion,
@@ -90,6 +92,14 @@ async function canPublish(actor: Actor, target: ContentRow): Promise<boolean> {
 
 function canSetHomepage(actor: Actor): boolean {
   return hasRole(actor.roles, "admin");
+}
+
+async function getListActionLockError(
+  contentId: string,
+): Promise<string | null> {
+  const lock = await getLock(contentId);
+  if (!lock) return null;
+  return `This content is currently being edited by ${lock.userDisplayName}. Wait until the current editor closes the page.`;
 }
 
 function categoryTypeForContent(
@@ -229,7 +239,7 @@ export async function createContent(input: CreateContentInput) {
     if (homepage) {
       await db
         .update(content)
-        .set({ homepage: false })
+        .set({ homepage: false, updatedBy: actor.userId })
         .where(eq(content.homepage, true));
     }
     const isBlogPost = data.contentType === "blog_post";
@@ -249,6 +259,7 @@ export async function createContent(input: CreateContentInput) {
         status,
         publishedAt,
         authorId: actor.userId,
+        updatedBy: actor.userId,
         homepage,
         enableComments: isBlogPost ? !!data.enableComments : false,
         autoPublishComments: isBlogPost ? !!data.autoPublishComments : false,
@@ -372,7 +383,7 @@ export async function updateContent(input: UpdateContentInput) {
     if (wantsHomepageChange && homepage) {
       await db
         .update(content)
-        .set({ homepage: false })
+        .set({ homepage: false, updatedBy: actor.userId })
         .where(eq(content.homepage, true));
     }
     const isBlogPost = target.contentType === "blog_post";
@@ -392,6 +403,7 @@ export async function updateContent(input: UpdateContentInput) {
       coverImage: data.coverImage ?? null,
       status: nextStatus,
       publishedAt: nextPublishedAt,
+      updatedBy: actor.userId,
       homepage,
       ...(isBlogPost
         ? {
@@ -504,6 +516,8 @@ export async function deleteContent(input: { id: string }) {
   const target = await getContentById(parsed.data.id);
   if (!target) return { error: "Content not found." };
   if (!(await canEdit(actor, target))) return { error: "Forbidden." };
+  const lockError = await getListActionLockError(target.id);
+  if (lockError) return { error: lockError };
   if (target.homepage) {
     return {
       error:
@@ -562,9 +576,12 @@ export async function setStatus(input: z.infer<typeof setStatusSchema>) {
   const target = await getContentById(parsed.data.id);
   if (!target) return { error: "Content not found." };
   if (!(await canPublish(actor, target))) return { error: "Forbidden." };
+  const lockError = await getListActionLockError(target.id);
+  if (lockError) return { error: lockError };
 
   const updates: Partial<typeof content.$inferInsert> = {
     status: parsed.data.status,
+    updatedBy: actor.userId,
   };
   if (parsed.data.status === "published" && !target.publishedAt) {
     updates.publishedAt = new Date();
@@ -599,14 +616,16 @@ export async function setHomepage(input: { id: string }) {
   if (target.status !== "published") {
     return { error: "Homepage must be published first." };
   }
+  const lockError = await getListActionLockError(target.id);
+  if (lockError) return { error: lockError };
 
   await db
     .update(content)
-    .set({ homepage: false })
+    .set({ homepage: false, updatedBy: actor.userId })
     .where(eq(content.homepage, true));
   await db
     .update(content)
-    .set({ homepage: true })
+    .set({ homepage: true, updatedBy: actor.userId })
     .where(eq(content.id, target.id));
 
   revalidatePath("/dashboard/content");
@@ -693,30 +712,6 @@ const reassignSchema = z.object({
   newAuthorId: z.string().min(1).max(200),
 });
 
-export async function fetchClerkUsersForReassign(): Promise<
-  { users: { id: string; name: string }[] } | { error: string }
-> {
-  const actor = await loadActor();
-  if (!actor) return { error: "Forbidden." };
-  if (!hasRole(actor.roles, "admin")) return { error: "Forbidden." };
-
-  try {
-    const client = await clerkClient();
-    const { data: users } = await client.users.getUserList({ limit: 200 });
-    return {
-      users: users.map((u) => ({
-        id: u.id,
-        name:
-          [u.firstName, u.lastName].filter(Boolean).join(" ") ||
-          u.emailAddresses[0]?.emailAddress ||
-          u.id,
-      })),
-    };
-  } catch {
-    return { error: "Failed to fetch users." };
-  }
-}
-
 export async function reassignContent(input: {
   id: string;
   newAuthorId: string;
@@ -730,18 +725,16 @@ export async function reassignContent(input: {
 
   const target = await getContentById(parsed.data.id);
   if (!target) return { error: "Content not found." };
+  const lockError = await getListActionLockError(target.id);
+  if (lockError) return { error: lockError };
 
-  // Verify target user exists in Clerk
-  try {
-    const client = await clerkClient();
-    await client.users.getUser(parsed.data.newAuthorId);
-  } catch {
-    return { error: "Target user not found." };
-  }
+  const author = await getBackendUserOptionById(parsed.data.newAuthorId);
+  if (!author) return { error: "Target user must be a backend user." };
 
   try {
     await updateContentById(parsed.data.id, {
       authorId: parsed.data.newAuthorId,
+      updatedBy: actor.userId,
     });
     revalidatePath("/dashboard/content");
     return { success: true };
