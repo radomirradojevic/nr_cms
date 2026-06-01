@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getContentBySlug } from "@/data/content";
-import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
+import {
+  BuilderLeadingHeroSlider,
+  BuilderRender,
+  builderHasBodyAfterLeadingHero,
+  builderHasLeadingHeroSlider,
+} from "@/app/dashboard/content/_builder/server-render-rsc";
 import { renderTiptapHtml } from "@/app/dashboard/content/_editors/render-tiptap-html";
 import { BlogContent } from "@/components/blog-content";
 import { BlogComments } from "@/components/blog-comments";
@@ -131,19 +136,52 @@ export default async function PublicContentPage({ params }: Props) {
   const contentTemplates = resolveAppearanceContentTemplates(
     settings.resolvedAppearanceRecipe?.contentTemplates,
   );
+  const pageTemplate = contentTemplates.page;
+  const mainVariant = settings.resolvedAppearanceRecipe.shell.main.variant;
 
   if (row.contentType === "page") {
+    const shouldDetachLeadingHero =
+      builderHasLeadingHeroSlider(row.contentJson) &&
+      (pageTemplate.variant === "framed-builder" || mainVariant === "framed");
+
     return (
-      <PageTemplate template={contentTemplates.page}>
-        <BuilderRender data={row.contentJson} />
+      <PageTemplate
+        template={pageTemplate}
+        mainVariant={mainVariant}
+        leading={
+          shouldDetachLeadingHero ? (
+            <BuilderLeadingHeroSlider data={row.contentJson} />
+          ) : undefined
+        }
+        hasBody={
+          shouldDetachLeadingHero
+            ? builderHasBodyAfterLeadingHero(row.contentJson)
+            : undefined
+        }
+      >
+        <BuilderRender
+          data={row.contentJson}
+          omitLeadingHero={shouldDetachLeadingHero}
+        />
       </PageTemplate>
     );
   }
 
   if (row.contentType === "hero_slider") {
+    const shouldDetachHero =
+      pageTemplate.variant === "framed-builder" || mainVariant === "framed";
+    const heroSlider = (
+      <HeroSliderRenderer data={row.contentJson} label={row.title} />
+    );
+
     return (
-      <PageTemplate template={contentTemplates.page}>
-        <HeroSliderRenderer data={row.contentJson} label={row.title} />
+      <PageTemplate
+        template={pageTemplate}
+        mainVariant={mainVariant}
+        leading={shouldDetachHero ? heroSlider : undefined}
+        hasBody={shouldDetachHero ? false : undefined}
+      >
+        {shouldDetachHero ? null : heroSlider}
       </PageTemplate>
     );
   }
