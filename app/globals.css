@@ -784,6 +784,28 @@ html[data-appearance-background-effects="disabled"] .site-footer {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/*
+ * RawHtml page-builder blocks may contain stored Tailwind utility class names
+ * that do not appear in authored JSX. Keep the common responsive grid classes
+ * used by existing CMS pages available in the public CSS bundle.
+ */
+@media (min-width: 640px) {
+  .sm\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sm\:col-span-2 {
+    grid-column: span 2 / span 2;
+  }
+}
+@media (min-width: 1024px) {
+  .lg\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .lg\:col-span-1 {
+    grid-column: span 1 / span 1;
+  }
+}
 :where(.ProseMirror, .cms-content) :where(.tableWrapper) {
   max-width: 100%;
   margin: 0.75rem 0;

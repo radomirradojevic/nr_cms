@@ -11,7 +11,7 @@ import { renderTiptapHtml } from "@/app/dashboard/content/_editors/render-tiptap
 import { BlogContent } from "@/components/blog-content";
 import { BlogComments } from "@/components/blog-comments";
 import { BlogPostTemplate } from "@/components/blog-post-template";
-import { HeroSliderRenderer } from "@/components/hero-slider-renderer";
+import { HeroSliderRendererWithMenus } from "@/components/hero-slider-renderer-with-menus";
 import { ContentUnauthorized } from "@/components/content-unauthorized";
 import { ContentUnpublished } from "@/components/content-unpublished";
 import { PageTemplate } from "@/components/page-template";
@@ -171,7 +171,7 @@ export default async function PublicContentPage({ params }: Props) {
     const shouldDetachHero =
       pageTemplate.variant === "framed-builder" || mainVariant === "framed";
     const heroSlider = (
-      <HeroSliderRenderer data={row.contentJson} label={row.title} />
+      <HeroSliderRendererWithMenus data={row.contentJson} label={row.title} />
     );
 
     return (
