@@ -19,6 +19,13 @@ import {
   type BuilderData,
   type SerializedNode,
 } from "./types";
+import {
+  applyBlockStyle,
+  buildResponsiveCss,
+  styleHash,
+} from "./blocks/style/serialize";
+import type { BlockStyle } from "./blocks/style/types";
+import { cn } from "@/lib/utils";
 
 export type StaticRegistry = Record<
   string,
@@ -56,14 +63,37 @@ export const defaultStaticRegistry: StaticRegistry = {
   Hero: HeroStatic as never,
   HeroSlider: ({
     heroSliderName,
-  }: Record<string, unknown> & { children?: ReactNode }) => (
-    <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-      Hero Slider
-      {typeof heroSliderName === "string" && heroSliderName
-        ? `: ${heroSliderName}`
-        : ""}
-    </div>
-  ),
+    style,
+  }: Record<string, unknown> & { children?: ReactNode }) => {
+    const blockStyle = style as BlockStyle | undefined;
+    const { style: cssStyle, className } = applyBlockStyle(blockStyle);
+    const scope = `bb-${styleHash(blockStyle ?? null)}`;
+    const responsiveCss = buildResponsiveCss(blockStyle, scope);
+    const wrapperClass = cn(className, responsiveCss ? scope : null);
+    const hasStyle =
+      Object.keys(cssStyle).length > 0 || !!wrapperClass || !!responsiveCss;
+    const inner = (
+      <div className="my-4 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+        Hero Slider
+        {typeof heroSliderName === "string" && heroSliderName
+          ? `: ${heroSliderName}`
+          : ""}
+      </div>
+    );
+
+    if (!hasStyle) return inner;
+
+    return (
+      <>
+        {responsiveCss ? (
+          <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
+        ) : null}
+        <div style={cssStyle} className={wrapperClass || undefined}>
+          {inner}
+        </div>
+      </>
+    );
+  },
   RawHtml: RawHtmlStatic as never,
   // Synchronous client-safe placeholder. The RSC entry overrides this
   // with the async `GalleryStatic` that fetches & renders real images.
