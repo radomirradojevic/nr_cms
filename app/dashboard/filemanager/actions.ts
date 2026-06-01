@@ -1,6 +1,6 @@
 "use server";
 
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import {
@@ -15,6 +15,7 @@ import type { FileKind } from "@/lib/file-manager";
 import { deleteUpload } from "@/lib/file-storage";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { sanitizeFilename } from "@/lib/file-manager";
+import { getBackendUserOptionById } from "@/lib/backend-users";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getGlobalSettings } from "@/data/global-settings";
 import {
@@ -138,8 +139,14 @@ export async function deleteFile(input: { id: string }) {
 const listFilesSchema = z.object({
   kind: z.enum(["all", "image", "video", "document"]).default("all"),
   search: z.string().max(200).optional(),
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   uploadedBy: z.string().optional(),
   limit: z.number().int().min(1).max(200).default(60),
   offset: z.number().int().min(0).default(0),
@@ -178,29 +185,6 @@ export async function fetchFiles(
   return { success: true, rows, total };
 }
 
-// ─── List CMS users (admin only) ──────────────────────────────────────────────
-
-export type CmsUser = { id: string; name: string };
-
-export async function listCmsUsers(): Promise<
-  { error: string } | { success: true; users: CmsUser[] }
-> {
-  const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
-  if (!caller.isAdmin) return { error: "Only admins can list CMS users." };
-
-  const client = await clerkClient();
-  const { data: users } = await client.users.getUserList({ limit: 200 });
-  return {
-    success: true,
-    users: users.map((u) => ({
-      id: u.id,
-      name:
-        u.fullName || u.username || u.primaryEmailAddress?.emailAddress || u.id,
-    })),
-  };
-}
-
 // ─── Reassign file owner (admin only) ─────────────────────────────────────────
 
 const reassignSchema = z.object({
@@ -219,13 +203,8 @@ export async function reassignFile(input: {
   const parsed = reassignSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  // Verify the target user still exists in Clerk.
-  const client = await clerkClient();
-  try {
-    await client.users.getUser(parsed.data.newOwnerId);
-  } catch {
-    return { error: "Target user not found." };
-  }
+  const owner = await getBackendUserOptionById(parsed.data.newOwnerId);
+  if (!owner) return { error: "Target user must be a backend user." };
 
   try {
     const row = await reassignFileOwner(

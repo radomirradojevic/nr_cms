@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Loader2, UserRoundCog } from "lucide-react";
+
+import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
+import type { BackendUserOption } from "@/lib/backend-user-types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,17 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { fetchClerkUsersForReassign, reassignContent } from "./actions";
+import { reassignContent } from "./actions";
 import type { ContentRow } from "./content-table";
-
-type ClerkUser = { id: string; name: string };
 
 type Props = {
   row: ContentRow;
@@ -36,41 +30,32 @@ export function ContentReassignDialog({
   onOpenChange,
   onMutated,
 }: Props) {
-  const [users, setUsers] = useState<ClerkUser[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!open) return;
     const timeout = window.setTimeout(() => {
-      setSelectedUserId(row.authorId);
+      setSelectedUser({ id: row.authorId, name: row.authorName });
       setError(null);
-      setLoadingUsers(true);
-      fetchClerkUsersForReassign()
-        .then((res) => {
-          if ("error" in res) {
-            setError(res.error);
-          } else {
-            setUsers(res.users);
-          }
-        })
-        .finally(() => setLoadingUsers(false));
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [open, row.authorId]);
+  }, [open, row.authorId, row.authorName]);
 
   function handleConfirm() {
-    if (!selectedUserId || selectedUserId === row.authorId) {
+    if (!selectedUser || selectedUser.id === row.authorId) {
       onOpenChange(false);
       return;
     }
+
     setError(null);
     startTransition(async () => {
       const res = await reassignContent({
         id: row.id,
-        newAuthorId: selectedUserId,
+        newAuthorId: selectedUser.id,
       });
       if ("error" in res && res.error) {
         setError(res.error);
@@ -96,29 +81,15 @@ export function ContentReassignDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-2">
-          {loadingUsers ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading users…
-            </div>
-          ) : (
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a user" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}
-                    {u.id === row.authorId ? " (current)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+        <div className="py-2 space-y-2">
+          <BackendUserCombobox
+            value={selectedUser?.id ?? ""}
+            selectedUser={selectedUser}
+            currentUserId={row.authorId}
+            onValueChange={setSelectedUser}
+          />
 
-          {error && <p className="text-sm text-destructive mt-2">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
         <DialogFooter>
@@ -129,10 +100,7 @@ export function ContentReassignDialog({
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={pending || loadingUsers || !selectedUserId}
-          >
+          <Button onClick={handleConfirm} disabled={pending || !selectedUser}>
             {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Reassign
           </Button>

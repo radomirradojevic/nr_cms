@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Bot,
@@ -256,6 +257,33 @@ interface SettingsFormProps {
 
 const CUSTOM_WIDTH_OPTION = "__custom__";
 const WITHOUT_MENU_VALUE = "__without_menu__";
+const SETTINGS_TAB_PARAM = "tab";
+const LAYOUT_DESIGN_TAB_PARAM = "layoutTab";
+const SETTINGS_TABS = ["general", "layout-design", "ai", "system"] as const;
+const LAYOUT_DESIGN_TABS = ["header", "footer", "appearance"] as const;
+
+type SettingsTab = (typeof SETTINGS_TABS)[number];
+type LayoutDesignTab = (typeof LAYOUT_DESIGN_TABS)[number];
+
+function isSettingsTab(value: string | null): value is SettingsTab {
+  return SETTINGS_TABS.includes(value as SettingsTab);
+}
+
+function isLayoutDesignTab(value: string | null): value is LayoutDesignTab {
+  return LAYOUT_DESIGN_TABS.includes(value as LayoutDesignTab);
+}
+
+function parseSettingsTab(
+  value: string | null,
+  layoutDesignValue: string | null,
+): SettingsTab {
+  if (isSettingsTab(value)) return value;
+  return isLayoutDesignTab(layoutDesignValue) ? "layout-design" : "general";
+}
+
+function parseLayoutDesignTab(value: string | null): LayoutDesignTab {
+  return isLayoutDesignTab(value) ? value : "header";
+}
 
 type AiProviderFormState = {
   enabled: boolean;
@@ -1310,6 +1338,19 @@ export function SettingsForm({
   initialLogoFile,
   navigationMenus,
 }: SettingsFormProps) {
+  const searchParams = useSearchParams();
+  const urlSettingsTab = parseSettingsTab(
+    searchParams.get(SETTINGS_TAB_PARAM),
+    searchParams.get(LAYOUT_DESIGN_TAB_PARAM),
+  );
+  const urlLayoutDesignTab = parseLayoutDesignTab(
+    searchParams.get(LAYOUT_DESIGN_TAB_PARAM),
+  );
+  const [activeSettingsTab, setActiveSettingsTab] =
+    useState<SettingsTab>(urlSettingsTab);
+  const [activeLayoutDesignTab, setActiveLayoutDesignTab] =
+    useState<LayoutDesignTab>(urlLayoutDesignTab);
+
   const headerSettings =
     HeaderSettingsSchema.safeParse(settings?.headerSettings).data ??
     DEFAULT_HEADER_SETTINGS;
@@ -1836,6 +1877,42 @@ export function SettingsForm({
     };
   }, []);
 
+  function replaceTabsInUrl(
+    settingsTab: SettingsTab,
+    layoutDesignTab: LayoutDesignTab,
+  ) {
+    if (typeof window === "undefined") return;
+
+    const url = new URL(window.location.href);
+    if (settingsTab === "general") {
+      url.searchParams.delete(SETTINGS_TAB_PARAM);
+    } else {
+      url.searchParams.set(SETTINGS_TAB_PARAM, settingsTab);
+    }
+
+    if (settingsTab === "layout-design" && layoutDesignTab !== "header") {
+      url.searchParams.set(LAYOUT_DESIGN_TAB_PARAM, layoutDesignTab);
+    } else {
+      url.searchParams.delete(LAYOUT_DESIGN_TAB_PARAM);
+    }
+
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, "", nextUrl);
+  }
+
+  function handleSettingsTabChange(value: string) {
+    const nextTab = parseSettingsTab(value, null);
+    setActiveSettingsTab(nextTab);
+    replaceTabsInUrl(nextTab, activeLayoutDesignTab);
+  }
+
+  function handleLayoutDesignTabChange(value: string) {
+    const nextTab = parseLayoutDesignTab(value);
+    setActiveSettingsTab("layout-design");
+    setActiveLayoutDesignTab(nextTab);
+    replaceTabsInUrl("layout-design", nextTab);
+  }
+
   function buildAppearanceRecipeForSubmit({
     nextAppearance,
     nextHeaderSettings,
@@ -2345,7 +2422,11 @@ export function SettingsForm({
         </Button>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-4">
+      <Tabs
+        value={activeSettingsTab}
+        onValueChange={handleSettingsTabChange}
+        className="space-y-4"
+      >
         <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="layout-design">Layout &amp; Design</TabsTrigger>
@@ -2424,7 +2505,11 @@ export function SettingsForm({
         </TabsContent>
 
         <TabsContent value="layout-design" className="space-y-4">
-          <Tabs defaultValue="header" className="space-y-4">
+          <Tabs
+            value={activeLayoutDesignTab}
+            onValueChange={handleLayoutDesignTabChange}
+            className="space-y-4"
+          >
             <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
               <TabsTrigger value="header">Header</TabsTrigger>
               <TabsTrigger value="footer">Footer</TabsTrigger>

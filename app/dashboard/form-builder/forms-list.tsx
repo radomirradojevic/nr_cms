@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   FileText,
   Inbox,
+  Lock,
   MoreHorizontal,
   Pencil,
   Search,
@@ -19,6 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -41,39 +43,53 @@ import { fetchFormsList } from "./actions";
 import { DeleteFormDialog } from "./delete-form-dialog";
 import { ReassignFormDialog } from "./reassign-form-dialog";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
+import type { FormLockHolder } from "@/lib/form-locks";
 import type { FormRow, FormStatus } from "@/lib/form-types";
 
 type Row = FormRow & {
   submissionCount: number;
   fieldCount: number;
   createdByName: string | null;
+  updatedByName: string | null;
+  editLock: FormLockHolder | null;
 };
 
-type AdminUser = { id: string; name: string };
+type FormCreatorInfo = {
+  id: string;
+  name: string;
+};
 
 type Props = {
   initialRows: Row[];
   initialTotal: number;
   pageSize: number;
-  admins: AdminUser[];
+  creators: FormCreatorInfo[];
 };
 
 export function FormsList({
   initialRows,
   initialTotal,
   pageSize,
-  admins,
+  creators,
 }: Props) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
   const [offset, setOffset] = useState(initialRows.length);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | FormStatus>("all");
+  const [creator, setCreator] = useState("all");
+  const [extraCreatorOptions, setExtraCreatorOptions] = useState<
+    FormCreatorInfo[]
+  >([]);
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [reassignTarget, setReassignTarget] = useState<Row | null>(null);
-  const { formatDateTime } = useRegionalSettings();
+  const { formatDate, formatDateTime, formatTime } = useRegionalSettings();
+  const creatorOptions = useMemo(
+    () => mergeCreatorOptions(creators, extraCreatorOptions),
+    [creators, extraCreatorOptions],
+  );
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -82,22 +98,50 @@ export function FormsList({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, status]);
+  }, [search, status, creator]);
 
-  function runFetch(nextOffset: number, replace: boolean) {
-    startTransition(async () => {
+  function runFetch(
+    nextOffset: number,
+    replace: boolean,
+    options?: { limit?: number; silent?: boolean },
+  ) {
+    const load = async () => {
       const res = await fetchFormsList({
         search: search || undefined,
         status: status === "all" ? undefined : status,
-        limit: pageSize,
+        createdBy: creator === "all" ? undefined : creator,
+        limit: options?.limit ?? pageSize,
         offset: nextOffset,
       });
       if ("error" in res) return;
       setTotal(res.total);
       setRows((prev) => (replace ? res.rows : [...prev, ...res.rows]));
       setOffset(nextOffset + res.rows.length);
-    });
+    };
+
+    if (options?.silent) {
+      void load();
+      return;
+    }
+    startTransition(load);
   }
+
+  useEffect(() => {
+    const refreshLocks = () =>
+      runFetch(0, true, {
+        limit: Math.max(pageSize, rows.length),
+        silent: true,
+      });
+    window.addEventListener("focus", refreshLocks);
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshLocks();
+    }, 15000);
+    return () => {
+      window.removeEventListener("focus", refreshLocks);
+      window.clearInterval(intervalId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, status, creator, pageSize, rows.length]);
 
   const hasMore = rows.length < total;
 
@@ -126,6 +170,21 @@ export function FormsList({
             <SelectItem value="published">Published</SelectItem>
           </SelectContent>
         </Select>
+        {creatorOptions.length > 0 && (
+          <Select value={creator} onValueChange={setCreator}>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All creators</SelectItem>
+              {creatorOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="rounded-md border">
@@ -160,77 +219,118 @@ export function FormsList({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    <Link
-                      href={`/dashboard/form-builder/${r.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {r.name}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">{r.slug}</p>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        r.status === "published" ? "default" : "secondary"
-                      }
-                    >
-                      {r.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {r.createdByName ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {r.fieldCount}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {r.submissionCount}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {formatDateTime(r.updatedAt)}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/form-builder/${r.id}`}>
-                            <Pencil className="mr-2 h-4 w-4" /> Edit
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link
-                            href={`/dashboard/form-builder/${r.id}/submissions`}
-                          >
-                            <Inbox className="mr-2 h-4 w-4" /> Submissions
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/form-builder/${r.id}`}>
-                            <FileText className="mr-2 h-4 w-4" /> Fields
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setReassignTarget(r)}>
-                          <UserCog className="mr-2 h-4 w-4" /> Reassign
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => setDeleteTarget(r)}
-                          className="text-destructive focus:text-destructive"
+              rows.map((r) => {
+                const locked = Boolean(r.editLock);
+                return (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/dashboard/form-builder/${r.id}`}
+                          className="font-medium hover:underline"
                         >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                          {r.name}
+                        </Link>
+                        {r.editLock && (
+                          <Badge
+                            variant="outline"
+                            className="max-w-[280px] gap-1 text-xs"
+                            title={`Currently being edited by ${r.editLock.userDisplayName}. Last activity ${formatTime(r.editLock.lastHeartbeatAt)}.`}
+                          >
+                            <Lock className="h-3 w-3 shrink-0" />
+                            <span className="truncate">
+                              Currently edited by {r.editLock.userDisplayName}
+                            </span>
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{r.slug}</p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          r.status === "published" ? "default" : "secondary"
+                        }
+                      >
+                        {r.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <div>{r.createdByName ?? "—"}</div>
+                      <div className="mt-0.5">{formatDate(r.createdAt)}</div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {r.fieldCount}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {r.submissionCount}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <div>{formatDateTime(r.updatedAt)}</div>
+                      <div className="mt-0.5">
+                        by {r.updatedByName ?? "Unknown"}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          {r.editLock && (
+                            <>
+                              <DropdownMenuItem
+                                disabled
+                                className="whitespace-normal text-muted-foreground"
+                              >
+                                <Lock className="mr-2 h-4 w-4 shrink-0" />
+                                Locked by {r.editLock.userDisplayName}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/form-builder/${r.id}`}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={`/dashboard/form-builder/${r.id}/submissions`}
+                            >
+                              <Inbox className="mr-2 h-4 w-4" /> Submissions
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/form-builder/${r.id}`}>
+                              <FileText className="mr-2 h-4 w-4" /> Fields
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={locked}
+                            onSelect={() => setReassignTarget(r)}
+                          >
+                            <UserCog className="mr-2 h-4 w-4" /> Reassign
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={locked}
+                            onSelect={() => setDeleteTarget(r)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -270,21 +370,45 @@ export function FormsList({
           formId={reassignTarget.id}
           formName={reassignTarget.name}
           currentOwnerId={reassignTarget.createdBy ?? null}
-          admins={admins}
+          currentOwnerName={reassignTarget.createdByName}
           open={!!reassignTarget}
           onOpenChange={(o) => !o && setReassignTarget(null)}
           onReassigned={(id, newOwnerId, newOwnerName) => {
-            setRows((prev) =>
-              prev.map((r) =>
-                r.id === id
-                  ? { ...r, createdBy: newOwnerId, createdByName: newOwnerName }
-                  : r,
-              ),
+            setExtraCreatorOptions((prev) =>
+              mergeCreatorOptions(prev, [
+                { id: newOwnerId, name: newOwnerName },
+              ]),
             );
+            setRows((prev) =>
+              creator !== "all" && creator !== newOwnerId
+                ? prev.filter((r) => r.id !== id)
+                : prev.map((r) =>
+                    r.id === id
+                      ? {
+                          ...r,
+                          createdBy: newOwnerId,
+                          createdByName: newOwnerName,
+                        }
+                      : r,
+                  ),
+            );
+            if (creator !== "all" && creator !== newOwnerId) {
+              setTotal((t) => Math.max(0, t - 1));
+              setOffset((o) => Math.max(0, o - 1));
+            }
             setReassignTarget(null);
           }}
         />
       )}
     </div>
   );
+}
+
+function mergeCreatorOptions(
+  existing: FormCreatorInfo[],
+  incoming: FormCreatorInfo[],
+) {
+  const byId = new Map(existing.map((option) => [option.id, option]));
+  for (const option of incoming) byId.set(option.id, option);
+  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
 }

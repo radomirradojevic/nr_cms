@@ -1,4 +1,16 @@
-import { and, asc, eq, inArray, isNull, max } from "drizzle-orm";
+import { clerkClient } from "@clerk/nextjs/server";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  max,
+  type SQL,
+} from "drizzle-orm";
 import { db } from "@/db";
 import { content, contentCategories, menus, topMenuItems } from "@/db/schema";
 import { canViewContent } from "@/lib/content-visibility";
@@ -11,9 +23,16 @@ export type NewTopMenuItem = typeof topMenuItems.$inferInsert;
 export type MenuListItem = MenuRow & {
   totalItems: number;
   nestedItems: number;
+  creatorName: string | null;
+  updatedByName: string | null;
 };
 
 export type MenuOption = {
+  id: string;
+  name: string;
+};
+
+export type MenuCreatorInfo = {
   id: string;
   name: string;
 };
@@ -44,16 +63,56 @@ export async function listMenuOptions(): Promise<MenuOption[]> {
   return rows;
 }
 
-export async function listMenusWithItemCounts(): Promise<MenuListItem[]> {
-  const [menuRows, itemRows] = await Promise.all([
-    listMenus(),
+export async function listMenuCreators(): Promise<MenuCreatorInfo[]> {
+  const rows = await db
+    .selectDistinct({ createdBy: menus.createdBy })
+    .from(menus)
+    .orderBy(asc(menus.createdBy));
+  const creatorIds = rows
+    .map((row) => row.createdBy)
+    .filter((createdBy): createdBy is string => Boolean(createdBy));
+  const names = await resolveUserNames(creatorIds);
+
+  return creatorIds
+    .map((id) => ({ id, name: names.get(id) ?? id }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function listMenusWithItemCounts(opts: {
+  search?: string;
+  createdBy?: string;
+  limit: number;
+  offset: number;
+}): Promise<{ rows: MenuListItem[]; total: number }> {
+  const conditions: SQL[] = [];
+  if (opts.search?.trim()) {
+    conditions.push(ilike(menus.name, `%${opts.search.trim()}%`));
+  }
+  if (opts.createdBy) conditions.push(eq(menus.createdBy, opts.createdBy));
+  const where = conditions.length ? and(...conditions) : undefined;
+
+  const [menuRows, [{ total }]] = await Promise.all([
     db
-      .select({
-        menuId: topMenuItems.menuId,
-        parentId: topMenuItems.parentId,
-      })
-      .from(topMenuItems),
+      .select()
+      .from(menus)
+      .where(where)
+      .orderBy(desc(menus.updatedAt), asc(menus.name))
+      .limit(opts.limit)
+      .offset(opts.offset),
+    db.select({ total: count() }).from(menus).where(where),
   ]);
+
+  const menuIds = menuRows.map((menu) => menu.id);
+  const itemRows =
+    menuIds.length > 0
+      ? await db
+          .select({
+            menuId: topMenuItems.menuId,
+            parentId: topMenuItems.parentId,
+          })
+          .from(topMenuItems)
+          .where(inArray(topMenuItems.menuId, menuIds))
+      : [];
 
   const counts = new Map<string, { totalItems: number; nestedItems: number }>();
   for (const item of itemRows) {
@@ -66,11 +125,61 @@ export async function listMenusWithItemCounts(): Promise<MenuListItem[]> {
     counts.set(item.menuId, current);
   }
 
-  return menuRows.map((menu) => ({
-    ...menu,
-    totalItems: counts.get(menu.id)?.totalItems ?? 0,
-    nestedItems: counts.get(menu.id)?.nestedItems ?? 0,
-  }));
+  const userIds = [
+    ...new Set(
+      menuRows
+        .flatMap((menu) => [menu.createdBy, menu.updatedBy])
+        .filter((userId): userId is string => Boolean(userId)),
+    ),
+  ];
+  const userNames = await resolveUserNames(userIds);
+
+  return {
+    rows: menuRows.map((menu) => ({
+      ...menu,
+      totalItems: counts.get(menu.id)?.totalItems ?? 0,
+      nestedItems: counts.get(menu.id)?.nestedItems ?? 0,
+      creatorName: menu.createdBy
+        ? (userNames.get(menu.createdBy) ?? null)
+        : null,
+      updatedByName: menu.updatedBy
+        ? (userNames.get(menu.updatedBy) ?? null)
+        : null,
+    })),
+    total,
+  };
+}
+
+async function resolveUserNames(
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  if (userIds.length === 0) return names;
+
+  try {
+    const client = await clerkClient();
+    for (let i = 0; i < userIds.length; i += 100) {
+      const res = await client.users.getUserList({
+        userId: userIds.slice(i, i + 100),
+        limit: 100,
+      });
+      for (const user of res.data) {
+        names.set(
+          user.id,
+          user.fullName ||
+            [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+            user.username ||
+            user.primaryEmailAddress?.emailAddress ||
+            user.emailAddresses[0]?.emailAddress ||
+            user.id,
+        );
+      }
+    }
+  } catch {
+    // Non-fatal: the table can still render ids/empty owners if Clerk is down.
+  }
+
+  return names;
 }
 
 export async function getMenuById(id: string): Promise<MenuRow | undefined> {

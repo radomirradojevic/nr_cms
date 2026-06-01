@@ -15,6 +15,7 @@ import {
 } from "@/data/content-categories";
 import { TOP_MENU_TAG } from "@/data/top-menu";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { getBackendUserOptionById } from "@/lib/backend-users";
 import { hasRole, getRoles } from "@/lib/roles";
 
 async function markMenuItemsBroken(categoryIds: string[]) {
@@ -118,7 +119,7 @@ export async function updateCategory(input: UpdateCategoryInput) {
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
-    await updateCategoryName(parsed.data.id, parsed.data.name);
+    await updateCategoryName(parsed.data.id, parsed.data.name, session.id);
     revalidatePath("/dashboard/content-categories");
     return { success: true };
   } catch (err) {
@@ -154,7 +155,14 @@ export async function reassignCategoryOwner(input: ReassignCategoryOwnerInput) {
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
-    await updateCategoryOwner(parsed.data.id, parsed.data.ownerId);
+    const owner = await getBackendUserOptionById(parsed.data.ownerId);
+    if (!owner) return { error: "Target user must be a backend user." };
+
+    await updateCategoryOwner(
+      parsed.data.id,
+      parsed.data.ownerId,
+      session.id,
+    );
     revalidatePath("/dashboard/content-categories");
     return { success: true };
   } catch (err) {

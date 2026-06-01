@@ -3,7 +3,7 @@
 
 import { db } from "@/db";
 import { content, contentEditLockAudit, contentEditLocks } from "@/db/schema";
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import {
   LEASE_TTL_SECONDS,
   type LockAuditEvent,
@@ -291,6 +291,38 @@ export async function getLock(contentId: string): Promise<LockHolder | null> {
     .limit(1);
   if (rows.length === 0) return null;
   return rowToHolder(rows[0]);
+}
+
+export async function listActiveLocksForContentIds(
+  contentIds: string[],
+): Promise<Map<string, LockHolder>> {
+  const uniqueIds = Array.from(new Set(contentIds)).filter(Boolean);
+  const locks = new Map<string, LockHolder>();
+  if (uniqueIds.length === 0) return locks;
+
+  await db
+    .delete(contentEditLocks)
+    .where(
+      and(
+        inArray(contentEditLocks.contentId, uniqueIds),
+        lt(contentEditLocks.leaseExpiresAt, sql`now()`),
+      ),
+    );
+
+  const rows = await db
+    .select()
+    .from(contentEditLocks)
+    .where(
+      and(
+        inArray(contentEditLocks.contentId, uniqueIds),
+        sql`${contentEditLocks.leaseExpiresAt} > now()`,
+      ),
+    );
+
+  for (const row of rows) {
+    locks.set(row.contentId, rowToHolder(row));
+  }
+  return locks;
 }
 
 /**
