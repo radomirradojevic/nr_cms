@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+
+import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
+import type { BackendUserOption } from "@/lib/backend-user-types";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,20 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { listCmsUsers, reassignFile, type CmsUser } from "./actions";
 import type { FileRow } from "@/data/files";
+import { reassignFile } from "./actions";
 
 type Props = {
   file: FileRow;
+  ownerName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReassigned: (
@@ -35,55 +32,61 @@ type Props = {
 
 export function ReassignFileDialog({
   file,
+  ownerName,
   open,
   onOpenChange,
   onReassigned,
 }: Props) {
-  const [users, setUsers] = useState<CmsUser[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const timeout = window.setTimeout(() => {
-      setSelectedUserId(file.uploadedBy);
+      setSelectedUser({ id: file.uploadedBy, name: ownerName });
       setError(null);
-      setLoadingUsers(true);
-      listCmsUsers().then((res) => {
-        setLoadingUsers(false);
-        if ("error" in res) {
-          setError(res.error);
-          return;
-        }
-        setUsers(res.users);
-      });
+      setSaving(false);
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [open, file.uploadedBy]);
+  }, [open, file.uploadedBy, ownerName]);
+
+  function handleOpenChange(nextOpen: boolean) {
+    onOpenChange(nextOpen);
+    if (!nextOpen) {
+      setError(null);
+      setSaving(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedUserId) return;
+    if (!selectedUser) {
+      setError("Please select a user.");
+      return;
+    }
+
     setError(null);
     setSaving(true);
     const result = await reassignFile({
       fileId: file.id,
-      newOwnerId: selectedUserId,
+      newOwnerId: selectedUser.id,
     });
     setSaving(false);
+
     if ("error" in result) {
       setError(result.error);
       return;
     }
-    const newOwner = users.find((u) => u.id === selectedUserId);
-    onReassigned(result.file, selectedUserId, newOwner?.name ?? selectedUserId);
-    onOpenChange(false);
+
+    onReassigned(result.file, selectedUser.id, selectedUser.name);
+    handleOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -95,31 +98,15 @@ export function ReassignFileDialog({
           </DialogHeader>
 
           <div className="py-4 space-y-3">
-            {loadingUsers ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading users…
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="new-owner">New owner</Label>
-                <Select
-                  value={selectedUserId}
-                  onValueChange={setSelectedUserId}
-                >
-                  <SelectTrigger id="new-owner">
-                    <SelectValue placeholder="Select a user" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="new-owner">New owner</Label>
+              <BackendUserCombobox
+                value={selectedUser?.id ?? ""}
+                selectedUser={selectedUser}
+                currentUserId={file.uploadedBy}
+                onValueChange={setSelectedUser}
+              />
+            </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
@@ -128,15 +115,12 @@ export function ReassignFileDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={saving || loadingUsers || !selectedUserId}
-            >
+            <Button type="submit" disabled={saving || !selectedUser}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Reassign
             </Button>

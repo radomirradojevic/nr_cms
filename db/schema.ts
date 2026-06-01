@@ -23,6 +23,7 @@ export const contentCategories = pgTable(
     name: text("name").notNull(),
     contentType: text("content_type").notNull(), // "page" | "blog_post"
     createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
     created: timestamp("created", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -58,6 +59,7 @@ export const content = pgTable(
     coverImage: text("cover_image"),
     slug: text("slug").notNull().unique(),
     authorId: text("author_id").notNull(),
+    updatedBy: text("updated_by"),
     homepage: boolean("homepage").notNull().default(false),
     enableComments: boolean("enable_comments").notNull().default(false),
     autoPublishComments: boolean("auto_publish_comments")
@@ -103,6 +105,8 @@ export const menus = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -111,7 +115,10 @@ export const menus = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [unique("menus_name_unique").on(table.name)],
+  (table) => [
+    unique("menus_name_unique").on(table.name),
+    index("menus_created_by_idx").on(table.createdBy),
+  ],
 );
 
 export const topMenuItems = pgTable(

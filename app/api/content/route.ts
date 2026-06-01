@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { listContent } from "@/data/content";
+import { listActiveLocksForContentIds } from "@/data/content-locks";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 
@@ -62,22 +63,32 @@ export async function GET(request: NextRequest) {
     authorId,
     sort,
   });
+  const activeLocks = await listActiveLocksForContentIds(rows.map((r) => r.id));
 
-  // Batch-fetch Clerk user names for all unique author IDs
-  const uniqueAuthorIds = [...new Set(rows.map((r) => r.authorId))];
-  const client = await clerkClient();
-  const { data: clerkUsers } = await client.users.getUserList({
-    userId: uniqueAuthorIds,
-    limit: uniqueAuthorIds.length || 1,
-  });
-  const authorNameMap = new Map(
-    clerkUsers.map((u) => [
-      u.id,
-      [u.firstName, u.lastName].filter(Boolean).join(" ") ||
-        u.emailAddresses[0]?.emailAddress ||
-        u.id,
-    ]),
-  );
+  // Batch-fetch Clerk user names for all unique author/updater IDs.
+  const userIds = [
+    ...new Set(
+      rows
+        .flatMap((r) => [r.authorId, r.updatedBy])
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const userNameMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    const client = await clerkClient();
+    const { data: clerkUsers } = await client.users.getUserList({
+      userId: userIds,
+      limit: userIds.length,
+    });
+    for (const user of clerkUsers) {
+      userNameMap.set(
+        user.id,
+        [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+          user.emailAddresses[0]?.emailAddress ||
+          user.id,
+      );
+    }
+  }
 
   return NextResponse.json({
     rows: rows.map((r) => ({
@@ -90,9 +101,15 @@ export async function GET(request: NextRequest) {
       status: r.status,
       homepage: r.homepage,
       authorId: r.authorId,
-      authorName: authorNameMap.get(r.authorId) ?? r.authorId,
+      authorName: userNameMap.get(r.authorId) ?? r.authorId,
+      createdAt: r.createdAt,
+      updatedBy: r.updatedBy,
+      updatedByName: r.updatedBy
+        ? (userNameMap.get(r.updatedBy) ?? null)
+        : null,
       updatedAt: r.updatedAt,
       publishedAt: r.publishedAt,
+      editLock: activeLocks.get(r.id) ?? null,
     })),
     total,
   });

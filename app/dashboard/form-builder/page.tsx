@@ -3,11 +3,17 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
-import { listForms } from "@/data/forms";
+import { getDistinctFormCreatorIds, listForms } from "@/data/forms";
+import { listActiveLocksForFormIds } from "@/data/form-locks";
 import { FormsList } from "./forms-list";
 import { CreateFormDialog } from "./create-form-dialog";
 
 const PAGE_SIZE = 20;
+
+type FormCreatorInfo = {
+  id: string;
+  name: string;
+};
 
 export default async function FormBuilderPage() {
   const { userId } = await auth();
@@ -16,36 +22,47 @@ export default async function FormBuilderPage() {
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) redirect("/dashboard");
 
-  const client = await clerkClient();
-
-  const [{ rows, total }, allUsersRes] = await Promise.all([
+  const [{ rows, total }, distinctCreatorIds] = await Promise.all([
     listForms({ limit: PAGE_SIZE, offset: 0 }),
-    client.users.getUserList({ limit: 100 }),
+    getDistinctFormCreatorIds(),
   ]);
+  const activeLocks = await listActiveLocksForFormIds(rows.map((r) => r.id));
 
-  // Build a name map for creator display
-  const nameMap = new Map<string, string>(
-    allUsersRes.data.map((u) => [
-      u.id,
-      u.fullName || u.username || u.primaryEmailAddress?.emailAddress || u.id,
+  const creatorIds = [...new Set(distinctCreatorIds)];
+  const userIdsToResolve = [
+    ...new Set([
+      ...creatorIds,
+      ...rows.map((r) => r.createdBy).filter(Boolean),
+      ...rows.map((r) => r.updatedBy).filter(Boolean),
     ]),
-  );
-
-  // Build admins list (users with "admin" role)
-  const admins = allUsersRes.data
-    .filter((u) => {
-      const r = getRoles(u.publicMetadata);
-      return hasRole(r, "admin");
-    })
-    .map((u) => ({
-      id: u.id,
-      name:
-        u.fullName || u.username || u.primaryEmailAddress?.emailAddress || u.id,
-    }));
+  ];
+  const nameMap = new Map<string, string>();
+  if (userIdsToResolve.length > 0) {
+    const client = await clerkClient();
+    await Promise.all(
+      userIdsToResolve.map(async (id) => {
+        const creator = await client.users.getUser(id).catch(() => null);
+        if (!creator) return;
+        nameMap.set(
+          id,
+          creator.fullName ||
+            creator.username ||
+            creator.primaryEmailAddress?.emailAddress ||
+            id,
+        );
+      }),
+    );
+  }
 
   const enrichedRows = rows.map((r) => ({
     ...r,
     createdByName: r.createdBy ? (nameMap.get(r.createdBy) ?? null) : null,
+    updatedByName: r.updatedBy ? (nameMap.get(r.updatedBy) ?? null) : null,
+    editLock: activeLocks.get(r.id) ?? null,
+  }));
+  const creators: FormCreatorInfo[] = creatorIds.map((id) => ({
+    id,
+    name: nameMap.get(id) ?? id,
   }));
 
   return (
@@ -65,7 +82,7 @@ export default async function FormBuilderPage() {
         initialRows={enrichedRows}
         initialTotal={total}
         pageSize={PAGE_SIZE}
-        admins={admins}
+        creators={creators}
       />
     </div>
   );

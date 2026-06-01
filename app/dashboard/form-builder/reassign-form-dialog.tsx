@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Loader2, UserCog } from "lucide-react";
 
+import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
+import type { BackendUserOption } from "@/lib/backend-user-types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,36 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { reassignForm } from "./actions";
-
-const schema = z.object({
-  ownerId: z.string().min(1, "Owner is required."),
-});
-
-type FormValues = z.infer<typeof schema>;
-
-type AdminUser = { id: string; name: string };
 
 type Props = {
   formId: string;
   formName: string;
   currentOwnerId: string | null;
-  admins: AdminUser[];
+  currentOwnerName: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReassigned: (
@@ -57,43 +34,53 @@ export function ReassignFormDialog({
   formId,
   formName,
   currentOwnerId,
-  admins,
+  currentOwnerName,
   open,
   onOpenChange,
   onReassigned,
 }: Props) {
+  const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
+    currentOwnerId
+      ? { id: currentOwnerId, name: currentOwnerName ?? currentOwnerId }
+      : null,
+  );
   const [serverError, setServerError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      ownerId: currentOwnerId ?? "",
-    },
-  });
+  function handleOpenChange(nextOpen: boolean) {
+    onOpenChange(nextOpen);
+    if (!nextOpen) {
+      setServerError(null);
+      setSaving(false);
+    }
+  }
 
-  async function onSubmit(values: FormValues) {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedUser) {
+      setServerError("Owner is required.");
+      return;
+    }
+
     setServerError(null);
-    const result = await reassignForm({ id: formId, ownerId: values.ownerId });
+    setSaving(true);
+    const result = await reassignForm({
+      id: formId,
+      ownerId: selectedUser.id,
+    });
+    setSaving(false);
+
     if ("error" in result && result.error) {
       setServerError(result.error);
       return;
     }
-    const newOwner = admins.find((a) => a.id === values.ownerId);
-    onReassigned(formId, values.ownerId, newOwner?.name ?? values.ownerId);
-    onOpenChange(false);
+
+    onReassigned(formId, selectedUser.id, selectedUser.name);
+    handleOpenChange(false);
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next);
-        if (!next) {
-          form.reset({ ownerId: currentOwnerId ?? "" });
-          setServerError(null);
-        }
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Reassign Form</DialogTitle>
@@ -102,55 +89,37 @@ export function ReassignFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="ownerId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>New Owner</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an admin…" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper">
-                      {admins.map((admin) => (
-                        <SelectItem key={admin.id} value={admin.id}>
-                          {admin.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>New Owner</Label>
+            <BackendUserCombobox
+              value={selectedUser?.id ?? ""}
+              selectedUser={selectedUser}
+              currentUserId={currentOwnerId}
+              onValueChange={setSelectedUser}
             />
+          </div>
 
-            {serverError && (
-              <p className="text-sm text-destructive">{serverError}</p>
-            )}
+          {serverError && (
+            <p className="text-sm text-destructive">{serverError}</p>
+          )}
 
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                <UserCog className="mr-2 h-4 w-4" />
-                Reassign
-              </Button>
-            </div>
-          </form>
-        </Form>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || !selectedUser}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <UserCog className="mr-2 h-4 w-4" />
+              Reassign
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

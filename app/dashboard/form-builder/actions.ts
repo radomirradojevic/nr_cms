@@ -5,6 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { getBackendUserOptionById } from "@/lib/backend-users";
 import { getRoles, hasRole } from "@/lib/roles";
 import {
   bulkDeleteSubmissions,
@@ -31,7 +32,12 @@ import {
   type FormStatus,
   type SubmissionStatus,
 } from "@/data/forms";
-import { isLockedBy as isFormLockedBy, logLockEvent } from "@/data/form-locks";
+import {
+  getLock as getFormLock,
+  isLockedBy as isFormLockedBy,
+  listActiveLocksForFormIds,
+  logLockEvent,
+} from "@/data/form-locks";
 import { getGlobalSettings } from "@/data/global-settings";
 import {
   dateOnlyToUtcEndExclusive,
@@ -84,6 +90,12 @@ async function requireFormLock(
     };
   }
   return null;
+}
+
+async function getListActionLockError(formId: string): Promise<string | null> {
+  const lock = await getFormLock(formId);
+  if (!lock) return null;
+  return `This form is currently being edited by ${lock.userDisplayName}. Wait until the current editor closes the page.`;
 }
 
 function bumpForm(id: string) {
@@ -373,6 +385,8 @@ export async function deleteForm(input: z.input<typeof idSchema>) {
   if (!caller) return { error: "Forbidden." };
   const parsed = idSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid id." };
+  const lockError = await getListActionLockError(parsed.data.id);
+  if (lockError) return { error: lockError };
   const ok = await deleteFormRow(parsed.data.id);
   if (!ok) return { error: "Form not found." };
   revalidatePath("/dashboard/form-builder");
@@ -392,6 +406,12 @@ export async function reassignForm(input: z.input<typeof reassignSchema>) {
   if (!caller) return { error: "Forbidden." };
   const parsed = reassignSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const lockError = await getListActionLockError(parsed.data.id);
+  if (lockError) return { error: lockError };
+
+  const owner = await getBackendUserOptionById(parsed.data.ownerId);
+  if (!owner) return { error: "Target user must be a backend user." };
+
   try {
     const row = await reassignFormRow(
       parsed.data.id,
@@ -525,7 +545,8 @@ export async function fetchFormSubmissionsEditorPreview(input: {
     limit,
     offset: 0,
   });
-  const sourceRows = rows.length > 0 ? rows : buildMockSubmissions(detail.fields);
+  const sourceRows =
+    rows.length > 0 ? rows : buildMockSubmissions(detail.fields);
 
   return {
     success: true as const,
@@ -544,22 +565,29 @@ export async function fetchFormSubmissionsEditorPreview(input: {
 export async function fetchFormsList(input: {
   search?: string;
   status?: FormStatus;
+  createdBy?: string;
   limit: number;
   offset: number;
 }) {
   const caller = await requireAdmin();
   if (!caller) return { error: "Forbidden." };
   const out = await listForms(input);
+  const activeLocks = await listActiveLocksForFormIds(
+    out.rows.map((r) => r.id),
+  );
 
-  // Resolve creator names from Clerk
-  const creatorIds = [
-    ...new Set(out.rows.map((r) => r.createdBy).filter(Boolean) as string[]),
+  const userIds = [
+    ...new Set(
+      out.rows
+        .flatMap((r) => [r.createdBy, r.updatedBy])
+        .filter((id): id is string => Boolean(id)),
+    ),
   ];
   const nameMap = new Map<string, string>();
-  if (creatorIds.length > 0) {
+  if (userIds.length > 0) {
     const client = await clerkClient();
     await Promise.all(
-      creatorIds.map(async (id) => {
+      userIds.map(async (id) => {
         const u = await client.users.getUser(id).catch(() => null);
         if (u) {
           nameMap.set(
@@ -579,6 +607,8 @@ export async function fetchFormsList(input: {
     rows: out.rows.map((r) => ({
       ...r,
       createdByName: r.createdBy ? (nameMap.get(r.createdBy) ?? null) : null,
+      updatedByName: r.updatedBy ? (nameMap.get(r.updatedBy) ?? null) : null,
+      editLock: activeLocks.get(r.id) ?? null,
     })),
   };
 }
@@ -720,9 +750,11 @@ function mockValueForField(
   rowIndex: number,
   fieldIndex: number,
 ) {
-  const choices = ((field.options ?? {}) as {
-    choices?: { value: string; label: string }[];
-  }).choices;
+  const choices = (
+    (field.options ?? {}) as {
+      choices?: { value: string; label: string }[];
+    }
+  ).choices;
 
   switch (field.fieldType) {
     case "email":
@@ -737,7 +769,9 @@ function mockValueForField(
         .slice(0, 10);
     case "select":
     case "radio":
-      return choices?.[rowIndex % Math.max(choices.length, 1)]?.label ?? "Option";
+      return (
+        choices?.[rowIndex % Math.max(choices.length, 1)]?.label ?? "Option"
+      );
     case "checkbox":
       return choices && choices.length > 0
         ? [choices[rowIndex % choices.length]?.label ?? "Selected"]

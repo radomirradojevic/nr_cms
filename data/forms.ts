@@ -71,6 +71,7 @@ async function generateUniqueSlug(base: string): Promise<string> {
 export async function listForms(opts: {
   search?: string;
   status?: FormStatus;
+  createdBy?: string;
   limit: number;
   offset: number;
 }): Promise<{
@@ -79,6 +80,7 @@ export async function listForms(opts: {
 }> {
   const conds: SQL[] = [];
   if (opts.status) conds.push(eq(forms.status, opts.status));
+  if (opts.createdBy) conds.push(eq(forms.createdBy, opts.createdBy));
   if (opts.search?.trim()) {
     const q = `%${opts.search.trim()}%`;
     const c = or(ilike(forms.name, q), ilike(forms.slug, q));
@@ -142,6 +144,14 @@ export async function listForms(opts: {
     })),
     total,
   };
+}
+
+export async function getDistinctFormCreatorIds(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ createdBy: forms.createdBy })
+    .from(forms)
+    .orderBy(asc(forms.createdBy));
+  return rows.map((r) => r.createdBy);
 }
 
 async function ensureSettings(formId: string): Promise<FormSettingsRow> {

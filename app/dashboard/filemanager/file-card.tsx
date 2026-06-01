@@ -163,6 +163,7 @@ export function FileCard({
       {isAdmin && onReassigned && (
         <ReassignFileDialog
           file={file}
+          ownerName={uploaderName}
           open={reassignOpen}
           onOpenChange={setReassignOpen}
           onReassigned={onReassigned}
