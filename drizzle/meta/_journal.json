@@ -246,6 +246,34 @@
       "when": 1781654400007,
       "tag": "0034_multi_menus",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1781654400008,
+      "tag": "0035_unique_blockbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1781654400009,
+      "tag": "0036_white_phil_sheldon",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1781654400010,
+      "tag": "0037_overconfident_bloodstorm",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1781654400011,
+      "tag": "0038_panoramic_otto_octavius",
+      "breakpoints": true
     }
   ]
 }

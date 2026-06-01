@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2, UserCog } from "lucide-react";
 
+import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
 import {
   AlertDialog,
@@ -27,28 +28,47 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { deleteMenu, renameMenu } from "../top-menu/actions";
+import type { BackendUserOption } from "@/lib/backend-user-types";
+import { deleteMenu, reassignMenuOwner, renameMenu } from "../top-menu/actions";
 
 type MenuActionTarget = {
   id: string;
   name: string;
+  createdBy: string | null;
+  creatorName: string | null;
 };
 
 type MenuRowActionsProps = {
   menu: MenuActionTarget;
   isHeaderMenu: boolean;
+  onChanged?: () => void;
 };
 
-export function MenuRowActions({ menu, isHeaderMenu }: MenuRowActionsProps) {
+export function MenuRowActions({
+  menu,
+  isHeaderMenu,
+  onChanged,
+}: MenuRowActionsProps) {
   return (
     <div className="flex justify-end gap-2">
-      <RenameMenuDialog menu={menu} />
-      <DeleteMenuDialog menu={menu} isHeaderMenu={isHeaderMenu} />
+      <RenameMenuDialog menu={menu} onChanged={onChanged} />
+      <ReassignMenuDialog menu={menu} onChanged={onChanged} />
+      <DeleteMenuDialog
+        menu={menu}
+        isHeaderMenu={isHeaderMenu}
+        onChanged={onChanged}
+      />
     </div>
   );
 }
 
-function RenameMenuDialog({ menu }: { menu: MenuActionTarget }) {
+function RenameMenuDialog({
+  menu,
+  onChanged,
+}: {
+  menu: MenuActionTarget;
+  onChanged?: () => void;
+}) {
   const router = useRouter();
   const lock = useAdminSectionLock();
   const [open, setOpen] = useState(false);
@@ -72,7 +92,8 @@ function RenameMenuDialog({ menu }: { menu: MenuActionTarget }) {
         return;
       }
       setOpen(false);
-      router.refresh();
+      if (onChanged) onChanged();
+      else router.refresh();
     });
   }
 
@@ -136,12 +157,135 @@ function RenameMenuDialog({ menu }: { menu: MenuActionTarget }) {
   );
 }
 
+function ReassignMenuDialog({
+  menu,
+  onChanged,
+}: {
+  menu: MenuActionTarget;
+  onChanged?: () => void;
+}) {
+  const router = useRouter();
+  const lock = useAdminSectionLock();
+  const [open, setOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
+    getInitialSelectedUser(menu),
+  );
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function reset() {
+    setSelectedUser(getInitialSelectedUser(menu));
+    setServerError(null);
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selectedUser) {
+      setServerError("Owner is required.");
+      return;
+    }
+
+    setServerError(null);
+    startTransition(async () => {
+      const result = await reassignMenuOwner(
+        { id: menu.id, ownerId: selectedUser.id },
+        lock.clientId,
+      );
+      if ("error" in result && result.error) {
+        setServerError(result.error);
+        return;
+      }
+      setOpen(false);
+      if (onChanged) onChanged();
+      else router.refresh();
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) reset();
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!lock.isEditor}
+        >
+          <UserCog className="h-4 w-4" />
+          Reassign
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Reassign Menu</DialogTitle>
+          <DialogDescription>
+            Change the owner of &quot;{menu.name}&quot;.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={`reassign-menu-owner-${menu.id}`}>New Owner</Label>
+            <BackendUserCombobox
+              id={`reassign-menu-owner-${menu.id}`}
+              value={selectedUser?.id ?? ""}
+              selectedUser={selectedUser}
+              currentUserId={menu.createdBy}
+              onValueChange={setSelectedUser}
+            />
+          </div>
+          {serverError && (
+            <p className="text-sm text-destructive">{serverError}</p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setOpen(false);
+                reset();
+              }}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isPending || !selectedUser || !lock.isEditor}
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserCog className="h-4 w-4" />
+              )}
+              Reassign
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function getInitialSelectedUser(
+  menu: MenuActionTarget,
+): BackendUserOption | null {
+  if (!menu.createdBy) return null;
+  return { id: menu.createdBy, name: menu.creatorName ?? menu.createdBy };
+}
+
 function DeleteMenuDialog({
   menu,
   isHeaderMenu,
+  onChanged,
 }: {
   menu: MenuActionTarget;
   isHeaderMenu: boolean;
+  onChanged?: () => void;
 }) {
   const router = useRouter();
   const lock = useAdminSectionLock();
@@ -160,7 +304,8 @@ function DeleteMenuDialog({
         return;
       }
       setOpen(false);
-      router.refresh();
+      if (onChanged) onChanged();
+      else router.refresh();
     });
   }
 

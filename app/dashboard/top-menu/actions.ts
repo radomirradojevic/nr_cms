@@ -14,9 +14,11 @@ import {
   getMenuByName,
   getTopMenuFlat,
   getTopMenuItemInMenu,
+  listMenusWithItemCounts,
 } from "@/data/top-menu";
 import { getCategoryById } from "@/data/content-categories";
 import { getContentById } from "@/data/content";
+import { getBackendUserOptionById } from "@/lib/backend-users";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { requireAdminSectionLock } from "@/lib/admin-section-locks-actions";
@@ -76,6 +78,13 @@ async function requireMenu(menuId: string) {
   return menu ?? null;
 }
 
+async function touchMenu(menuId: string, userId: string) {
+  await db
+    .update(menus)
+    .set({ updatedBy: userId, updatedAt: new Date() })
+    .where(eq(menus.id, menuId));
+}
+
 // ─── Menu management ──────────────────────────────────────────────────────────
 
 const menuNameSchema = z.object({
@@ -90,8 +99,20 @@ const renameMenuSchema = menuIdSchema.extend({
   name: menuNameSchema.shape.name,
 });
 
+const reassignMenuOwnerSchema = menuIdSchema.extend({
+  ownerId: z.string().min(1, "Owner is required."),
+});
+
+const listMenusSchema = z.object({
+  search: z.string().trim().max(120).optional(),
+  createdBy: z.string().min(1).optional(),
+  limit: z.number().int().min(1).max(50),
+  offset: z.number().int().min(0),
+});
+
 export async function createMenu(input: unknown, clientId?: string) {
-  if (!(await requireAdmin())) return { error: "Forbidden." };
+  const admin = await requireAdmin();
+  if (!admin) return { error: "Forbidden." };
   const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
@@ -105,7 +126,7 @@ export async function createMenu(input: unknown, clientId?: string) {
   try {
     const rows = await db
       .insert(menus)
-      .values({ name })
+      .values({ name, createdBy: admin.id, updatedBy: admin.id })
       .returning({ id: menus.id });
     bumpCaches(rows[0]?.id);
     return { success: true, id: rows[0]?.id };
@@ -118,8 +139,23 @@ export async function createMenu(input: unknown, clientId?: string) {
   }
 }
 
-export async function renameMenu(input: unknown, clientId?: string) {
+export async function fetchMenusList(input: unknown) {
   if (!(await requireAdmin())) return { error: "Forbidden." };
+
+  const parsed = listMenusSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  return listMenusWithItemCounts({
+    search: parsed.data.search || undefined,
+    createdBy: parsed.data.createdBy,
+    limit: parsed.data.limit,
+    offset: parsed.data.offset,
+  });
+}
+
+export async function renameMenu(input: unknown, clientId?: string) {
+  const admin = await requireAdmin();
+  if (!admin) return { error: "Forbidden." };
   const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
@@ -136,7 +172,10 @@ export async function renameMenu(input: unknown, clientId?: string) {
   }
 
   try {
-    await db.update(menus).set({ name }).where(eq(menus.id, id));
+    await db
+      .update(menus)
+      .set({ name, updatedBy: admin.id, updatedAt: new Date() })
+      .where(eq(menus.id, id));
     bumpCaches(id);
     return { success: true };
   } catch (err) {
@@ -144,6 +183,34 @@ export async function renameMenu(input: unknown, clientId?: string) {
       return { error: "A menu with that name already exists." };
     }
     console.error("[renameMenu] error", err);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function reassignMenuOwner(input: unknown, clientId?: string) {
+  const admin = await requireAdmin();
+  if (!admin) return { error: "Forbidden." };
+  const lockError = await requireAdminSectionLock("menus", clientId);
+  if (lockError) return lockError;
+
+  const parsed = reassignMenuOwnerSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { id, ownerId } = parsed.data;
+
+  const owner = await getBackendUserOptionById(ownerId);
+  if (!owner) return { error: "Target user must be a backend user." };
+
+  try {
+    const rows = await db
+      .update(menus)
+      .set({ createdBy: ownerId, updatedBy: admin.id, updatedAt: new Date() })
+      .where(eq(menus.id, id))
+      .returning({ id: menus.id });
+    if (rows.length === 0) return { error: "Menu not found." };
+    bumpCaches(id);
+    return { success: true };
+  } catch (err) {
+    console.error("[reassignMenuOwner] error", err);
     return { error: "Something went wrong." };
   }
 }
@@ -231,7 +298,8 @@ export async function createMenuItem(
   input: CreateMenuItemInput,
   clientId?: string,
 ) {
-  if (!(await requireAdmin())) return { error: "Forbidden." };
+  const admin = await requireAdmin();
+  if (!admin) return { error: "Forbidden." };
   const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
@@ -289,6 +357,7 @@ export async function createMenuItem(
         target: data.target ?? "_self",
       });
     }
+    await touchMenu(data.menuId, admin.id);
     bumpCaches(data.menuId);
     return { success: true };
   } catch (err) {
@@ -312,7 +381,8 @@ export async function updateMenuItem(
   input: UpdateMenuItemInput,
   clientId?: string,
 ) {
-  if (!(await requireAdmin())) return { error: "Forbidden." };
+  const admin = await requireAdmin();
+  if (!admin) return { error: "Forbidden." };
   const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
@@ -344,6 +414,7 @@ export async function updateMenuItem(
       .where(
         and(eq(topMenuItems.menuId, data.menuId), eq(topMenuItems.id, data.id)),
       );
+    await touchMenu(data.menuId, admin.id);
     bumpCaches(data.menuId);
     return { success: true };
   } catch (err) {
@@ -369,7 +440,8 @@ const reorderSchema = menuIdField.extend({
 export type ReorderMenuInput = z.infer<typeof reorderSchema>;
 
 export async function reorderMenu(input: ReorderMenuInput, clientId?: string) {
-  if (!(await requireAdmin())) return { error: "Forbidden." };
+  const admin = await requireAdmin();
+  if (!admin) return { error: "Forbidden." };
   const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
@@ -428,6 +500,7 @@ export async function reorderMenu(input: ReorderMenuInput, clientId?: string) {
           ),
       ),
     );
+    await touchMenu(menuId, admin.id);
     bumpCaches(menuId);
     return { success: true };
   } catch (err) {
@@ -444,7 +517,8 @@ export async function deleteMenuItem(
   input: { menuId: string; id: string },
   clientId?: string,
 ) {
-  if (!(await requireAdmin())) return { error: "Forbidden." };
+  const admin = await requireAdmin();
+  if (!admin) return { error: "Forbidden." };
   const lockError = await requireAdminSectionLock("menus", clientId);
   if (lockError) return lockError;
 
@@ -463,6 +537,7 @@ export async function deleteMenuItem(
 
     // Re-pack siblings to keep `order` dense
     await repackSiblings(menuId, target.parentId);
+    await touchMenu(menuId, admin.id);
 
     bumpCaches(menuId);
     return { success: true };

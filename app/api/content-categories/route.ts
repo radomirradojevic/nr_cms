@@ -35,23 +35,29 @@ export async function GET(request: NextRequest) {
   const rawSize = parseInt(searchParams.get("pageSize") ?? "10", 10);
   const pageSize = ALLOWED_PAGE_SIZES.includes(rawSize) ? rawSize : 10;
   const search = searchParams.get("search")?.trim() || undefined;
+  const author = searchParams.get("author")?.trim() || undefined;
 
   const { categories, total } = await getCategoriesPaginated(
     type,
     page,
     pageSize,
     search,
+    author,
   );
 
-  // Resolve Clerk user names for unique createdBy IDs
-  const creatorIds = [
-    ...new Set(categories.map((c) => c.createdBy).filter(Boolean) as string[]),
+  // Resolve Clerk user names for unique creator/updater IDs.
+  const userIds = [
+    ...new Set(
+      categories
+        .flatMap((c) => [c.createdBy, c.updatedBy])
+        .filter((id): id is string => Boolean(id)),
+    ),
   ];
   const nameMap: Record<string, string> = {};
-  if (creatorIds.length > 0) {
+  if (userIds.length > 0) {
     const client = await clerkClient();
     await Promise.all(
-      creatorIds.map(async (id) => {
+      userIds.map(async (id) => {
         try {
           const u = await client.users.getUser(id);
           nameMap[id] =
@@ -69,6 +75,7 @@ export async function GET(request: NextRequest) {
   const enriched = categories.map((c) => ({
     ...c,
     createdByName: c.createdBy ? (nameMap[c.createdBy] ?? c.createdBy) : null,
+    updatedByName: c.updatedBy ? (nameMap[c.updatedBy] ?? c.updatedBy) : null,
   }));
 
   return NextResponse.json({ categories: enriched, total });

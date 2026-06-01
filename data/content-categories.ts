@@ -1,6 +1,16 @@
 import { db } from "@/db";
 import { contentCategories, content } from "@/db/schema";
-import { asc, eq, and, count, ilike, inArray, sql } from "drizzle-orm";
+import {
+  asc,
+  eq,
+  and,
+  count,
+  ilike,
+  inArray,
+  isNotNull,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 
 export type ContentType = "page" | "blog_post";
 
@@ -9,8 +19,14 @@ export type ContentCategory = {
   name: string;
   contentType: string;
   createdBy: string | null;
+  updatedBy: string | null;
   created: Date;
   updated: Date;
+};
+
+export type ContentCategoryAuthorInfo = {
+  id: string;
+  name: string;
 };
 
 export async function getAllCategories(): Promise<ContentCategory[]> {
@@ -35,21 +51,17 @@ export async function getCategoriesPaginated(
   page: number,
   pageSize: number,
   search?: string,
+  createdBy?: string,
 ): Promise<{
   categories: (ContentCategory & { itemCount: number })[];
   total: number;
 }> {
   const offset = (page - 1) * pageSize;
 
-  const searchCondition = search
-    ? ilike(contentCategories.name, `%${search}%`)
-    : undefined;
-
-  const typeCondition = eq(contentCategories.contentType, type);
-
-  const whereClause = searchCondition
-    ? and(typeCondition, searchCondition)
-    : typeCondition;
+  const conditions: SQL[] = [eq(contentCategories.contentType, type)];
+  if (search) conditions.push(ilike(contentCategories.name, `%${search}%`));
+  if (createdBy) conditions.push(eq(contentCategories.createdBy, createdBy));
+  const whereClause = and(...conditions);
 
   const itemCountSq = db
     .select({
@@ -67,6 +79,7 @@ export async function getCategoriesPaginated(
         name: contentCategories.name,
         contentType: contentCategories.contentType,
         createdBy: contentCategories.createdBy,
+        updatedBy: contentCategories.updatedBy,
         created: contentCategories.created,
         updated: contentCategories.updated,
         itemCount: sql<number>`COALESCE(${itemCountSq.itemCount}, 0)`.mapWith(
@@ -83,6 +96,25 @@ export async function getCategoriesPaginated(
   ]);
 
   return { categories: rows, total };
+}
+
+export async function getDistinctCategoryAuthorIds(
+  type: ContentType,
+): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ createdBy: contentCategories.createdBy })
+    .from(contentCategories)
+    .where(
+      and(
+        eq(contentCategories.contentType, type),
+        isNotNull(contentCategories.createdBy),
+      ),
+    )
+    .orderBy(asc(contentCategories.createdBy));
+
+  return rows
+    .map((row) => row.createdBy)
+    .filter((createdBy): createdBy is string => Boolean(createdBy));
 }
 
 export async function getCategoryById(
@@ -115,6 +147,7 @@ export async function insertCategory(data: {
       name: data.name,
       contentType: data.contentType,
       createdBy: data.createdBy ?? null,
+      updatedBy: data.createdBy ?? null,
     })
     .returning();
   return rows[0];
@@ -123,10 +156,11 @@ export async function insertCategory(data: {
 export async function updateCategoryName(
   id: string,
   name: string,
+  updatedBy: string,
 ): Promise<ContentCategory> {
   const rows = await db
     .update(contentCategories)
-    .set({ name })
+    .set({ name, updatedBy })
     .where(eq(contentCategories.id, id))
     .returning();
   return rows[0];
@@ -135,10 +169,11 @@ export async function updateCategoryName(
 export async function updateCategoryOwner(
   id: string,
   createdBy: string | null,
+  updatedBy: string,
 ): Promise<ContentCategory> {
   const rows = await db
     .update(contentCategories)
-    .set({ createdBy })
+    .set({ createdBy, updatedBy })
     .where(eq(contentCategories.id, id))
     .returning();
   return rows[0];

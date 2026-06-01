@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  Lock,
   Loader2,
   MoreHorizontal,
   Trash2,
@@ -59,14 +60,40 @@ export function ContentRowActions({
   const canChangeStatus = isAdmin || isPublisher;
   const canDelete = canEdit;
   const canSetHome = isAdmin && row.contentType === "page";
+  const lockError = row.editLock
+    ? `Currently being edited by ${row.editLock.userDisplayName}. Wait until the current editor closes the page.`
+    : null;
+  const actionDisabled = pending || Boolean(lockError);
 
   function run(fn: () => Promise<{ error?: string; success?: boolean }>) {
     setError(null);
+    if (lockError) {
+      setError(lockError);
+      return;
+    }
     startTransition(async () => {
       const r = await fn();
       if (r.error) setError(r.error);
       else onMutated();
     });
+  }
+
+  function openReassignDialog() {
+    setError(null);
+    if (lockError) {
+      setError(lockError);
+      return;
+    }
+    setReassignOpen(true);
+  }
+
+  function openDeleteDialog() {
+    setError(null);
+    if (lockError) {
+      setError(lockError);
+      return;
+    }
+    setConfirmDelete(true);
   }
 
   return (
@@ -85,8 +112,21 @@ export function ContentRowActions({
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuSeparator />
+          {row.editLock && (
+            <>
+              <DropdownMenuItem
+                disabled
+                className="whitespace-normal text-muted-foreground"
+              >
+                <Lock className="mr-2 h-4 w-4 shrink-0" />
+                Locked by {row.editLock.userDisplayName}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           {canChangeStatus && row.status !== "published" && (
             <DropdownMenuItem
+              disabled={actionDisabled}
               onClick={() =>
                 run(() => setStatus({ id: row.id, status: "published" }))
               }
@@ -96,6 +136,7 @@ export function ContentRowActions({
           )}
           {canChangeStatus && row.status === "published" && (
             <DropdownMenuItem
+              disabled={actionDisabled}
               onClick={() =>
                 run(() => setStatus({ id: row.id, status: "unpublished" }))
               }
@@ -105,6 +146,7 @@ export function ContentRowActions({
           )}
           {canChangeStatus && row.status !== "archived" && (
             <DropdownMenuItem
+              disabled={actionDisabled}
               onClick={() =>
                 run(() => setStatus({ id: row.id, status: "archived" }))
               }
@@ -114,6 +156,7 @@ export function ContentRowActions({
           )}
           {canSetHome && !row.homepage && row.status === "published" && (
             <DropdownMenuItem
+              disabled={actionDisabled}
               onClick={() => run(() => setHomepage({ id: row.id }))}
             >
               <Star className="mr-2 h-4 w-4" />
@@ -121,7 +164,10 @@ export function ContentRowActions({
             </DropdownMenuItem>
           )}
           {isAdmin && (
-            <DropdownMenuItem onClick={() => setReassignOpen(true)}>
+            <DropdownMenuItem
+              disabled={actionDisabled}
+              onClick={openReassignDialog}
+            >
               <UserRoundCog className="mr-2 h-4 w-4" />
               Reassign author
             </DropdownMenuItem>
@@ -131,7 +177,8 @@ export function ContentRowActions({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
-                onClick={() => setConfirmDelete(true)}
+                disabled={actionDisabled}
+                onClick={openDeleteDialog}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
@@ -173,7 +220,7 @@ export function ContentRowActions({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={pending}
+              disabled={actionDisabled}
               onClick={(e) => {
                 e.preventDefault();
                 run(async () => {
