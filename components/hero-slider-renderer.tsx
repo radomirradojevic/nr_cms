@@ -4,9 +4,12 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
+  Menu as MenuIcon,
   Play,
   Sparkles,
   Star,
+  X,
   Zap,
 } from "lucide-react";
 import {
@@ -15,18 +18,23 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type PointerEvent,
   type ReactNode,
 } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  collectHeroSliderMenuIds,
+  createHeroSlideMenuPresetProps,
   normalizeHeroSliderContent,
   type HeroSlide,
   type HeroSlideBlock,
+  type HeroSlideMenu,
   type HeroSliderBreakpoint,
   type HeroSliderContent,
 } from "@/lib/hero-slider";
+import type { TopMenuTreeNode } from "@/data/top-menu";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 import {
   isSafeCssValue,
@@ -39,7 +47,11 @@ type Props = {
   data: unknown;
   label?: string;
   preview?: boolean;
+  allowViewportWidth?: boolean;
+  initialMenuTrees?: HeroSliderMenuTrees;
 };
+
+type HeroSliderMenuTrees = Record<string, TopMenuTreeNode[]>;
 
 const blockVisibilityCss = `
 @media (max-width: 767px) {
@@ -56,14 +68,24 @@ const blockVisibilityCss = `
 }
 `;
 
-export function HeroSliderRenderer({ data, label, preview = false }: Props) {
+export function HeroSliderRenderer({
+  data,
+  label,
+  preview = false,
+  allowViewportWidth = true,
+  initialMenuTrees,
+}: Props) {
   const slider = useMemo(() => normalizeHeroSliderContent(data), [data]);
   const settings = slider.settings;
   const slides = slider.slides;
+  const menuIds = useMemo(() => collectHeroSliderMenuIds(slider), [slider]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [menuTrees, setMenuTrees] = useState<HeroSliderMenuTrees>(
+    () => initialMenuTrees ?? {},
+  );
   const rootRef = useRef<HTMLDivElement | null>(null);
   const pointerStartRef = useRef<{ x: number; pointerType: string } | null>(
     null,
@@ -78,6 +100,36 @@ export function HeroSliderRenderer({ data, label, preview = false }: Props) {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    const missing = menuIds.filter((id) => !menuTrees[id]);
+    if (missing.length === 0) return;
+
+    const controller = new AbortController();
+    const params = new URLSearchParams();
+    for (const id of missing) params.append("id", id);
+
+    async function loadMenus() {
+      try {
+        const response = await fetch(`/api/hero-slider-menus?${params}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const payload = (await response.json().catch(() => null)) as {
+          menus?: HeroSliderMenuTrees;
+        } | null;
+        if (!payload?.menus) return;
+        setMenuTrees((current) => ({ ...current, ...payload.menus }));
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          console.error("[HeroSliderRenderer] menu load failed", err);
+        }
+      }
+    }
+
+    void loadMenus();
+    return () => controller.abort();
+  }, [menuIds, menuTrees]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -208,7 +260,7 @@ export function HeroSliderRenderer({ data, label, preview = false }: Props) {
       style={rootStyle}
       className={cn(
         "relative isolate overflow-hidden bg-black text-white outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        settings.fullWidth && !preview
+        settings.fullWidth && !preview && allowViewportWidth
           ? "left-1/2 right-1/2 -ml-[50vw] w-screen"
           : "w-full",
       )}
@@ -228,6 +280,7 @@ export function HeroSliderRenderer({ data, label, preview = false }: Props) {
               key={slide.id}
               slide={slide}
               settings={slider.settings}
+              menuTrees={menuTrees}
               active={index === safeActiveIndex}
               index={index}
               total={slideCount}
@@ -250,6 +303,7 @@ export function HeroSliderRenderer({ data, label, preview = false }: Props) {
             <SlideView
               slide={slide}
               settings={slider.settings}
+              menuTrees={menuTrees}
               active={index === safeActiveIndex}
               index={index}
               total={slideCount}
@@ -316,12 +370,14 @@ export function HeroSliderRenderer({ data, label, preview = false }: Props) {
 function SlideView({
   slide,
   settings,
+  menuTrees,
   active,
   index,
   total,
 }: {
   slide: HeroSlide;
   settings: HeroSliderContent["settings"];
+  menuTrees: HeroSliderMenuTrees;
   active: boolean;
   index: number;
   total: number;
@@ -367,10 +423,11 @@ function SlideView({
       >
         <div className="hero-slider-content-stack flex min-w-0 flex-col gap-4">
           {slide.blocks.map((block) => (
-            <HeroBlock key={block.id} block={block} />
+            <HeroBlock key={block.id} block={block} menuTrees={menuTrees} />
           ))}
         </div>
       </div>
+      <SlideMenusLayer slide={slide} menuTrees={menuTrees} />
     </article>
   );
 }
@@ -429,20 +486,33 @@ function SlideBackground({
   );
 }
 
-function HeroBlock({ block }: { block: HeroSlideBlock }) {
+function HeroBlock({
+  block,
+  menuTrees,
+}: {
+  block: HeroSlideBlock;
+  menuTrees: HeroSliderMenuTrees;
+}) {
   const hidden: Record<string, string | undefined> = {
     "data-hide-desktop": boolAttr(block.hiddenOn?.includes("desktop")),
     "data-hide-tablet": boolAttr(block.hiddenOn?.includes("tablet")),
     "data-hide-mobile": boolAttr(block.hiddenOn?.includes("mobile")),
   };
   return (
-    <div className="hero-slider-block" {...hidden}>
-      {renderBlock(block)}
+    <div
+      className={cn("hero-slider-block", block.type === "menu" && "min-w-0")}
+      style={block.type === "menu" ? menuWrapperStyle(block.props) : undefined}
+      {...hidden}
+    >
+      {renderBlock(block, menuTrees)}
     </div>
   );
 }
 
-function renderBlock(block: HeroSlideBlock): ReactNode {
+function renderBlock(
+  block: HeroSlideBlock,
+  menuTrees: HeroSliderMenuTrees,
+): ReactNode {
   const props = block.props;
 
   if (block.type === "heading") {
@@ -479,6 +549,16 @@ function renderBlock(block: HeroSlideBlock): ReactNode {
         loading="lazy"
         className="max-w-full rounded-md border border-white/15 object-contain shadow-2xl"
         style={{ width: safeCss(props.width, "360px") }}
+      />
+    );
+  }
+
+  if (block.type === "menu") {
+    const menuId = textProp(props.menuId, "");
+    return (
+      <HeroMenuBlock
+        menu={block}
+        tree={menuId ? menuTrees[menuId] : undefined}
       />
     );
   }
@@ -552,7 +632,7 @@ function renderBlock(block: HeroSlideBlock): ReactNode {
         style={{ gap: safeCss(props.gap, "1rem") }}
       >
         {(block.children ?? []).map((child) => (
-          <HeroBlock key={child.id} block={child} />
+          <HeroBlock key={child.id} block={child} menuTrees={menuTrees} />
         ))}
       </div>
     );
@@ -567,7 +647,7 @@ function renderBlock(block: HeroSlideBlock): ReactNode {
         {(block.columns ?? []).map((column, index) => (
           <div key={index} className="flex min-w-0 flex-col gap-3">
             {column.map((child) => (
-              <HeroBlock key={child.id} block={child} />
+              <HeroBlock key={child.id} block={child} menuTrees={menuTrees} />
             ))}
           </div>
         ))}
@@ -577,6 +657,64 @@ function renderBlock(block: HeroSlideBlock): ReactNode {
 
   return null;
 }
+
+function SlideMenusLayer({
+  slide,
+  menuTrees,
+}: {
+  slide: HeroSlide;
+  menuTrees: HeroSliderMenuTrees;
+}) {
+  if (slide.menus.length === 0) return null;
+  return (
+    <div
+      className="pointer-events-none absolute inset-0"
+      style={{ zIndex: menuLayerZIndex(slide) }}
+    >
+      {slide.menus.map((menu) => (
+        <HeroSlideMenuView key={menu.id} menu={menu} menuTrees={menuTrees} />
+      ))}
+    </div>
+  );
+}
+
+function HeroSlideMenuView({
+  menu,
+  menuTrees,
+}: {
+  menu: HeroSlideMenu;
+  menuTrees: HeroSliderMenuTrees;
+}) {
+  const menuId = textProp(menu.props.menuId, "");
+  const hidden: Record<string, string | undefined> = {
+    "data-hide-desktop": boolAttr(menu.hiddenOn?.includes("desktop")),
+    "data-hide-tablet": boolAttr(menu.hiddenOn?.includes("tablet")),
+    "data-hide-mobile": boolAttr(menu.hiddenOn?.includes("mobile")),
+  };
+
+  return (
+    <div
+      className="hero-slider-block hero-slider-menu pointer-events-auto min-w-0"
+      style={menuWrapperStyle(menu.props)}
+      {...hidden}
+    >
+      <HeroMenuBlock
+        menu={menu}
+        tree={menuId ? menuTrees[menuId] : undefined}
+      />
+    </div>
+  );
+}
+
+function menuLayerZIndex(slide: HeroSlide) {
+  const contentZIndex = Number(slide.layers.contentZIndex);
+  return Math.max(Number.isFinite(contentZIndex) ? contentZIndex + 1 : 0, 40);
+}
+
+type HeroMenuRenderable = {
+  id: string;
+  props: Record<string, unknown>;
+};
 
 function HeroButton({ item }: { item: unknown }) {
   const props =
@@ -606,6 +744,816 @@ function HeroIcon({ name }: { name: string }) {
   if (name === "play") return <Play className={className} />;
   if (name === "zap") return <Zap className={className} />;
   return <Sparkles className={className} />;
+}
+
+function HeroMenuBlock({
+  menu,
+  tree,
+}: {
+  menu: HeroMenuRenderable;
+  tree: TopMenuTreeNode[] | undefined;
+}) {
+  const props = menu.props;
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopOpen, setDesktopOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const currentPath = useCurrentPath();
+
+  const menuId = textProp(props.menuId, "");
+  const menuName = textProp(props.menuName, "Menu");
+  const layout = menuLayout(props.layout);
+  const mobileBehavior = menuMobileBehavior(props.mobileBehavior);
+  const breakpoint = menuBreakpoint(props.mobileBreakpoint);
+  const scope = `hero-menu-${cssScope(menu.id)}`;
+  const menuCss = buildHeroMenuCss(scope, props);
+
+  function toggleExpanded(id: string) {
+    setExpanded((current) => ({ ...current, [id]: !current[id] }));
+  }
+
+  function closeMenus() {
+    setMobileOpen(false);
+    setDesktopOpen(false);
+  }
+
+  if (!menuId) {
+    return (
+      <div className="inline-flex min-h-11 items-center rounded-md border border-dashed border-white/35 px-3 text-sm text-white/75">
+        Select a menu
+      </div>
+    );
+  }
+
+  if (!tree) {
+    return (
+      <div className="inline-flex min-h-11 items-center rounded-md border border-white/20 bg-white/10 px-3 text-sm text-white/75">
+        Loading menu...
+      </div>
+    );
+  }
+
+  if (tree.length === 0) return null;
+
+  return (
+    <div
+      className={cn(scope, "hero-menu-root", `hero-menu-layout-${layout}`)}
+      data-mobile-breakpoint={breakpoint}
+      data-mobile-behavior={mobileBehavior}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <style dangerouslySetInnerHTML={{ __html: menuCss }} />
+      {layout === "dropdown" ? (
+        <div className="hero-menu-desktop hero-menu-desktop-dropdown">
+          <button
+            type="button"
+            className="hero-menu-toggle"
+            aria-expanded={desktopOpen}
+            onClick={() => setDesktopOpen((open) => !open)}
+          >
+            <span>{menuName}</span>
+            <ChevronDown
+              className={cn("hero-menu-chevron", desktopOpen && "rotate-180")}
+            />
+          </button>
+          <div className="hero-menu-dropdown-panel" data-open={desktopOpen}>
+            <nav aria-label={menuName}>
+              <ul className="hero-menu-list hero-menu-list-dropdown">
+                {tree.map((item) => (
+                  <DesktopMenuItem
+                    key={item.id}
+                    item={item}
+                    layout="vertical"
+                    currentPath={currentPath}
+                    onNavigate={closeMenus}
+                  />
+                ))}
+              </ul>
+            </nav>
+          </div>
+        </div>
+      ) : (
+        <nav className="hero-menu-desktop" aria-label={menuName}>
+          <div className="hero-menu-surface">
+            <ul className="hero-menu-list">
+              {tree.map((item) => (
+                <DesktopMenuItem
+                  key={item.id}
+                  item={item}
+                  layout={layout}
+                  currentPath={currentPath}
+                  onNavigate={closeMenus}
+                />
+              ))}
+            </ul>
+          </div>
+        </nav>
+      )}
+
+      <div className="hero-menu-mobile">
+        <button
+          type="button"
+          className="hero-menu-toggle hero-menu-mobile-toggle"
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen((open) => !open)}
+        >
+          <span>{textProp(props.mobileButtonLabel, "Menu")}</span>
+          {mobileOpen ? (
+            <X className="hero-menu-toggle-icon" />
+          ) : (
+            <MenuIcon className="hero-menu-toggle-icon" />
+          )}
+        </button>
+        <div className="hero-menu-mobile-panel" data-open={mobileOpen}>
+          <nav aria-label={menuName}>
+            <ul className="hero-menu-mobile-list">
+              {tree.map((item) => (
+                <MobileMenuItem
+                  key={item.id}
+                  item={item}
+                  currentPath={currentPath}
+                  expanded={expanded}
+                  onToggle={toggleExpanded}
+                  onNavigate={closeMenus}
+                />
+              ))}
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DesktopMenuItem({
+  item,
+  layout,
+  currentPath,
+  onNavigate,
+  depth = 0,
+}: {
+  item: TopMenuTreeNode;
+  layout: "horizontal" | "vertical" | "mega";
+  currentPath: string;
+  onNavigate: () => void;
+  depth?: number;
+}) {
+  const hasChildren = item.children.length > 0;
+  const active = isMenuItemActive(item.url, currentPath);
+  const showMega = layout === "mega" && depth === 0 && hasChildren;
+
+  return (
+    <li className="hero-menu-item" data-depth={depth}>
+      <MenuItemLink
+        item={item}
+        currentPath={currentPath}
+        className={cn("hero-menu-link", active && "is-active")}
+        onNavigate={onNavigate}
+      >
+        <span>{item.label}</span>
+        {hasChildren ? <ChevronDown className="hero-menu-chevron" /> : null}
+      </MenuItemLink>
+
+      {showMega ? (
+        <div className="hero-menu-submenu hero-menu-mega">
+          <ul className="hero-menu-mega-grid">
+            {item.children.map((child) => (
+              <MegaMenuColumn
+                key={child.id}
+                item={child}
+                currentPath={currentPath}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </ul>
+        </div>
+      ) : hasChildren ? (
+        <ul className="hero-menu-submenu">
+          {item.children.map((child) => (
+            <DesktopMenuItem
+              key={child.id}
+              item={child}
+              layout="vertical"
+              currentPath={currentPath}
+              onNavigate={onNavigate}
+              depth={depth + 1}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+function MegaMenuColumn({
+  item,
+  currentPath,
+  onNavigate,
+}: {
+  item: TopMenuTreeNode;
+  currentPath: string;
+  onNavigate: () => void;
+}) {
+  return (
+    <li className="hero-menu-mega-column">
+      <MenuItemLink
+        item={item}
+        currentPath={currentPath}
+        className={cn(
+          "hero-menu-link hero-menu-mega-heading",
+          isMenuItemActive(item.url, currentPath) && "is-active",
+        )}
+        onNavigate={onNavigate}
+      >
+        <span>{item.label}</span>
+      </MenuItemLink>
+      {item.children.length > 0 ? (
+        <ul className="hero-menu-mega-list">
+          {item.children.map((child) => (
+            <DesktopMenuItem
+              key={child.id}
+              item={child}
+              layout="vertical"
+              currentPath={currentPath}
+              onNavigate={onNavigate}
+              depth={1}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+function MobileMenuItem({
+  item,
+  currentPath,
+  expanded,
+  onToggle,
+  onNavigate,
+}: {
+  item: TopMenuTreeNode;
+  currentPath: string;
+  expanded: Record<string, boolean>;
+  onToggle: (id: string) => void;
+  onNavigate: () => void;
+}) {
+  const hasChildren = item.children.length > 0;
+  const isExpanded = expanded[item.id] ?? false;
+
+  return (
+    <li className="hero-menu-mobile-item">
+      <div className="hero-menu-mobile-row">
+        <MenuItemLink
+          item={item}
+          currentPath={currentPath}
+          className={cn(
+            "hero-menu-mobile-link",
+            isMenuItemActive(item.url, currentPath) && "is-active",
+          )}
+          onNavigate={onNavigate}
+        >
+          <span>{item.label}</span>
+        </MenuItemLink>
+        {hasChildren ? (
+          <button
+            type="button"
+            className="hero-menu-mobile-expand"
+            aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.label}`}
+            aria-expanded={isExpanded}
+            onClick={() => onToggle(item.id)}
+          >
+            <ChevronDown
+              className={cn("hero-menu-chevron", isExpanded && "rotate-180")}
+            />
+          </button>
+        ) : null}
+      </div>
+      {hasChildren ? (
+        <ul className="hero-menu-mobile-children" data-open={isExpanded}>
+          {item.children.map((child) => (
+            <MobileMenuItem
+              key={child.id}
+              item={child}
+              currentPath={currentPath}
+              expanded={expanded}
+              onToggle={onToggle}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+function MenuItemLink({
+  item,
+  currentPath,
+  className,
+  children,
+  onNavigate,
+}: {
+  item: TopMenuTreeNode;
+  currentPath: string;
+  className: string;
+  children: ReactNode;
+  onNavigate: () => void;
+}) {
+  const href = sanitizeHref(item.url);
+  const external = /^https?:\/\//i.test(href);
+  const active = isMenuItemActive(href, currentPath);
+  return (
+    <a
+      href={href}
+      target={item.target}
+      rel={
+        external && item.target === "_blank" ? "noopener noreferrer" : undefined
+      }
+      className={className}
+      aria-current={active ? "page" : undefined}
+      onClick={onNavigate}
+    >
+      {children}
+    </a>
+  );
+}
+
+function menuWrapperStyle(props: Record<string, unknown>): CSSProperties {
+  const width = safeCss(props.width, "auto");
+  const maxWidth = safeCss(props.maxWidth, "100%");
+  const zIndex = safeCss(props.zIndex, "20");
+  const positionMode = textProp(props.positionMode, "absolute");
+  const spacingStyle = menuWrapperSpacingStyle(props);
+  if (positionMode !== "absolute") {
+    const align = textProp(props.flowAlign, "left");
+    const alignSelf =
+      align === "center"
+        ? "center"
+        : align === "right"
+          ? "flex-end"
+          : align === "stretch"
+            ? "stretch"
+            : "flex-start";
+    return {
+      ...spacingStyle,
+      alignSelf,
+      maxWidth,
+      position: "relative",
+      width: align === "stretch" ? "100%" : width,
+      zIndex,
+    };
+  }
+
+  const anchor = menuAnchor(props.anchor);
+  const offsetX = safeCss(props.offsetX, "clamp(1rem, 4vw, 3rem)");
+  const offsetY = safeCss(props.offsetY, "clamp(1rem, 4vw, 2rem)");
+  const style: CSSProperties = {
+    ...spacingStyle,
+    maxWidth,
+    position: "absolute",
+    width,
+    zIndex,
+  };
+
+  if (anchor.includes("top")) style.top = offsetY;
+  if (anchor.includes("bottom")) style.bottom = offsetY;
+  if (anchor.includes("left")) style.left = offsetX;
+  if (anchor.includes("right")) style.right = offsetX;
+
+  if (anchor === "center") {
+    style.left = "50%";
+    style.top = "50%";
+    style.transform = `translate(calc(-50% + ${offsetX}), calc(-50% + ${offsetY}))`;
+  } else if (anchor.endsWith("center")) {
+    style.left = "50%";
+    style.transform = `translateX(calc(-50% + ${offsetX}))`;
+  } else if (anchor.startsWith("center")) {
+    style.top = "50%";
+    style.transform = `translateY(calc(-50% + ${offsetY}))`;
+  }
+
+  return style;
+}
+
+function menuWrapperSpacingStyle(
+  props: Record<string, unknown>,
+): CSSProperties {
+  return {
+    boxSizing: "border-box",
+    margin: menuSidesCss(props.wrapperMargin),
+    padding: menuSidesCss(props.wrapperPadding),
+  };
+}
+
+function menuSidesCss(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return undefined;
+  const sides = value as Record<string, unknown>;
+  const top = safeCss(sides.top, "0");
+  const right = safeCss(sides.right, "0");
+  const bottom = safeCss(sides.bottom, "0");
+  const left = safeCss(sides.left, "0");
+  if (top === "0" && right === "0" && bottom === "0" && left === "0") {
+    return undefined;
+  }
+  return `${top} ${right} ${bottom} ${left}`;
+}
+
+function buildHeroMenuCss(scope: string, props: Record<string, unknown>) {
+  const preset = createHeroSlideMenuPresetProps(props.preset);
+  const css = (key: string, fallback: string) =>
+    safeCss(menuValue(props, preset, key, fallback), fallback);
+  const text = (key: string, fallback: string) =>
+    safeMenuText(menuValue(props, preset, key, fallback), fallback);
+  const fontWeight = safeFontWeight(text("fontWeight", "600"));
+  const textTransform = safeTextTransform(text("textTransform", "none"));
+  const breakpoint = menuBreakpoint(props.mobileBreakpoint);
+  const desktopMax =
+    breakpoint === "md" ? "767px" : breakpoint === "xl" ? "1279px" : "1023px";
+
+  return `
+.${scope} {
+  --hm-bg: ${css("backgroundColor", "rgba(255,255,255,0.14)")};
+  --hm-color: ${css("color", "#ffffff")};
+  --hm-border: ${css("borderColor", "rgba(255,255,255,0.24)")};
+  --hm-border-width: ${css("borderWidth", "1px")};
+  --hm-radius: ${css("borderRadius", "0.9rem")};
+  --hm-submenu-radius: ${css("submenuRadius", "0.85rem")};
+  --hm-surface-shadow: ${css("surfaceShadow", "none")};
+  --hm-shadow: ${css("shadow", "0 18px 45px rgba(15,23,42,0.24)")};
+  --hm-hover-bg: ${css("hoverBackgroundColor", "rgba(255,255,255,0.24)")};
+  --hm-hover-color: ${css("hoverColor", "#ffffff")};
+  --hm-active-bg: ${css("activeBackgroundColor", "rgba(255,255,255,0.3)")};
+  --hm-active-color: ${css("activeColor", "#ffffff")};
+  --hm-dropdown-bg: ${css("dropdownBackgroundColor", "rgba(15,23,42,0.94)")};
+  --hm-dropdown-color: ${css("dropdownColor", "#ffffff")};
+  --hm-gap: ${css("gap", "0.35rem")};
+  --hm-item-padding: ${css("itemPadding", "0.65rem 0.85rem")};
+  --hm-submenu-width: ${css("submenuWidth", "240px")};
+  --hm-submenu-padding: ${css("submenuPadding", "0.5rem")};
+  --hm-mega-width: ${css("megaWidth", "min(48rem, calc(100vw - 2rem))")};
+  --hm-mobile-panel-width: ${css("mobilePanelWidth", "min(20rem, calc(100vw - 2rem))")};
+  --hm-mobile-panel-bg: ${css("mobilePanelBackgroundColor", "rgba(15,23,42,0.96)")};
+  --hm-mobile-panel-color: ${css("mobilePanelColor", "#ffffff")};
+  --hm-mobile-item-padding: ${css("mobileItemPadding", "0.75rem 0.85rem")};
+  color: var(--hm-color);
+  display: inline-block;
+  font-size: ${css("fontSize", "0.95rem")};
+  font-weight: ${fontWeight};
+  letter-spacing: ${css("letterSpacing", "0")};
+  line-height: ${css("lineHeight", "1.2")};
+  max-width: 100%;
+  text-transform: ${textTransform};
+}
+.${scope} .hero-menu-desktop { display: block; }
+.${scope} .hero-menu-mobile { display: none; position: relative; }
+.${scope} .hero-menu-surface,
+.${scope} .hero-menu-toggle,
+.${scope} .hero-menu-dropdown-panel,
+.${scope} .hero-menu-mobile-panel {
+  background: var(--hm-bg);
+  border: var(--hm-border-width) solid var(--hm-border);
+  border-radius: var(--hm-radius);
+  color: var(--hm-color);
+}
+.${scope} .hero-menu-surface,
+.${scope} .hero-menu-toggle {
+  box-shadow: var(--hm-surface-shadow);
+}
+.${scope} .hero-menu-dropdown-panel,
+.${scope} .hero-menu-mobile-panel {
+  box-shadow: var(--hm-shadow);
+}
+.${scope} .hero-menu-surface,
+.${scope} .hero-menu-desktop-dropdown {
+  display: inline-flex;
+  max-width: 100%;
+  position: relative;
+}
+.${scope}.hero-menu-layout-vertical .hero-menu-surface {
+  display: flex;
+}
+.${scope} .hero-menu-list,
+.${scope} .hero-menu-mobile-list,
+.${scope} .hero-menu-mobile-children,
+.${scope} .hero-menu-mega-grid,
+.${scope} .hero-menu-mega-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.${scope} .hero-menu-list {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hm-gap);
+  padding: 0.25rem;
+}
+.${scope}.hero-menu-layout-vertical .hero-menu-list,
+.${scope} .hero-menu-list-dropdown {
+  align-items: stretch;
+  flex-direction: column;
+}
+.${scope} .hero-menu-item {
+  min-width: 0;
+  position: relative;
+}
+.${scope} .hero-menu-link,
+.${scope} .hero-menu-toggle,
+.${scope} .hero-menu-mobile-link,
+.${scope} .hero-menu-mobile-expand {
+  align-items: center;
+  border-radius: max(0.25rem, calc(var(--hm-radius) - 0.25rem));
+  color: inherit;
+  display: flex;
+  gap: 0.35rem;
+  min-height: 44px;
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+.${scope} .hero-menu-link,
+.${scope} .hero-menu-toggle {
+  justify-content: flex-start;
+  padding: var(--hm-item-padding);
+  white-space: nowrap;
+}
+.${scope} .hero-menu-surface > .hero-menu-list > .hero-menu-item > .hero-menu-link,
+.${scope} .hero-menu-toggle {
+  justify-content: center;
+}
+.${scope} .hero-menu-submenu .hero-menu-link,
+.${scope} .hero-menu-list-dropdown .hero-menu-link,
+.${scope} .hero-menu-mega-list .hero-menu-link {
+  justify-content: space-between;
+  width: 100%;
+}
+.${scope} .hero-menu-toggle {
+  cursor: pointer;
+  font: inherit;
+}
+.${scope} .hero-menu-link:hover,
+.${scope} .hero-menu-link:focus-visible,
+.${scope} .hero-menu-toggle:hover,
+.${scope} .hero-menu-toggle:focus-visible,
+.${scope} .hero-menu-mobile-link:hover,
+.${scope} .hero-menu-mobile-link:focus-visible,
+.${scope} .hero-menu-mobile-expand:hover,
+.${scope} .hero-menu-mobile-expand:focus-visible {
+  background: var(--hm-hover-bg);
+  color: var(--hm-hover-color);
+  outline: none;
+}
+.${scope} .hero-menu-link.is-active,
+.${scope} .hero-menu-mobile-link.is-active {
+  background: var(--hm-active-bg);
+  color: var(--hm-active-color);
+}
+.${scope} .hero-menu-chevron,
+.${scope} .hero-menu-toggle-icon {
+  height: 1rem;
+  transition: transform 160ms ease;
+  width: 1rem;
+}
+.${scope} .hero-menu-item:hover > .hero-menu-link .hero-menu-chevron,
+.${scope} .hero-menu-item:focus-within > .hero-menu-link .hero-menu-chevron {
+  transform: rotate(180deg);
+}
+.${scope} .hero-menu-submenu,
+.${scope} .hero-menu-dropdown-panel {
+  background: var(--hm-dropdown-bg);
+  border: var(--hm-border-width) solid var(--hm-border);
+  border-radius: var(--hm-submenu-radius);
+  box-shadow: var(--hm-shadow);
+  color: var(--hm-dropdown-color);
+  opacity: 0;
+  padding: var(--hm-submenu-padding);
+  pointer-events: none;
+  position: absolute;
+  transform: translateY(0.35rem);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+  visibility: hidden;
+  z-index: 80;
+}
+.${scope} .hero-menu-submenu {
+  left: 0;
+  min-width: var(--hm-submenu-width);
+  top: 100%;
+}
+.${scope} .hero-menu-submenu .hero-menu-submenu {
+  left: 100%;
+  top: calc(-1 * var(--hm-submenu-padding));
+  transform: translateX(-0.2rem);
+}
+.${scope}.hero-menu-layout-vertical > .hero-menu-desktop .hero-menu-list > .hero-menu-item > .hero-menu-submenu,
+.${scope} .hero-menu-list-dropdown > .hero-menu-item > .hero-menu-submenu {
+  left: 100%;
+  top: 0;
+}
+.${scope} .hero-menu-item:hover > .hero-menu-submenu,
+.${scope} .hero-menu-item:focus-within > .hero-menu-submenu,
+.${scope} .hero-menu-dropdown-panel[data-open="true"] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(0, 0);
+  visibility: visible;
+}
+.${scope} .hero-menu-mega {
+  max-width: calc(100vw - 2rem);
+  width: var(--hm-mega-width);
+}
+.${scope} .hero-menu-mega-grid {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+.${scope} .hero-menu-mega-column,
+.${scope} .hero-menu-mega-list {
+  min-width: 0;
+}
+.${scope} .hero-menu-mega-heading {
+  font-weight: 700;
+}
+.${scope} .hero-menu-dropdown-panel {
+  left: 0;
+  min-width: var(--hm-submenu-width);
+  top: calc(100% + 0.5rem);
+}
+.${scope} .hero-menu-mobile-toggle {
+  background: var(--hm-bg);
+  width: 100%;
+}
+.${scope} .hero-menu-mobile-panel {
+  background: var(--hm-mobile-panel-bg);
+  border-radius: var(--hm-submenu-radius);
+  color: var(--hm-mobile-panel-color);
+  max-height: min(70vh, 32rem);
+  opacity: 0;
+  overflow: auto;
+  padding: 0.35rem;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  transform: translateY(-0.35rem);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+  visibility: hidden;
+  width: var(--hm-mobile-panel-width);
+  z-index: 90;
+}
+.${scope} .hero-menu-mobile-panel[data-open="true"],
+.${scope}[data-mobile-behavior="stack"] .hero-menu-mobile-panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  visibility: visible;
+}
+.${scope}[data-mobile-behavior="stack"] .hero-menu-mobile-toggle {
+  display: none;
+}
+.${scope}[data-mobile-behavior="stack"] .hero-menu-mobile-panel {
+  max-height: none;
+  position: static;
+  width: 100%;
+}
+.${scope}[data-mobile-behavior="hidden"] .hero-menu-mobile {
+  display: none !important;
+}
+.${scope} .hero-menu-mobile-row {
+  align-items: center;
+  display: flex;
+  gap: 0.25rem;
+}
+.${scope} .hero-menu-mobile-link {
+  flex: 1;
+  min-width: 0;
+  padding: var(--hm-mobile-item-padding);
+}
+.${scope} .hero-menu-mobile-expand {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  flex: 0 0 44px;
+  justify-content: center;
+  padding: 0;
+}
+.${scope} .hero-menu-mobile-children {
+  border-left: var(--hm-border-width) solid var(--hm-border);
+  margin-left: 0.85rem;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding-left: 0.45rem;
+  transition: max-height 180ms ease, opacity 180ms ease;
+}
+.${scope} .hero-menu-mobile-children[data-open="true"] {
+  max-height: 900px;
+  opacity: 1;
+}
+@media (max-width: ${desktopMax}) {
+  .${scope} .hero-menu-desktop { display: none; }
+  .${scope} .hero-menu-mobile { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .${scope} * {
+    transition: none !important;
+  }
+}
+`;
+}
+
+function menuValue(
+  props: Record<string, unknown>,
+  preset: Record<string, unknown>,
+  key: string,
+  fallback: string,
+) {
+  const value = props[key];
+  if (typeof value === "string" && value.trim()) return value;
+  return preset[key] ?? fallback;
+}
+
+function safeMenuText(value: unknown, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  const next = value.trim();
+  if (!next || /[<>{};]/.test(next)) return fallback;
+  return next;
+}
+
+function menuLayout(
+  value: unknown,
+): "horizontal" | "vertical" | "dropdown" | "mega" {
+  return value === "vertical" || value === "dropdown" || value === "mega"
+    ? value
+    : "horizontal";
+}
+
+function menuMobileBehavior(value: unknown): "collapse" | "stack" | "hidden" {
+  return value === "stack" || value === "hidden" ? value : "collapse";
+}
+
+function menuBreakpoint(value: unknown): "md" | "lg" | "xl" {
+  return value === "md" || value === "xl" ? value : "lg";
+}
+
+function menuAnchor(value: unknown) {
+  const anchors = new Set([
+    "top-left",
+    "top-center",
+    "top-right",
+    "center-left",
+    "center",
+    "center-right",
+    "bottom-left",
+    "bottom-center",
+    "bottom-right",
+  ]);
+  return typeof value === "string" && anchors.has(value) ? value : "top-right";
+}
+
+function safeFontWeight(value: string) {
+  return /^(?:[1-9]00|normal|bold|lighter|bolder)$/i.test(value)
+    ? value
+    : "600";
+}
+
+function safeTextTransform(value: string) {
+  return value === "uppercase" ||
+    value === "lowercase" ||
+    value === "capitalize"
+    ? value
+    : "none";
+}
+
+function isMenuItemActive(url: string, currentPath: string) {
+  const href = sanitizeHref(url);
+  if (!currentPath || href === "#") return false;
+  if (href === "/") return currentPath === "/";
+  return href === currentPath || currentPath.startsWith(`${href}/`);
+}
+
+function useCurrentPath() {
+  return useSyncExternalStore(
+    subscribeToPathChanges,
+    getPathSnapshot,
+    getServerPathSnapshot,
+  );
+}
+
+function subscribeToPathChanges(callback: () => void) {
+  window.addEventListener("popstate", callback);
+  window.addEventListener("hashchange", callback);
+  return () => {
+    window.removeEventListener("popstate", callback);
+    window.removeEventListener("hashchange", callback);
+  };
+}
+
+function getPathSnapshot() {
+  return window.location.pathname;
+}
+
+function getServerPathSnapshot() {
+  return "";
 }
 
 function buildRootStyle(slider: HeroSliderContent): CSSProperties {

@@ -86,6 +86,9 @@ export type HeroSlideBlockType =
   | "text"
   | "button"
   | "image"
+  // Legacy only. Menu blocks are normalized into slide.menus and are no
+  // longer exposed through Add content block.
+  | "menu"
   | "card"
   | "badge"
   | "divider"
@@ -122,6 +125,12 @@ export type HeroSlideBlock = {
   columns?: HeroSlideBlock[][];
 };
 
+export type HeroSlideMenu = {
+  id: string;
+  props: Record<string, unknown>;
+  hiddenOn?: HeroSliderBreakpoint[];
+};
+
 export type HeroSlide = {
   id: string;
   name: string;
@@ -131,6 +140,7 @@ export type HeroSlide = {
   layers: HeroSlideLayers;
   responsive: Record<HeroSliderBreakpoint, HeroSlideResponsiveLayout>;
   blocks: HeroSlideBlock[];
+  menus: HeroSlideMenu[];
 };
 
 export type HeroSliderContent = {
@@ -142,6 +152,213 @@ export type HeroSliderContent = {
     aiGeneratedSlides?: boolean;
   };
 };
+
+export const HERO_SLIDE_MENU_PRESETS = {
+  glass: {
+    label: "Glass",
+    props: {
+      backgroundColor: "rgba(15,23,42,0.42)",
+      color: "#ffffff",
+      borderColor: "rgba(255,255,255,0.18)",
+      hoverBackgroundColor: "rgba(255,255,255,0.16)",
+      hoverColor: "#ffffff",
+      activeBackgroundColor: "rgba(255,255,255,0.22)",
+      activeColor: "#ffffff",
+      dropdownBackgroundColor: "rgba(15,23,42,0.96)",
+      dropdownColor: "#ffffff",
+      mobilePanelBackgroundColor: "rgba(15,23,42,0.96)",
+      mobilePanelColor: "#ffffff",
+      borderRadius: "0.9rem",
+      submenuRadius: "0.85rem",
+      borderWidth: "1px",
+      surfaceShadow: "0 10px 30px rgba(2,6,23,0.2)",
+      shadow: "0 18px 44px rgba(2,6,23,0.32)",
+      itemPadding: "0.62rem 0.85rem",
+      gap: "0.2rem",
+    },
+  },
+  solid: {
+    label: "Header",
+    props: {
+      backgroundColor: "transparent",
+      color: "var(--foreground)",
+      borderColor: "transparent",
+      hoverBackgroundColor: "var(--muted)",
+      hoverColor: "var(--foreground)",
+      activeBackgroundColor: "var(--muted)",
+      activeColor: "var(--foreground)",
+      dropdownBackgroundColor: "var(--popover)",
+      dropdownColor: "var(--popover-foreground)",
+      mobilePanelBackgroundColor: "var(--popover)",
+      mobilePanelColor: "var(--popover-foreground)",
+      borderRadius: "0.5rem",
+      submenuRadius: "0.5rem",
+      borderWidth: "0",
+      surfaceShadow: "none",
+      shadow:
+        "0 0 0 1px rgb(from var(--foreground) r g b / 0.1), 0 10px 24px rgba(15,23,42,0.14)",
+      itemPadding: "0.55rem 0.75rem",
+      gap: "0",
+    },
+  },
+  minimal: {
+    label: "Minimal",
+    props: {
+      backgroundColor: "transparent",
+      color: "#ffffff",
+      borderColor: "transparent",
+      hoverBackgroundColor: "rgba(255,255,255,0.12)",
+      hoverColor: "#ffffff",
+      activeBackgroundColor: "rgba(255,255,255,0.18)",
+      activeColor: "#ffffff",
+      dropdownBackgroundColor: "rgba(255,255,255,0.97)",
+      dropdownColor: "#111827",
+      mobilePanelBackgroundColor: "rgba(255,255,255,0.97)",
+      mobilePanelColor: "#111827",
+      borderRadius: "0.55rem",
+      submenuRadius: "0.75rem",
+      borderWidth: "0",
+      surfaceShadow: "none",
+      shadow: "none",
+      itemPadding: "0.55rem 0.65rem",
+      gap: "0.1rem",
+    },
+  },
+  pill: {
+    label: "Premium Dark",
+    props: {
+      backgroundColor: "rgba(2,6,23,0.78)",
+      color: "#ffffff",
+      borderColor: "rgba(148,163,184,0.28)",
+      hoverBackgroundColor: "rgba(20,184,166,0.22)",
+      hoverColor: "#f8fafc",
+      activeBackgroundColor: "rgba(20,184,166,0.3)",
+      activeColor: "#f8fafc",
+      dropdownBackgroundColor: "rgba(2,6,23,0.97)",
+      dropdownColor: "#ffffff",
+      mobilePanelBackgroundColor: "rgba(2,6,23,0.97)",
+      mobilePanelColor: "#ffffff",
+      borderRadius: "999px",
+      submenuRadius: "0.9rem",
+      borderWidth: "1px",
+      surfaceShadow: "0 12px 32px rgba(2,6,23,0.26)",
+      shadow: "0 20px 48px rgba(2,6,23,0.36)",
+      itemPadding: "0.6rem 0.9rem",
+      gap: "0.2rem",
+    },
+  },
+  editorial: {
+    label: "Editorial",
+    props: {
+      backgroundColor: "rgba(250,250,249,0.9)",
+      color: "#1c1917",
+      borderColor: "rgba(68,64,60,0.18)",
+      hoverBackgroundColor: "#1c1917",
+      hoverColor: "#fafaf9",
+      activeBackgroundColor: "#44403c",
+      activeColor: "#fafaf9",
+      dropdownBackgroundColor: "rgba(250,250,249,0.98)",
+      dropdownColor: "#1c1917",
+      mobilePanelBackgroundColor: "rgba(250,250,249,0.98)",
+      mobilePanelColor: "#1c1917",
+      borderRadius: "0.35rem",
+      submenuRadius: "0.35rem",
+      borderWidth: "1px",
+      surfaceShadow: "0 8px 20px rgba(28,25,23,0.1)",
+      shadow: "0 16px 34px rgba(28,25,23,0.16)",
+      itemPadding: "0.62rem 0.8rem",
+      gap: "0.12rem",
+    },
+  },
+} as const;
+
+export type HeroSlideMenuPreset = keyof typeof HERO_SLIDE_MENU_PRESETS;
+
+const LEGACY_HERO_SLIDE_MENU_PRESET_PROPS: Record<
+  HeroSlideMenuPreset,
+  Partial<
+    Record<keyof (typeof HERO_SLIDE_MENU_PRESETS)["glass"]["props"], string>
+  >
+> = {
+  glass: {
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,255,255,0.24)",
+    hoverBackgroundColor: "rgba(255,255,255,0.24)",
+    activeBackgroundColor: "rgba(255,255,255,0.3)",
+    dropdownBackgroundColor: "rgba(15,23,42,0.94)",
+    borderRadius: "999px",
+    shadow: "0 18px 45px rgba(15,23,42,0.24)",
+    itemPadding: "0.65rem 0.85rem",
+    gap: "0.35rem",
+  },
+  solid: {
+    backgroundColor: "#ffffff",
+    color: "#0f172a",
+    borderColor: "#e2e8f0",
+    hoverBackgroundColor: "#f1f5f9",
+    hoverColor: "#0f172a",
+    activeBackgroundColor: "#e2e8f0",
+    activeColor: "#0f172a",
+    dropdownBackgroundColor: "#ffffff",
+    dropdownColor: "#0f172a",
+    mobilePanelBackgroundColor: "#ffffff",
+    mobilePanelColor: "#0f172a",
+    borderRadius: "0.75rem",
+    borderWidth: "1px",
+    shadow: "0 16px 35px rgba(15,23,42,0.16)",
+    itemPadding: "0.7rem 0.9rem",
+    gap: "0.35rem",
+  },
+  minimal: {
+    hoverBackgroundColor: "rgba(255,255,255,0.14)",
+    dropdownBackgroundColor: "#ffffff",
+    dropdownColor: "#0f172a",
+    mobilePanelBackgroundColor: "#ffffff",
+    mobilePanelColor: "#0f172a",
+    borderRadius: "0.5rem",
+    itemPadding: "0.55rem 0.7rem",
+    gap: "0.25rem",
+  },
+  pill: {
+    backgroundColor: "#0f172a",
+    borderColor: "rgba(255,255,255,0.16)",
+    hoverBackgroundColor: "#14b8a6",
+    hoverColor: "#042f2e",
+    activeBackgroundColor: "#2dd4bf",
+    activeColor: "#042f2e",
+    dropdownBackgroundColor: "#0f172a",
+    mobilePanelBackgroundColor: "#0f172a",
+    shadow: "0 20px 50px rgba(20,184,166,0.22)",
+    itemPadding: "0.7rem 1rem",
+    gap: "0.35rem",
+  },
+  editorial: {
+    backgroundColor: "rgba(250,250,249,0.94)",
+    color: "#18181b",
+    borderColor: "rgba(24,24,27,0.16)",
+    hoverBackgroundColor: "#18181b",
+    activeBackgroundColor: "#3f3f46",
+    dropdownBackgroundColor: "#fafaf9",
+    dropdownColor: "#18181b",
+    mobilePanelBackgroundColor: "#fafaf9",
+    mobilePanelColor: "#18181b",
+    borderRadius: "0.25rem",
+    shadow: "0 18px 40px rgba(24,24,27,0.16)",
+    itemPadding: "0.7rem 0.85rem",
+    gap: "0.15rem",
+  },
+};
+
+export const HERO_SLIDE_MENU_PRESET_OPTIONS: Array<{
+  value: HeroSlideMenuPreset;
+  label: string;
+}> = [
+  { value: "glass", label: HERO_SLIDE_MENU_PRESETS.glass.label },
+  { value: "solid", label: HERO_SLIDE_MENU_PRESETS.solid.label },
+  { value: "minimal", label: HERO_SLIDE_MENU_PRESETS.minimal.label },
+  { value: "pill", label: HERO_SLIDE_MENU_PRESETS.pill.label },
+  { value: "editorial", label: HERO_SLIDE_MENU_PRESETS.editorial.label },
+];
 
 export const defaultHeroSliderSettings: HeroSliderSettings = {
   autoplay: true,
@@ -208,6 +425,14 @@ export function createHeroSlideBlock(type: HeroSlideBlockType): HeroSlideBlock {
   };
 }
 
+export function createHeroSlideMenu(): HeroSlideMenu {
+  return {
+    id: makeHeroSliderId("menu"),
+    props: defaultMenuProps("glass"),
+    hiddenOn: [],
+  };
+}
+
 export function createHeroSlide(
   name = "Slide",
   blocks: HeroSlideBlock[] = [
@@ -234,6 +459,7 @@ export function createHeroSlide(
       },
     },
     blocks,
+    menus: [],
   };
 }
 
@@ -309,11 +535,24 @@ export function heroSliderToPlainText(value: unknown) {
   for (const slide of data.slides) {
     parts.push(slide.name);
     collectBlocksText(slide.blocks, parts);
+    collectMenusText(slide.menus, parts);
   }
   return parts
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+export function createHeroSlideMenuPresetProps(value: unknown) {
+  const preset = normalizeMenuPreset(value);
+  return { ...HERO_SLIDE_MENU_PRESETS[preset].props };
+}
+
+export function collectHeroSliderMenuIds(value: unknown): string[] {
+  const data = normalizeHeroSliderContent(value);
+  const ids = new Set<string>();
+  for (const slide of data.slides) collectMenuIdsFromMenus(slide.menus, ids);
+  return Array.from(ids);
 }
 
 function templateLabel(template: HeroSliderTemplate) {
@@ -394,6 +633,8 @@ function defaultBlockProps(type: HeroSlideBlockType): Record<string, unknown> {
       return { label: "Get started", href: "#", variant: "primary" };
     case "image":
       return { src: "", alt: "", width: "360px" };
+    case "menu":
+      return defaultMenuProps("glass");
     case "card":
       return {
         title: "Proof point",
@@ -419,6 +660,40 @@ function defaultBlockProps(type: HeroSlideBlockType): Record<string, unknown> {
     case "columns":
       return { gap: "1.5rem" };
   }
+}
+
+function defaultMenuProps(value: unknown): Record<string, unknown> {
+  const preset = normalizeMenuPreset(value);
+  return {
+    menuId: "",
+    menuName: "",
+    preset,
+    layout: "horizontal",
+    mobileBehavior: "collapse",
+    mobileBreakpoint: "lg",
+    positionMode: "absolute",
+    flowAlign: "left",
+    anchor: "top-right",
+    offsetX: "clamp(1rem, 4vw, 3rem)",
+    offsetY: "clamp(1rem, 4vw, 2rem)",
+    zIndex: "20",
+    width: "auto",
+    maxWidth: "100%",
+    wrapperMargin: {},
+    wrapperPadding: {},
+    fontSize: "0.95rem",
+    fontWeight: "600",
+    textTransform: "none",
+    letterSpacing: "0",
+    lineHeight: "1.2",
+    submenuWidth: "240px",
+    submenuPadding: "0.5rem",
+    megaWidth: "min(48rem, calc(100vw - 2rem))",
+    mobileButtonLabel: "Menu",
+    mobilePanelWidth: "min(20rem, calc(100vw - 2rem))",
+    mobileItemPadding: "0.75rem 0.85rem",
+    ...createHeroSlideMenuPresetProps(preset),
+  };
 }
 
 function normalizeSettings(value: HeroSliderSettings): HeroSliderSettings {
@@ -449,6 +724,8 @@ function normalizeSettings(value: HeroSliderSettings): HeroSliderSettings {
 
 function normalizeSlide(value: unknown): HeroSlide | null {
   if (!isRecord(value)) return null;
+  const extracted = normalizeBlocksWithExtractedMenus(value.blocks);
+  const menus = [...normalizeMenus(value.menus), ...extracted.menus];
   return {
     id: stringValue(value.id, makeHeroSliderId("slide")),
     name: stringValue(value.name, "Slide"),
@@ -480,9 +757,8 @@ function normalizeSlide(value: unknown): HeroSlide | null {
       ...(isRecord(value.layers) ? value.layers : {}),
     } as HeroSlideLayers,
     responsive: normalizeResponsive(value.responsive),
-    blocks: Array.isArray(value.blocks)
-      ? value.blocks.map(normalizeBlock).filter(isDefined)
-      : [],
+    blocks: extracted.blocks,
+    menus,
   };
 }
 
@@ -510,34 +786,133 @@ function normalizeResponsiveLayout(value: unknown): HeroSlideResponsiveLayout {
   };
 }
 
-function normalizeBlock(value: unknown): HeroSlideBlock | null {
+function normalizeMenus(value: unknown): HeroSlideMenu[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeMenu).filter(isDefined);
+}
+
+function normalizeMenu(value: unknown): HeroSlideMenu | null {
   if (!isRecord(value)) return null;
+  return {
+    id: stringValue(value.id, makeHeroSliderId("menu")),
+    props: normalizeMenuProps(
+      isRecord(value.props) ? value.props : defaultMenuProps("glass"),
+    ),
+    hiddenOn: normalizeHiddenOn(value.hiddenOn),
+  };
+}
+
+function normalizeBlocksWithExtractedMenus(value: unknown): {
+  blocks: HeroSlideBlock[];
+  menus: HeroSlideMenu[];
+} {
+  if (!Array.isArray(value)) return { blocks: [], menus: [] };
+
+  const blocks: HeroSlideBlock[] = [];
+  const menus: HeroSlideMenu[] = [];
+  for (const item of value) {
+    const result = normalizeBlockWithExtractedMenus(item);
+    if (result.block) blocks.push(result.block);
+    menus.push(...result.menus);
+  }
+
+  return { blocks, menus };
+}
+
+function normalizeBlockWithExtractedMenus(value: unknown): {
+  block: HeroSlideBlock | null;
+  menus: HeroSlideMenu[];
+} {
+  if (!isRecord(value)) return { block: null, menus: [] };
   const type = HERO_SLIDE_BLOCK_OPTIONS.some(
     (option) => option.value === value.type,
   )
     ? (value.type as HeroSlideBlockType)
     : null;
-  if (!type) return null;
+  if (value.type === "menu") {
+    const menu = normalizeMenu(value);
+    return { block: null, menus: menu ? [menu] : [] };
+  }
+  if (!type) return { block: null, menus: [] };
+
+  const children = normalizeBlocksWithExtractedMenus(value.children);
+  const columnResults = Array.isArray(value.columns)
+    ? value.columns.map((column) => normalizeBlocksWithExtractedMenus(column))
+    : undefined;
+  const menus = [
+    ...children.menus,
+    ...(columnResults?.flatMap((result) => result.menus) ?? []),
+  ];
+
   return {
-    id: stringValue(value.id, makeHeroSliderId("block")),
-    type,
-    props: isRecord(value.props) ? value.props : defaultBlockProps(type),
-    hiddenOn: Array.isArray(value.hiddenOn)
-      ? value.hiddenOn.filter(
-          (item): item is HeroSliderBreakpoint =>
-            item === "desktop" || item === "tablet" || item === "mobile",
-        )
-      : [],
-    children: Array.isArray(value.children)
-      ? value.children.map(normalizeBlock).filter(isDefined)
-      : undefined,
-    columns: Array.isArray(value.columns)
-      ? value.columns.map((column) =>
-          Array.isArray(column)
-            ? column.map(normalizeBlock).filter(isDefined)
-            : [],
-        )
-      : undefined,
+    block: {
+      id: stringValue(value.id, makeHeroSliderId("block")),
+      type,
+      props: normalizeBlockProps(
+        type,
+        isRecord(value.props) ? value.props : defaultBlockProps(type),
+      ),
+      hiddenOn: normalizeHiddenOn(value.hiddenOn),
+      children: children.blocks.length > 0 ? children.blocks : undefined,
+      columns: columnResults?.map((result) => result.blocks),
+    },
+    menus,
+  };
+}
+
+function normalizeBlockProps(
+  type: HeroSlideBlockType,
+  props: Record<string, unknown>,
+) {
+  if (type !== "menu") return props;
+  return normalizeMenuProps(props);
+}
+
+function normalizeMenuProps(props: Record<string, unknown>) {
+  const preset = normalizeMenuPreset(props.preset);
+  const next: Record<string, unknown> = {
+    ...defaultMenuProps(preset),
+    ...props,
+    preset,
+    positionMode: "absolute",
+  };
+  const legacy = LEGACY_HERO_SLIDE_MENU_PRESET_PROPS[preset];
+  const current = HERO_SLIDE_MENU_PRESETS[preset].props;
+
+  for (const [key, legacyValue] of Object.entries(legacy)) {
+    if (props[key] === legacyValue && key in current) {
+      next[key] = current[key as keyof typeof current];
+    }
+  }
+
+  next.wrapperMargin = normalizeMenuSpacingSides(next.wrapperMargin);
+  next.wrapperPadding = normalizeMenuSpacingSides(next.wrapperPadding);
+
+  return next;
+}
+
+function normalizeMenuPreset(value: unknown): HeroSlideMenuPreset {
+  return typeof value === "string" && value in HERO_SLIDE_MENU_PRESETS
+    ? (value as HeroSlideMenuPreset)
+    : "glass";
+}
+
+function normalizeHiddenOn(value: unknown): HeroSliderBreakpoint[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is HeroSliderBreakpoint =>
+          item === "desktop" || item === "tablet" || item === "mobile",
+      )
+    : [];
+}
+
+function normalizeMenuSpacingSides(value: unknown) {
+  if (!isRecord(value)) return {};
+  return {
+    top: stringValue(value.top, ""),
+    right: stringValue(value.right, ""),
+    bottom: stringValue(value.bottom, ""),
+    left: stringValue(value.left, ""),
   };
 }
 
@@ -557,6 +932,23 @@ function collectBlocksText(blocks: HeroSlideBlock[], parts: string[]) {
     if (block.children) collectBlocksText(block.children, parts);
     if (block.columns) {
       for (const column of block.columns) collectBlocksText(column, parts);
+    }
+  }
+}
+
+function collectMenusText(menus: HeroSlideMenu[], parts: string[]) {
+  for (const menu of menus) {
+    if (typeof menu.props.menuName === "string") {
+      parts.push(menu.props.menuName);
+    }
+  }
+}
+
+function collectMenuIdsFromMenus(menus: HeroSlideMenu[], ids: Set<string>) {
+  for (const menu of menus) {
+    if (typeof menu.props.menuId === "string") {
+      const id = menu.props.menuId.trim();
+      if (id) ids.add(id);
     }
   }
 }

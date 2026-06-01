@@ -1043,6 +1043,87 @@ test("builder hero slider placeholder applies block style shell", () => {
   assert.ok(html.includes("--bb-anim-delay:120ms"));
 });
 
+test("builder layout static renderer preserves three-column preset", () => {
+  const data: BuilderData = {
+    version: 1,
+    nodes: {
+      ROOT: {
+        type: { resolvedName: "Root" },
+        props: {},
+        parent: null,
+        hidden: false,
+        nodes: ["layout"],
+        linkedNodes: {},
+      },
+      layout: {
+        type: { resolvedName: "Layout" },
+        props: { preset: "3-col", gap: "md" },
+        parent: "ROOT",
+        hidden: false,
+        nodes: [],
+        linkedNodes: {
+          "slot-1": "slot-1",
+          "slot-2": "slot-2",
+          "slot-3": "slot-3",
+        },
+      },
+      "slot-1": {
+        type: { resolvedName: "LayoutSlot" },
+        props: {},
+        parent: "layout",
+        hidden: false,
+        nodes: ["a"],
+        linkedNodes: {},
+      },
+      "slot-2": {
+        type: { resolvedName: "LayoutSlot" },
+        props: {},
+        parent: "layout",
+        hidden: false,
+        nodes: ["b"],
+        linkedNodes: {},
+      },
+      "slot-3": {
+        type: { resolvedName: "LayoutSlot" },
+        props: {},
+        parent: "layout",
+        hidden: false,
+        nodes: ["c"],
+        linkedNodes: {},
+      },
+      a: {
+        type: { resolvedName: "Text" },
+        props: { content: "A" },
+        parent: "slot-1",
+        hidden: false,
+        nodes: [],
+        linkedNodes: {},
+      },
+      b: {
+        type: { resolvedName: "Text" },
+        props: { content: "B" },
+        parent: "slot-2",
+        hidden: false,
+        nodes: [],
+        linkedNodes: {},
+      },
+      c: {
+        type: { resolvedName: "Text" },
+        props: { content: "C" },
+        parent: "slot-3",
+        hidden: false,
+        nodes: [],
+        linkedNodes: {},
+      },
+    },
+  };
+
+  const html = renderToStaticMarkup(renderTree(data));
+
+  assert.ok(html.includes('data-layout-preset="3-col"'));
+  assert.ok(html.includes("minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)"));
+});
+
 test("BlogPostTemplate keeps edit and comments affordances across placements", () => {
   const html = renderToStaticMarkup(
     createElement(
