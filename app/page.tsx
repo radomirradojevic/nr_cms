@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { getHomepageContent } from "@/data/content";
-import { BuilderRender } from "@/app/dashboard/content/_builder/server-render-rsc";
+import {
+  BuilderLeadingHeroSlider,
+  BuilderRender,
+  builderHasBodyAfterLeadingHero,
+  builderHasLeadingHeroSlider,
+} from "@/app/dashboard/content/_builder/server-render-rsc";
 import { Button } from "@/components/ui/button";
 import { ContentUnauthorized } from "@/components/content-unauthorized";
 import { PageTemplate } from "@/components/page-template";
@@ -23,9 +28,30 @@ export default async function Home() {
     const contentTemplates = resolveAppearanceContentTemplates(
       settings.resolvedAppearanceRecipe?.contentTemplates,
     );
+    const pageTemplate = contentTemplates.page;
+    const mainVariant = settings.resolvedAppearanceRecipe.shell.main.variant;
+    const shouldDetachLeadingHero =
+      builderHasLeadingHeroSlider(homepage.contentJson) &&
+      (pageTemplate.variant === "framed-builder" || mainVariant === "framed");
     return (
-      <PageTemplate template={contentTemplates.page}>
-        <BuilderRender data={homepage.contentJson} />
+      <PageTemplate
+        template={pageTemplate}
+        mainVariant={mainVariant}
+        leading={
+          shouldDetachLeadingHero ? (
+            <BuilderLeadingHeroSlider data={homepage.contentJson} />
+          ) : undefined
+        }
+        hasBody={
+          shouldDetachLeadingHero
+            ? builderHasBodyAfterLeadingHero(homepage.contentJson)
+            : undefined
+        }
+      >
+        <BuilderRender
+          data={homepage.contentJson}
+          omitLeadingHero={shouldDetachLeadingHero}
+        />
       </PageTemplate>
     );
   }
