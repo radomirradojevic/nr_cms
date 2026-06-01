@@ -12,6 +12,7 @@ import {
   getLeadingHeroSliderNodeId,
   hasBodyAfterLeadingHeroSlider,
   omitLeadingHeroSlider,
+  renderTree,
 } from "@/app/dashboard/content/_builder/server-render";
 import type { BuilderData } from "@/app/dashboard/content/_builder/types";
 import {
@@ -989,6 +990,57 @@ test("builder render helpers split only a leading root hero slider", () => {
     "body",
   ]);
   assert.equal(getLeadingHeroSliderNodeId(bodyFirst), null);
+});
+
+test("builder hero slider placeholder applies block style shell", () => {
+  const data: BuilderData = {
+    version: 1,
+    nodes: {
+      ROOT: {
+        type: { resolvedName: "Root" },
+        props: {},
+        parent: null,
+        hidden: false,
+        nodes: ["hero"],
+        linkedNodes: {},
+      },
+      hero: {
+        type: { resolvedName: "HeroSlider" },
+        props: {
+          heroSliderName: "Launch",
+          style: {
+            spacing: {
+              margin: { top: "10px", bottom: "20px" },
+              padding: {
+                top: "1rem",
+                right: "2rem",
+                bottom: "1rem",
+                left: "2rem",
+              },
+            },
+            animation: {
+              type: "slide-up",
+              durationMs: 700,
+              delayMs: 120,
+            },
+          },
+        },
+        hidden: false,
+        nodes: [],
+        linkedNodes: {},
+      },
+    },
+  };
+
+  const tree = renderTree(data);
+  assert.ok(tree);
+  const html = renderToStaticMarkup(tree);
+
+  assert.ok(html.includes("bb-anim-slide-up"));
+  assert.ok(html.includes("margin:10px 0 20px 0"));
+  assert.ok(html.includes("padding:1rem 2rem 1rem 2rem"));
+  assert.ok(html.includes("--bb-anim-duration:700ms"));
+  assert.ok(html.includes("--bb-anim-delay:120ms"));
 });
 
 test("BlogPostTemplate keeps edit and comments affordances across placements", () => {
