@@ -9,7 +9,7 @@ type SiteMainProps = {
 function mainInnerClassName(variant: MainRegionV1["variant"]): string {
   switch (variant) {
     case "framed":
-      return "site-content-container mx-auto w-full px-4 py-6";
+      return "site-content-container mx-auto w-full px-4 py-5";
     case "full-bleed-builder":
       return "w-full min-w-0 px-4 md:px-8";
     case "editorial-article":
@@ -61,7 +61,9 @@ export function SiteMain({ region, children }: SiteMainProps) {
     >
       <div className={mainInnerClassName(variant)}>
         {surfaceClassName ? (
-          <div className={surfaceClassName}>{children}</div>
+          <div className={surfaceClassName} data-main-surface>
+            {children}
+          </div>
         ) : (
           children
         )}

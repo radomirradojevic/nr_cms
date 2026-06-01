@@ -96,8 +96,62 @@ export const defaultStaticRegistry: StaticRegistry = {
   ),
 };
 
-function resolvedName(node: SerializedNode): string {
+export function resolvedName(node: SerializedNode): string {
   return typeof node.type === "string" ? node.type : node.type.resolvedName;
+}
+
+export function getLeadingHeroSliderNodeId(data: BuilderData): string | null {
+  const root = data.nodes[ROOT_NODE_ID];
+  if (!root) return null;
+
+  for (const childId of root.nodes ?? []) {
+    const child = data.nodes[childId];
+    if (!child || child.hidden) continue;
+    return resolvedName(child) === "HeroSlider" ? childId : null;
+  }
+
+  return null;
+}
+
+export function hasVisibleRootContent(
+  data: BuilderData,
+  options?: { omitNodeId?: string | null },
+): boolean {
+  const root = data.nodes[ROOT_NODE_ID];
+  if (!root) return false;
+
+  return (root.nodes ?? []).some((childId) => {
+    if (childId === options?.omitNodeId) return false;
+    const child = data.nodes[childId];
+    return !!child && !child.hidden;
+  });
+}
+
+export function omitRootNode(data: BuilderData, nodeId: string): BuilderData {
+  const root = data.nodes[ROOT_NODE_ID];
+  if (!root) return data;
+
+  return {
+    ...data,
+    nodes: {
+      ...data.nodes,
+      [ROOT_NODE_ID]: {
+        ...root,
+        nodes: (root.nodes ?? []).filter((childId) => childId !== nodeId),
+      },
+    },
+  };
+}
+
+export function omitLeadingHeroSlider(data: BuilderData): BuilderData {
+  const leadingHeroId = getLeadingHeroSliderNodeId(data);
+  return leadingHeroId ? omitRootNode(data, leadingHeroId) : data;
+}
+
+export function hasBodyAfterLeadingHeroSlider(data: BuilderData): boolean {
+  return hasVisibleRootContent(data, {
+    omitNodeId: getLeadingHeroSliderNodeId(data),
+  });
 }
 
 /**
@@ -164,9 +218,19 @@ export function renderTree(
  * registry (with the async Gallery), import `BuilderRender` from
  * `server-render-rsc.tsx` instead.
  */
-export function BuilderRender({ data }: { data: unknown }) {
+export function BuilderRender({
+  data,
+  omitLeadingHero = false,
+}: {
+  data: unknown;
+  omitLeadingHero?: boolean;
+}) {
   if (!isBuilderData(data)) return null;
-  return renderTree(data);
+  if (omitLeadingHero && !hasBodyAfterLeadingHeroSlider(data)) return null;
+  return renderTree(
+    omitLeadingHero ? omitLeadingHeroSlider(data) : data,
+    defaultStaticRegistry,
+  );
 }
 
 export { isBuilderData };

@@ -148,6 +148,25 @@
   max-width: var(--content-max-width);
 }
 
+.site-main[data-main-variant="framed"]:has(
+    .page-template[data-leading-hero-slider="true"]
+  )
+  > .site-content-container {
+  max-width: none;
+  padding: 0;
+}
+
+.site-main[data-main-variant="framed"]:has(
+    .page-template[data-leading-hero-slider="true"]
+  )
+  [data-main-surface] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
 html:has(.dashboard-content-root) {
   --content-max-width: var(--backend-content-max-width);
 }

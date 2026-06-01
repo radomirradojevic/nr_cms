@@ -9,6 +9,12 @@ import { PageTemplate } from "@/components/page-template";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteMain } from "@/components/site-main";
 import {
+  getLeadingHeroSliderNodeId,
+  hasBodyAfterLeadingHeroSlider,
+  omitLeadingHeroSlider,
+} from "@/app/dashboard/content/_builder/server-render";
+import type { BuilderData } from "@/app/dashboard/content/_builder/types";
+import {
   DEFAULT_APPEARANCE,
   THEMES,
   getContentWidthValue,
@@ -907,6 +913,84 @@ test("PageTemplate renders semantic page-builder variants", () => {
   assert.ok(framed.includes("bg-card"));
 });
 
+test("PageTemplate detaches leading hero from framed builder body", () => {
+  const html = renderToStaticMarkup(
+    createElement(
+      PageTemplate,
+      {
+        template: { variant: "framed-builder" },
+        mainVariant: "normal",
+        leading: createElement("section", { "data-test": "hero" }, "Hero"),
+        hasBody: true,
+      },
+      createElement("section", { "data-test": "body" }, "Body"),
+    ),
+  );
+
+  assert.ok(html.includes('data-leading-hero-slider="true"'));
+  assert.ok(html.includes('data-page-body-frame="true"'));
+  assert.ok(html.includes("page-template-body mt-5 mb-5"));
+  assert.ok(html.includes("rounded-lg border bg-card"));
+  assert.ok(
+    html.indexOf('data-test="hero"') < html.indexOf('data-test="body"'),
+  );
+});
+
+test("builder render helpers split only a leading root hero slider", () => {
+  const data: BuilderData = {
+    version: 1,
+    nodes: {
+      ROOT: {
+        type: { resolvedName: "Root" },
+        props: {},
+        parent: null,
+        hidden: false,
+        nodes: ["hidden-heading", "hero", "body"],
+        linkedNodes: {},
+      },
+      "hidden-heading": {
+        type: { resolvedName: "Heading" },
+        props: {},
+        hidden: true,
+        nodes: [],
+        linkedNodes: {},
+      },
+      hero: {
+        type: { resolvedName: "HeroSlider" },
+        props: {},
+        hidden: false,
+        nodes: [],
+        linkedNodes: {},
+      },
+      body: {
+        type: { resolvedName: "Text" },
+        props: {},
+        hidden: false,
+        nodes: [],
+        linkedNodes: {},
+      },
+    },
+  };
+  const bodyFirst: BuilderData = {
+    ...data,
+    nodes: {
+      ...data.nodes,
+      ROOT: {
+        ...data.nodes.ROOT,
+        nodes: ["body", "hero"],
+      },
+    },
+  };
+
+  assert.equal(getLeadingHeroSliderNodeId(data), "hero");
+  assert.equal(hasBodyAfterLeadingHeroSlider(data), true);
+  assert.deepEqual(omitLeadingHeroSlider(data).nodes.ROOT.nodes, [
+    "hidden-heading",
+    "body",
+  ]);
+  assert.equal(getLeadingHeroSliderNodeId(bodyFirst), null);
+});
+
 test("BlogPostTemplate keeps edit and comments affordances across placements", () => {
   const html = renderToStaticMarkup(
     createElement(
@@ -1067,5 +1151,6 @@ test("SiteMain renders full-bleed and framed surface variants", () => {
   assert.ok(!fullBleed.includes("padding-top"));
   assert.ok(!fullBleed.includes("padding-bottom"));
   assert.ok(framed.includes('data-main-variant="framed"'));
+  assert.ok(framed.includes("data-main-surface"));
   assert.ok(framed.includes("rounded-lg border bg-background"));
 });
