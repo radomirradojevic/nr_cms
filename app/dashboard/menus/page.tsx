@@ -29,6 +29,7 @@ export default async function MenusPage() {
   const selectedNavigationMenuId = headerSettings.success
     ? headerSettings.data.navigationMenuId
     : null;
+  const menusListKey = `${total}:${menuRows.map((menu) => menu.id).join("|")}`;
 
   return (
     <div className="space-y-6 p-6">
@@ -44,6 +45,7 @@ export default async function MenusPage() {
         </div>
 
         <MenusList
+          key={menusListKey}
           initialRows={menuRows}
           initialTotal={total}
           pageSize={PAGE_SIZE}
