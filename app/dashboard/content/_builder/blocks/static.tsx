@@ -51,6 +51,13 @@ const gapClass: Record<NonNullable<ColumnsProps["gap"]>, string> = {
   lg: "gap-10",
 };
 
+function tracksToGridTemplate(tracks: string) {
+  return tracks
+    .split(" ")
+    .map((track) => `minmax(0, ${track})`)
+    .join(" ");
+}
+
 const tableRenderExtensions = [
   StarterKit.configure({
     link: { openOnClick: false, autolink: true },
@@ -147,15 +154,28 @@ export function LayoutStatic({
 }: LayoutProps & { children?: ReactNode }) {
   const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
   const layoutPreset = getLayoutPreset(preset);
+  const scope = `layout-${styleHash({
+    preset: layoutPreset.value,
+    tracks: layoutPreset.tracks,
+    style: style ?? null,
+  })}`;
   const gapClass =
     layoutGapOptions.find((option) => option.value === (gap ?? "md"))
       ?.className ?? "gap-6";
+  const layoutCss = `.${scope} { grid-template-columns: ${tracksToGridTemplate(layoutPreset.tracks)}; }
+@media (max-width: 767px) { .${scope} { grid-template-columns: minmax(0, 1fr); } }`;
   return (
     <>
       {responsiveStyleEl}
+      <style dangerouslySetInnerHTML={{ __html: layoutCss }} />
       <section
         style={shellStyle}
-        className={cn("cms-builder-layout my-6 grid", gapClass, shellClass)}
+        className={cn(
+          "cms-builder-layout my-6 grid",
+          scope,
+          gapClass,
+          shellClass,
+        )}
         data-layout-preset={layoutPreset.value}
       >
         {children}

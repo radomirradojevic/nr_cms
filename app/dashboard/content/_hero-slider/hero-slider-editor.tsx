@@ -39,23 +39,32 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImageInsertDialog } from "@/app/dashboard/content/_editors/image-insert-dialog";
 import { VideoInsertDialog } from "@/app/dashboard/content/_editors/video-insert-dialog";
+import { SidesInput } from "@/app/dashboard/content/_builder/blocks/panel/controls";
 import { HeroSliderRenderer } from "@/components/hero-slider-renderer";
 import {
   HERO_SLIDE_BLOCK_OPTIONS,
+  HERO_SLIDE_MENU_PRESET_OPTIONS,
   HERO_SLIDER_TEMPLATE_OPTIONS,
   createDefaultHeroSlider,
   createHeroSlide,
   createHeroSlideBlock,
+  createHeroSlideMenu,
+  createHeroSlideMenuPresetProps,
   createHeroSliderTemplate,
   makeHeroSliderId,
   normalizeHeroSliderContent,
   type HeroSlide,
   type HeroSlideBlock,
   type HeroSlideBlockType,
+  type HeroSlideMenu,
   type HeroSliderBreakpoint,
   type HeroSliderContent,
   type HeroSliderTemplate,
 } from "@/lib/hero-slider";
+import {
+  fetchHeroSliderMenuOptions,
+  type HeroSliderMenuOption,
+} from "./menu-actions";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -183,6 +192,18 @@ export function HeroSliderEditor({
   function updateBlocks(slideId: string, blocks: HeroSlideBlock[]) {
     updateSlide(slideId, (slide) => {
       slide.blocks = blocks;
+    });
+  }
+
+  function addMenu(slideId: string) {
+    updateSlide(slideId, (slide) => {
+      slide.menus.push(createHeroSlideMenu());
+    });
+  }
+
+  function updateMenus(slideId: string, menus: HeroSlideMenu[]) {
+    updateSlide(slideId, (slide) => {
+      slide.menus = menus;
     });
   }
 
@@ -445,6 +466,25 @@ export function HeroSliderEditor({
                   onOpenImagePicker={(blockId) =>
                     setImageTarget({ kind: "block-image", blockId })
                   }
+                />
+              </div>
+
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label className="text-xs">Slide menus</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addMenu(activeSlide.id)}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add menu
+                  </Button>
+                </div>
+                <MenuEditorList
+                  menus={activeSlide.menus}
+                  onChange={(menus) => updateMenus(activeSlide.id, menus)}
                 />
               </div>
 
@@ -1059,6 +1099,122 @@ function BlockEditorList({
   );
 }
 
+function MenuEditorList({
+  menus,
+  onChange,
+}: {
+  menus: HeroSlideMenu[];
+  onChange: (menus: HeroSlideMenu[]) => void;
+}) {
+  function updateMenu(menuId: string, next: HeroSlideMenu) {
+    onChange(menus.map((menu) => (menu.id === menuId ? next : menu)));
+  }
+  function moveMenu(index: number, direction: -1 | 1) {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= menus.length) return;
+    const next = [...menus];
+    const [menu] = next.splice(index, 1);
+    next.splice(nextIndex, 0, menu);
+    onChange(next);
+  }
+  function duplicateMenu(menu: HeroSlideMenu, index: number) {
+    const next = [...menus];
+    next.splice(index + 1, 0, remapMenuIds(clone(menu)));
+    onChange(next);
+  }
+  function deleteMenu(menuId: string) {
+    onChange(menus.filter((menu) => menu.id !== menuId));
+  }
+
+  if (menus.length === 0) {
+    return (
+      <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+        No slide menus.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {menus.map((menu, index) => (
+        <MenuEditor
+          key={menu.id}
+          menu={menu}
+          onChange={(next) => updateMenu(menu.id, next)}
+          onMoveUp={() => moveMenu(index, -1)}
+          onMoveDown={() => moveMenu(index, 1)}
+          onDuplicate={() => duplicateMenu(menu, index)}
+          onDelete={() => deleteMenu(menu.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MenuEditor({
+  menu,
+  onChange,
+  onMoveUp,
+  onMoveDown,
+  onDuplicate,
+  onDelete,
+}: {
+  menu: HeroSlideMenu;
+  onChange: (menu: HeroSlideMenu) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  function setProp(key: string, value: unknown) {
+    onChange({ ...menu, props: { ...menu.props, [key]: value } });
+  }
+  function toggleHidden(breakpoint: HeroSliderBreakpoint, checked: boolean) {
+    const current = menu.hiddenOn ?? [];
+    onChange({
+      ...menu,
+      hiddenOn: checked
+        ? Array.from(new Set([...current, breakpoint]))
+        : current.filter((item) => item !== breakpoint),
+    });
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">Menu</Badge>
+        <div className="flex-1" />
+        <IconButton label="Move up" onClick={onMoveUp}>
+          <ArrowUp className="h-4 w-4" />
+        </IconButton>
+        <IconButton label="Move down" onClick={onMoveDown}>
+          <ArrowDown className="h-4 w-4" />
+        </IconButton>
+        <IconButton label="Duplicate" onClick={onDuplicate}>
+          <Copy className="h-4 w-4" />
+        </IconButton>
+        <IconButton label="Delete" onClick={onDelete} destructive>
+          <Trash2 className="h-4 w-4" />
+        </IconButton>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        {BREAKPOINTS.map((breakpoint) => (
+          <label key={breakpoint} className="flex items-center gap-2 text-xs">
+            <Switch
+              checked={menu.hiddenOn?.includes(breakpoint) ?? false}
+              onCheckedChange={(value) => toggleHidden(breakpoint, !!value)}
+            />
+            Hide {breakpoint}
+          </label>
+        ))}
+      </div>
+
+      <MenuFields menu={menu} setProp={setProp} onChange={onChange} />
+    </div>
+  );
+}
+
 function BlockEditor({
   block,
   onChange,
@@ -1226,6 +1382,10 @@ function BlockFields({
         </div>
       </div>
     );
+  }
+
+  if (block.type === "menu") {
+    return null;
   }
 
   if (block.type === "card") {
@@ -1484,6 +1644,472 @@ function NestedBlocks({
   );
 }
 
+function MenuFields({
+  menu,
+  setProp,
+  onChange,
+}: {
+  menu: HeroSlideMenu;
+  setProp: (key: string, value: unknown) => void;
+  onChange: (menu: HeroSlideMenu) => void;
+}) {
+  const props = menu.props;
+  const [menus, setMenus] = useState<HeroSliderMenuOption[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchHeroSliderMenuOptions()
+      .then((result) => {
+        if (cancelled) return;
+        if ("error" in result) {
+          toast.error(result.error);
+          setMenus([]);
+        } else {
+          setMenus(result.rows);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Could not load menus.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function setProps(patch: Record<string, unknown>) {
+    onChange({ ...menu, props: { ...props, ...patch } });
+  }
+
+  const selectedMenuId = stringProp(props.menuId);
+  const selectedMenuMissing =
+    selectedMenuId && !menus.some((menu) => menu.id === selectedMenuId);
+
+  return (
+    <div className="space-y-4">
+      <MenuSettingsGroup title="Menu Source">
+        <Field label="Menu">
+          <Select
+            value={selectedMenuId || "none"}
+            onValueChange={(value) => {
+              if (value === "none") {
+                setProps({ menuId: "", menuName: "" });
+                return;
+              }
+              const menu = menus.find((item) => item.id === value);
+              setProps({
+                menuId: value,
+                menuName: menu?.name ?? stringProp(props.menuName),
+              });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue
+                placeholder={loading ? "Loading menus..." : "Select menu"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No menu selected</SelectItem>
+              {selectedMenuMissing ? (
+                <SelectItem value={selectedMenuId}>
+                  {stringProp(props.menuName, selectedMenuId)}
+                </SelectItem>
+              ) : null}
+              {menus.map((menu) => (
+                <SelectItem key={menu.id} value={menu.id}>
+                  {menu.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        {selectedMenuId ? (
+          <p className="truncate text-xs text-muted-foreground">
+            /dashboard/menus/{selectedMenuId}
+          </p>
+        ) : null}
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Preset and Layout">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <MenuSelectField
+            label="Design preset"
+            value={stringProp(props.preset, "glass")}
+            onChange={(value) =>
+              setProps({
+                preset: value,
+                ...createHeroSlideMenuPresetProps(value),
+              })
+            }
+          >
+            {HERO_SLIDE_MENU_PRESET_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </MenuSelectField>
+          <MenuSelectField
+            label="Desktop layout"
+            value={stringProp(props.layout, "horizontal")}
+            onChange={(value) => setProp("layout", value)}
+          >
+            <SelectItem value="horizontal">Horizontal</SelectItem>
+            <SelectItem value="vertical">Vertical</SelectItem>
+            <SelectItem value="dropdown">Dropdown</SelectItem>
+            <SelectItem value="mega">Mega-menu ready</SelectItem>
+          </MenuSelectField>
+          <MenuSelectField
+            label="Mobile behavior"
+            value={stringProp(props.mobileBehavior, "collapse")}
+            onChange={(value) => setProp("mobileBehavior", value)}
+          >
+            <SelectItem value="collapse">Collapse</SelectItem>
+            <SelectItem value="stack">Stacked</SelectItem>
+            <SelectItem value="hidden">Hidden</SelectItem>
+          </MenuSelectField>
+          <MenuSelectField
+            label="Mobile breakpoint"
+            value={stringProp(props.mobileBreakpoint, "lg")}
+            onChange={(value) => setProp("mobileBreakpoint", value)}
+          >
+            <SelectItem value="md">Tablet</SelectItem>
+            <SelectItem value="lg">Laptop</SelectItem>
+            <SelectItem value="xl">Wide desktop</SelectItem>
+          </MenuSelectField>
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Position">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <MenuSelectField
+            label="Pinned anchor"
+            value={stringProp(props.anchor, "top-right")}
+            onChange={(value) => setProp("anchor", value)}
+          >
+            <SelectItem value="top-left">Top left</SelectItem>
+            <SelectItem value="top-center">Top center</SelectItem>
+            <SelectItem value="top-right">Top right</SelectItem>
+            <SelectItem value="center-left">Center left</SelectItem>
+            <SelectItem value="center">Center</SelectItem>
+            <SelectItem value="center-right">Center right</SelectItem>
+            <SelectItem value="bottom-left">Bottom left</SelectItem>
+            <SelectItem value="bottom-center">Bottom center</SelectItem>
+            <SelectItem value="bottom-right">Bottom right</SelectItem>
+          </MenuSelectField>
+          <TextField
+            label="Z-index"
+            value={stringProp(props.zIndex, "20")}
+            onChange={(value) => setProp("zIndex", value)}
+          />
+          <TextField
+            label="Offset X"
+            value={stringProp(props.offsetX, "clamp(1rem, 4vw, 3rem)")}
+            onChange={(value) => setProp("offsetX", value)}
+          />
+          <TextField
+            label="Offset Y"
+            value={stringProp(props.offsetY, "clamp(1rem, 4vw, 2rem)")}
+            onChange={(value) => setProp("offsetY", value)}
+          />
+          <TextField
+            label="Width"
+            value={stringProp(props.width, "auto")}
+            onChange={(value) => setProp("width", value)}
+          />
+          <TextField
+            label="Max width"
+            value={stringProp(props.maxWidth, "100%")}
+            onChange={(value) => setProp("maxWidth", value)}
+          />
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Wrapper Spacing">
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Margin">
+            <SidesInput
+              value={sidesProp(props.wrapperMargin)}
+              onChange={(value) => setProp("wrapperMargin", value ?? {})}
+            />
+          </Field>
+          <Field label="Padding">
+            <SidesInput
+              value={sidesProp(props.wrapperPadding)}
+              onChange={(value) => setProp("wrapperPadding", value ?? {})}
+            />
+          </Field>
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Typography">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <TextField
+            label="Font size"
+            value={stringProp(props.fontSize, "0.95rem")}
+            onChange={(value) => setProp("fontSize", value)}
+          />
+          <MenuSelectField
+            label="Font weight"
+            value={stringProp(props.fontWeight, "600")}
+            onChange={(value) => setProp("fontWeight", value)}
+          >
+            <SelectItem value="400">Regular</SelectItem>
+            <SelectItem value="500">Medium</SelectItem>
+            <SelectItem value="600">Semibold</SelectItem>
+            <SelectItem value="700">Bold</SelectItem>
+          </MenuSelectField>
+          <MenuSelectField
+            label="Transform"
+            value={stringProp(props.textTransform, "none")}
+            onChange={(value) => setProp("textTransform", value)}
+          >
+            <SelectItem value="none">None</SelectItem>
+            <SelectItem value="uppercase">Uppercase</SelectItem>
+            <SelectItem value="capitalize">Capitalize</SelectItem>
+            <SelectItem value="lowercase">Lowercase</SelectItem>
+          </MenuSelectField>
+          <TextField
+            label="Letter spacing"
+            value={stringProp(props.letterSpacing, "0")}
+            onChange={(value) => setProp("letterSpacing", value)}
+          />
+          <TextField
+            label="Line height"
+            value={stringProp(props.lineHeight, "1.2")}
+            onChange={(value) => setProp("lineHeight", value)}
+          />
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Colors and States">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <ColorField
+            label="Text"
+            value={stringProp(props.color, "#ffffff")}
+            onChange={(value) => setProp("color", value)}
+          />
+          <ColorField
+            label="Background"
+            value={stringProp(props.backgroundColor, "rgba(255,255,255,0.14)")}
+            onChange={(value) => setProp("backgroundColor", value)}
+          />
+          <ColorField
+            label="Border"
+            value={stringProp(props.borderColor, "rgba(255,255,255,0.24)")}
+            onChange={(value) => setProp("borderColor", value)}
+          />
+          <ColorField
+            label="Hover text"
+            value={stringProp(props.hoverColor, "#ffffff")}
+            onChange={(value) => setProp("hoverColor", value)}
+          />
+          <ColorField
+            label="Hover background"
+            value={stringProp(
+              props.hoverBackgroundColor,
+              "rgba(255,255,255,0.24)",
+            )}
+            onChange={(value) => setProp("hoverBackgroundColor", value)}
+          />
+          <ColorField
+            label="Active background"
+            value={stringProp(
+              props.activeBackgroundColor,
+              "rgba(255,255,255,0.3)",
+            )}
+            onChange={(value) => setProp("activeBackgroundColor", value)}
+          />
+          <ColorField
+            label="Active text"
+            value={stringProp(props.activeColor, "#ffffff")}
+            onChange={(value) => setProp("activeColor", value)}
+          />
+          <ColorField
+            label="Dropdown background"
+            value={stringProp(
+              props.dropdownBackgroundColor,
+              "rgba(15,23,42,0.94)",
+            )}
+            onChange={(value) => setProp("dropdownBackgroundColor", value)}
+          />
+          <ColorField
+            label="Dropdown text"
+            value={stringProp(props.dropdownColor, "#ffffff")}
+            onChange={(value) => setProp("dropdownColor", value)}
+          />
+          <ColorField
+            label="Mobile panel"
+            value={stringProp(
+              props.mobilePanelBackgroundColor,
+              "rgba(15,23,42,0.96)",
+            )}
+            onChange={(value) => setProp("mobilePanelBackgroundColor", value)}
+          />
+          <ColorField
+            label="Mobile text"
+            value={stringProp(props.mobilePanelColor, "#ffffff")}
+            onChange={(value) => setProp("mobilePanelColor", value)}
+          />
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Spacing, Border, Shadow">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <TextField
+            label="Gap"
+            value={stringProp(props.gap, "0.35rem")}
+            onChange={(value) => setProp("gap", value)}
+          />
+          <TextField
+            label="Item padding"
+            value={stringProp(props.itemPadding, "0.65rem 0.85rem")}
+            onChange={(value) => setProp("itemPadding", value)}
+          />
+          <TextField
+            label="Submenu width"
+            value={stringProp(props.submenuWidth, "240px")}
+            onChange={(value) => setProp("submenuWidth", value)}
+          />
+          <TextField
+            label="Mega width"
+            value={stringProp(
+              props.megaWidth,
+              "min(48rem, calc(100vw - 2rem))",
+            )}
+            onChange={(value) => setProp("megaWidth", value)}
+          />
+          <TextField
+            label="Submenu padding"
+            value={stringProp(props.submenuPadding, "0.5rem")}
+            onChange={(value) => setProp("submenuPadding", value)}
+          />
+          <TextField
+            label="Mobile button label"
+            value={stringProp(props.mobileButtonLabel, "Menu")}
+            onChange={(value) => setProp("mobileButtonLabel", value)}
+          />
+          <TextField
+            label="Mobile panel width"
+            value={stringProp(
+              props.mobilePanelWidth,
+              "min(20rem, calc(100vw - 2rem))",
+            )}
+            onChange={(value) => setProp("mobilePanelWidth", value)}
+          />
+          <TextField
+            label="Mobile item padding"
+            value={stringProp(props.mobileItemPadding, "0.75rem 0.85rem")}
+            onChange={(value) => setProp("mobileItemPadding", value)}
+          />
+          <TextField
+            label="Border width"
+            value={stringProp(props.borderWidth, "1px")}
+            onChange={(value) => setProp("borderWidth", value)}
+          />
+          <TextField
+            label="Radius"
+            value={stringProp(props.borderRadius, "999px")}
+            onChange={(value) => setProp("borderRadius", value)}
+          />
+          <TextField
+            label="Submenu radius"
+            value={stringProp(props.submenuRadius, "0.85rem")}
+            onChange={(value) => setProp("submenuRadius", value)}
+          />
+          <TextField
+            label="Surface shadow"
+            value={stringProp(props.surfaceShadow, "none")}
+            onChange={(value) => setProp("surfaceShadow", value)}
+          />
+          <div className="sm:col-span-2">
+            <TextField
+              label="Shadow"
+              value={stringProp(
+                props.shadow,
+                "0 18px 45px rgba(15,23,42,0.24)",
+              )}
+              onChange={(value) => setProp("shadow", value)}
+            />
+          </div>
+        </div>
+      </MenuSettingsGroup>
+    </div>
+  );
+}
+
+function MenuSettingsGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-3 border-t pt-3 first:border-t-0 first:pt-0">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h4>
+      {children}
+    </div>
+  );
+}
+
+function MenuSelectField({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <Field label={label}>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>{children}</SelectContent>
+      </Select>
+    </Field>
+  );
+}
+
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const reactId = useId();
+  const inputId = `menu-color-${reactId}`;
+  return (
+    <Field label={label}>
+      <div className="grid grid-cols-[42px_minmax(0,1fr)] gap-2">
+        <Input
+          id={inputId}
+          type="color"
+          value={colorInputValue(value)}
+          onChange={(event) => onChange(event.target.value)}
+          className="p-1"
+        />
+        <Input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+    </Field>
+  );
+}
+
 function ButtonFields({
   label,
   href,
@@ -1716,6 +2342,7 @@ function remapSlideIds(slide: HeroSlide): HeroSlide {
     ...slide,
     id: makeHeroSliderId("slide"),
     blocks: slide.blocks.map(remapBlockIds),
+    menus: slide.menus.map(remapMenuIds),
   };
 }
 
@@ -1725,6 +2352,13 @@ function remapBlockIds(block: HeroSlideBlock): HeroSlideBlock {
     id: makeHeroSliderId("block"),
     children: block.children?.map(remapBlockIds),
     columns: block.columns?.map((column) => column.map(remapBlockIds)),
+  };
+}
+
+function remapMenuIds(menu: HeroSlideMenu): HeroSlideMenu {
+  return {
+    ...menu,
+    id: makeHeroSliderId("menu"),
   };
 }
 
@@ -1755,6 +2389,23 @@ function blockLabel(type: HeroSlideBlockType) {
 
 function stringProp(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
+}
+
+function sidesProp(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    top: stringProp(record.top),
+    right: stringProp(record.right),
+    bottom: stringProp(record.bottom),
+    left: stringProp(record.left),
+  };
+}
+
+function colorInputValue(value: string) {
+  return /^#[0-9a-f]{6}$/i.test(value.trim()) ? value.trim() : "#ffffff";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

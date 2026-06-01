@@ -228,7 +228,13 @@ export function renderNode(
         : null;
 
   return (
-    <Cmp key={id} {...node.props}>
+    <Cmp
+      key={id}
+      {...node.props}
+      __builderNodeId={id}
+      __builderParentId={node.parent}
+      __builderIsRootChild={node.parent === ROOT_NODE_ID}
+    >
       {children}
     </Cmp>
   ) as ReactElement;
