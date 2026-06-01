@@ -27,6 +27,15 @@ const rscRegistry: StaticRegistry = {
   FormSubmissions: FormSubmissionsStatic as never,
 };
 
+const LeadingHeroSliderStatic: StaticRegistry[string] = (props) => (
+  <HeroSliderStatic {...props} allowViewportWidth />
+);
+
+const leadingHeroRegistry: StaticRegistry = {
+  ...rscRegistry,
+  HeroSlider: LeadingHeroSliderStatic,
+};
+
 /**
  * RSC entry point used by the public-facing pages (`app/page.tsx`,
  * `app/[slug]/page.tsx`). Renders a `BuilderData` envelope using the
@@ -44,7 +53,7 @@ export function BuilderLeadingHeroSlider({ data }: { data: unknown }) {
   if (!isBuilderData(data)) return null;
   const leadingHeroId = getLeadingHeroSliderNodeId(data);
   if (!leadingHeroId) return null;
-  return renderNode(leadingHeroId, data.nodes, rscRegistry);
+  return renderNode(leadingHeroId, data.nodes, leadingHeroRegistry);
 }
 
 export function BuilderRender({

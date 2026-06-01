@@ -3,7 +3,7 @@ import { getContentById } from "@/data/content";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 import { canViewContent } from "@/lib/content-visibility";
-import { HeroSliderRenderer } from "@/components/hero-slider-renderer";
+import { HeroSliderRendererWithMenus } from "@/components/hero-slider-renderer-with-menus";
 import {
   applyBlockStyle,
   buildResponsiveCss,
@@ -16,10 +16,14 @@ export async function HeroSliderStatic({
   heroSliderId,
   heroSliderName,
   style,
+  allowViewportWidth,
+  __builderIsRootChild,
 }: {
   heroSliderId?: unknown;
   heroSliderName?: unknown;
   style?: BlockStyle;
+  allowViewportWidth?: boolean;
+  __builderIsRootChild?: unknown;
 }) {
   if (typeof heroSliderId !== "string" || !heroSliderId) return null;
 
@@ -39,9 +43,10 @@ export async function HeroSliderStatic({
   const hasStyle =
     Object.keys(cssStyle).length > 0 || !!wrapperClass || !!responsiveCss;
   const inner = (
-    <HeroSliderRenderer
+    <HeroSliderRendererWithMenus
       data={row.contentJson}
       label={typeof heroSliderName === "string" ? heroSliderName : row.title}
+      allowViewportWidth={allowViewportWidth ?? __builderIsRootChild === true}
     />
   );
 
