@@ -131,6 +131,14 @@ export type HeroSlideMenu = {
   hiddenOn?: HeroSliderBreakpoint[];
 };
 
+export type HeroSlideSearchContentType = "blog_post" | "page";
+
+export type HeroSlideSearchInput = {
+  id: string;
+  props: Record<string, unknown>;
+  hiddenOn?: HeroSliderBreakpoint[];
+};
+
 export type HeroSlide = {
   id: string;
   name: string;
@@ -141,6 +149,7 @@ export type HeroSlide = {
   responsive: Record<HeroSliderBreakpoint, HeroSlideResponsiveLayout>;
   blocks: HeroSlideBlock[];
   menus: HeroSlideMenu[];
+  searchInputs: HeroSlideSearchInput[];
 };
 
 export type HeroSliderContent = {
@@ -360,6 +369,117 @@ export const HERO_SLIDE_MENU_PRESET_OPTIONS: Array<{
   { value: "editorial", label: HERO_SLIDE_MENU_PRESETS.editorial.label },
 ];
 
+export const HERO_SLIDE_SEARCH_INPUT_PRESETS = {
+  glass: {
+    label: "Glass",
+    props: {
+      backgroundColor: "rgba(15,23,42,0.46)",
+      color: "#ffffff",
+      borderColor: "rgba(255,255,255,0.24)",
+      placeholderColor: "rgba(255,255,255,0.68)",
+      focusBorderColor: "rgba(255,255,255,0.55)",
+      focusRingColor: "rgba(255,255,255,0.22)",
+      resultsBackgroundColor: "rgba(15,23,42,0.97)",
+      resultsColor: "#ffffff",
+      resultsBorderColor: "rgba(255,255,255,0.18)",
+      borderRadius: "999px",
+      borderWidth: "1px",
+      shadow: "0 18px 44px rgba(2,6,23,0.32)",
+      resultsShadow: "0 22px 56px rgba(2,6,23,0.38)",
+    },
+  },
+  solid: {
+    label: "Header",
+    props: {
+      backgroundColor: "var(--background)",
+      color: "var(--foreground)",
+      borderColor: "var(--input)",
+      placeholderColor: "var(--muted-foreground)",
+      focusBorderColor: "var(--ring)",
+      focusRingColor: "rgb(from var(--ring) r g b / 0.35)",
+      resultsBackgroundColor: "var(--popover)",
+      resultsColor: "var(--popover-foreground)",
+      resultsBorderColor: "var(--border)",
+      borderRadius: "0.5rem",
+      borderWidth: "1px",
+      shadow: "0 10px 24px rgba(15,23,42,0.12)",
+      resultsShadow:
+        "0 0 0 1px rgb(from var(--foreground) r g b / 0.1), 0 10px 24px rgba(15,23,42,0.14)",
+    },
+  },
+  minimal: {
+    label: "Minimal",
+    props: {
+      backgroundColor: "transparent",
+      color: "#ffffff",
+      borderColor: "rgba(255,255,255,0.56)",
+      placeholderColor: "rgba(255,255,255,0.72)",
+      focusBorderColor: "#ffffff",
+      focusRingColor: "rgba(255,255,255,0.2)",
+      resultsBackgroundColor: "rgba(255,255,255,0.97)",
+      resultsColor: "#111827",
+      resultsBorderColor: "rgba(17,24,39,0.12)",
+      borderRadius: "0.65rem",
+      borderWidth: "1px",
+      shadow: "none",
+      resultsShadow: "0 16px 34px rgba(15,23,42,0.16)",
+    },
+  },
+  pill: {
+    label: "Premium Dark",
+    props: {
+      backgroundColor: "rgba(2,6,23,0.82)",
+      color: "#ffffff",
+      borderColor: "rgba(148,163,184,0.3)",
+      placeholderColor: "rgba(226,232,240,0.72)",
+      focusBorderColor: "rgba(45,212,191,0.72)",
+      focusRingColor: "rgba(20,184,166,0.24)",
+      resultsBackgroundColor: "rgba(2,6,23,0.97)",
+      resultsColor: "#ffffff",
+      resultsBorderColor: "rgba(148,163,184,0.24)",
+      borderRadius: "999px",
+      borderWidth: "1px",
+      shadow: "0 20px 48px rgba(2,6,23,0.36)",
+      resultsShadow: "0 24px 58px rgba(2,6,23,0.44)",
+    },
+  },
+  editorial: {
+    label: "Editorial",
+    props: {
+      backgroundColor: "rgba(250,250,249,0.92)",
+      color: "#1c1917",
+      borderColor: "rgba(68,64,60,0.18)",
+      placeholderColor: "rgba(68,64,60,0.64)",
+      focusBorderColor: "#1c1917",
+      focusRingColor: "rgba(28,25,23,0.16)",
+      resultsBackgroundColor: "rgba(250,250,249,0.98)",
+      resultsColor: "#1c1917",
+      resultsBorderColor: "rgba(68,64,60,0.18)",
+      borderRadius: "0.35rem",
+      borderWidth: "1px",
+      shadow: "0 12px 28px rgba(28,25,23,0.14)",
+      resultsShadow: "0 18px 40px rgba(28,25,23,0.16)",
+    },
+  },
+} as const;
+
+export type HeroSlideSearchInputPreset =
+  keyof typeof HERO_SLIDE_SEARCH_INPUT_PRESETS;
+
+export const HERO_SLIDE_SEARCH_INPUT_PRESET_OPTIONS: Array<{
+  value: HeroSlideSearchInputPreset;
+  label: string;
+}> = [
+  { value: "glass", label: HERO_SLIDE_SEARCH_INPUT_PRESETS.glass.label },
+  { value: "solid", label: HERO_SLIDE_SEARCH_INPUT_PRESETS.solid.label },
+  { value: "minimal", label: HERO_SLIDE_SEARCH_INPUT_PRESETS.minimal.label },
+  { value: "pill", label: HERO_SLIDE_SEARCH_INPUT_PRESETS.pill.label },
+  {
+    value: "editorial",
+    label: HERO_SLIDE_SEARCH_INPUT_PRESETS.editorial.label,
+  },
+];
+
 export const defaultHeroSliderSettings: HeroSliderSettings = {
   autoplay: true,
   autoplayDelayMs: 6000,
@@ -433,6 +553,14 @@ export function createHeroSlideMenu(): HeroSlideMenu {
   };
 }
 
+export function createHeroSlideSearchInput(): HeroSlideSearchInput {
+  return {
+    id: makeHeroSliderId("search"),
+    props: defaultSearchInputProps("glass"),
+    hiddenOn: [],
+  };
+}
+
 export function createHeroSlide(
   name = "Slide",
   blocks: HeroSlideBlock[] = [
@@ -460,6 +588,7 @@ export function createHeroSlide(
     },
     blocks,
     menus: [],
+    searchInputs: [],
   };
 }
 
@@ -536,6 +665,7 @@ export function heroSliderToPlainText(value: unknown) {
     parts.push(slide.name);
     collectBlocksText(slide.blocks, parts);
     collectMenusText(slide.menus, parts);
+    collectSearchInputsText(slide.searchInputs, parts);
   }
   return parts
     .join("\n")
@@ -546,6 +676,11 @@ export function heroSliderToPlainText(value: unknown) {
 export function createHeroSlideMenuPresetProps(value: unknown) {
   const preset = normalizeMenuPreset(value);
   return { ...HERO_SLIDE_MENU_PRESETS[preset].props };
+}
+
+export function createHeroSlideSearchInputPresetProps(value: unknown) {
+  const preset = normalizeSearchInputPreset(value);
+  return { ...HERO_SLIDE_SEARCH_INPUT_PRESETS[preset].props };
 }
 
 export function collectHeroSliderMenuIds(value: unknown): string[] {
@@ -698,6 +833,35 @@ function defaultMenuProps(value: unknown): Record<string, unknown> {
   };
 }
 
+function defaultSearchInputProps(value: unknown): Record<string, unknown> {
+  const preset = normalizeSearchInputPreset(value);
+  return {
+    preset,
+    label: "Search",
+    placeholder: "Search...",
+    contentTypes: ["blog_post", "page"] satisfies HeroSlideSearchContentType[],
+    positionMode: "absolute",
+    flowAlign: "center",
+    anchor: "bottom-center",
+    offsetX: "0",
+    offsetY: "clamp(4.5rem, 8vw, 6rem)",
+    zIndex: "20",
+    width: "min(32rem, calc(100vw - 2rem))",
+    maxWidth: "100%",
+    wrapperMargin: {},
+    wrapperPadding: {},
+    inputHeight: "3rem",
+    inputPadding: "0 1rem",
+    fontSize: "1rem",
+    fontWeight: "500",
+    letterSpacing: "0",
+    resultsAlign: "left",
+    resultsWidth: "min(28rem, calc(100vw - 2rem))",
+    resultsRadius: "0.75rem",
+    ...createHeroSlideSearchInputPresetProps(preset),
+  };
+}
+
 function normalizeSettings(value: HeroSliderSettings): HeroSliderSettings {
   const delay = numberInRange(value.autoplayDelayMs, 1000, 30000, 6000);
   const speed = numberInRange(value.transitionSpeedMs, 100, 3000, 500);
@@ -728,6 +892,7 @@ function normalizeSlide(value: unknown): HeroSlide | null {
   if (!isRecord(value)) return null;
   const extracted = normalizeBlocksWithExtractedMenus(value.blocks);
   const menus = [...normalizeMenus(value.menus), ...extracted.menus];
+  const searchInputs = normalizeSearchInputs(value.searchInputs);
   return {
     id: stringValue(value.id, makeHeroSliderId("slide")),
     name: stringValue(value.name, "Slide"),
@@ -761,6 +926,7 @@ function normalizeSlide(value: unknown): HeroSlide | null {
     responsive: normalizeResponsive(value.responsive),
     blocks: extracted.blocks,
     menus,
+    searchInputs,
   };
 }
 
@@ -799,6 +965,22 @@ function normalizeMenu(value: unknown): HeroSlideMenu | null {
     id: stringValue(value.id, makeHeroSliderId("menu")),
     props: normalizeMenuProps(
       isRecord(value.props) ? value.props : defaultMenuProps("glass"),
+    ),
+    hiddenOn: normalizeHiddenOn(value.hiddenOn),
+  };
+}
+
+function normalizeSearchInputs(value: unknown): HeroSlideSearchInput[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeSearchInput).filter(isDefined);
+}
+
+function normalizeSearchInput(value: unknown): HeroSlideSearchInput | null {
+  if (!isRecord(value)) return null;
+  return {
+    id: stringValue(value.id, makeHeroSliderId("search")),
+    props: normalizeSearchInputProps(
+      isRecord(value.props) ? value.props : defaultSearchInputProps("glass"),
     ),
     hiddenOn: normalizeHiddenOn(value.hiddenOn),
   };
@@ -895,10 +1077,50 @@ function normalizeMenuProps(props: Record<string, unknown>) {
   return next;
 }
 
+function normalizeSearchInputProps(props: Record<string, unknown>) {
+  const preset = normalizeSearchInputPreset(props.preset);
+  const next: Record<string, unknown> = {
+    ...defaultSearchInputProps(preset),
+    ...props,
+    preset,
+    positionMode: "absolute",
+  };
+
+  next.wrapperMargin = normalizeMenuSpacingSides(next.wrapperMargin);
+  next.wrapperPadding = normalizeMenuSpacingSides(next.wrapperPadding);
+  next.contentTypes = normalizeSearchContentTypes(next.contentTypes);
+  next.resultsAlign = next.resultsAlign === "right" ? "right" : "left";
+
+  return next;
+}
+
 function normalizeMenuPreset(value: unknown): HeroSlideMenuPreset {
   return typeof value === "string" && value in HERO_SLIDE_MENU_PRESETS
     ? (value as HeroSlideMenuPreset)
     : "glass";
+}
+
+function normalizeSearchInputPreset(
+  value: unknown,
+): HeroSlideSearchInputPreset {
+  return typeof value === "string" && value in HERO_SLIDE_SEARCH_INPUT_PRESETS
+    ? (value as HeroSlideSearchInputPreset)
+    : "glass";
+}
+
+function normalizeSearchContentTypes(
+  value: unknown,
+): HeroSlideSearchContentType[] {
+  if (!Array.isArray(value)) return ["blog_post", "page"];
+  const next = Array.from(
+    new Set(
+      value.filter(
+        (item): item is HeroSlideSearchContentType =>
+          item === "blog_post" || item === "page",
+      ),
+    ),
+  );
+  return next.length > 0 ? next : ["blog_post", "page"];
 }
 
 function normalizeHiddenOn(value: unknown): HeroSliderBreakpoint[] {
@@ -944,6 +1166,20 @@ function collectMenusText(menus: HeroSlideMenu[], parts: string[]) {
   for (const menu of menus) {
     if (typeof menu.props.menuName === "string") {
       parts.push(menu.props.menuName);
+    }
+  }
+}
+
+function collectSearchInputsText(
+  searchInputs: HeroSlideSearchInput[],
+  parts: string[],
+) {
+  for (const searchInput of searchInputs) {
+    if (typeof searchInput.props.label === "string") {
+      parts.push(searchInput.props.label);
+    }
+    if (typeof searchInput.props.placeholder === "string") {
+      parts.push(searchInput.props.placeholder);
     }
   }
 }
