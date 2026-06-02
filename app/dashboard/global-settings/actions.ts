@@ -12,6 +12,7 @@ import {
   UpdateGlobalSettingsSchema,
   type UpdateGlobalSettingsInput,
 } from "@/lib/global-settings";
+import { pruneShellVisibilitySettingsForWrite } from "@/lib/shell-visibility";
 import { updateGlobalSettings as updateGlobalSettingsRow } from "@/data/global-settings";
 import { requireAdminSectionLock } from "@/lib/admin-section-locks-actions";
 
@@ -36,7 +37,15 @@ export async function updateGlobalSettings(
     return { error: parsed.error.issues[0]?.message ?? "Validation failed." };
   }
 
-  const input: UpdateGlobalSettingsInput = parsed.data;
+  const input: UpdateGlobalSettingsInput = {
+    ...parsed.data,
+    headerSettings: await pruneShellVisibilitySettingsForWrite(
+      parsed.data.headerSettings,
+    ),
+    footerSettings: await pruneShellVisibilitySettingsForWrite(
+      parsed.data.footerSettings,
+    ),
+  };
 
   if (input.siteLogoFileId) {
     const file = await getFileByIdUnchecked(input.siteLogoFileId);
