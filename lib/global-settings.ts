@@ -518,6 +518,7 @@ const StableSlugArraySchema = z
   .transform((values) => Array.from(new Set(values)));
 
 export const DEFAULT_SHELL_VISIBILITY_TARGETS = {
+  systemPageIds: [],
   pageIds: [],
   blogPostIds: [],
   heroSliderIds: [],
@@ -527,6 +528,7 @@ export const DEFAULT_SHELL_VISIBILITY_TARGETS = {
 
 export const ShellVisibilityTargetsSchema = z
   .object({
+    systemPageIds: StableSlugArraySchema,
     pageIds: UuidArraySchema,
     blogPostIds: UuidArraySchema,
     heroSliderIds: UuidArraySchema,

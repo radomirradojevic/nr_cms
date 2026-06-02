@@ -195,6 +195,102 @@ test("hero slider menu append flags are normalized as booleans", () => {
   assert.equal(menuProps.appendAuthMenu, false);
 });
 
+test("hero slider search inputs are normalized independently from blocks and menus", () => {
+  const data = normalizeHeroSliderContent({
+    version: 1,
+    settings: {},
+    slides: [
+      {
+        id: "slide",
+        name: "Slide",
+        image: {},
+        video: {},
+        layout: {},
+        layers: {},
+        responsive: {},
+        searchInputs: [
+          {
+            id: "search",
+            props: {
+              preset: "solid",
+              label: "Find content",
+              placeholder: "Search the site",
+              contentTypes: ["page", "bad"],
+              anchor: "center",
+              wrapperMargin: { top: "12px" },
+              resultsAlign: "right",
+            },
+            hiddenOn: ["mobile"],
+          },
+        ],
+        menus: [],
+        blocks: [],
+      },
+    ],
+  });
+
+  const slide = data.slides[0];
+  const searchInput = slide?.searchInputs[0];
+  const props = searchInput?.props ?? {};
+  assert.equal(slide?.blocks.length, 0);
+  assert.equal(slide?.menus.length, 0);
+  assert.equal(slide?.searchInputs.length, 1);
+  assert.equal(searchInput?.id, "search");
+  assert.deepEqual(searchInput?.hiddenOn, ["mobile"]);
+  assert.equal(props.positionMode, "absolute");
+  assert.equal(props.anchor, "center");
+  assert.equal(props.backgroundColor, "var(--background)");
+  assert.deepEqual(props.contentTypes, ["page"]);
+  assert.deepEqual(props.wrapperMargin, {
+    top: "12px",
+    right: "",
+    bottom: "",
+    left: "",
+  });
+  assert.equal(props.resultsAlign, "right");
+});
+
+test("hero slider search inputs render the shared site search form", () => {
+  const html = renderToStaticMarkup(
+    createElement(HeroSliderRenderer, {
+      data: {
+        version: 1,
+        settings: {},
+        slides: [
+          {
+            id: "slide",
+            name: "Slide",
+            image: {},
+            video: {},
+            layout: {},
+            layers: {},
+            responsive: {},
+            blocks: [],
+            menus: [],
+            searchInputs: [
+              {
+                id: "hero-search",
+                props: {
+                  label: "Hero search",
+                  placeholder: "Find stories",
+                  contentTypes: ["blog_post"],
+                  anchor: "bottom-center",
+                },
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+
+  assert.match(html, /hero-slider-search-input/);
+  assert.match(html, /role="search"/);
+  assert.match(html, /aria-label="Hero search"/);
+  assert.match(html, /placeholder="Find stories"/);
+  assert.match(html, /name="types" value="blog_post"/);
+});
+
 test("backend menu helper exposes stable role-aware targets", () => {
   assert.deepEqual(
     getBackendMenuTree({ isBackendUser: false, isAdmin: true }),

@@ -27,6 +27,7 @@ test("selected shell visibility matches stable target ids", () => {
     visibility: {
       mode: "selected",
       targets: {
+        systemPageIds: ["search"],
         pageIds: [pageId],
         blogPostIds: [postId],
         adminPageIds: ["content"],
@@ -52,7 +53,27 @@ test("selected shell visibility matches stable target ids", () => {
     shouldShowShellForTarget(visibility, { adminPageId: "content" }),
     true,
   );
+  assert.equal(
+    shouldShowShellForTarget(visibility, { systemPageId: "search" }),
+    true,
+  );
   assert.equal(shouldShowShellForTarget(visibility, {}), false);
+});
+
+test("route index resolves the search results page to a system target", () => {
+  const target = resolveShellRenderTargetForPathname("/search?q=security", {
+    homepage: null,
+    contents: [
+      {
+        slug: "search",
+        contentId: "44444444-4444-4444-8444-444444444444",
+        contentType: "page",
+      },
+    ],
+    blogCategoryIds: [],
+  });
+
+  assert.deepEqual(target, { systemPageId: "search" });
 });
 
 test("route index resolves slug navigation to stable content ids", () => {

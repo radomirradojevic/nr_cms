@@ -7,7 +7,9 @@ import { type Ref, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type SearchContentType = "blog_post" | "page";
+export type SearchContentType = "blog_post" | "page";
+
+const RESULTS_VIEWPORT_PADDING = 16;
 
 type SearchResult = {
   id: string;
@@ -23,6 +25,7 @@ type SiteSearchProps = {
   contentTypes: SearchContentType[];
   className?: string;
   inputClassName?: string;
+  displayMode?: "responsive" | "input";
   resultsAlign?: "left" | "right";
 };
 
@@ -36,6 +39,7 @@ export function SiteSearch({
   contentTypes,
   className,
   inputClassName,
+  displayMode = "responsive",
   resultsAlign = "left",
 }: SiteSearchProps) {
   const [query, setQuery] = useState("");
@@ -43,13 +47,16 @@ export function SiteSearch({
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resultsShift, setResultsShift] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
   const mobileInputRef = useRef<HTMLInputElement | null>(null);
   const typesParam = useMemo(
     () => Array.from(new Set(contentTypes)).join(","),
     [contentTypes],
   );
   const canSearch = query.trim().length >= 2 && typesParam.length > 0;
+  const inputOnly = displayMode === "input";
 
   useEffect(() => {
     abortRef.current?.abort();
@@ -102,6 +109,38 @@ export function SiteSearch({
     mobileInputRef.current?.focus();
   }, [mobileOpen]);
 
+  useEffect(() => {
+    if (!open || !canSearch) {
+      return;
+    }
+
+    function updateResultsShift() {
+      const element = resultsRef.current;
+      if (!element) return;
+      const rect = element.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      let nextShift = 0;
+
+      if (rect.right > viewportWidth - RESULTS_VIEWPORT_PADDING) {
+        nextShift = viewportWidth - RESULTS_VIEWPORT_PADDING - rect.right;
+      }
+      if (rect.left + nextShift < RESULTS_VIEWPORT_PADDING) {
+        nextShift += RESULTS_VIEWPORT_PADDING - (rect.left + nextShift);
+      }
+
+      setResultsShift((current) =>
+        Math.abs(current - nextShift) > 0.5 ? nextShift : current,
+      );
+    }
+
+    const frame = window.requestAnimationFrame(updateResultsShift);
+    window.addEventListener("resize", updateResultsShift);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updateResultsShift);
+    };
+  }, [canSearch, loading, open, results.length, resultsAlign, mobileOpen]);
+
   const searchInput = (
     ref?: Ref<HTMLInputElement>,
     extraClassName?: string,
@@ -131,10 +170,15 @@ export function SiteSearch({
 
   const searchResults = (
     <div
+      ref={resultsRef}
       className={cn(
         "absolute top-[calc(100%+0.5rem)] z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border bg-popover text-left text-popover-foreground shadow-lg",
         resultsAlign === "right" ? "right-0" : "left-0",
       )}
+      style={{
+        transform:
+          resultsShift === 0 ? undefined : `translateX(${resultsShift}px)`,
+      }}
       onMouseDown={(event) => event.preventDefault()}
     >
       {loading && results.length === 0 ? (
@@ -175,21 +219,23 @@ export function SiteSearch({
 
   return (
     <div className={cn("relative", className)}>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="lg:hidden"
-        aria-label={mobileOpen ? "Close search" : label}
-        aria-expanded={mobileOpen}
-        onClick={() => {
-          setMobileOpen((current) => !current);
-          setOpen(true);
-        }}
-      >
-        {mobileOpen ? <X /> : <Search />}
-      </Button>
-      {mobileOpen && (
+      {!inputOnly ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          aria-label={mobileOpen ? "Close search" : label}
+          aria-expanded={mobileOpen}
+          onClick={() => {
+            setMobileOpen((current) => !current);
+            setOpen(true);
+          }}
+        >
+          {mobileOpen ? <X /> : <Search />}
+        </Button>
+      ) : null}
+      {!inputOnly && mobileOpen ? (
         <form
           action="/search"
           className="absolute right-0 top-[calc(100%+0.5rem)] z-50 flex w-[min(20rem,calc(100vw-1.5rem))] items-center lg:hidden"
@@ -207,10 +253,13 @@ export function SiteSearch({
           {searchInput(mobileInputRef, "w-full shadow-lg")}
           {open && canSearch && searchResults}
         </form>
-      )}
+      ) : null}
       <form
         action="/search"
-        className="relative hidden items-center lg:flex"
+        className={cn(
+          "relative items-center",
+          inputOnly ? "flex" : "hidden lg:flex",
+        )}
         role="search"
         aria-label={label}
         onFocus={() => setOpen(true)}

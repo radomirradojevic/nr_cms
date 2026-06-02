@@ -8,6 +8,7 @@ import {
   ImageIcon,
   Layers3,
   Plus,
+  Search,
   SlidersHorizontal,
   Trash2,
   Upload,
@@ -44,12 +45,15 @@ import { HeroSliderRenderer } from "@/components/hero-slider-renderer";
 import {
   HERO_SLIDE_BLOCK_OPTIONS,
   HERO_SLIDE_MENU_PRESET_OPTIONS,
+  HERO_SLIDE_SEARCH_INPUT_PRESET_OPTIONS,
   HERO_SLIDER_TEMPLATE_OPTIONS,
   createDefaultHeroSlider,
   createHeroSlide,
   createHeroSlideBlock,
   createHeroSlideMenu,
   createHeroSlideMenuPresetProps,
+  createHeroSlideSearchInput,
+  createHeroSlideSearchInputPresetProps,
   createHeroSliderTemplate,
   makeHeroSliderId,
   normalizeHeroSliderContent,
@@ -57,6 +61,8 @@ import {
   type HeroSlideBlock,
   type HeroSlideBlockType,
   type HeroSlideMenu,
+  type HeroSlideSearchContentType,
+  type HeroSlideSearchInput,
   type HeroSliderBreakpoint,
   type HeroSliderContent,
   type HeroSliderTemplate,
@@ -79,6 +85,13 @@ type MediaTarget =
   | { kind: "block-image"; blockId: string };
 
 const BREAKPOINTS: HeroSliderBreakpoint[] = ["desktop", "tablet", "mobile"];
+const SEARCH_CONTENT_TYPES: Array<{
+  value: HeroSlideSearchContentType;
+  label: string;
+}> = [
+  { value: "page", label: "Pages" },
+  { value: "blog_post", label: "Blog posts" },
+];
 
 export function HeroSliderEditor({
   defaultValue,
@@ -204,6 +217,21 @@ export function HeroSliderEditor({
   function updateMenus(slideId: string, menus: HeroSlideMenu[]) {
     updateSlide(slideId, (slide) => {
       slide.menus = menus;
+    });
+  }
+
+  function addSearchInput(slideId: string) {
+    updateSlide(slideId, (slide) => {
+      slide.searchInputs.push(createHeroSlideSearchInput());
+    });
+  }
+
+  function updateSearchInputs(
+    slideId: string,
+    searchInputs: HeroSlideSearchInput[],
+  ) {
+    updateSlide(slideId, (slide) => {
+      slide.searchInputs = searchInputs;
     });
   }
 
@@ -485,6 +513,27 @@ export function HeroSliderEditor({
                 <MenuEditorList
                   menus={activeSlide.menus}
                   onChange={(menus) => updateMenus(activeSlide.id, menus)}
+                />
+              </div>
+
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label className="text-xs">Search input</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addSearchInput(activeSlide.id)}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add search input
+                  </Button>
+                </div>
+                <SearchInputEditorList
+                  searchInputs={activeSlide.searchInputs}
+                  onChange={(searchInputs) =>
+                    updateSearchInputs(activeSlide.id, searchInputs)
+                  }
                 />
               </div>
 
@@ -1211,6 +1260,433 @@ function MenuEditor({
       </div>
 
       <MenuFields menu={menu} setProp={setProp} onChange={onChange} />
+    </div>
+  );
+}
+
+function SearchInputEditorList({
+  searchInputs,
+  onChange,
+}: {
+  searchInputs: HeroSlideSearchInput[];
+  onChange: (searchInputs: HeroSlideSearchInput[]) => void;
+}) {
+  function updateSearchInput(
+    searchInputId: string,
+    next: HeroSlideSearchInput,
+  ) {
+    onChange(
+      searchInputs.map((searchInput) =>
+        searchInput.id === searchInputId ? next : searchInput,
+      ),
+    );
+  }
+  function moveSearchInput(index: number, direction: -1 | 1) {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= searchInputs.length) return;
+    const next = [...searchInputs];
+    const [searchInput] = next.splice(index, 1);
+    next.splice(nextIndex, 0, searchInput);
+    onChange(next);
+  }
+  function duplicateSearchInput(
+    searchInput: HeroSlideSearchInput,
+    index: number,
+  ) {
+    const next = [...searchInputs];
+    next.splice(index + 1, 0, remapSearchInputIds(clone(searchInput)));
+    onChange(next);
+  }
+  function deleteSearchInput(searchInputId: string) {
+    onChange(
+      searchInputs.filter((searchInput) => searchInput.id !== searchInputId),
+    );
+  }
+
+  if (searchInputs.length === 0) {
+    return (
+      <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+        No search input.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {searchInputs.map((searchInput, index) => (
+        <SearchInputEditor
+          key={searchInput.id}
+          searchInput={searchInput}
+          onChange={(next) => updateSearchInput(searchInput.id, next)}
+          onMoveUp={() => moveSearchInput(index, -1)}
+          onMoveDown={() => moveSearchInput(index, 1)}
+          onDuplicate={() => duplicateSearchInput(searchInput, index)}
+          onDelete={() => deleteSearchInput(searchInput.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SearchInputEditor({
+  searchInput,
+  onChange,
+  onMoveUp,
+  onMoveDown,
+  onDuplicate,
+  onDelete,
+}: {
+  searchInput: HeroSlideSearchInput;
+  onChange: (searchInput: HeroSlideSearchInput) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  function setProp(key: string, value: unknown) {
+    onChange({
+      ...searchInput,
+      props: { ...searchInput.props, [key]: value },
+    });
+  }
+  function toggleHidden(breakpoint: HeroSliderBreakpoint, checked: boolean) {
+    const current = searchInput.hiddenOn ?? [];
+    onChange({
+      ...searchInput,
+      hiddenOn: checked
+        ? Array.from(new Set([...current, breakpoint]))
+        : current.filter((item) => item !== breakpoint),
+    });
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="gap-1">
+          <Search className="h-3 w-3" />
+          Search input
+        </Badge>
+        <div className="flex-1" />
+        <IconButton label="Move up" onClick={onMoveUp}>
+          <ArrowUp className="h-4 w-4" />
+        </IconButton>
+        <IconButton label="Move down" onClick={onMoveDown}>
+          <ArrowDown className="h-4 w-4" />
+        </IconButton>
+        <IconButton label="Duplicate" onClick={onDuplicate}>
+          <Copy className="h-4 w-4" />
+        </IconButton>
+        <IconButton label="Delete" onClick={onDelete} destructive>
+          <Trash2 className="h-4 w-4" />
+        </IconButton>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        {BREAKPOINTS.map((breakpoint) => (
+          <label key={breakpoint} className="flex items-center gap-2 text-xs">
+            <Switch
+              checked={searchInput.hiddenOn?.includes(breakpoint) ?? false}
+              onCheckedChange={(value) => toggleHidden(breakpoint, !!value)}
+            />
+            Hide {breakpoint}
+          </label>
+        ))}
+      </div>
+
+      <SearchInputFields
+        searchInput={searchInput}
+        setProp={setProp}
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
+function SearchInputFields({
+  searchInput,
+  setProp,
+  onChange,
+}: {
+  searchInput: HeroSlideSearchInput;
+  setProp: (key: string, value: unknown) => void;
+  onChange: (searchInput: HeroSlideSearchInput) => void;
+}) {
+  const props = searchInput.props;
+
+  function setProps(patch: Record<string, unknown>) {
+    onChange({ ...searchInput, props: { ...props, ...patch } });
+  }
+
+  function toggleContentType(
+    contentType: HeroSlideSearchContentType,
+    checked: boolean,
+  ) {
+    const current = searchContentTypesProp(props.contentTypes);
+    if (!checked && current.length <= 1) {
+      toast.error("Select at least one content type.");
+      return;
+    }
+    const next = checked
+      ? Array.from(new Set([...current, contentType]))
+      : current.filter((item) => item !== contentType);
+    setProp("contentTypes", next);
+  }
+
+  const contentTypes = searchContentTypesProp(props.contentTypes);
+
+  return (
+    <div className="space-y-4">
+      <MenuSettingsGroup title="Search Source">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <TextField
+            label="Label"
+            value={stringProp(props.label, "Search")}
+            onChange={(value) => setProp("label", value)}
+          />
+          <TextField
+            label="Placeholder"
+            value={stringProp(props.placeholder, "Search...")}
+            onChange={(value) => setProp("placeholder", value)}
+          />
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {SEARCH_CONTENT_TYPES.map((contentType) => (
+            <SwitchField
+              key={contentType.value}
+              label={contentType.label}
+              checked={contentTypes.includes(contentType.value)}
+              onChange={(value) => toggleContentType(contentType.value, value)}
+            />
+          ))}
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Preset and Results">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <MenuSelectField
+            label="Design preset"
+            value={stringProp(props.preset, "glass")}
+            onChange={(value) =>
+              setProps({
+                preset: value,
+                ...createHeroSlideSearchInputPresetProps(value),
+              })
+            }
+          >
+            {HERO_SLIDE_SEARCH_INPUT_PRESET_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </MenuSelectField>
+          <MenuSelectField
+            label="Results align"
+            value={stringProp(props.resultsAlign, "left")}
+            onChange={(value) => setProp("resultsAlign", value)}
+          >
+            <SelectItem value="left">Left</SelectItem>
+            <SelectItem value="right">Right</SelectItem>
+          </MenuSelectField>
+          <TextField
+            label="Results width"
+            value={stringProp(
+              props.resultsWidth,
+              "min(28rem, calc(100vw - 2rem))",
+            )}
+            onChange={(value) => setProp("resultsWidth", value)}
+          />
+          <TextField
+            label="Results radius"
+            value={stringProp(props.resultsRadius, "0.75rem")}
+            onChange={(value) => setProp("resultsRadius", value)}
+          />
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Position">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <MenuSelectField
+            label="Pinned anchor"
+            value={stringProp(props.anchor, "bottom-center")}
+            onChange={(value) => setProp("anchor", value)}
+          >
+            <SelectItem value="top-left">Top left</SelectItem>
+            <SelectItem value="top-center">Top center</SelectItem>
+            <SelectItem value="top-right">Top right</SelectItem>
+            <SelectItem value="center-left">Center left</SelectItem>
+            <SelectItem value="center">Center</SelectItem>
+            <SelectItem value="center-right">Center right</SelectItem>
+            <SelectItem value="bottom-left">Bottom left</SelectItem>
+            <SelectItem value="bottom-center">Bottom center</SelectItem>
+            <SelectItem value="bottom-right">Bottom right</SelectItem>
+          </MenuSelectField>
+          <TextField
+            label="Z-index"
+            value={stringProp(props.zIndex, "20")}
+            onChange={(value) => setProp("zIndex", value)}
+          />
+          <TextField
+            label="Offset X"
+            value={stringProp(props.offsetX, "0")}
+            onChange={(value) => setProp("offsetX", value)}
+          />
+          <TextField
+            label="Offset Y"
+            value={stringProp(props.offsetY, "clamp(4.5rem, 8vw, 6rem)")}
+            onChange={(value) => setProp("offsetY", value)}
+          />
+          <TextField
+            label="Width"
+            value={stringProp(props.width, "min(32rem, calc(100vw - 2rem))")}
+            onChange={(value) => setProp("width", value)}
+          />
+          <TextField
+            label="Max width"
+            value={stringProp(props.maxWidth, "100%")}
+            onChange={(value) => setProp("maxWidth", value)}
+          />
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Wrapper Spacing">
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Margin">
+            <SidesInput
+              value={sidesProp(props.wrapperMargin)}
+              onChange={(value) => setProp("wrapperMargin", value ?? {})}
+            />
+          </Field>
+          <Field label="Padding">
+            <SidesInput
+              value={sidesProp(props.wrapperPadding)}
+              onChange={(value) => setProp("wrapperPadding", value ?? {})}
+            />
+          </Field>
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Sizing and Typography">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <TextField
+            label="Input height"
+            value={stringProp(props.inputHeight, "3rem")}
+            onChange={(value) => setProp("inputHeight", value)}
+          />
+          <TextField
+            label="Input padding"
+            value={stringProp(props.inputPadding, "0 1rem")}
+            onChange={(value) => setProp("inputPadding", value)}
+          />
+          <TextField
+            label="Font size"
+            value={stringProp(props.fontSize, "1rem")}
+            onChange={(value) => setProp("fontSize", value)}
+          />
+          <MenuSelectField
+            label="Font weight"
+            value={stringProp(props.fontWeight, "500")}
+            onChange={(value) => setProp("fontWeight", value)}
+          >
+            <SelectItem value="400">Regular</SelectItem>
+            <SelectItem value="500">Medium</SelectItem>
+            <SelectItem value="600">Semibold</SelectItem>
+            <SelectItem value="700">Bold</SelectItem>
+          </MenuSelectField>
+          <TextField
+            label="Letter spacing"
+            value={stringProp(props.letterSpacing, "0")}
+            onChange={(value) => setProp("letterSpacing", value)}
+          />
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Colors">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <ColorField
+            label="Text"
+            value={stringProp(props.color, "#ffffff")}
+            onChange={(value) => setProp("color", value)}
+          />
+          <ColorField
+            label="Background"
+            value={stringProp(props.backgroundColor, "rgba(15,23,42,0.46)")}
+            onChange={(value) => setProp("backgroundColor", value)}
+          />
+          <ColorField
+            label="Border"
+            value={stringProp(props.borderColor, "rgba(255,255,255,0.24)")}
+            onChange={(value) => setProp("borderColor", value)}
+          />
+          <ColorField
+            label="Placeholder"
+            value={stringProp(props.placeholderColor, "rgba(255,255,255,0.68)")}
+            onChange={(value) => setProp("placeholderColor", value)}
+          />
+          <ColorField
+            label="Focus border"
+            value={stringProp(props.focusBorderColor, "rgba(255,255,255,0.55)")}
+            onChange={(value) => setProp("focusBorderColor", value)}
+          />
+          <ColorField
+            label="Focus ring"
+            value={stringProp(props.focusRingColor, "rgba(255,255,255,0.22)")}
+            onChange={(value) => setProp("focusRingColor", value)}
+          />
+          <ColorField
+            label="Results background"
+            value={stringProp(
+              props.resultsBackgroundColor,
+              "rgba(15,23,42,0.97)",
+            )}
+            onChange={(value) => setProp("resultsBackgroundColor", value)}
+          />
+          <ColorField
+            label="Results text"
+            value={stringProp(props.resultsColor, "#ffffff")}
+            onChange={(value) => setProp("resultsColor", value)}
+          />
+          <ColorField
+            label="Results border"
+            value={stringProp(
+              props.resultsBorderColor,
+              "rgba(255,255,255,0.18)",
+            )}
+            onChange={(value) => setProp("resultsBorderColor", value)}
+          />
+        </div>
+      </MenuSettingsGroup>
+
+      <MenuSettingsGroup title="Border and Shadow">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <TextField
+            label="Border width"
+            value={stringProp(props.borderWidth, "1px")}
+            onChange={(value) => setProp("borderWidth", value)}
+          />
+          <TextField
+            label="Radius"
+            value={stringProp(props.borderRadius, "999px")}
+            onChange={(value) => setProp("borderRadius", value)}
+          />
+          <div className="sm:col-span-2">
+            <TextField
+              label="Shadow"
+              value={stringProp(props.shadow, "0 18px 44px rgba(2,6,23,0.32)")}
+              onChange={(value) => setProp("shadow", value)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <TextField
+              label="Results shadow"
+              value={stringProp(
+                props.resultsShadow,
+                "0 22px 56px rgba(2,6,23,0.38)",
+              )}
+              onChange={(value) => setProp("resultsShadow", value)}
+            />
+          </div>
+        </div>
+      </MenuSettingsGroup>
     </div>
   );
 }
@@ -2355,6 +2831,7 @@ function remapSlideIds(slide: HeroSlide): HeroSlide {
     id: makeHeroSliderId("slide"),
     blocks: slide.blocks.map(remapBlockIds),
     menus: slide.menus.map(remapMenuIds),
+    searchInputs: slide.searchInputs.map(remapSearchInputIds),
   };
 }
 
@@ -2371,6 +2848,15 @@ function remapMenuIds(menu: HeroSlideMenu): HeroSlideMenu {
   return {
     ...menu,
     id: makeHeroSliderId("menu"),
+  };
+}
+
+function remapSearchInputIds(
+  searchInput: HeroSlideSearchInput,
+): HeroSlideSearchInput {
+  return {
+    ...searchInput,
+    id: makeHeroSliderId("search"),
   };
 }
 
@@ -2414,6 +2900,19 @@ function sidesProp(value: unknown) {
     bottom: stringProp(record.bottom),
     left: stringProp(record.left),
   };
+}
+
+function searchContentTypesProp(value: unknown): HeroSlideSearchContentType[] {
+  if (!Array.isArray(value)) return ["blog_post", "page"];
+  const next = Array.from(
+    new Set(
+      value.filter(
+        (item): item is HeroSlideSearchContentType =>
+          item === "blog_post" || item === "page",
+      ),
+    ),
+  );
+  return next.length > 0 ? next : ["blog_post", "page"];
 }
 
 function colorInputValue(value: string) {
