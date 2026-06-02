@@ -9,6 +9,7 @@ import { UserButtonClient } from "@/components/user-button-client";
 import { getBackendMenuLinks } from "@/lib/backend-menu";
 import { cn } from "@/lib/utils";
 import { getRoles, hasRole } from "@/lib/roles";
+import { shouldRenderMobileHeaderMenu } from "@/lib/site-mobile-menu";
 import type { TopMenuTreeNode } from "@/data/top-menu";
 
 function isExternal(url: string) {
@@ -166,18 +167,34 @@ export function SiteTopMenuMobile({
   tree,
   isBackendUser = false,
   isAdmin = false,
+  showAuthControls = true,
+  showBackendMenu = true,
 }: {
   tree: TopMenuTreeNode[];
   isBackendUser?: boolean;
   isAdmin?: boolean;
   isLoggedIn?: boolean;
+  showAuthControls?: boolean;
+  showBackendMenu?: boolean;
 }) {
   const { isLoaded, isSignedIn, user } = useUser();
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const hasSiteNav = tree.length > 0;
-  const hasAnything = hasSiteNav || isBackendUser || true;
+  const roles = isLoaded && isSignedIn ? getRoles(user?.publicMetadata) : [];
+  const effectiveIsAdmin = isLoaded ? hasRole(roles, "admin") : isAdmin;
+  const effectiveIsBackendUser = isLoaded
+    ? hasRole(roles, "admin") ||
+      hasRole(roles, "publisher") ||
+      hasRole(roles, "author")
+    : isBackendUser;
+  const hasBackendNav = showBackendMenu && effectiveIsBackendUser;
+  const hasAnything = shouldRenderMobileHeaderMenu({
+    hasSiteNav,
+    hasBackendNav,
+    hasAuthControls: showAuthControls,
+  });
 
   /* Close on Escape */
   useEffect(() => {
@@ -218,16 +235,8 @@ export function SiteTopMenuMobile({
 
   if (!hasAnything) return null;
 
-  const roles = isLoaded && isSignedIn ? getRoles(user?.publicMetadata) : [];
-  const effectiveIsAdmin = isLoaded ? hasRole(roles, "admin") : isAdmin;
-  const effectiveIsBackendUser = isLoaded
-    ? hasRole(roles, "admin") ||
-      hasRole(roles, "publisher") ||
-      hasRole(roles, "author")
-    : isBackendUser;
-
   const backendLinks = getBackendMenuLinks({
-    isBackendUser: effectiveIsBackendUser,
+    isBackendUser: hasBackendNav,
     isAdmin: effectiveIsAdmin,
   });
 
@@ -314,7 +323,7 @@ export function SiteTopMenuMobile({
           )}
 
           {/* Admin nav section */}
-          {effectiveIsBackendUser && (
+          {hasBackendNav && (
             <>
               {hasSiteNav && <div className="mx-2 border-t border-border" />}
               <div className="px-3 py-2">
@@ -337,47 +346,53 @@ export function SiteTopMenuMobile({
           )}
 
           {/* Auth section */}
-          <div className="mx-2 border-t border-border" />
-          <div className="p-2">
-            <Show when="signed-in">
-              <div className="flex items-center gap-3 px-3 py-2">
-                <UserButtonClient />
-                <span className="text-sm font-medium">Account</span>
+          {showAuthControls && (
+            <>
+              {(hasSiteNav || hasBackendNav) && (
+                <div className="mx-2 border-t border-border" />
+              )}
+              <div className="p-2">
+                <Show when="signed-in">
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    <UserButtonClient />
+                    <span className="text-sm font-medium">Account</span>
+                  </div>
+                </Show>
+                <Show when="signed-out">
+                  <div className="flex flex-col gap-1">
+                    <SignInButton mode="modal">
+                      <button
+                        onClick={() => setIsOpen(false)}
+                        className={cn(
+                          "flex w-full items-center rounded-md px-3 py-2.5 text-sm font-medium",
+                          "min-h-[44px] transition-colors duration-150",
+                          "hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]",
+                          "focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)]",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        )}
+                      >
+                        Sign in
+                      </button>
+                    </SignInButton>
+                    <SignUpButton mode="modal">
+                      <button
+                        onClick={() => setIsOpen(false)}
+                        className={cn(
+                          "flex w-full items-center rounded-md px-3 py-2.5 text-sm font-medium",
+                          "min-h-[44px] transition-colors duration-150",
+                          "hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]",
+                          "focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)]",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        )}
+                      >
+                        Sign up
+                      </button>
+                    </SignUpButton>
+                  </div>
+                </Show>
               </div>
-            </Show>
-            <Show when="signed-out">
-              <div className="flex flex-col gap-1">
-                <SignInButton mode="modal">
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className={cn(
-                      "flex w-full items-center rounded-md px-3 py-2.5 text-sm font-medium",
-                      "min-h-[44px] transition-colors duration-150",
-                      "hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]",
-                      "focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)]",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    )}
-                  >
-                    Sign in
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className={cn(
-                      "flex w-full items-center rounded-md px-3 py-2.5 text-sm font-medium",
-                      "min-h-[44px] transition-colors duration-150",
-                      "hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]",
-                      "focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)]",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    )}
-                  >
-                    Sign up
-                  </button>
-                </SignUpButton>
-              </div>
-            </Show>
-          </div>
+            </>
+          )}
         </nav>
       </div>
     </div>

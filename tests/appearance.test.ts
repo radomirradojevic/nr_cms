@@ -46,6 +46,7 @@ import {
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 import { parseGlobalSettingsAppearance } from "@/lib/global-settings";
 import { DEFAULT_GLOW } from "@/lib/glow";
+import { shouldRenderMobileHeaderMenu } from "@/lib/site-mobile-menu";
 
 const classicLegacyInput = {
   appearance: {
@@ -88,6 +89,33 @@ test("resolveAppearance falls back to the legacy default appearance", () => {
   assert.equal(appearance.cssVars["--frontend-content-max-width"], "72rem");
   assert.equal(appearance.cssVars["--backend-content-max-width"], "72rem");
   assert.deepEqual(appearance.fontLinks, []);
+});
+
+test("mobile header menu renders for auth controls without site links", () => {
+  assert.equal(
+    shouldRenderMobileHeaderMenu({
+      hasSiteNav: false,
+      hasBackendNav: false,
+      hasAuthControls: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRenderMobileHeaderMenu({
+      hasSiteNav: false,
+      hasBackendNav: true,
+      hasAuthControls: false,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRenderMobileHeaderMenu({
+      hasSiteNav: false,
+      hasBackendNav: false,
+      hasAuthControls: false,
+    }),
+    false,
+  );
 });
 
 test("resolveAppearance keeps the protected public shell themes addressable", () => {

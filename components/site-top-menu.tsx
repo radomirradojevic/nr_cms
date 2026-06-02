@@ -24,15 +24,19 @@ export async function SiteTopMenu({
   isBackendUser = false,
   isAdmin = false,
   isLoggedIn = false,
+  showMobileAuthControls = true,
+  showMobileBackendMenu = true,
 }: {
-  menuId: string;
+  menuId: string | null;
   isBackendUser?: boolean;
   isAdmin?: boolean;
   isLoggedIn?: boolean;
+  showMobileAuthControls?: boolean;
+  showMobileBackendMenu?: boolean;
 }) {
-  const me = await getOptionalCurrentUser(true);
+  const me = menuId ? await getOptionalCurrentUser(true) : null;
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
-  const tree = await getTopMenuTreeForViewer(menuId, viewerRoles);
+  const tree = menuId ? await getTopMenuTreeForViewer(menuId, viewerRoles) : [];
 
   return (
     <>
@@ -54,6 +58,8 @@ export async function SiteTopMenu({
         isBackendUser={isBackendUser}
         isAdmin={isAdmin}
         isLoggedIn={isLoggedIn}
+        showAuthControls={showMobileAuthControls}
+        showBackendMenu={showMobileBackendMenu}
       />
     </>
   );

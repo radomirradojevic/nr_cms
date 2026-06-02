@@ -192,21 +192,31 @@ function renderSiteMenuSlot({
   isBackendUser,
   isAdmin,
   isLoggedIn,
+  showMobileAuthControls,
+  showMobileBackendMenu,
 }: {
   slot: SlotOf<"SiteMenu"> | null;
   navigationMenuId: string | null;
   isBackendUser: boolean;
   isAdmin: boolean;
   isLoggedIn: boolean;
+  showMobileAuthControls: boolean;
+  showMobileBackendMenu: boolean;
 }) {
-  if (!slot || !navigationMenuId) return null;
+  const menuId = slot ? navigationMenuId : null;
+  const shouldRender =
+    Boolean(menuId) || showMobileAuthControls || showMobileBackendMenu;
+
+  if (!shouldRender) return null;
 
   return (
     <SiteTopMenu
-      menuId={navigationMenuId}
+      menuId={menuId}
       isBackendUser={isBackendUser}
       isAdmin={isAdmin}
       isLoggedIn={isLoggedIn}
+      showMobileAuthControls={showMobileAuthControls}
+      showMobileBackendMenu={showMobileBackendMenu}
     />
   );
 }
@@ -374,6 +384,8 @@ export function SiteHeader({
     isBackendUser,
     isAdmin,
     isLoggedIn,
+    showMobileAuthControls: Boolean(authControlsSlot),
+    showMobileBackendMenu: Boolean(adminMenuSlot),
   });
   const adminMenu = renderAdminMenuSlot({
     slot: adminMenuSlot,
@@ -573,10 +585,8 @@ export function SiteHeader({
       {brand}
       {customContent}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="hidden items-center gap-3 lg:flex">
-          {siteMenu}
-          {adminMenu}
-        </div>
+        {siteMenu}
+        {adminMenu}
         {search}
         {cta}
         {authControls}
