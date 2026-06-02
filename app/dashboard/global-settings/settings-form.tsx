@@ -51,7 +51,10 @@ import type { ContentTargetOption } from "@/data/content";
 import type { ContentCategory } from "@/data/content-categories";
 import type { FileRow } from "@/data/files";
 import type { MenuOption } from "@/data/top-menu";
-import { ADMIN_PAGE_TARGETS } from "@/lib/shell-visibility-targets";
+import {
+  ADMIN_PAGE_TARGETS,
+  SYSTEM_PAGE_TARGETS,
+} from "@/lib/shell-visibility-targets";
 import {
   AI_PROVIDER_DEFAULT_MODELS,
   AI_PROVIDER_IDS,
@@ -1266,6 +1269,7 @@ type VisibilityTargetGroup = {
 };
 
 const EMPTY_VISIBILITY_TARGETS: ShellVisibilityTargets = {
+  systemPageIds: [],
   pageIds: [],
   blogPostIds: [],
   heroSliderIds: [],
@@ -1281,6 +1285,7 @@ function cloneVisibilityTargets(
   targets: ShellVisibilityTargets = EMPTY_VISIBILITY_TARGETS,
 ): ShellVisibilityTargets {
   return {
+    systemPageIds: uniqueStrings(targets.systemPageIds),
     pageIds: uniqueStrings(targets.pageIds),
     blogPostIds: uniqueStrings(targets.blogPostIds),
     heroSliderIds: uniqueStrings(targets.heroSliderIds),
@@ -1702,6 +1707,15 @@ export function SettingsForm({
       ? headerSettings.navigationMenuId
       : null;
   const visibilityTargetGroups: VisibilityTargetGroup[] = [
+    {
+      key: "systemPageIds",
+      label: "System Pages",
+      options: SYSTEM_PAGE_TARGETS.map((target) => ({
+        id: target.id,
+        label: target.label,
+        meta: target.path,
+      })),
+    },
     {
       key: "pageIds",
       label: "Pages",

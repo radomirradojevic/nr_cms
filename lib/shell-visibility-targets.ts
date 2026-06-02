@@ -30,10 +30,21 @@ export const ADMIN_PAGE_TARGET_IDS = ADMIN_PAGE_TARGETS.map(
   (target) => target.id,
 );
 
+export const SYSTEM_PAGE_TARGETS = [
+  { id: "search", label: "Search Results", path: "/search", exact: true },
+] as const;
+
+export const SYSTEM_PAGE_TARGET_IDS = SYSTEM_PAGE_TARGETS.map(
+  (target) => target.id,
+);
+
 export type AdminPageTarget = (typeof ADMIN_PAGE_TARGETS)[number];
 export type AdminPageTargetId = AdminPageTarget["id"];
+export type SystemPageTarget = (typeof SYSTEM_PAGE_TARGETS)[number];
+export type SystemPageTargetId = SystemPageTarget["id"];
 
 export type ShellRenderTarget = {
+  systemPageId?: SystemPageTargetId;
   contentId?: string;
   contentType?: "page" | "blog_post" | "hero_slider";
   blogCategoryId?: string;
@@ -67,13 +78,25 @@ function normalizePathname(pathname: string): string {
   }
 }
 
-function matchesAdminPage(pathname: string, target: AdminPageTarget): boolean {
+function matchesPathTarget(
+  pathname: string,
+  target: { path: string; exact?: boolean },
+): boolean {
   if ("exact" in target && target.exact) return pathname === target.path;
   return pathname === target.path || pathname.startsWith(`${target.path}/`);
 }
 
 function adminPageIdForPath(pathname: string): AdminPageTargetId | undefined {
-  return ADMIN_PAGE_TARGETS.find((target) => matchesAdminPage(pathname, target))
+  return ADMIN_PAGE_TARGETS.find((target) => matchesPathTarget(pathname, target))
+    ?.id;
+}
+
+function systemPageIdForPath(
+  pathname: string,
+): SystemPageTargetId | undefined {
+  return SYSTEM_PAGE_TARGETS.find((target) =>
+    matchesPathTarget(pathname, target),
+  )
     ?.id;
 }
 
@@ -84,6 +107,8 @@ export function resolveShellRenderTargetForPathname(
   const normalizedPathname = normalizePathname(pathname);
   const adminPageId = adminPageIdForPath(normalizedPathname);
   if (adminPageId) return { adminPageId };
+  const systemPageId = systemPageIdForPath(normalizedPathname);
+  if (systemPageId) return { systemPageId };
 
   if (normalizedPathname === "/") return routeIndex.homepage ?? {};
 
@@ -113,6 +138,7 @@ export function shouldShowShellForTarget(
       heroSliderIds: string[];
       blogCategoryIds: string[];
       adminPageIds: string[];
+      systemPageIds: string[];
     };
   },
   target: ShellRenderTarget,
@@ -121,6 +147,12 @@ export function shouldShowShellForTarget(
 
   const targets = visibility.targets;
   if (target.adminPageId && targets.adminPageIds.includes(target.adminPageId)) {
+    return true;
+  }
+  if (
+    target.systemPageId &&
+    targets.systemPageIds.includes(target.systemPageId)
+  ) {
     return true;
   }
   if (

@@ -29,13 +29,16 @@ import { UserButtonClient } from "@/components/user-button-client";
 import {
   collectHeroSliderMenuIds,
   createHeroSlideMenuPresetProps,
+  createHeroSlideSearchInputPresetProps,
   normalizeHeroSliderContent,
   type HeroSlide,
   type HeroSlideBlock,
   type HeroSlideMenu,
+  type HeroSlideSearchInput,
   type HeroSliderBreakpoint,
   type HeroSliderContent,
 } from "@/lib/hero-slider";
+import { SiteSearch, type SearchContentType } from "@/components/site-search";
 import type { TopMenuTreeNode } from "@/data/top-menu";
 import { getBackendMenuTree } from "@/lib/backend-menu";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
@@ -452,7 +455,7 @@ function SlideView({
           ))}
         </div>
       </div>
-      <SlideMenusLayer
+      <SlideFloatingElementsLayer
         slide={slide}
         menuTrees={menuTrees}
         runtimeAuth={runtimeAuth}
@@ -701,7 +704,7 @@ function renderBlock(
   return null;
 }
 
-function SlideMenusLayer({
+function SlideFloatingElementsLayer({
   slide,
   menuTrees,
   runtimeAuth,
@@ -710,7 +713,7 @@ function SlideMenusLayer({
   menuTrees: HeroSliderMenuTrees;
   runtimeAuth: HeroMenuRuntimeAuth;
 }) {
-  if (slide.menus.length === 0) return null;
+  if (slide.menus.length === 0 && slide.searchInputs.length === 0) return null;
   return (
     <div
       className="pointer-events-none absolute inset-0"
@@ -722,6 +725,12 @@ function SlideMenusLayer({
           menu={menu}
           menuTrees={menuTrees}
           runtimeAuth={runtimeAuth}
+        />
+      ))}
+      {slide.searchInputs.map((searchInput) => (
+        <HeroSlideSearchInputView
+          key={searchInput.id}
+          searchInput={searchInput}
         />
       ))}
     </div>
@@ -754,6 +763,40 @@ function HeroSlideMenuView({
         menu={menu}
         tree={menuId ? menuTrees[menuId] : undefined}
         runtimeAuth={runtimeAuth}
+      />
+    </div>
+  );
+}
+
+function HeroSlideSearchInputView({
+  searchInput,
+}: {
+  searchInput: HeroSlideSearchInput;
+}) {
+  const props = searchInput.props;
+  const scope = `hero-search-${cssScope(searchInput.id)}`;
+  const hidden: Record<string, string | undefined> = {
+    "data-hide-desktop": boolAttr(searchInput.hiddenOn?.includes("desktop")),
+    "data-hide-tablet": boolAttr(searchInput.hiddenOn?.includes("tablet")),
+    "data-hide-mobile": boolAttr(searchInput.hiddenOn?.includes("mobile")),
+  };
+
+  return (
+    <div
+      className="hero-slider-block hero-slider-search-input pointer-events-auto min-w-0"
+      style={menuWrapperStyle(props)}
+      {...hidden}
+    >
+      <style
+        dangerouslySetInnerHTML={{ __html: buildHeroSearchCss(scope, props) }}
+      />
+      <SiteSearch
+        label={textProp(props.label, "Search")}
+        placeholder={textProp(props.placeholder, "Search...")}
+        contentTypes={searchContentTypes(props.contentTypes)}
+        className={scope}
+        displayMode="input"
+        resultsAlign={searchResultsAlign(props.resultsAlign)}
       />
     </div>
   );
@@ -1409,6 +1452,82 @@ function menuSidesCss(value: unknown) {
   return `${top} ${right} ${bottom} ${left}`;
 }
 
+function buildHeroSearchCss(scope: string, props: Record<string, unknown>) {
+  const preset = createHeroSlideSearchInputPresetProps(props.preset);
+  const css = (key: string, fallback: string) =>
+    safeCss(menuValue(props, preset, key, fallback), fallback);
+  const text = (key: string, fallback: string) =>
+    safeMenuText(menuValue(props, preset, key, fallback), fallback);
+  const fontWeight = safeFontWeight(text("fontWeight", "500"));
+  const resultsAlign = searchResultsAlign(props.resultsAlign);
+
+  return `
+.${scope} {
+  --hs-input-bg: ${css("backgroundColor", "rgba(15,23,42,0.46)")};
+  --hs-input-color: ${css("color", "#ffffff")};
+  --hs-input-border: ${css("borderColor", "rgba(255,255,255,0.24)")};
+  --hs-input-placeholder: ${css("placeholderColor", "rgba(255,255,255,0.68)")};
+  --hs-input-focus-border: ${css("focusBorderColor", "rgba(255,255,255,0.55)")};
+  --hs-input-focus-ring: ${css("focusRingColor", "rgba(255,255,255,0.22)")};
+  --hs-input-border-width: ${css("borderWidth", "1px")};
+  --hs-input-radius: ${css("borderRadius", "999px")};
+  --hs-input-shadow: ${css("shadow", "0 18px 44px rgba(2,6,23,0.32)")};
+  --hs-results-bg: ${css("resultsBackgroundColor", "rgba(15,23,42,0.97)")};
+  --hs-results-color: ${css("resultsColor", "#ffffff")};
+  --hs-results-border: ${css("resultsBorderColor", "rgba(255,255,255,0.18)")};
+  --hs-results-radius: ${css("resultsRadius", "0.75rem")};
+  --hs-results-shadow: ${css("resultsShadow", "0 22px 56px rgba(2,6,23,0.38)")};
+  display: block;
+  max-width: 100%;
+  width: 100%;
+}
+.${scope} form[role="search"] {
+  width: 100%;
+}
+.${scope} input[type="search"] {
+  background: var(--hs-input-bg) !important;
+  border-color: var(--hs-input-border) !important;
+  border-radius: var(--hs-input-radius) !important;
+  border-width: var(--hs-input-border-width) !important;
+  box-shadow: var(--hs-input-shadow);
+  color: var(--hs-input-color) !important;
+  font-size: ${css("fontSize", "1rem")};
+  font-weight: ${fontWeight};
+  height: ${css("inputHeight", "3rem")};
+  letter-spacing: ${css("letterSpacing", "0")};
+  padding: ${css("inputPadding", "0 1rem")};
+  width: 100%;
+}
+.${scope} input[type="search"]::placeholder {
+  color: var(--hs-input-placeholder);
+  opacity: 1;
+}
+.${scope} input[type="search"]:focus-visible {
+  border-color: var(--hs-input-focus-border) !important;
+  box-shadow: var(--hs-input-shadow), 0 0 0 3px var(--hs-input-focus-ring) !important;
+}
+.${scope} form[role="search"] > div {
+  ${resultsAlign === "right" ? "left: auto !important; right: 0 !important;" : "left: 0 !important; right: auto !important;"}
+  background: var(--hs-results-bg) !important;
+  border-color: var(--hs-results-border) !important;
+  border-radius: var(--hs-results-radius) !important;
+  box-shadow: var(--hs-results-shadow) !important;
+  color: var(--hs-results-color) !important;
+  width: ${css("resultsWidth", "min(28rem, calc(100vw - 2rem))")} !important;
+}
+.${scope} form[role="search"] > div a:hover,
+.${scope} form[role="search"] > div a:focus-visible {
+  background: ${css("resultsHoverBackgroundColor", "rgba(255,255,255,0.12)")} !important;
+  color: ${css("resultsHoverColor", "var(--hs-results-color)")} !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .${scope} * {
+    transition: none !important;
+  }
+}
+`;
+}
+
 function buildHeroMenuCss(scope: string, props: Record<string, unknown>) {
   const preset = createHeroSlideMenuPresetProps(props.preset);
   const css = (key: string, fallback: string) =>
@@ -1786,6 +1905,23 @@ function menuSubmenuSide(props: Record<string, unknown>): "left" | "right" {
     return textProp(props.flowAlign, "left") === "right" ? "left" : "right";
   }
   return menuAnchor(props.anchor).includes("right") ? "left" : "right";
+}
+
+function searchContentTypes(value: unknown): SearchContentType[] {
+  if (!Array.isArray(value)) return ["blog_post", "page"];
+  const next = Array.from(
+    new Set(
+      value.filter(
+        (item): item is SearchContentType =>
+          item === "blog_post" || item === "page",
+      ),
+    ),
+  );
+  return next.length > 0 ? next : ["blog_post", "page"];
+}
+
+function searchResultsAlign(value: unknown): "left" | "right" {
+  return value === "right" ? "right" : "left";
 }
 
 function menuAnchor(value: unknown) {
