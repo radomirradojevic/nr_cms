@@ -128,6 +128,16 @@ export async function getCategoryById(
   return rows[0];
 }
 
+export async function getCategoriesByIds(
+  ids: string[],
+): Promise<ContentCategory[]> {
+  if (ids.length === 0) return [];
+  return db
+    .select()
+    .from(contentCategories)
+    .where(inArray(contentCategories.id, ids));
+}
+
 export async function isCategoryInUse(id: string): Promise<boolean> {
   const [{ total }] = await db
     .select({ total: count() })

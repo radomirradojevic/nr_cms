@@ -5,6 +5,8 @@ const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-nr-pathname", req.nextUrl.pathname);
 
   if (isProtectedRoute(req) && !userId) {
     return NextResponse.redirect(new URL("/", req.url));
@@ -12,6 +14,11 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Role-based guards (e.g. admin-only routes) are handled in Server Components
   // via currentUser() — Clerk's default JWT does not include publicMetadata.
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 });
 
 export const config = {

@@ -1,5 +1,6 @@
 "use client";
 
+import { Show, SignInButton, SignUpButton, useUser } from "@clerk/nextjs";
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,6 +25,7 @@ import {
   type ReactNode,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { UserButtonClient } from "@/components/user-button-client";
 import {
   collectHeroSliderMenuIds,
   createHeroSlideMenuPresetProps,
@@ -35,7 +37,9 @@ import {
   type HeroSliderContent,
 } from "@/lib/hero-slider";
 import type { TopMenuTreeNode } from "@/data/top-menu";
+import { getBackendMenuTree } from "@/lib/backend-menu";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
+import { getRoles, hasRole } from "@/lib/roles";
 import {
   isSafeCssValue,
   sanitizeHref,
@@ -49,9 +53,15 @@ type Props = {
   preview?: boolean;
   allowViewportWidth?: boolean;
   initialMenuTrees?: HeroSliderMenuTrees;
+  fallbackIsBackendUser?: boolean;
+  fallbackIsAdmin?: boolean;
 };
 
 type HeroSliderMenuTrees = Record<string, TopMenuTreeNode[]>;
+type HeroMenuRuntimeAuth = {
+  fallbackIsBackendUser: boolean;
+  fallbackIsAdmin: boolean;
+};
 
 const blockVisibilityCss = `
 @media (max-width: 767px) {
@@ -74,6 +84,8 @@ export function HeroSliderRenderer({
   preview = false,
   allowViewportWidth = true,
   initialMenuTrees,
+  fallbackIsBackendUser = false,
+  fallbackIsAdmin = false,
 }: Props) {
   const slider = useMemo(() => normalizeHeroSliderContent(data), [data]);
   const settings = slider.settings;
@@ -90,6 +102,10 @@ export function HeroSliderRenderer({
   const pointerStartRef = useRef<{ x: number; pointerType: string } | null>(
     null,
   );
+  const runtimeAuth: HeroMenuRuntimeAuth = {
+    fallbackIsBackendUser,
+    fallbackIsAdmin,
+  };
   const slideCount = slides.length;
   const safeActiveIndex = Math.min(activeIndex, Math.max(0, slideCount - 1));
 
@@ -281,6 +297,7 @@ export function HeroSliderRenderer({
               slide={slide}
               settings={slider.settings}
               menuTrees={menuTrees}
+              runtimeAuth={runtimeAuth}
               active={index === safeActiveIndex}
               index={index}
               total={slideCount}
@@ -304,6 +321,7 @@ export function HeroSliderRenderer({
               slide={slide}
               settings={slider.settings}
               menuTrees={menuTrees}
+              runtimeAuth={runtimeAuth}
               active={index === safeActiveIndex}
               index={index}
               total={slideCount}
@@ -371,6 +389,7 @@ function SlideView({
   slide,
   settings,
   menuTrees,
+  runtimeAuth,
   active,
   index,
   total,
@@ -378,6 +397,7 @@ function SlideView({
   slide: HeroSlide;
   settings: HeroSliderContent["settings"];
   menuTrees: HeroSliderMenuTrees;
+  runtimeAuth: HeroMenuRuntimeAuth;
   active: boolean;
   index: number;
   total: number;
@@ -423,11 +443,20 @@ function SlideView({
       >
         <div className="hero-slider-content-stack flex min-w-0 flex-col gap-4">
           {slide.blocks.map((block) => (
-            <HeroBlock key={block.id} block={block} menuTrees={menuTrees} />
+            <HeroBlock
+              key={block.id}
+              block={block}
+              menuTrees={menuTrees}
+              runtimeAuth={runtimeAuth}
+            />
           ))}
         </div>
       </div>
-      <SlideMenusLayer slide={slide} menuTrees={menuTrees} />
+      <SlideMenusLayer
+        slide={slide}
+        menuTrees={menuTrees}
+        runtimeAuth={runtimeAuth}
+      />
     </article>
   );
 }
@@ -489,9 +518,11 @@ function SlideBackground({
 function HeroBlock({
   block,
   menuTrees,
+  runtimeAuth,
 }: {
   block: HeroSlideBlock;
   menuTrees: HeroSliderMenuTrees;
+  runtimeAuth: HeroMenuRuntimeAuth;
 }) {
   const hidden: Record<string, string | undefined> = {
     "data-hide-desktop": boolAttr(block.hiddenOn?.includes("desktop")),
@@ -504,7 +535,7 @@ function HeroBlock({
       style={block.type === "menu" ? menuWrapperStyle(block.props) : undefined}
       {...hidden}
     >
-      {renderBlock(block, menuTrees)}
+      {renderBlock(block, menuTrees, runtimeAuth)}
     </div>
   );
 }
@@ -512,6 +543,7 @@ function HeroBlock({
 function renderBlock(
   block: HeroSlideBlock,
   menuTrees: HeroSliderMenuTrees,
+  runtimeAuth: HeroMenuRuntimeAuth,
 ): ReactNode {
   const props = block.props;
 
@@ -559,6 +591,7 @@ function renderBlock(
       <HeroMenuBlock
         menu={block}
         tree={menuId ? menuTrees[menuId] : undefined}
+        runtimeAuth={runtimeAuth}
       />
     );
   }
@@ -632,7 +665,12 @@ function renderBlock(
         style={{ gap: safeCss(props.gap, "1rem") }}
       >
         {(block.children ?? []).map((child) => (
-          <HeroBlock key={child.id} block={child} menuTrees={menuTrees} />
+          <HeroBlock
+            key={child.id}
+            block={child}
+            menuTrees={menuTrees}
+            runtimeAuth={runtimeAuth}
+          />
         ))}
       </div>
     );
@@ -647,7 +685,12 @@ function renderBlock(
         {(block.columns ?? []).map((column, index) => (
           <div key={index} className="flex min-w-0 flex-col gap-3">
             {column.map((child) => (
-              <HeroBlock key={child.id} block={child} menuTrees={menuTrees} />
+              <HeroBlock
+                key={child.id}
+                block={child}
+                menuTrees={menuTrees}
+                runtimeAuth={runtimeAuth}
+              />
             ))}
           </div>
         ))}
@@ -661,9 +704,11 @@ function renderBlock(
 function SlideMenusLayer({
   slide,
   menuTrees,
+  runtimeAuth,
 }: {
   slide: HeroSlide;
   menuTrees: HeroSliderMenuTrees;
+  runtimeAuth: HeroMenuRuntimeAuth;
 }) {
   if (slide.menus.length === 0) return null;
   return (
@@ -672,7 +717,12 @@ function SlideMenusLayer({
       style={{ zIndex: menuLayerZIndex(slide) }}
     >
       {slide.menus.map((menu) => (
-        <HeroSlideMenuView key={menu.id} menu={menu} menuTrees={menuTrees} />
+        <HeroSlideMenuView
+          key={menu.id}
+          menu={menu}
+          menuTrees={menuTrees}
+          runtimeAuth={runtimeAuth}
+        />
       ))}
     </div>
   );
@@ -681,9 +731,11 @@ function SlideMenusLayer({
 function HeroSlideMenuView({
   menu,
   menuTrees,
+  runtimeAuth,
 }: {
   menu: HeroSlideMenu;
   menuTrees: HeroSliderMenuTrees;
+  runtimeAuth: HeroMenuRuntimeAuth;
 }) {
   const menuId = textProp(menu.props.menuId, "");
   const hidden: Record<string, string | undefined> = {
@@ -701,6 +753,7 @@ function HeroSlideMenuView({
       <HeroMenuBlock
         menu={menu}
         tree={menuId ? menuTrees[menuId] : undefined}
+        runtimeAuth={runtimeAuth}
       />
     </div>
   );
@@ -749,9 +802,11 @@ function HeroIcon({ name }: { name: string }) {
 function HeroMenuBlock({
   menu,
   tree,
+  runtimeAuth,
 }: {
   menu: HeroMenuRenderable;
   tree: TopMenuTreeNode[] | undefined;
+  runtimeAuth: HeroMenuRuntimeAuth;
 }) {
   const props = menu.props;
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -764,8 +819,14 @@ function HeroMenuBlock({
   const layout = menuLayout(props.layout);
   const mobileBehavior = menuMobileBehavior(props.mobileBehavior);
   const breakpoint = menuBreakpoint(props.mobileBreakpoint);
+  const submenuSide = menuSubmenuSide(props);
   const scope = `hero-menu-${cssScope(menu.id)}`;
   const menuCss = buildHeroMenuCss(scope, props);
+  const appendBackendMenu = props.appendBackendMenu === true;
+  const appendAuthMenu = props.appendAuthMenu === true;
+  const hasAnyMenuSource = !!menuId || appendBackendMenu || appendAuthMenu;
+  const desktopItemLayout = layout === "dropdown" ? "vertical" : layout;
+  const baseTree = tree ?? [];
 
   function toggleExpanded(id: string) {
     setExpanded((current) => ({ ...current, [id]: !current[id] }));
@@ -776,7 +837,7 @@ function HeroMenuBlock({
     setDesktopOpen(false);
   }
 
-  if (!menuId) {
+  if (!hasAnyMenuSource) {
     return (
       <div className="inline-flex min-h-11 items-center rounded-md border border-dashed border-white/35 px-3 text-sm text-white/75">
         Select a menu
@@ -784,7 +845,7 @@ function HeroMenuBlock({
     );
   }
 
-  if (!tree) {
+  if (menuId && !tree) {
     return (
       <div className="inline-flex min-h-11 items-center rounded-md border border-white/20 bg-white/10 px-3 text-sm text-white/75">
         Loading menu...
@@ -792,13 +853,16 @@ function HeroMenuBlock({
     );
   }
 
-  if (tree.length === 0) return null;
+  if (baseTree.length === 0 && !appendBackendMenu && !appendAuthMenu) {
+    return null;
+  }
 
   return (
     <div
       className={cn(scope, "hero-menu-root", `hero-menu-layout-${layout}`)}
       data-mobile-breakpoint={breakpoint}
       data-mobile-behavior={mobileBehavior}
+      data-submenu-side={submenuSide}
       onPointerDown={(event) => event.stopPropagation()}
     >
       <style dangerouslySetInnerHTML={{ __html: menuCss }} />
@@ -818,7 +882,7 @@ function HeroMenuBlock({
           <div className="hero-menu-dropdown-panel" data-open={desktopOpen}>
             <nav aria-label={menuName}>
               <ul className="hero-menu-list hero-menu-list-dropdown">
-                {tree.map((item) => (
+                {baseTree.map((item) => (
                   <DesktopMenuItem
                     key={item.id}
                     item={item}
@@ -827,6 +891,17 @@ function HeroMenuBlock({
                     onNavigate={closeMenus}
                   />
                 ))}
+                {appendBackendMenu ? (
+                  <HeroBackendDesktopItems
+                    layout="vertical"
+                    currentPath={currentPath}
+                    onNavigate={closeMenus}
+                    runtimeAuth={runtimeAuth}
+                  />
+                ) : null}
+                {appendAuthMenu ? (
+                  <HeroAuthDesktopItems onNavigate={closeMenus} />
+                ) : null}
               </ul>
             </nav>
           </div>
@@ -835,15 +910,26 @@ function HeroMenuBlock({
         <nav className="hero-menu-desktop" aria-label={menuName}>
           <div className="hero-menu-surface">
             <ul className="hero-menu-list">
-              {tree.map((item) => (
+              {baseTree.map((item) => (
                 <DesktopMenuItem
                   key={item.id}
                   item={item}
-                  layout={layout}
+                  layout={desktopItemLayout}
                   currentPath={currentPath}
                   onNavigate={closeMenus}
                 />
               ))}
+              {appendBackendMenu ? (
+                <HeroBackendDesktopItems
+                  layout={desktopItemLayout}
+                  currentPath={currentPath}
+                  onNavigate={closeMenus}
+                  runtimeAuth={runtimeAuth}
+                />
+              ) : null}
+              {appendAuthMenu ? (
+                <HeroAuthDesktopItems onNavigate={closeMenus} />
+              ) : null}
             </ul>
           </div>
         </nav>
@@ -866,7 +952,7 @@ function HeroMenuBlock({
         <div className="hero-menu-mobile-panel" data-open={mobileOpen}>
           <nav aria-label={menuName}>
             <ul className="hero-menu-mobile-list">
-              {tree.map((item) => (
+              {baseTree.map((item) => (
                 <MobileMenuItem
                   key={item.id}
                   item={item}
@@ -876,12 +962,176 @@ function HeroMenuBlock({
                   onNavigate={closeMenus}
                 />
               ))}
+              {appendBackendMenu ? (
+                <HeroBackendMobileItems
+                  currentPath={currentPath}
+                  expanded={expanded}
+                  onToggle={toggleExpanded}
+                  onNavigate={closeMenus}
+                  runtimeAuth={runtimeAuth}
+                />
+              ) : null}
+              {appendAuthMenu ? (
+                <HeroAuthMobileItems onNavigate={closeMenus} />
+              ) : null}
             </ul>
           </nav>
         </div>
       </div>
     </div>
   );
+}
+
+function HeroBackendDesktopItems({
+  layout,
+  currentPath,
+  onNavigate,
+  runtimeAuth,
+}: {
+  layout: "horizontal" | "vertical" | "mega";
+  currentPath: string;
+  onNavigate: () => void;
+  runtimeAuth: HeroMenuRuntimeAuth;
+}) {
+  const access = useEffectiveHeroBackendAccess(runtimeAuth);
+  const tree = getBackendMenuTree(access);
+  return (
+    <>
+      {tree.map((item) => (
+        <DesktopMenuItem
+          key={item.id}
+          item={item}
+          layout={layout}
+          currentPath={currentPath}
+          onNavigate={onNavigate}
+        />
+      ))}
+    </>
+  );
+}
+
+function HeroBackendMobileItems({
+  currentPath,
+  expanded,
+  onToggle,
+  onNavigate,
+  runtimeAuth,
+}: {
+  currentPath: string;
+  expanded: Record<string, boolean>;
+  onToggle: (id: string) => void;
+  onNavigate: () => void;
+  runtimeAuth: HeroMenuRuntimeAuth;
+}) {
+  const access = useEffectiveHeroBackendAccess(runtimeAuth);
+  const tree = getBackendMenuTree(access);
+  return (
+    <>
+      {tree.map((item) => (
+        <MobileMenuItem
+          key={item.id}
+          item={item}
+          currentPath={currentPath}
+          expanded={expanded}
+          onToggle={onToggle}
+          onNavigate={onNavigate}
+        />
+      ))}
+    </>
+  );
+}
+
+function HeroAuthDesktopItems({ onNavigate }: { onNavigate: () => void }) {
+  return (
+    <>
+      <Show when="signed-in">
+        <li className="hero-menu-item hero-menu-auth-item">
+          <div className="hero-menu-link hero-menu-auth-user">
+            <UserButtonClient />
+          </div>
+        </li>
+      </Show>
+      <Show when="signed-out">
+        <li className="hero-menu-item hero-menu-auth-item">
+          <SignInButton mode="modal">
+            <button
+              type="button"
+              className="hero-menu-link hero-menu-auth-button"
+              onClick={onNavigate}
+            >
+              <span>Sign in</span>
+            </button>
+          </SignInButton>
+        </li>
+        <li className="hero-menu-item hero-menu-auth-item">
+          <SignUpButton mode="modal">
+            <button
+              type="button"
+              className="hero-menu-link hero-menu-auth-button"
+              onClick={onNavigate}
+            >
+              <span>Sign up</span>
+            </button>
+          </SignUpButton>
+        </li>
+      </Show>
+    </>
+  );
+}
+
+function HeroAuthMobileItems({ onNavigate }: { onNavigate: () => void }) {
+  return (
+    <>
+      <Show when="signed-in">
+        <li className="hero-menu-mobile-item hero-menu-mobile-auth-item">
+          <div className="hero-menu-mobile-link hero-menu-mobile-auth-user">
+            <UserButtonClient />
+            <span>Account</span>
+          </div>
+        </li>
+      </Show>
+      <Show when="signed-out">
+        <li className="hero-menu-mobile-item hero-menu-mobile-auth-item">
+          <SignInButton mode="modal">
+            <button
+              type="button"
+              className="hero-menu-mobile-link hero-menu-auth-button"
+              onClick={onNavigate}
+            >
+              <span>Sign in</span>
+            </button>
+          </SignInButton>
+        </li>
+        <li className="hero-menu-mobile-item hero-menu-mobile-auth-item">
+          <SignUpButton mode="modal">
+            <button
+              type="button"
+              className="hero-menu-mobile-link hero-menu-auth-button"
+              onClick={onNavigate}
+            >
+              <span>Sign up</span>
+            </button>
+          </SignUpButton>
+        </li>
+      </Show>
+    </>
+  );
+}
+
+function useEffectiveHeroBackendAccess({
+  fallbackIsBackendUser,
+  fallbackIsAdmin,
+}: HeroMenuRuntimeAuth) {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const roles = isLoaded && isSignedIn ? getRoles(user?.publicMetadata) : [];
+  const isAdmin = isLoaded ? hasRole(roles, "admin") : fallbackIsAdmin;
+  const isBackendUser = isLoaded
+    ? hasRole(roles, "admin") ||
+      hasRole(roles, "publisher") ||
+      hasRole(roles, "author")
+    : fallbackIsBackendUser;
+
+  return { isBackendUser, isAdmin };
 }
 
 function DesktopMenuItem({
@@ -1291,6 +1541,21 @@ function buildHeroMenuCss(scope: string, props: Record<string, unknown>) {
   cursor: pointer;
   font: inherit;
 }
+.${scope} .hero-menu-auth-button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.${scope} .hero-menu-auth-user,
+.${scope} .hero-menu-mobile-auth-user {
+  align-items: center;
+  cursor: default;
+  display: flex;
+  gap: 0.5rem;
+}
 .${scope} .hero-menu-link:hover,
 .${scope} .hero-menu-link:focus-visible,
 .${scope} .hero-menu-toggle:hover,
@@ -1339,14 +1604,30 @@ function buildHeroMenuCss(scope: string, props: Record<string, unknown>) {
   min-width: var(--hm-submenu-width);
   top: 100%;
 }
+.${scope}[data-submenu-side="left"].hero-menu-layout-horizontal > .hero-menu-desktop .hero-menu-surface > .hero-menu-list > .hero-menu-item > .hero-menu-submenu,
+.${scope}[data-submenu-side="left"].hero-menu-layout-mega > .hero-menu-desktop .hero-menu-surface > .hero-menu-list > .hero-menu-item > .hero-menu-submenu {
+  left: auto;
+  right: 0;
+}
 .${scope} .hero-menu-submenu .hero-menu-submenu {
   left: 100%;
   top: calc(-1 * var(--hm-submenu-padding));
   transform: translateX(-0.2rem);
 }
+.${scope}[data-submenu-side="left"] .hero-menu-submenu .hero-menu-submenu {
+  left: auto;
+  right: 100%;
+  transform: translateX(0.2rem);
+}
 .${scope}.hero-menu-layout-vertical > .hero-menu-desktop .hero-menu-list > .hero-menu-item > .hero-menu-submenu,
 .${scope} .hero-menu-list-dropdown > .hero-menu-item > .hero-menu-submenu {
   left: 100%;
+  top: 0;
+}
+.${scope}[data-submenu-side="left"].hero-menu-layout-vertical > .hero-menu-desktop .hero-menu-list > .hero-menu-item > .hero-menu-submenu,
+.${scope}[data-submenu-side="left"] .hero-menu-list-dropdown > .hero-menu-item > .hero-menu-submenu {
+  left: auto;
+  right: 100%;
   top: 0;
 }
 .${scope} .hero-menu-item:hover > .hero-menu-submenu,
@@ -1377,6 +1658,10 @@ function buildHeroMenuCss(scope: string, props: Record<string, unknown>) {
   left: 0;
   min-width: var(--hm-submenu-width);
   top: calc(100% + 0.5rem);
+}
+.${scope}[data-submenu-side="left"] .hero-menu-dropdown-panel {
+  left: auto;
+  right: 0;
 }
 .${scope} .hero-menu-mobile-toggle {
   background: var(--hm-bg);
@@ -1493,6 +1778,14 @@ function menuMobileBehavior(value: unknown): "collapse" | "stack" | "hidden" {
 
 function menuBreakpoint(value: unknown): "md" | "lg" | "xl" {
   return value === "md" || value === "xl" ? value : "lg";
+}
+
+function menuSubmenuSide(props: Record<string, unknown>): "left" | "right" {
+  const positionMode = textProp(props.positionMode, "absolute");
+  if (positionMode !== "absolute") {
+    return textProp(props.flowAlign, "left") === "right" ? "left" : "right";
+  }
+  return menuAnchor(props.anchor).includes("right") ? "left" : "right";
 }
 
 function menuAnchor(value: unknown) {

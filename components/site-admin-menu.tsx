@@ -204,7 +204,7 @@ export function SiteAdminMenuLauncher({
   const authLabel = displayName ?? "Account";
 
   return (
-    <div className="fixed right-[calc(env(safe-area-inset-right,0px)+0.75rem)] top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-[70]">
+    <div className="fixed left-[calc(env(safe-area-inset-left,0px)+0.75rem)] top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-[70]">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -218,7 +218,7 @@ export function SiteAdminMenuLauncher({
             <LayoutDashboard aria-hidden className="size-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" sideOffset={8} className="w-56">
+        <DropdownMenuContent align="start" sideOffset={8} className="w-56">
           {isBackendUser && (
             <>
               <DropdownMenuLabel>Backend menu</DropdownMenuLabel>
