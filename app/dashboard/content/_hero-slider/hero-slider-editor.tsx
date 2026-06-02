@@ -458,84 +458,106 @@ export function HeroSliderEditor({
                 onOpenVideoPicker={() => setVideoTargetSlideId(activeSlide.id)}
               />
 
-              <div className="space-y-3 rounded-md border p-3">
-                <div className="flex flex-wrap items-end gap-2">
-                  <div className="min-w-[220px] flex-1 space-y-1">
-                    <Label className="text-xs">Add content block</Label>
-                    <Select
-                      value={newBlockType}
-                      onValueChange={(value) =>
-                        setNewBlockType(value as HeroSlideBlockType)
-                      }
+              <Tabs
+                defaultValue="blocks"
+                className="gap-3 rounded-md border p-3"
+              >
+                <TabsList className="grid h-auto w-full grid-cols-3 p-1">
+                  <TabsTrigger
+                    value="blocks"
+                    className="min-w-0 px-2 text-xs sm:text-sm"
+                  >
+                    Content blocks
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="menus"
+                    className="min-w-0 px-2 text-xs sm:text-sm"
+                  >
+                    Slide menus
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="search"
+                    className="min-w-0 px-2 text-xs sm:text-sm"
+                  >
+                    Search input
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="blocks" className="m-0 space-y-3">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-[220px] flex-1 space-y-1">
+                      <Label className="text-xs">Add content block</Label>
+                      <Select
+                        value={newBlockType}
+                        onValueChange={(value) =>
+                          setNewBlockType(value as HeroSlideBlockType)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {HERO_SLIDE_BLOCK_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => addBlock(activeSlide.id)}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {HERO_SLIDE_BLOCK_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <Plus className="h-4 w-4" />
+                      Add block
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    onClick={() => addBlock(activeSlide.id)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add block
-                  </Button>
-                </div>
-                <BlockEditorList
-                  blocks={activeSlide.blocks}
-                  onChange={(blocks) => updateBlocks(activeSlide.id, blocks)}
-                  onOpenImagePicker={(blockId) =>
-                    setImageTarget({ kind: "block-image", blockId })
-                  }
-                />
-              </div>
+                  <BlockEditorList
+                    blocks={activeSlide.blocks}
+                    onChange={(blocks) => updateBlocks(activeSlide.id, blocks)}
+                    onOpenImagePicker={(blockId) =>
+                      setImageTarget({ kind: "block-image", blockId })
+                    }
+                  />
+                </TabsContent>
 
-              <div className="space-y-3 rounded-md border p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label className="text-xs">Slide menus</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addMenu(activeSlide.id)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add menu
-                  </Button>
-                </div>
-                <MenuEditorList
-                  menus={activeSlide.menus}
-                  onChange={(menus) => updateMenus(activeSlide.id, menus)}
-                />
-              </div>
+                <TabsContent value="menus" className="m-0 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Label className="text-xs">Slide menus</Label>
+                    <Button
+                      type="button"
+                      onClick={() => addMenu(activeSlide.id)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add menu
+                    </Button>
+                  </div>
+                  <MenuEditorList
+                    menus={activeSlide.menus}
+                    onChange={(menus) => updateMenus(activeSlide.id, menus)}
+                  />
+                </TabsContent>
 
-              <div className="space-y-3 rounded-md border p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label className="text-xs">Search input</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addSearchInput(activeSlide.id)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add search input
-                  </Button>
-                </div>
-                <SearchInputEditorList
-                  searchInputs={activeSlide.searchInputs}
-                  onChange={(searchInputs) =>
-                    updateSearchInputs(activeSlide.id, searchInputs)
-                  }
-                />
-              </div>
+                <TabsContent value="search" className="m-0 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Label className="text-xs">Search input</Label>
+                    <Button
+                      type="button"
+                      onClick={() => addSearchInput(activeSlide.id)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add search input
+                    </Button>
+                  </div>
+                  <SearchInputEditorList
+                    searchInputs={activeSlide.searchInputs}
+                    onChange={(searchInputs) =>
+                      updateSearchInputs(activeSlide.id, searchInputs)
+                    }
+                  />
+                </TabsContent>
+              </Tabs>
 
               <div className="overflow-hidden rounded-md border">
                 <HeroSliderRenderer
