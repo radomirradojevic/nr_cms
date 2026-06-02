@@ -147,7 +147,6 @@ function SessionSecurityTimers({
   const [fallbackSignInAtMs] = useState<number>(() => Date.now());
   const [warning, setWarning] = useState<{
     kind: "idle" | "absolute";
-    deadline: number;
   } | null>(null);
   const warningOpen = warning !== null;
 
@@ -166,10 +165,54 @@ function SessionSecurityTimers({
   const effectiveSignInAtMs = signInAtMs ?? fallbackSignInAtMs;
 
   const resetIdle = useCallback(() => {
-    const next = Date.now() + idleMs;
+    const nowMs = Date.now();
+    const abs = safeGetNumber(absoluteKey);
+    const idle = safeGetNumber(idleKey);
+
+    if (
+      (abs !== null && nowMs >= abs) ||
+      (idle !== null && nowMs >= idle)
+    ) {
+      performSignOut();
+      return;
+    }
+
+    const next = nowMs + idleMs;
     safeSetNumber(idleKey, next);
     setWarning(null);
-  }, [idleKey, idleMs]);
+  }, [absoluteKey, idleKey, idleMs, performSignOut]);
+
+  const evaluateDeadlines = useCallback(
+    (nowMs: number) => {
+      if (signedOutRef.current) return;
+
+      const abs = safeGetNumber(absoluteKey);
+      const idle = safeGetNumber(idleKey);
+
+      if (abs !== null && nowMs >= abs) {
+        performSignOut();
+        return;
+      }
+      if (idle !== null && nowMs >= idle) {
+        performSignOut();
+        return;
+      }
+
+      const nextAbs = abs ?? Number.POSITIVE_INFINITY;
+      const nextIdle = idle ?? Number.POSITIVE_INFINITY;
+      const which: "idle" | "absolute" =
+        nextAbs <= nextIdle ? "absolute" : "idle";
+      const deadline = Math.min(nextAbs, nextIdle);
+      const remaining = deadline - nowMs;
+
+      if (remaining <= warningLeadMs) {
+        setWarning((prev) => (prev?.kind === which ? prev : { kind: which }));
+      } else {
+        setWarning(null);
+      }
+    },
+    [absoluteKey, idleKey, performSignOut, warningLeadMs],
+  );
 
   // ─── Initialize / clamp deadlines on mount + when settings change ─────────
   useEffect(() => {
@@ -216,6 +259,17 @@ function SessionSecurityTimers({
     const onActivity = () => {
       if (signedOutRef.current) return;
       const nowMs = Date.now();
+      const abs = safeGetNumber(absoluteKey);
+      const idle = safeGetNumber(idleKey);
+
+      if (
+        (abs !== null && nowMs >= abs) ||
+        (idle !== null && nowMs >= idle)
+      ) {
+        performSignOut();
+        return;
+      }
+
       if (nowMs - lastActivityWriteRef.current < ACTIVITY_THROTTLE_MS) return;
       lastActivityWriteRef.current = nowMs;
       safeSetNumber(idleKey, nowMs + idleMs);
@@ -238,7 +292,7 @@ function SessionSecurityTimers({
       }
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [idleKey, idleMs, warningOpen]);
+  }, [absoluteKey, idleKey, idleMs, performSignOut, warningOpen]);
 
   // ─── Cross-tab sync ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -251,52 +305,28 @@ function SessionSecurityTimers({
         return;
       }
       // Force a tick update so countdown/state reflects the new deadline.
-      setNow(Date.now());
+      const nowMs = Date.now();
+      setNow(nowMs);
+      evaluateDeadlines(nowMs);
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [absoluteKey, idleKey, performSignOut]);
+  }, [absoluteKey, idleKey, evaluateDeadlines, performSignOut]);
 
   // ─── 1s tick: check deadlines + drive countdown UI ────────────────────────
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (signedOutRef.current) return;
       const nowMs = Date.now();
       setNow(nowMs);
-
-      const abs = safeGetNumber(absoluteKey);
-      const idle = safeGetNumber(idleKey);
-
-      if (abs !== null && nowMs >= abs) {
-        performSignOut();
-        return;
-      }
-      if (idle !== null && nowMs >= idle) {
-        performSignOut();
-        return;
-      }
-
-      const nextAbs = abs ?? Number.POSITIVE_INFINITY;
-      const nextIdle = idle ?? Number.POSITIVE_INFINITY;
-      const which: "idle" | "absolute" =
-        nextAbs <= nextIdle ? "absolute" : "idle";
-      const remaining = Math.min(nextAbs, nextIdle) - nowMs;
-
-      if (remaining <= warningLeadMs) {
-        setWarning(
-          (prev) => prev ?? { kind: which, deadline: nowMs + remaining },
-        );
-      }
+      evaluateDeadlines(nowMs);
     }, TICK_MS);
     return () => window.clearInterval(id);
-  }, [absoluteKey, idleKey, performSignOut, warningLeadMs]);
+  }, [evaluateDeadlines]);
 
   // ─── Render warning dialog ────────────────────────────────────────────────
   const abs = safeGetNumber(absoluteKey) ?? Number.POSITIVE_INFINITY;
   const idle = safeGetNumber(idleKey) ?? Number.POSITIVE_INFINITY;
-  const deadline = warning
-    ? Math.min(warning.deadline, abs, idle)
-    : Math.min(abs, idle);
+  const deadline = Math.min(abs, idle);
   const remainingSec = Math.max(0, Math.ceil((deadline - now) / 1000));
   const isAbsolute = warning?.kind === "absolute";
 
