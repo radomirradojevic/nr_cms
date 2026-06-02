@@ -6,6 +6,7 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import { Show, SignInButton, SignUpButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { UserButtonClient } from "@/components/user-button-client";
+import { getBackendMenuLinks } from "@/lib/backend-menu";
 import { cn } from "@/lib/utils";
 import { getRoles, hasRole } from "@/lib/roles";
 import type { TopMenuTreeNode } from "@/data/top-menu";
@@ -129,35 +130,6 @@ function MobileMenuItem({
   );
 }
 
-const BACKEND_LINKS = [
-  { href: "/dashboard", label: "Dashboard" },
-  {
-    href: "/dashboard/global-settings",
-    label: "Global Settings",
-    isChild: true,
-    adminOnly: true,
-  },
-  { href: "/dashboard/content", label: "Content" },
-  {
-    href: "/dashboard/content-categories",
-    label: "Content Categories",
-    isChild: true,
-    adminOnly: true,
-  },
-  { href: "/dashboard/filemanager", label: "File Manager" },
-  {
-    href: "/dashboard/gallerymanager",
-    label: "Gallery Manager",
-    isChild: true,
-  },
-];
-
-const ADMIN_LINKS = [
-  { href: "/dashboard/users", label: "Users" },
-  { href: "/dashboard/menus", label: "Menus" },
-  { href: "/dashboard/form-builder", label: "Form Builder" },
-];
-
 function AdminNavLink({
   href,
   label,
@@ -254,10 +226,10 @@ export function SiteTopMenuMobile({
       hasRole(roles, "author")
     : isBackendUser;
 
-  const backendLinks = effectiveIsBackendUser
-    ? BACKEND_LINKS.filter((l) => !l.adminOnly || effectiveIsAdmin)
-    : [];
-  const adminLinks = effectiveIsAdmin ? ADMIN_LINKS : [];
+  const backendLinks = getBackendMenuLinks({
+    isBackendUser: effectiveIsBackendUser,
+    isAdmin: effectiveIsAdmin,
+  });
 
   return (
     <div className="relative lg:hidden">
@@ -358,14 +330,6 @@ export function SiteTopMenuMobile({
                     label={link.label}
                     onClose={() => setIsOpen(false)}
                     isChild={link.isChild}
-                  />
-                ))}
-                {adminLinks.map((link) => (
-                  <AdminNavLink
-                    key={link.href}
-                    href={link.href}
-                    label={link.label}
-                    onClose={() => setIsOpen(false)}
                   />
                 ))}
               </ul>

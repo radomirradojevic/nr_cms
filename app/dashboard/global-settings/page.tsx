@@ -4,6 +4,8 @@ import { hasRole, getRoles } from "@/lib/roles";
 import { getAdminGlobalSettings } from "@/data/global-settings";
 import { getFileByIdUnchecked } from "@/data/files";
 import { listMenuOptions } from "@/data/top-menu";
+import { listContentTargetOptions } from "@/data/content";
+import { getCategoriesByType } from "@/data/content-categories";
 import { AdminSectionLockProvider } from "@/components/admin-section-lock-provider";
 import { SettingsForm } from "./settings-form";
 
@@ -15,10 +17,13 @@ export default async function GlobalSettingsPage() {
     redirect("/dashboard");
   }
 
-  const [settings, navigationMenus] = await Promise.all([
-    getAdminGlobalSettings(),
-    listMenuOptions(),
-  ]);
+  const [settings, navigationMenus, visibilityContentTargets, blogCategories] =
+    await Promise.all([
+      getAdminGlobalSettings(),
+      listMenuOptions(),
+      listContentTargetOptions(),
+      getCategoriesByType("blog_post"),
+    ]);
   const initialLogoFile = settings?.siteLogoFileId
     ? await getFileByIdUnchecked(settings.siteLogoFileId)
     : null;
@@ -39,6 +44,8 @@ export default async function GlobalSettingsPage() {
           settings={settings}
           initialLogoFile={initialLogoFile}
           navigationMenus={navigationMenus}
+          visibilityContentTargets={visibilityContentTargets}
+          visibilityBlogCategories={blogCategories}
         />
       </AdminSectionLockProvider>
     </div>
