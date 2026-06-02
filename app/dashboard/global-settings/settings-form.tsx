@@ -47,14 +47,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { updateGlobalSettings } from "./actions";
 import type { GlobalSettingsAdminFormRow } from "@/data/global-settings";
+import type { ContentTargetOption } from "@/data/content";
+import type { ContentCategory } from "@/data/content-categories";
 import type { FileRow } from "@/data/files";
 import type { MenuOption } from "@/data/top-menu";
+import { ADMIN_PAGE_TARGETS } from "@/lib/shell-visibility-targets";
 import {
   AI_PROVIDER_DEFAULT_MODELS,
   AI_PROVIDER_IDS,
   AI_PROVIDER_LABELS,
   AI_PROVIDER_MODEL_OPTIONS,
   AI_WRITING_ASSISTANT_DEFAULTS,
+  DEFAULT_SHELL_VISIBILITY,
   DEFAULT_FOOTER_SETTINGS,
   DEFAULT_HEADER_SETTINGS,
   FooterSettingsSchema,
@@ -70,6 +74,8 @@ import {
   SESSION_SECURITY_DEFAULTS,
   type AIProviderId,
   type AiProviderAdminSettingsById,
+  type ShellVisibility,
+  type ShellVisibilityTargets,
 } from "@/lib/global-settings";
 import {
   DEFAULT_GLOW,
@@ -253,6 +259,8 @@ interface SettingsFormProps {
   settings: GlobalSettingsAdminFormRow | null;
   initialLogoFile: FileRow | null;
   navigationMenus: MenuOption[];
+  visibilityContentTargets: ContentTargetOption[];
+  visibilityBlogCategories: ContentCategory[];
 }
 
 const CUSTOM_WIDTH_OPTION = "__custom__";
@@ -1244,6 +1252,241 @@ function SearchableSelect({
   );
 }
 
+type ShellVisibilityMode = ShellVisibility["mode"];
+type VisibilityTargetKey = keyof ShellVisibilityTargets;
+type VisibilityTargetOption = {
+  id: string;
+  label: string;
+  meta?: string;
+};
+type VisibilityTargetGroup = {
+  key: VisibilityTargetKey;
+  label: string;
+  options: VisibilityTargetOption[];
+};
+
+const EMPTY_VISIBILITY_TARGETS: ShellVisibilityTargets = {
+  pageIds: [],
+  blogPostIds: [],
+  heroSliderIds: [],
+  blogCategoryIds: [],
+  adminPageIds: [],
+};
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values));
+}
+
+function cloneVisibilityTargets(
+  targets: ShellVisibilityTargets = EMPTY_VISIBILITY_TARGETS,
+): ShellVisibilityTargets {
+  return {
+    pageIds: uniqueStrings(targets.pageIds),
+    blogPostIds: uniqueStrings(targets.blogPostIds),
+    heroSliderIds: uniqueStrings(targets.heroSliderIds),
+    blogCategoryIds: uniqueStrings(targets.blogCategoryIds),
+    adminPageIds: uniqueStrings(targets.adminPageIds),
+  };
+}
+
+function filterVisibilityTargetsForOptions(
+  targets: ShellVisibilityTargets,
+  groups: VisibilityTargetGroup[],
+): ShellVisibilityTargets {
+  const next = cloneVisibilityTargets(targets);
+  for (const group of groups) {
+    const validIds = new Set(group.options.map((option) => option.id));
+    next[group.key] = next[group.key].filter((id) => validIds.has(id));
+  }
+  return next;
+}
+
+function countVisibilityTargets(targets: ShellVisibilityTargets): number {
+  return Object.values(targets).reduce(
+    (total, values) => total + values.length,
+    0,
+  );
+}
+
+function VisibilityTargetCheckbox({
+  id,
+  option,
+  checked,
+  onCheckedChange,
+}: {
+  id: string;
+  option: VisibilityTargetOption;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className="flex min-w-0 cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
+    >
+      <Checkbox
+        id={id}
+        checked={checked}
+        onCheckedChange={(nextChecked) => onCheckedChange(nextChecked === true)}
+        className="mt-0.5 shrink-0"
+      />
+      <span className="min-w-0">
+        <span className="block truncate">{option.label}</span>
+        {option.meta && (
+          <span className="block truncate text-xs text-muted-foreground">
+            {option.meta}
+          </span>
+        )}
+      </span>
+    </label>
+  );
+}
+
+function ShellVisibilitySection({
+  idPrefix,
+  title,
+  mode,
+  targets,
+  groups,
+  onModeChange,
+  onTargetsChange,
+}: {
+  idPrefix: string;
+  title: string;
+  mode: ShellVisibilityMode;
+  targets: ShellVisibilityTargets;
+  groups: VisibilityTargetGroup[];
+  onModeChange: (mode: ShellVisibilityMode) => void;
+  onTargetsChange: (targets: ShellVisibilityTargets) => void;
+}) {
+  const selectedCount = countVisibilityTargets(targets);
+
+  function setTarget(
+    key: VisibilityTargetKey,
+    optionId: string,
+    checked: boolean,
+  ) {
+    const current = new Set(targets[key]);
+    if (checked) {
+      current.add(optionId);
+    } else {
+      current.delete(optionId);
+    }
+    onTargetsChange({
+      ...targets,
+      [key]: Array.from(current),
+    });
+  }
+
+  function setGroupTargets(group: VisibilityTargetGroup, selected: boolean) {
+    onTargetsChange({
+      ...targets,
+      [group.key]: selected ? group.options.map((option) => option.id) : [],
+    });
+  }
+
+  return (
+    <section className="space-y-3 rounded-md border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-medium">{title}</h3>
+          <p className="text-xs text-muted-foreground">
+            {mode === "everywhere"
+              ? "Visible on all frontend and backend pages."
+              : `${selectedCount} selected location${selectedCount === 1 ? "" : "s"}.`}
+          </p>
+        </div>
+        <div className="grid w-full grid-cols-1 rounded-md border p-1 sm:w-auto sm:grid-cols-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={mode === "everywhere" ? "default" : "ghost"}
+            className="justify-center"
+            onClick={() => onModeChange("everywhere")}
+          >
+            Show everywhere
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={mode === "selected" ? "default" : "ghost"}
+            className="justify-center"
+            onClick={() => onModeChange("selected")}
+          >
+            Show only on selected locations
+          </Button>
+        </div>
+      </div>
+
+      {mode === "selected" && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {groups.map((group) => (
+            <div key={group.key} className="space-y-2 rounded-md border p-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                <h4 className="text-xs font-medium uppercase text-muted-foreground">
+                  {group.label}
+                </h4>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{targets[group.key].length}</Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    disabled={group.options.length === 0}
+                    onClick={() => {
+                      const allSelected =
+                        group.options.length > 0 &&
+                        group.options.every((option) =>
+                          targets[group.key].includes(option.id),
+                        );
+                      setGroupTargets(group, !allSelected);
+                    }}
+                  >
+                    {group.options.length > 0 &&
+                    group.options.every((option) =>
+                      targets[group.key].includes(option.id),
+                    ) ? (
+                      <>
+                        <X className="size-3" aria-hidden />
+                        Deselect all
+                      </>
+                    ) : (
+                      <>
+                        <Check className="size-3" aria-hidden />
+                        Select all
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+                {group.options.length === 0 ? (
+                  <p className="px-2 py-4 text-sm text-muted-foreground">
+                    No options available.
+                  </p>
+                ) : (
+                  group.options.map((option) => (
+                    <VisibilityTargetCheckbox
+                      key={option.id}
+                      id={`${idPrefix}-${group.key}-${option.id}`}
+                      option={option}
+                      checked={targets[group.key].includes(option.id)}
+                      onCheckedChange={(checked) =>
+                        setTarget(group.key, option.id, checked)
+                      }
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 interface SessionSecurityCardProps {
   maxSessionMinutes: string;
   setMaxSessionMinutes: (v: string) => void;
@@ -1337,6 +1580,8 @@ export function SettingsForm({
   settings,
   initialLogoFile,
   navigationMenus,
+  visibilityContentTargets,
+  visibilityBlogCategories,
 }: SettingsFormProps) {
   const searchParams = useSearchParams();
   const urlSettingsTab = parseSettingsTab(
@@ -1456,6 +1701,71 @@ export function SettingsForm({
     navigationMenus.some((menu) => menu.id === headerSettings.navigationMenuId)
       ? headerSettings.navigationMenuId
       : null;
+  const visibilityTargetGroups: VisibilityTargetGroup[] = [
+    {
+      key: "pageIds",
+      label: "Pages",
+      options: visibilityContentTargets
+        .filter((item) => item.contentType === "page")
+        .map((item) => ({
+          id: item.id,
+          label: item.title,
+          meta: `/${item.slug} · ${item.status}`,
+        })),
+    },
+    {
+      key: "blogPostIds",
+      label: "Blog Posts",
+      options: visibilityContentTargets
+        .filter((item) => item.contentType === "blog_post")
+        .map((item) => ({
+          id: item.id,
+          label: item.title,
+          meta: `/${item.slug} · ${item.status}`,
+        })),
+    },
+    {
+      key: "heroSliderIds",
+      label: "Hero Sliders",
+      options: visibilityContentTargets
+        .filter((item) => item.contentType === "hero_slider")
+        .map((item) => ({
+          id: item.id,
+          label: item.title,
+          meta: `/${item.slug} · ${item.status}`,
+        })),
+    },
+    {
+      key: "blogCategoryIds",
+      label: "Blog Categories",
+      options: visibilityBlogCategories.map((category) => ({
+        id: category.id,
+        label: category.name,
+        meta: "Blog category",
+      })),
+    },
+    {
+      key: "adminPageIds",
+      label: "Admin/backend Pages",
+      options: ADMIN_PAGE_TARGETS.map((target) => ({
+        id: target.id,
+        label: target.label,
+        meta: target.path,
+      })),
+    },
+  ];
+  const initialHeaderVisibility =
+    headerSettings.visibility ?? DEFAULT_SHELL_VISIBILITY;
+  const initialFooterVisibility =
+    footerSettings.visibility ?? DEFAULT_SHELL_VISIBILITY;
+  const initialHeaderVisibilityTargets = filterVisibilityTargetsForOptions(
+    cloneVisibilityTargets(initialHeaderVisibility.targets),
+    visibilityTargetGroups,
+  );
+  const initialFooterVisibilityTargets = filterVisibilityTargetsForOptions(
+    cloneVisibilityTargets(initialFooterVisibility.targets),
+    visibilityTargetGroups,
+  );
 
   const [siteName, setSiteName] = useState(
     settings?.siteName ?? "Night Raven CMS",
@@ -1480,6 +1790,10 @@ export function SettingsForm({
     headerSettings.showSiteName,
   );
   const [headerHidden, setHeaderHidden] = useState(initialHeaderHidden);
+  const [headerVisibilityMode, setHeaderVisibilityMode] =
+    useState<ShellVisibilityMode>(initialHeaderVisibility.mode);
+  const [headerVisibilityTargets, setHeaderVisibilityTargets] =
+    useState<ShellVisibilityTargets>(initialHeaderVisibilityTargets);
   const [headerSticky, setHeaderSticky] = useState(headerSettings.sticky);
   const [navigationMenuId, setNavigationMenuId] = useState<string | null>(
     initialNavigationMenuId,
@@ -1599,6 +1913,10 @@ export function SettingsForm({
   const [footerCtaHref, setFooterCtaHref] = useState(
     initialFooterCtaSlot?.href ?? "",
   );
+  const [footerVisibilityMode, setFooterVisibilityMode] =
+    useState<ShellVisibilityMode>(initialFooterVisibility.mode);
+  const [footerVisibilityTargets, setFooterVisibilityTargets] =
+    useState<ShellVisibilityTargets>(initialFooterVisibilityTargets);
   const [maxUploadMB, setMaxUploadMB] = useState(
     String(Math.round(Number(settings?.maxUploadSizeBytes ?? 50 * MB) / MB)),
   );
@@ -1729,6 +2047,10 @@ export function SettingsForm({
       showLogo: headerShowLogo,
       showSiteName: headerShowSiteName,
       hidden: headerHidden,
+      visibility: {
+        mode: headerVisibilityMode,
+        targets: cloneVisibilityTargets(headerVisibilityTargets),
+      },
       sticky: headerSticky,
       navigationMenuId,
       logoBorderEnabled,
@@ -1745,6 +2067,8 @@ export function SettingsForm({
       headerShowLogo,
       headerShowSiteName,
       headerHidden,
+      headerVisibilityMode,
+      headerVisibilityTargets,
       headerSticky,
       navigationMenuId,
       logoBorderEnabled,
@@ -1758,12 +2082,24 @@ export function SettingsForm({
   const currentFooterSettings = useMemo(
     () => ({
       hidden: footerHidden,
+      visibility: {
+        mode: footerVisibilityMode,
+        targets: cloneVisibilityTargets(footerVisibilityTargets),
+      },
       copyright: footerCopyright || undefined,
       sticky: footerSticky,
       background: normalizeOptionalHexColor(footerBackground),
       glow: normalizeOptionalGlowEffect(footerGlow),
     }),
-    [footerHidden, footerCopyright, footerSticky, footerBackground, footerGlow],
+    [
+      footerHidden,
+      footerVisibilityMode,
+      footerVisibilityTargets,
+      footerCopyright,
+      footerSticky,
+      footerBackground,
+      footerGlow,
+    ],
   );
   const currentAppearanceSettings = useMemo(
     () => ({
@@ -2558,6 +2894,17 @@ export function SettingsForm({
                       onCheckedChange={setHeaderHidden}
                     />
                   </div>
+                  {!headerHidden && (
+                    <ShellVisibilitySection
+                      idPrefix="headerVisibility"
+                      title="Header visibility"
+                      mode={headerVisibilityMode}
+                      targets={headerVisibilityTargets}
+                      groups={visibilityTargetGroups}
+                      onModeChange={setHeaderVisibilityMode}
+                      onTargetsChange={setHeaderVisibilityTargets}
+                    />
+                  )}
                   <div className="space-y-1.5">
                     <Label htmlFor="navigationMenuId">Navigation Menu</Label>
                     <Select
@@ -3000,6 +3347,17 @@ export function SettingsForm({
                       onCheckedChange={setFooterHidden}
                     />
                   </div>
+                  {!footerHidden && (
+                    <ShellVisibilitySection
+                      idPrefix="footerVisibility"
+                      title="Footer visibility"
+                      mode={footerVisibilityMode}
+                      targets={footerVisibilityTargets}
+                      groups={visibilityTargetGroups}
+                      onModeChange={setFooterVisibilityMode}
+                      onTargetsChange={setFooterVisibilityTargets}
+                    />
+                  )}
                   <div className="flex items-center justify-between">
                     <Label htmlFor="footerSticky">Sticky Footer</Label>
                     <Switch

@@ -671,6 +671,8 @@ function defaultMenuProps(value: unknown): Record<string, unknown> {
     layout: "horizontal",
     mobileBehavior: "collapse",
     mobileBreakpoint: "lg",
+    appendBackendMenu: false,
+    appendAuthMenu: false,
     positionMode: "absolute",
     flowAlign: "left",
     anchor: "top-right",
@@ -887,6 +889,8 @@ function normalizeMenuProps(props: Record<string, unknown>) {
 
   next.wrapperMargin = normalizeMenuSpacingSides(next.wrapperMargin);
   next.wrapperPadding = normalizeMenuSpacingSides(next.wrapperPadding);
+  next.appendBackendMenu = next.appendBackendMenu === true;
+  next.appendAuthMenu = next.appendAuthMenu === true;
 
   return next;
 }

@@ -498,6 +498,64 @@ const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 export const LOGO_BORDER_COLOR_MODES = ["theme", "custom"] as const;
 export const LOGO_BORDER_SHAPES = ["circle", "square"] as const;
+export const SHELL_VISIBILITY_MODES = ["everywhere", "selected"] as const;
+
+const StableSlugSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .regex(/^[a-z0-9][a-z0-9-]*$/);
+const UuidArraySchema = z
+  .array(z.string().uuid())
+  .default([])
+  .catch([])
+  .transform((values) => Array.from(new Set(values)));
+const StableSlugArraySchema = z
+  .array(StableSlugSchema)
+  .default([])
+  .catch([])
+  .transform((values) => Array.from(new Set(values)));
+
+export const DEFAULT_SHELL_VISIBILITY_TARGETS = {
+  pageIds: [],
+  blogPostIds: [],
+  heroSliderIds: [],
+  blogCategoryIds: [],
+  adminPageIds: [],
+};
+
+export const ShellVisibilityTargetsSchema = z
+  .object({
+    pageIds: UuidArraySchema,
+    blogPostIds: UuidArraySchema,
+    heroSliderIds: UuidArraySchema,
+    blogCategoryIds: UuidArraySchema,
+    adminPageIds: StableSlugArraySchema,
+  })
+  .default(DEFAULT_SHELL_VISIBILITY_TARGETS)
+  .catch(DEFAULT_SHELL_VISIBILITY_TARGETS);
+
+export const DEFAULT_SHELL_VISIBILITY = {
+  mode: "everywhere" as const,
+  targets: DEFAULT_SHELL_VISIBILITY_TARGETS,
+};
+
+export const ShellVisibilitySchema = z
+  .object({
+    mode: z
+      .enum(SHELL_VISIBILITY_MODES)
+      .default("everywhere")
+      .catch("everywhere"),
+    targets: ShellVisibilityTargetsSchema,
+  })
+  .default(DEFAULT_SHELL_VISIBILITY)
+  .catch(DEFAULT_SHELL_VISIBILITY);
+
+export type ShellVisibility = z.infer<typeof ShellVisibilitySchema>;
+export type ShellVisibilityTargets = z.infer<
+  typeof ShellVisibilityTargetsSchema
+>;
 
 export const HeaderSettingsSchema = z.object({
   showLogo: z.boolean().default(true),
@@ -505,6 +563,7 @@ export const HeaderSettingsSchema = z.object({
   hidden: z.boolean().default(false),
   sticky: z.boolean().default(false),
   navigationMenuId: z.string().uuid().nullable().default(null),
+  visibility: ShellVisibilitySchema,
   background: z.string().regex(HEX_COLOR).optional(),
   glow: GlowEffectSchema.optional(),
   logoBorderEnabled: z.boolean().default(true),
@@ -515,6 +574,7 @@ export const HeaderSettingsSchema = z.object({
 
 export const FooterSettingsSchema = z.object({
   hidden: z.boolean().default(false),
+  visibility: ShellVisibilitySchema,
   copyright: z.string().max(200).optional(),
   sticky: z.boolean().default(false),
   background: z.string().regex(HEX_COLOR).optional(),
@@ -530,6 +590,7 @@ export const DEFAULT_HEADER_SETTINGS: HeaderSettings = {
   hidden: false,
   sticky: false,
   navigationMenuId: null,
+  visibility: DEFAULT_SHELL_VISIBILITY,
   glow: DEFAULT_GLOW,
   logoBorderEnabled: true,
   logoBorderColorMode: "theme",
@@ -538,6 +599,7 @@ export const DEFAULT_HEADER_SETTINGS: HeaderSettings = {
 
 export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
   hidden: false,
+  visibility: DEFAULT_SHELL_VISIBILITY,
   sticky: false,
   glow: DEFAULT_GLOW,
 };

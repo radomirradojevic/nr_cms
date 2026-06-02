@@ -324,14 +324,18 @@ export function SiteHeader({
   isAdmin,
   isLoggedIn,
 }: SiteHeaderProps) {
-  if (region.hidden || headerSettings.hidden) {
-    return (
+  const launcher = (
+    <div data-shell-header-launcher>
       <SiteAdminMenuLauncher
         fallbackIsBackendUser={isBackendUser}
         fallbackIsAdmin={isAdmin}
         fallbackIsLoggedIn={isLoggedIn}
       />
-    );
+    </div>
+  );
+
+  if (region.hidden || headerSettings.hidden) {
+    return launcher;
   }
 
   const context = { isBackendUser, isAdmin, isLoggedIn };
@@ -383,9 +387,17 @@ export function SiteHeader({
   const search = renderSearchSlot(searchSlot, undefined, undefined, "right");
   const cta = renderCtaSlot(ctaSlot);
   const stickyClass = region.sticky && "sticky top-0 z-50";
+  const renderShellHeader = (header: React.ReactNode) => (
+    <>
+      <div className="contents" data-shell-header-content>
+        {header}
+      </div>
+      {launcher}
+    </>
+  );
 
   if (region.variant === "classic") {
-    return (
+    return renderShellHeader(
       <header
         className={cn(
           "site-header bg-background flex items-center justify-between p-4 gap-4",
@@ -402,12 +414,12 @@ export function SiteHeader({
           {cta}
           {authControls}
         </div>
-      </header>
+      </header>,
     );
   }
 
   if (region.variant === "centered") {
-    return (
+    return renderShellHeader(
       <header
         className={cn(
           "site-header bg-background flex flex-col items-center justify-center gap-2 px-4 py-2 text-center",
@@ -438,12 +450,12 @@ export function SiteHeader({
           {cta}
           {authControls}
         </div>
-      </header>
+      </header>,
     );
   }
 
   if (region.variant === "split") {
-    return (
+    return renderShellHeader(
       <header
         className={cn(
           "site-header bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-4 py-3",
@@ -462,12 +474,12 @@ export function SiteHeader({
           {cta}
           {authControls}
         </div>
-      </header>
+      </header>,
     );
   }
 
   if (region.variant === "compact-app") {
-    return (
+    return renderShellHeader(
       <header
         className={cn(
           "site-header bg-background flex items-center justify-between gap-3 border-b px-3 py-2",
@@ -491,12 +503,12 @@ export function SiteHeader({
           {cta}
           {authControls}
         </div>
-      </header>
+      </header>,
     );
   }
 
   if (region.variant === "editorial-masthead") {
-    return (
+    return renderShellHeader(
       <header
         className={cn(
           "site-header bg-background flex flex-col justify-center gap-3 border-b px-4 py-3",
@@ -546,11 +558,11 @@ export function SiteHeader({
           {renderSearchSlot(searchSlot, "lg:hidden", undefined, "left")}
           {cta}
         </div>
-      </header>
+      </header>,
     );
   }
 
-  return (
+  return renderShellHeader(
     <header
       className={cn(
         "site-header bg-background flex items-center justify-between gap-4 px-4 py-3",
@@ -569,6 +581,6 @@ export function SiteHeader({
         {cta}
         {authControls}
       </div>
-    </header>
+    </header>,
   );
 }

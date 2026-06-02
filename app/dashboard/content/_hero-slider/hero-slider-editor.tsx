@@ -1731,6 +1731,18 @@ function MenuFields({
             /dashboard/menus/{selectedMenuId}
           </p>
         ) : null}
+        <div className="grid gap-2 sm:grid-cols-2">
+          <SwitchField
+            label="Append backend menu"
+            checked={props.appendBackendMenu === true}
+            onChange={(value) => setProp("appendBackendMenu", value)}
+          />
+          <SwitchField
+            label="Append auth menu"
+            checked={props.appendAuthMenu === true}
+            onChange={(value) => setProp("appendAuthMenu", value)}
+          />
+        </div>
       </MenuSettingsGroup>
 
       <MenuSettingsGroup title="Preset and Layout">

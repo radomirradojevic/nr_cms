@@ -297,6 +297,13 @@ html[data-appearance-motion="reduced"].theme-aurora body::before {
   border-bottom: var(--header-glow-border-bottom, 0 solid transparent);
   box-shadow: var(--header-glow-shadow, none);
 }
+
+html[data-shell-header-visible="false"] [data-shell-header-content],
+html[data-shell-header-visible="true"] [data-shell-header-launcher],
+html[data-shell-footer-visible="false"] [data-shell-footer-content] {
+  display: none !important;
+}
+
 .site-footer {
   border-top: var(--footer-glow-border-top, 0 solid transparent);
   box-shadow: var(--footer-glow-shadow, none);

@@ -31,6 +31,14 @@ export type ContentAuthorInfo = {
   name: string;
 };
 
+export type ContentTargetOption = {
+  id: string;
+  contentType: ContentType;
+  title: string;
+  slug: string;
+  status: ContentStatus;
+};
+
 export type PublicSearchResult = {
   id: string;
   title: string;
@@ -148,6 +156,29 @@ export async function listContent(
     rows: rows.map((r) => ({ ...r, categoryName: r.categoryName ?? "—" })),
     total: totalRows[0]?.total ?? 0,
   };
+}
+
+export async function listContentTargetOptions(): Promise<
+  ContentTargetOption[]
+> {
+  const rows = await db
+    .select({
+      id: content.id,
+      contentType: content.contentType,
+      title: content.title,
+      slug: content.slug,
+      status: content.status,
+    })
+    .from(content)
+    .orderBy(asc(content.contentType), asc(content.title));
+
+  return rows.map((row) => ({
+    id: row.id,
+    contentType: row.contentType as ContentType,
+    title: row.title,
+    slug: row.slug,
+    status: row.status as ContentStatus,
+  }));
 }
 
 export async function getDistinctContentAuthorIds(): Promise<string[]> {
