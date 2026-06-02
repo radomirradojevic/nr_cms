@@ -10,9 +10,11 @@ import {
 import type { FooterSettings, HeaderSettings } from "@/lib/global-settings";
 import {
   ADMIN_PAGE_TARGET_IDS,
+  SYSTEM_PAGE_TARGET_IDS,
   type AdminPageTargetId,
   type ShellRenderTarget,
   type ShellRouteIndex,
+  type SystemPageTargetId,
   resolveShellRenderTargetForPathname,
 } from "@/lib/shell-visibility-targets";
 
@@ -64,6 +66,13 @@ function filterKnownAdminPageIds(values: string[]): AdminPageTargetId[] {
   );
 }
 
+function filterKnownSystemPageIds(values: string[]): SystemPageTargetId[] {
+  const knownIds = new Set<string>(SYSTEM_PAGE_TARGET_IDS);
+  return unique(values).filter((id): id is SystemPageTargetId =>
+    knownIds.has(id),
+  );
+}
+
 export async function pruneShellVisibilitySettingsForWrite<
   T extends HeaderSettings | FooterSettings,
 >(settings: T): Promise<T> {
@@ -105,6 +114,7 @@ export async function pruneShellVisibilitySettingsForWrite<
     visibility: {
       mode: "selected",
       targets: {
+        systemPageIds: filterKnownSystemPageIds(targets.systemPageIds),
         pageIds: unique(targets.pageIds).filter((id) => validPageIds.has(id)),
         blogPostIds: unique(targets.blogPostIds).filter((id) =>
           validBlogPostIds.has(id),
