@@ -43,7 +43,7 @@ export type AiPageBlockPlan =
     }
   | {
       block: "Heading";
-      level?: "1" | "2" | "3";
+      level?: "1" | "2" | "3" | "4";
       text: string;
       variant?: AiPagePlanVariant;
     }
@@ -99,7 +99,7 @@ const AiPageBlockSchema: z.ZodType<AiPageBlockPlan> = z.lazy(() =>
     }),
     z.object({
       block: z.literal("Heading"),
-      level: z.enum(["1", "2", "3"]).optional(),
+      level: z.enum(["1", "2", "3", "4"]).optional(),
       text: text(180),
       variant: AiPlanVariantSchema.optional(),
     }),

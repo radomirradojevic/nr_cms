@@ -535,8 +535,13 @@ export function Heading({ content, level, style }: HeadingProps) {
   const {
     actions: { setProp },
   } = useNode();
-  const Tag = `h${level}` as "h1" | "h2" | "h3";
-  const sizes = { "1": "text-4xl", "2": "text-3xl", "3": "text-2xl" } as const;
+  const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4";
+  const sizes = {
+    "1": "text-4xl",
+    "2": "text-3xl",
+    "3": "text-2xl",
+    "4": "text-xl",
+  } as const;
   return (
     <NodeWrap style={style}>
       <Tag className={`font-semibold tracking-tight my-4 ${sizes[level]}`}>
@@ -582,6 +587,7 @@ function HeadingSettings() {
             <SelectItem value="1">H1</SelectItem>
             <SelectItem value="2">H2</SelectItem>
             <SelectItem value="3">H3</SelectItem>
+            <SelectItem value="4">H4</SelectItem>
           </SelectContent>
         </Select>
       </Field>

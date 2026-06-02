@@ -185,8 +185,13 @@ export function LayoutStatic({
 }
 
 export function HeadingStatic({ content, level, style }: HeadingProps) {
-  const Tag = `h${level}` as "h1" | "h2" | "h3";
-  const sizes = { "1": "text-4xl", "2": "text-3xl", "3": "text-2xl" } as const;
+  const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4";
+  const sizes = {
+    "1": "text-4xl",
+    "2": "text-3xl",
+    "3": "text-2xl",
+    "4": "text-xl",
+  } as const;
   const { shellStyle, shellClass, responsiveStyleEl } = resolveShell(style);
   return (
     <>

@@ -25,7 +25,7 @@ export type LayoutProps = StyledProps & {
 };
 export type HeadingProps = StyledProps & {
   content: JSONContent;
-  level: "1" | "2" | "3";
+  level: "1" | "2" | "3" | "4";
 };
 export type TextProps = StyledProps & { content: JSONContent };
 export type ImageProps = StyledProps & {
