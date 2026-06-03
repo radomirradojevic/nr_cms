@@ -9,12 +9,18 @@ import {
 import { ROOT_NODE_ID } from "@/app/dashboard/content/_builder/types";
 import { getAiWritingAssistantServerSettings } from "@/data/global-settings";
 import { createAIProvider } from "@/lib/ai-provider-registry";
-import { AI_PROVIDER_LABELS, AIProviderIdSchema } from "@/lib/global-settings";
+import {
+  AI_PROVIDER_LABELS,
+  AIProviderIdSchema,
+  AIProviderModelIdSchema,
+  resolveAiProviderModel,
+} from "@/lib/global-settings";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 
 const GeneratePageRequestSchema = z.object({
   providerId: AIProviderIdSchema.optional(),
+  model: AIProviderModelIdSchema.optional(),
   mode: z.enum(["replace", "append"]).default("replace"),
   prompt: z.string().trim().min(8).max(2_000),
   title: z.string().trim().max(200).optional(),
@@ -69,6 +75,17 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
+  const model = resolveAiProviderModel(providerSettings, body.model);
+  if (!model) {
+    return NextResponse.json(
+      {
+        error: body.model
+          ? `${AI_PROVIDER_LABELS[providerId]} model is not enabled.`
+          : `${AI_PROVIDER_LABELS[providerId]} has no enabled AI models.`,
+      },
+      { status: 400 },
+    );
+  }
   if (!providerSettings.apiKey) {
     return NextResponse.json(
       { error: `${AI_PROVIDER_LABELS[providerId]} API key is not configured.` },
@@ -78,7 +95,7 @@ export async function POST(request: Request) {
 
   const provider = createAIProvider(providerId, {
     apiKey: providerSettings.apiKey,
-    model: providerSettings.model,
+    model,
     maxOutputTokens: pageBuilderGenerationTokenLimit(
       providerSettings.maxOutputTokens,
     ),

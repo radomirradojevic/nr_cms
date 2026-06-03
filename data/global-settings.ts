@@ -355,7 +355,7 @@ export const getGlobalSettings = unstable_cache(
       return normalizeResolvedGlobalSettings(DEFAULT_RESOLVED_GLOBAL_SETTINGS);
     }
   },
-  ["global-settings:resolved:v11"],
+  ["global-settings:resolved:v12"],
   { tags: [GLOBAL_SETTINGS_TAG] },
 );
 
@@ -573,6 +573,12 @@ export async function updateGlobalSettings(
     AI_PROVIDER_IDS.map((id) => {
       const next = input.aiProviders[id];
       const current = existingProviders[id];
+      const model =
+        next.enabledModels.length > 0 &&
+        !next.enabledModels.includes(next.model)
+          ? next.enabledModels[0]
+          : next.model;
+
       return [
         id,
         {
@@ -580,19 +586,27 @@ export async function updateGlobalSettings(
           apiKey: next.clearApiKey
             ? null
             : (next.apiKey ?? current.apiKey ?? null),
-          model: next.model,
+          model,
+          enabledModels: next.enabledModels,
           maxOutputTokens: next.maxOutputTokens,
           instructions: next.instructions,
         },
       ];
     }),
   ) as AiProviderServerSettingsById;
+  const usableProviderIds = AI_PROVIDER_IDS.filter(
+    (id) =>
+      input.aiProviders[id].enabled &&
+      input.aiProviders[id].enabledModels.length > 0,
+  );
   const enabledProviderIds = AI_PROVIDER_IDS.filter(
     (id) => input.aiProviders[id].enabled,
   );
-  const aiDefaultProvider = enabledProviderIds.includes(input.aiDefaultProvider)
+  const aiDefaultProvider = usableProviderIds.includes(input.aiDefaultProvider)
     ? input.aiDefaultProvider
-    : (enabledProviderIds[0] ?? input.aiDefaultProvider);
+    : (usableProviderIds[0] ??
+      enabledProviderIds[0] ??
+      input.aiDefaultProvider);
   const openaiProvider = aiProviderSettings.openai;
   const values = {
     siteName: input.siteName,
