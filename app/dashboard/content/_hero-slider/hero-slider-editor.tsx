@@ -1,5 +1,6 @@
 "use client";
 
+import { put } from "@vercel/blob/client";
 import {
   ArrowDown,
   ArrowUp,
@@ -84,6 +85,32 @@ type MediaTarget =
   | { kind: "slide-poster"; slideId: string }
   | { kind: "block-image"; blockId: string };
 
+type UploadedMedia = { src: string; alt: string };
+
+type UploadedFile = {
+  id: string;
+  filename: string;
+  alt?: string | null;
+};
+
+type UploadApiResponse = {
+  results?: Array<
+    | {
+        ok: true;
+        file: UploadedFile;
+      }
+    | { ok: false; error: string }
+  >;
+  error?: string;
+};
+
+type PreparedClientUpload = {
+  storagePath: string;
+  mimeType: string;
+  clientToken: string;
+  ticket: string;
+};
+
 const BREAKPOINTS: HeroSliderBreakpoint[] = ["desktop", "tablet", "mobile"];
 const SEARCH_CONTENT_TYPES: Array<{
   value: HeroSlideSearchContentType;
@@ -92,6 +119,110 @@ const SEARCH_CONTENT_TYPES: Array<{
   { value: "page", label: "Pages" },
   { value: "blog_post", label: "Blog posts" },
 ];
+
+function uploadedFileToMedia(file: UploadedFile): UploadedMedia {
+  return {
+    src: `/api/files/${file.id}`,
+    alt: file.alt ?? file.filename,
+  };
+}
+
+async function readUploadError(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    if (typeof payload.error === "string") return payload.error;
+  } catch {
+    // Fall through to status text.
+  }
+  return response.statusText || `HTTP ${response.status}`;
+}
+
+async function uploadViaApi(file: File): Promise<UploadedMedia> {
+  const body = new FormData();
+  body.append("file", file);
+
+  const response = await fetch("/api/files", {
+    method: "POST",
+    body,
+  });
+  const payload = (await response
+    .json()
+    .catch(() => null)) as UploadApiResponse | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Upload failed.");
+  }
+
+  const result = payload?.results?.[0];
+  if (!result) throw new Error("Upload failed.");
+  if (!result.ok) throw new Error(result.error);
+
+  return uploadedFileToMedia(result.file);
+}
+
+async function prepareClientUpload(
+  file: File,
+): Promise<PreparedClientUpload | null> {
+  const response = await fetch("/api/files/client-upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      filename: file.name,
+      type: file.type,
+      size: file.size,
+    }),
+  });
+
+  if (response.ok) return (await response.json()) as PreparedClientUpload;
+
+  const error = await readUploadError(response);
+  if (
+    response.status === 400 &&
+    error.includes("Direct client uploads are only available")
+  ) {
+    return null;
+  }
+
+  throw new Error(error);
+}
+
+async function completeClientUpload(ticket: string): Promise<UploadedMedia> {
+  const response = await fetch("/api/files/client-upload/complete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ticket }),
+  });
+
+  if (!response.ok) throw new Error(await readUploadError(response));
+
+  const payload = (await response.json()) as { file?: UploadedFile };
+  if (!payload.file) throw new Error("Upload failed.");
+  return uploadedFileToMedia(payload.file);
+}
+
+async function uploadViaVercelBlob(
+  file: File,
+  prepared: PreparedClientUpload,
+): Promise<UploadedMedia> {
+  await put(prepared.storagePath, file, {
+    access: "public",
+    token: prepared.clientToken,
+    contentType: prepared.mimeType,
+    multipart: file.size >= 8 * 1024 * 1024,
+  });
+
+  return completeClientUpload(prepared.ticket);
+}
+
+async function uploadMediaFile(file: File): Promise<UploadedMedia> {
+  const prepared = await prepareClientUpload(file);
+  if (prepared) return uploadViaVercelBlob(file, prepared);
+  return uploadViaApi(file);
+}
+
+function getUploadErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Upload failed.";
+}
 
 export function HeroSliderEditor({
   defaultValue,
@@ -241,48 +372,13 @@ export function HeroSliderEditor({
     setActiveSlideId(next.slides[0]?.id ?? "");
   }
 
-  function uploadFile(
-    file: File,
-    onUploaded: (args: { src: string; alt: string }) => void,
-  ) {
+  function uploadFile(file: File, onUploaded: (args: UploadedMedia) => void) {
     startUpload(async () => {
-      const body = new FormData();
-      body.append("file", file);
       try {
-        const response = await fetch("/api/files", {
-          method: "POST",
-          body,
-        });
-        const payload = (await response.json().catch(() => null)) as {
-          results?: Array<
-            | {
-                ok: true;
-                file: { id: string; filename: string; alt?: string | null };
-              }
-            | { ok: false; error: string }
-          >;
-          error?: string;
-        } | null;
-        if (!response.ok) {
-          toast.error(payload?.error ?? "Upload failed.");
-          return;
-        }
-        const result = payload?.results?.[0];
-        if (!result) {
-          toast.error("Upload failed.");
-          return;
-        }
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
-        onUploaded({
-          src: `/api/files/${result.file.id}`,
-          alt: result.file.alt ?? result.file.filename,
-        });
+        onUploaded(await uploadMediaFile(file));
         toast.success("Media uploaded.");
-      } catch {
-        toast.error("Upload failed.");
+      } catch (error) {
+        toast.error(getUploadErrorMessage(error));
       }
     });
   }
