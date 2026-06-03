@@ -4,6 +4,7 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { listFiles, getDistinctUploaderIds } from "@/data/files";
 import { getGlobalSettings } from "@/data/global-settings";
+import { getStorageProviderName } from "@/lib/file-storage";
 import { FileManager } from "./file-manager";
 
 export type UploaderInfo = { id: string; name: string };
@@ -22,13 +23,14 @@ export default async function FileManagerPage() {
   }
   const isAdmin = hasRole(roles, "admin");
 
-  const [{ rows, total }, settings] = await Promise.all([
+  const [{ rows, total }, settings, storageProvider] = await Promise.all([
     listFiles({
       caller: { userId, isAdmin },
       limit: PAGE_SIZE,
       offset: 0,
     }),
     getGlobalSettings(),
+    getStorageProviderName(),
   ]);
 
   // Build uploader name map for display + admin filter
@@ -79,6 +81,7 @@ export default async function FileManagerPage() {
         uploaders={uploaders}
         maxFileSize={settings.maxUploadSizeBytes}
         maxBatchSize={settings.maxBatchUploadSizeBytes}
+        storageProvider={storageProvider}
       />
     </div>
   );

@@ -17,6 +17,10 @@ import {
   isFormUploadOwner,
   legacyFormUploadOwner,
 } from "@/lib/form-upload-security";
+import {
+  createClientUploadTicket,
+  verifyClientUploadTicket,
+} from "@/lib/file-upload-tickets-core";
 import { sanitizeHref, sanitizeMediaSrc } from "@/lib/url-safety";
 
 test("URL safety helpers reject executable protocols", () => {
@@ -49,6 +53,8 @@ test("CSP allows Vercel Blob videos as media sources", async () => {
     csp,
     /media-src[^;]*https:\/\/\*\.public\.blob\.vercel-storage\.com/,
   );
+  assert.match(csp, /connect-src[^;]*https:\/\/vercel\.com/);
+  assert.match(csp, /connect-src[^;]*https:\/\/\*\.vercel-storage\.com/);
 });
 
 test("builder static renderers neutralize unsafe URLs", () => {
@@ -198,4 +204,48 @@ test("form upload owner helpers accept current and legacy rows only for their fo
   assert.equal(isFormUploadOwner(legacy, formId), true);
   assert.equal(isFormUploadOwner(current, otherFormId), false);
   assert.equal(isFormUploadOwner("user_123", formId), false);
+});
+
+test("client upload tickets reject tampering and expiry", () => {
+  const previousBlobToken = process.env.BLOB_READ_WRITE_TOKEN;
+  const previousClerkSecret = process.env.CLERK_SECRET_KEY;
+  process.env.BLOB_READ_WRITE_TOKEN = "test-upload-ticket-secret";
+  delete process.env.CLERK_SECRET_KEY;
+
+  try {
+    const payload = {
+      id: "11111111-1111-4111-8111-111111111111",
+      storagePath: "2026/06/11111111-1111-4111-8111-111111111111.jpg",
+      filename: "safe.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 1024,
+      kind: "image" as const,
+      uploadedBy: "user_123",
+      exp: Date.now() + 60_000,
+    };
+
+    const ticket = createClientUploadTicket(payload);
+    assert.deepEqual(verifyClientUploadTicket(ticket), { ...payload, v: 1 });
+
+    const tamperedTicket = `${ticket.slice(0, -1)}x`;
+    assert.equal(verifyClientUploadTicket(tamperedTicket), null);
+
+    const expiredTicket = createClientUploadTicket({
+      ...payload,
+      exp: Date.now() - 1,
+    });
+    assert.equal(verifyClientUploadTicket(expiredTicket), null);
+  } finally {
+    if (previousBlobToken === undefined) {
+      delete process.env.BLOB_READ_WRITE_TOKEN;
+    } else {
+      process.env.BLOB_READ_WRITE_TOKEN = previousBlobToken;
+    }
+
+    if (previousClerkSecret === undefined) {
+      delete process.env.CLERK_SECRET_KEY;
+    } else {
+      process.env.CLERK_SECRET_KEY = previousClerkSecret;
+    }
+  }
 });

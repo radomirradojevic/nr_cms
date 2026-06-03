@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { put } from "@vercel/blob/client";
 import { Loader2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -13,6 +14,7 @@ type Props = {
   onUploaded: (files: FileRow[]) => void;
   maxFileSize: number;
   maxBatchSize: number;
+  storageProvider: "local" | "vercel-blob";
 };
 
 type UploadState = {
@@ -22,10 +24,24 @@ type UploadState = {
   processing: boolean;
 };
 
+type UploadApiResponse = {
+  results: Array<
+    { ok: true; file: FileRow } | { ok: false; filename: string; error: string }
+  >;
+};
+
+type PreparedClientUpload = {
+  storagePath: string;
+  mimeType: string;
+  clientToken: string;
+  ticket: string;
+};
+
 export function UploadDropzone({
   onUploaded,
   maxFileSize,
   maxBatchSize,
+  storageProvider,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -38,6 +54,141 @@ export function UploadDropzone({
 
   function pickFiles() {
     inputRef.current?.click();
+  }
+
+  async function readResponseError(res: Response): Promise<string> {
+    try {
+      const data = (await res.json()) as { error?: unknown };
+      if (typeof data.error === "string") return data.error;
+    } catch {
+      // Fall through to status text.
+    }
+    return res.statusText || `HTTP ${res.status}`;
+  }
+
+  function getErrorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : "Upload failed.";
+  }
+
+  async function uploadViaApi(accepted: File[]): Promise<FileRow[]> {
+    const form = new FormData();
+    for (const f of accepted) form.append("file", f);
+
+    const xhr = new XMLHttpRequest();
+    const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+      xhr.open("POST", "/api/files");
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          setState((s) => ({
+            ...s,
+            progress: pct,
+            processing: pct >= 100,
+          }));
+        }
+      };
+      xhr.upload.onload = () => {
+        setState((s) => ({ ...s, progress: 100, processing: true }));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText) as UploadApiResponse);
+          } catch (err) {
+            reject(err);
+          }
+        } else {
+          reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.send(form);
+    });
+
+    const successes: FileRow[] = [];
+    for (const r of result.results) {
+      if (r.ok) {
+        successes.push(r.file);
+      } else {
+        toast.error(`${r.filename}: ${r.error}`);
+      }
+    }
+    return successes;
+  }
+
+  async function prepareClientUpload(
+    file: File,
+  ): Promise<PreparedClientUpload> {
+    const res = await fetch("/api/files/client-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        type: file.type,
+        size: file.size,
+      }),
+    });
+    if (!res.ok) throw new Error(await readResponseError(res));
+    return (await res.json()) as PreparedClientUpload;
+  }
+
+  async function completeClientUpload(ticket: string): Promise<FileRow> {
+    const res = await fetch("/api/files/client-upload/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket }),
+    });
+    if (!res.ok) throw new Error(await readResponseError(res));
+    const data = (await res.json()) as { file: FileRow };
+    return data.file;
+  }
+
+  async function uploadViaVercelBlob(
+    accepted: File[],
+    totalSize: number,
+  ): Promise<FileRow[]> {
+    const successes: FileRow[] = [];
+    let completedBytes = 0;
+
+    for (const file of accepted) {
+      let fileAccounted = false;
+      try {
+        const prepared = await prepareClientUpload(file);
+        await put(prepared.storagePath, file, {
+          access: "public",
+          token: prepared.clientToken,
+          contentType: prepared.mimeType,
+          multipart: file.size >= 8 * 1024 * 1024,
+          onUploadProgress: ({ loaded }) => {
+            const pct = Math.round(
+              ((completedBytes + loaded) / totalSize) * 100,
+            );
+            setState((s) => ({
+              ...s,
+              progress: Math.min(99, pct),
+              processing: false,
+            }));
+          },
+        });
+        completedBytes += file.size;
+        fileAccounted = true;
+        if (completedBytes >= totalSize) {
+          setState((s) => ({ ...s, progress: 100, processing: true }));
+        }
+        successes.push(await completeClientUpload(prepared.ticket));
+      } catch (err) {
+        console.error(err);
+        toast.error(`${file.name}: ${getErrorMessage(err)}`);
+        if (!fileAccounted) completedBytes += file.size;
+      }
+
+      setState((s) => ({
+        ...s,
+        progress: Math.round((completedBytes / totalSize) * 100),
+      }));
+    }
+
+    return successes;
   }
 
   async function handleFiles(fileList: FileList | File[]) {
@@ -72,9 +223,6 @@ export function UploadDropzone({
       return;
     }
 
-    const form = new FormData();
-    for (const f of accepted) form.append("file", f);
-
     setState({
       active: true,
       progress: 0,
@@ -83,50 +231,10 @@ export function UploadDropzone({
     });
 
     try {
-      const xhr = new XMLHttpRequest();
-      const result = await new Promise<{
-        results: Array<
-          | { ok: true; file: FileRow }
-          | { ok: false; filename: string; error: string }
-        >;
-      }>((resolve, reject) => {
-        xhr.open("POST", "/api/files");
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            setState((s) => ({
-              ...s,
-              progress: pct,
-              processing: pct >= 100,
-            }));
-          }
-        };
-        xhr.upload.onload = () => {
-          setState((s) => ({ ...s, progress: 100, processing: true }));
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              resolve(JSON.parse(xhr.responseText));
-            } catch (err) {
-              reject(err);
-            }
-          } else {
-            reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
-          }
-        };
-        xhr.onerror = () => reject(new Error("Network error"));
-        xhr.send(form);
-      });
-
-      const successes: FileRow[] = [];
-      for (const r of result.results) {
-        if (r.ok) {
-          successes.push(r.file);
-        } else {
-          toast.error(`${r.filename}: ${r.error}`);
-        }
-      }
+      const successes =
+        storageProvider === "vercel-blob"
+          ? await uploadViaVercelBlob(accepted, totalSize)
+          : await uploadViaApi(accepted);
       if (successes.length > 0) {
         toast.success(`Uploaded ${successes.length} file(s).`);
         onUploaded(successes);

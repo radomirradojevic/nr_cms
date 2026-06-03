@@ -35,6 +35,7 @@ type Props = {
   uploaders: UploaderInfo[];
   maxFileSize: number;
   maxBatchSize: number;
+  storageProvider: "local" | "vercel-blob";
 };
 
 type DateRange = { from?: Date; to?: Date };
@@ -55,6 +56,7 @@ export function FileManager({
   uploaders,
   maxFileSize,
   maxBatchSize,
+  storageProvider,
 }: Props) {
   const { formatDate } = useRegionalSettings();
   const [files, setFiles] = useState<FileRow[]>(initialFiles);
@@ -162,6 +164,7 @@ export function FileManager({
         onUploaded={handleUploaded}
         maxFileSize={maxFileSize}
         maxBatchSize={maxBatchSize}
+        storageProvider={storageProvider}
       />
 
       <div className="flex flex-col md:flex-row gap-3 md:items-center">

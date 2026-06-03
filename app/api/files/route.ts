@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { randomUUID } from "node:crypto";
 import { fileTypeFromBuffer } from "file-type";
-import { getOptionalCurrentUser } from "@/lib/optional-current-user";
-import { getRoles } from "@/lib/roles";
 import { sanitizeSvgMarkup } from "@/lib/content-sanitizer";
 import {
   ALLOWED_MIME,
@@ -19,10 +16,9 @@ import {
   getStorageProviderName,
   writeUpload,
 } from "@/lib/file-storage";
+import { requireFileUploadUser } from "@/lib/file-upload-auth";
 import { insertFile } from "@/data/files";
 import { getGlobalSettings } from "@/data/global-settings";
-
-const ALLOWED_ROLES = ["admin", "publisher", "author"] as const;
 
 // Allow long-running uploads (sniffing, SVG sanitize, disk write, DB insert).
 export const maxDuration = 300;
@@ -32,14 +28,12 @@ type UploadResult =
   | { ok: false; filename: string; error: string };
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-  const user = await getOptionalCurrentUser();
-  const roles = getRoles(user?.publicMetadata);
-  if (!roles.some((r) => (ALLOWED_ROLES as readonly string[]).includes(r))) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  const caller = await requireFileUploadUser();
+  if (!caller.ok) {
+    return NextResponse.json(
+      { error: caller.error },
+      { status: caller.status },
+    );
   }
 
   let form: FormData;
@@ -148,7 +142,7 @@ export async function POST(req: NextRequest) {
         mimeType: mime,
         sizeBytes: buffer.length,
         kind,
-        uploadedBy: userId,
+        uploadedBy: caller.userId,
       });
 
       results.push({ ok: true, file: row });
