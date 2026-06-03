@@ -509,6 +509,8 @@ export function Toolbar({
   aiProviderOptions = [],
   aiProviderId,
   onAiProviderIdChange,
+  aiModelId,
+  onAiModelIdChange,
   pageTitle,
 }: {
   onToggleSource: () => void;
@@ -531,6 +533,8 @@ export function Toolbar({
   aiProviderOptions?: AiProviderOption[];
   aiProviderId?: AIProviderId;
   onAiProviderIdChange?: (providerId: AIProviderId) => void;
+  aiModelId?: string;
+  onAiModelIdChange?: (modelId: string) => void;
   pageTitle?: string;
 }) {
   const { canUndo, canRedo, actions, query, selectedId, isDeletable } =
@@ -557,9 +561,22 @@ export function Toolbar({
   )
     ? aiProviderId
     : aiProviderOptions[0]?.id;
-  const selectedAiProviderLabel =
-    aiProviderOptions.find((provider) => provider.id === effectiveAiProviderId)
-      ?.label ?? "Provider";
+  const selectedAiProvider = aiProviderOptions.find(
+    (provider) => provider.id === effectiveAiProviderId,
+  );
+  const selectedAiProviderLabel = selectedAiProvider?.label ?? "Provider";
+  const effectiveAiModelId = selectedAiProvider?.models.some(
+    (model) => model.id === aiModelId,
+  )
+    ? aiModelId
+    : (selectedAiProvider?.defaultModel ??
+      selectedAiProvider?.models[0]?.id ??
+      "");
+  const selectedAiModelLabel =
+    selectedAiProvider?.models.find((model) => model.id === effectiveAiModelId)
+      ?.label ??
+    effectiveAiModelId ??
+    "Model";
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiInsertMode, setAiInsertMode] = useState<"replace" | "append">(
@@ -647,6 +664,10 @@ export function Toolbar({
       toast.error("Choose an AI provider first.");
       return;
     }
+    if (!effectiveAiModelId) {
+      toast.error("Choose an AI model first.");
+      return;
+    }
 
     if (aiInsertMode === "replace" && hasCurrentRootChildren(query)) {
       const confirmed = window.confirm(
@@ -664,6 +685,7 @@ export function Toolbar({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           providerId: effectiveAiProviderId,
+          model: effectiveAiModelId,
           mode: aiInsertMode,
           prompt,
           title: pageTitle?.trim() ?? "",
@@ -770,9 +792,16 @@ export function Toolbar({
               {aiProviderOptions.length > 1 ? (
                 <Select
                   value={effectiveAiProviderId}
-                  onValueChange={(value) =>
-                    onAiProviderIdChange?.(value as AIProviderId)
-                  }
+                  onValueChange={(value) => {
+                    const providerId = value as AIProviderId;
+                    const provider = aiProviderOptions.find(
+                      (option) => option.id === providerId,
+                    );
+                    onAiProviderIdChange?.(providerId);
+                    onAiModelIdChange?.(
+                      provider?.defaultModel ?? provider?.models[0]?.id ?? "",
+                    );
+                  }}
                 >
                   <SelectTrigger
                     aria-label="AI provider"
@@ -795,6 +824,35 @@ export function Toolbar({
               )}
             </div>
           )}
+          {selectedAiProvider && selectedAiProvider.models.length > 0 && (
+            <div className="flex min-w-0 items-center gap-1 border-l pl-2">
+              <span className="text-muted-foreground">Model:</span>
+              {selectedAiProvider.models.length > 1 ? (
+                <Select
+                  value={effectiveAiModelId}
+                  onValueChange={(value) => onAiModelIdChange?.(value)}
+                >
+                  <SelectTrigger
+                    aria-label="AI model"
+                    className="h-7 w-36 rounded-md px-2 text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedAiProvider.models.map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        {model.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="max-w-36 truncate font-medium">
+                  {selectedAiModelLabel}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
       {aiAssistantAvailable && aiAssistantActive && (
@@ -802,7 +860,7 @@ export function Toolbar({
           type="button"
           size="sm"
           variant="default"
-          disabled={sourceMode || !effectiveAiProviderId}
+          disabled={sourceMode || !effectiveAiProviderId || !effectiveAiModelId}
           onClick={() => setAiDialogOpen(true)}
           aria-label="Generate page with AI"
           title="Generate page with AI"
