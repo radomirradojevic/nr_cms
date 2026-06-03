@@ -77,6 +77,7 @@ import {
   SESSION_SECURITY_DEFAULTS,
   type AIProviderId,
   type AiProviderAdminSettingsById,
+  type AIProviderModelOption,
   type ShellVisibility,
   type ShellVisibilityTargets,
 } from "@/lib/global-settings";
@@ -301,6 +302,7 @@ type AiProviderFormState = {
   apiKey: string;
   clearApiKey: boolean;
   model: string;
+  enabledModels: string[];
   maxOutputTokens: string;
   instructions: string;
   apiKeyConfigured: boolean;
@@ -322,6 +324,10 @@ function buildInitialAiProviderFormState(
           apiKey: "",
           clearApiKey: false,
           model: provider?.model ?? AI_PROVIDER_DEFAULT_MODELS[id],
+          enabledModels: normalizeAiProviderEnabledModels(
+            provider?.enabledModels,
+            provider?.model ?? AI_PROVIDER_DEFAULT_MODELS[id],
+          ),
           maxOutputTokens: String(provider?.maxOutputTokens ?? 48),
           instructions: provider?.instructions ?? "",
           apiKeyConfigured: provider?.apiKeyConfigured ?? false,
@@ -334,21 +340,40 @@ function buildInitialAiProviderFormState(
 function getAiProviderModelOptions(
   providerId: AIProviderId,
   selectedModel: string,
-) {
+  enabledModels: readonly string[],
+): AIProviderModelOption[] {
   const options = AI_PROVIDER_MODEL_OPTIONS[providerId];
-  const normalizedModel = selectedModel.trim();
-
-  if (
-    normalizedModel.length === 0 ||
-    options.some((option) => option.id === normalizedModel)
-  ) {
-    return options;
-  }
+  const savedModels = Array.from(
+    new Set([
+      selectedModel.trim(),
+      ...enabledModels.map((model) => model.trim()),
+    ]),
+  ).filter((model) => model.length > 0);
+  const unknownSavedModels = savedModels.filter(
+    (model) => !options.some((option) => option.id === model),
+  );
 
   return [
-    { id: normalizedModel, label: `${normalizedModel} (saved value)` },
+    ...unknownSavedModels.map((model) => ({
+      id: model,
+      label: `${model} (saved value)`,
+    })),
     ...options,
   ];
+}
+
+function normalizeAiProviderEnabledModels(
+  value: readonly string[] | null | undefined,
+  fallbackModel: string,
+): string[] {
+  const source = value ?? [fallbackModel];
+  return Array.from(
+    new Set(
+      source
+        .map((model) => model.trim().slice(0, 120))
+        .filter((model) => model.length > 0),
+    ),
+  );
 }
 
 const HEADER_VARIANT_LABELS: Record<HeaderVariant, string> = {
@@ -2175,21 +2200,37 @@ export function SettingsForm({
     () => AI_PROVIDER_IDS.filter((id) => aiProviders[id].enabled),
     [aiProviders],
   );
-  const effectiveAiDefaultProvider = enabledAiProviderIds.includes(
+  const usableAiProviderIds = useMemo(
+    () =>
+      AI_PROVIDER_IDS.filter(
+        (id) =>
+          aiProviders[id].enabled && aiProviders[id].enabledModels.length > 0,
+      ),
+    [aiProviders],
+  );
+  const effectiveAiDefaultProvider = usableAiProviderIds.includes(
     aiDefaultProvider,
   )
     ? aiDefaultProvider
-    : (enabledAiProviderIds[0] ?? aiDefaultProvider);
+    : (usableAiProviderIds[0] ?? aiDefaultProvider);
   const aiAssistantShownInEditors =
     aiWritingAssistantEnabled || aiPageBuilderAssistantEnabled;
   const aiWritingAssistantSettingsValid =
     AI_PROVIDER_IDS.every((id) => {
       const provider = aiProviders[id];
       const maxOutputTokens = parseInt(provider.maxOutputTokens, 10);
+      const normalizedModel = provider.model.trim();
+      const normalizedEnabledModels = normalizeAiProviderEnabledModels(
+        provider.enabledModels,
+        normalizedModel || AI_PROVIDER_DEFAULT_MODELS[id],
+      );
 
       return (
-        provider.model.trim().length > 0 &&
-        provider.model.trim().length <= 120 &&
+        normalizedModel.length > 0 &&
+        normalizedModel.length <= 120 &&
+        normalizedEnabledModels.every((model) => model.length <= 120) &&
+        (normalizedEnabledModels.length === 0 ||
+          normalizedEnabledModels.includes(normalizedModel)) &&
         Number.isFinite(maxOutputTokens) &&
         maxOutputTokens >= MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS &&
         maxOutputTokens <= MAX_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS &&
@@ -2199,7 +2240,7 @@ export function SettingsForm({
             provider.apiKey.trim().length <= 512))
       );
     }) &&
-    (!aiAssistantShownInEditors || enabledAiProviderIds.length > 0);
+    (!aiAssistantShownInEditors || usableAiProviderIds.length > 0);
   const settingsSaveDisabled =
     isPending ||
     !sessionSecurityValid ||
@@ -2608,6 +2649,31 @@ export function SettingsForm({
     }));
   }
 
+  function updateAiProviderEnabledModel(
+    id: AIProviderId,
+    modelId: string,
+    checked: boolean,
+  ) {
+    setAiProviders((current) => {
+      const provider = current[id];
+      const enabledModels = checked
+        ? Array.from(new Set([...provider.enabledModels, modelId]))
+        : provider.enabledModels.filter((model) => model !== modelId);
+      const model = enabledModels.includes(provider.model)
+        ? provider.model
+        : (enabledModels[0] ?? provider.model);
+
+      return {
+        ...current,
+        [id]: {
+          ...provider,
+          model,
+          enabledModels,
+        },
+      };
+    });
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSave) {
@@ -2646,15 +2712,24 @@ export function SettingsForm({
       toast.error("AI writing assistant settings are invalid.");
       return;
     }
-    if (aiAssistantShownInEditors && enabledAiProviderIds.length === 0) {
+    if (aiAssistantShownInEditors && usableAiProviderIds.length === 0) {
       toast.error(
-        "Enable at least one AI provider before showing the assistant.",
+        "Enable at least one AI provider model before showing the assistant.",
       );
       return;
     }
     const parsedAiProviders = Object.fromEntries(
       AI_PROVIDER_IDS.map((id) => {
         const provider = aiProviders[id];
+        const enabledModels = normalizeAiProviderEnabledModels(
+          provider.enabledModels,
+          provider.model.trim() || AI_PROVIDER_DEFAULT_MODELS[id],
+        );
+        const model =
+          enabledModels.length > 0 &&
+          !enabledModels.includes(provider.model.trim())
+            ? enabledModels[0]
+            : provider.model.trim() || AI_PROVIDER_DEFAULT_MODELS[id];
 
         return [
           id,
@@ -2662,7 +2737,8 @@ export function SettingsForm({
             enabled: provider.enabled,
             apiKey: provider.apiKey.trim() || undefined,
             clearApiKey: provider.clearApiKey,
-            model: provider.model.trim() || AI_PROVIDER_DEFAULT_MODELS[id],
+            model,
+            enabledModels,
             maxOutputTokens: clampMinutes(
               provider.maxOutputTokens,
               MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS,
@@ -2673,13 +2749,14 @@ export function SettingsForm({
           },
         ];
       }),
-    ) as Record<
+    ) as unknown as Record<
       AIProviderId,
       {
         enabled: boolean;
         apiKey?: string;
         clearApiKey: boolean;
         model: string;
+        enabledModels: string[];
         maxOutputTokens: number;
         instructions: string | null;
       }
@@ -2732,6 +2809,7 @@ export function SettingsForm({
                     apiKey: "",
                     clearApiKey: false,
                     model: saved.model,
+                    enabledModels: saved.enabledModels,
                     maxOutputTokens: String(saved.maxOutputTokens),
                     instructions: saved.instructions ?? "",
                     apiKeyConfigured: keyIsConfigured,
@@ -4207,7 +4285,18 @@ export function SettingsForm({
                     const modelOptions = getAiProviderModelOptions(
                       providerId,
                       provider.model,
+                      provider.enabledModels,
                     );
+                    const effectiveProviderModel =
+                      provider.enabledModels.includes(provider.model)
+                        ? provider.model
+                        : (provider.enabledModels[0] ?? provider.model);
+                    const defaultModelLabel =
+                      modelOptions.find(
+                        (model) => model.id === effectiveProviderModel,
+                      )?.label ?? effectiveProviderModel;
+                    const providerHasNoModels =
+                      provider.enabled && provider.enabledModels.length === 0;
                     const apiKeyConfigured =
                       provider.apiKeyConfigured && !provider.clearApiKey;
 
@@ -4295,25 +4384,93 @@ export function SettingsForm({
                           )}
                         </div>
 
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <Label>Allowed models</Label>
+                            <Badge variant="outline">
+                              {provider.enabledModels.length} enabled
+                            </Badge>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {modelOptions.map((model) => {
+                              const checkboxId = `${providerId}-model-${model.id}`;
+
+                              return (
+                                <label
+                                  key={model.id}
+                                  htmlFor={checkboxId}
+                                  className="flex min-h-10 items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                                >
+                                  <Checkbox
+                                    id={checkboxId}
+                                    checked={provider.enabledModels.includes(
+                                      model.id,
+                                    )}
+                                    onCheckedChange={(checked) =>
+                                      updateAiProviderEnabledModel(
+                                        providerId,
+                                        model.id,
+                                        Boolean(checked),
+                                      )
+                                    }
+                                  />
+                                  <span className="min-w-0 truncate">
+                                    {model.label}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                          {providerHasNoModels && (
+                            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+                              Enable at least one {providerLabel} model before
+                              using this provider in editors.
+                            </div>
+                          )}
+                        </div>
+
                         <div className="space-y-1.5">
-                          <Label htmlFor={`${providerId}-model`}>Model</Label>
-                          <Select
-                            value={provider.model}
-                            onValueChange={(model) =>
-                              updateAiProvider(providerId, { model })
-                            }
-                          >
-                            <SelectTrigger id={`${providerId}-model`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {modelOptions.map((model) => (
-                                <SelectItem key={model.id} value={model.id}>
-                                  {model.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label htmlFor={`${providerId}-model`}>
+                            Default model
+                          </Label>
+                          {provider.enabledModels.length > 1 ? (
+                            <Select
+                              value={effectiveProviderModel}
+                              onValueChange={(model) =>
+                                updateAiProvider(providerId, { model })
+                              }
+                            >
+                              <SelectTrigger id={`${providerId}-model`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {provider.enabledModels.map((modelId) => {
+                                  const model = modelOptions.find(
+                                    (option) => option.id === modelId,
+                                  ) ?? {
+                                    id: modelId,
+                                    label: `${modelId} (saved value)`,
+                                  };
+
+                                  return (
+                                    <SelectItem key={model.id} value={model.id}>
+                                      {model.label}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          ) : provider.enabledModels.length === 1 ? (
+                            <div className="flex h-10 items-center rounded-md border bg-muted/30 px-3 text-sm">
+                              <span className="truncate">
+                                {defaultModelLabel}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex h-10 items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-3 text-sm text-amber-950 dark:text-amber-100">
+                              No model enabled
+                            </div>
+                          )}
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-2">
@@ -4381,13 +4538,13 @@ export function SettingsForm({
                   onValueChange={(value) =>
                     setAiDefaultProvider(value as AIProviderId)
                   }
-                  disabled={enabledAiProviderIds.length === 0}
+                  disabled={usableAiProviderIds.length === 0}
                 >
                   <SelectTrigger id="ai-default-provider">
-                    <SelectValue placeholder="Enable a provider first" />
+                    <SelectValue placeholder="Enable a provider model first" />
                   </SelectTrigger>
                   <SelectContent>
-                    {enabledAiProviderIds.map((providerId) => (
+                    {usableAiProviderIds.map((providerId) => (
                       <SelectItem key={providerId} value={providerId}>
                         {AI_PROVIDER_LABELS[providerId]}
                       </SelectItem>
@@ -4397,15 +4554,15 @@ export function SettingsForm({
               </div>
 
               {aiAssistantShownInEditors &&
-                enabledAiProviderIds.length === 0 && (
+                usableAiProviderIds.length === 0 && (
                   <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
-                    Enable at least one provider before showing the assistant in
-                    editors.
+                    Enable at least one provider model before showing the
+                    assistant in editors.
                   </div>
                 )}
 
               {aiAssistantShownInEditors &&
-                enabledAiProviderIds.length > 0 &&
+                usableAiProviderIds.length > 0 &&
                 (() => {
                   const providerId = effectiveAiDefaultProvider;
                   const provider = aiProviders[providerId];

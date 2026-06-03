@@ -85,29 +85,34 @@ export type AIProviderModelOption = {
 
 export const AI_PROVIDER_MODEL_OPTIONS = {
   openai: [
-    { id: "gpt-4.1-nano", label: "GPT-4.1 nano" },
     { id: "gpt-4o-mini", label: "GPT-4o mini" },
     { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+    { id: "gpt-4.1", label: "GPT-4.1" },
+    { id: "o3", label: "o3" },
+    { id: "o3-pro", label: "o3 pro" },
     { id: "gpt-5-nano", label: "GPT-5 nano" },
-    { id: "o4-mini", label: "o4-mini" },
     { id: "gpt-5-mini", label: "GPT-5 mini" },
+    { id: "gpt-5", label: "GPT-5" },
+    { id: "gpt-5-pro", label: "GPT-5 pro" },
+    { id: "gpt-5.1", label: "GPT-5.1" },
+    { id: "gpt-5.2", label: "GPT-5.2" },
+    { id: "gpt-5.2-pro", label: "GPT-5.2 pro" },
     { id: "gpt-5.4-nano", label: "GPT-5.4 nano" },
     { id: "gpt-5.4-mini", label: "GPT-5.4 mini" },
-    { id: "gpt-4o", label: "GPT-4o" },
-    { id: "gpt-4.1", label: "GPT-4.1" },
-    { id: "gpt-5", label: "GPT-5" },
     { id: "gpt-5.4", label: "GPT-5.4" },
+    { id: "gpt-5.4-pro", label: "GPT-5.4 pro" },
     { id: "gpt-5.5", label: "GPT-5.5" },
+    { id: "gpt-5.5-pro", label: "GPT-5.5 pro" },
+    { id: "chat-latest", label: "Chat Latest" },
   ],
   anthropic: [
-    { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+    { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
     { id: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5" },
     { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
     { id: "claude-opus-4-1-20250805", label: "Claude Opus 4.1" },
     { id: "claude-opus-4-5-20251101", label: "Claude Opus 4.5" },
     { id: "claude-opus-4-6", label: "Claude Opus 4.6" },
     { id: "claude-opus-4-7", label: "Claude Opus 4.7" },
-    { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
   ],
   google: [
     { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite" },
@@ -121,19 +126,14 @@ export const AI_PROVIDER_MODEL_OPTIONS = {
   mistral: [
     { id: "ministral-3b-2512", label: "Ministral 3 3B" },
     { id: "ministral-8b-2512", label: "Ministral 3 8B" },
-    { id: "open-mistral-nemo-2407", label: "Mistral Nemo 12B (legacy)" },
     { id: "ministral-14b-2512", label: "Ministral 3 14B" },
     { id: "mistral-small-2603", label: "Mistral Small 4" },
-    { id: "mistral-small-latest", label: "Mistral Small latest" },
-    { id: "mistral-medium-2505", label: "Mistral Medium 3" },
     { id: "mistral-large-2512", label: "Mistral Large 3" },
-    { id: "mistral-medium-2508", label: "Mistral Medium 3.1 (legacy)" },
     { id: "mistral-medium-3-5", label: "Mistral Medium 3.5" },
   ],
   xai: [
-    { id: "grok-3-mini-fast", label: "Grok 3 mini fast (alias)" },
-    { id: "grok-3-mini", label: "Grok 3 mini (alias)" },
     { id: "grok-4.3", label: "Grok 4.3" },
+    { id: "grok-build-0.1", label: "Grok Build 0.1" },
   ],
 } as const satisfies Record<AIProviderId, readonly AIProviderModelOption[]>;
 
@@ -145,9 +145,17 @@ export const AI_PROVIDER_DEFAULT_MODELS: Record<AIProviderId, string> = {
   xai: "grok-4.3",
 };
 
+export const AIProviderModelIdSchema = z.string().trim().min(1).max(120);
+
+const AiProviderEnabledModelsSchema = z
+  .array(AIProviderModelIdSchema)
+  .max(50)
+  .transform((models) => Array.from(new Set(models)));
+
 export const AiProviderSettingsSchema = z.object({
   enabled: z.boolean(),
-  model: z.string().trim().min(1).max(120),
+  model: AIProviderModelIdSchema,
+  enabledModels: AiProviderEnabledModelsSchema,
   maxOutputTokens: z
     .number()
     .int()
@@ -174,10 +182,11 @@ export const AiWritingAssistantSettingsSchema = z
   .refine(
     (v) =>
       (!v.enabled && !v.pageBuilderEnabled) ||
-      v.providers[v.defaultProvider].enabled,
+      (v.providers[v.defaultProvider].enabled &&
+        v.providers[v.defaultProvider].enabledModels.length > 0),
     {
       path: ["defaultProvider"],
-      message: "Default provider must be enabled.",
+      message: "Default provider must be enabled and have an enabled model.",
     },
   );
 
@@ -202,6 +211,8 @@ export type AiProviderAdminSettingsById = Record<
 export type AiProviderOption = {
   id: AIProviderId;
   label: string;
+  defaultModel: string;
+  models: AIProviderModelOption[];
 };
 
 export type AiWritingAssistantSettings = z.infer<
@@ -228,6 +239,7 @@ export function createDefaultAiProviderSettings(
   return {
     enabled: false,
     model: AI_PROVIDER_DEFAULT_MODELS[id],
+    enabledModels: [AI_PROVIDER_DEFAULT_MODELS[id]],
     maxOutputTokens: 48,
     instructions: null,
   };
@@ -251,12 +263,81 @@ export function createDefaultAiProviderServerSettingsById(): AiProviderServerSet
 export function getEnabledAiProviderOptions(
   settings: AiWritingAssistantSettings,
 ): AiProviderOption[] {
-  return AI_PROVIDER_IDS.filter((id) => settings.providers[id].enabled).map(
-    (id) => ({
+  return AI_PROVIDER_IDS.filter((id) => {
+    const provider = settings.providers[id];
+    return isUsableAiProviderSettings(provider);
+  }).map((id) => {
+    const provider = settings.providers[id];
+    const defaultModel =
+      getPreferredAiProviderModel(provider) ??
+      provider.enabledModels[0] ??
+      provider.model;
+
+    return {
       id,
       label: AI_PROVIDER_LABELS[id],
-    }),
+      defaultModel,
+      models: getAiProviderEnabledModelOptions(id, provider.enabledModels),
+    };
+  });
+}
+
+export function getAiProviderModelOption(
+  providerId: AIProviderId,
+  modelId: string,
+): AIProviderModelOption {
+  const normalizedModel = modelId.trim().slice(0, 120);
+  const knownOption = AI_PROVIDER_MODEL_OPTIONS[providerId].find(
+    (option) => option.id === normalizedModel,
   );
+
+  return (
+    knownOption ?? {
+      id: normalizedModel,
+      label: `${normalizedModel} (saved value)`,
+    }
+  );
+}
+
+function isUsableAiProviderSettings(provider: AiProviderSettings): boolean {
+  return provider.enabled && provider.enabledModels.length > 0;
+}
+
+export function getAiProviderEnabledModelOptions(
+  providerId: AIProviderId,
+  modelIds: readonly string[],
+): AIProviderModelOption[] {
+  return Array.from(
+    new Set(
+      modelIds
+        .map((modelId) => modelId.trim().slice(0, 120))
+        .filter((modelId) => modelId.length > 0),
+    ),
+  ).map((modelId) => getAiProviderModelOption(providerId, modelId));
+}
+
+export function getPreferredAiProviderModel(
+  provider: AiProviderSettings,
+): string | null {
+  if (provider.enabledModels.includes(provider.model)) {
+    return provider.model;
+  }
+
+  return provider.enabledModels[0] ?? null;
+}
+
+export function resolveAiProviderModel(
+  provider: AiProviderSettings,
+  requestedModel?: string | null,
+): string | null {
+  const normalizedModel = requestedModel?.trim();
+  if (normalizedModel) {
+    return provider.enabledModels.includes(normalizedModel)
+      ? normalizedModel
+      : null;
+  }
+
+  return getPreferredAiProviderModel(provider);
 }
 
 export function toAiProviderAdminSettingsById(
@@ -281,6 +362,7 @@ export function toAiProviderPublicSettingsById(
         {
           enabled: provider.enabled,
           model: provider.model,
+          enabledModels: provider.enabledModels,
           maxOutputTokens: provider.maxOutputTokens,
           instructions: provider.instructions,
         },
@@ -301,6 +383,20 @@ function normalizeProviderModel(value: unknown, fallback: string): string {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim().slice(0, 120)
     : fallback;
+}
+
+function normalizeProviderModelList(
+  value: unknown,
+  fallback: readonly string[],
+): string[] {
+  const rawModels = Array.isArray(value) ? value : fallback;
+  return Array.from(
+    new Set(
+      rawModels
+        .map((model) => normalizeProviderModel(model, ""))
+        .filter((model) => model.length > 0),
+    ),
+  ).slice(0, 50);
 }
 
 function normalizeAiProviderInstructions(value: unknown): string | null {
@@ -367,18 +463,32 @@ export function parseAiProviderServerSettingsById(
           : id === "openai" && typeof legacy.enabled === "boolean"
             ? legacy.enabled || Boolean(apiKey)
             : defaults.enabled;
+      const rawModel = normalizeProviderModel(
+        raw.model,
+        id === "openai" && typeof legacy.model === "string"
+          ? legacy.model
+          : defaults.model,
+      );
+      const rawEnabledModels = hasOwn(raw, "enabledModels")
+        ? raw.enabledModels
+        : hasOwn(raw, "allowedModels")
+          ? raw.allowedModels
+          : undefined;
+      const enabledModels = normalizeProviderModelList(rawEnabledModels, [
+        rawModel,
+      ]);
+      const model =
+        enabledModels.length > 0 && !enabledModels.includes(rawModel)
+          ? enabledModels[0]
+          : rawModel;
 
       return [
         id,
         {
           enabled,
           apiKey,
-          model: normalizeProviderModel(
-            raw.model,
-            id === "openai" && typeof legacy.model === "string"
-              ? legacy.model
-              : defaults.model,
-          ),
+          model,
+          enabledModels,
           maxOutputTokens: normalizeAiProviderTokenLimit(
             raw.maxOutputTokens,
             id === "openai" && legacy.maxOutputTokens !== undefined
@@ -420,7 +530,9 @@ export function parseAiWritingAssistantSettings(value: {
   );
   const requestedDefault = normalizeAiProviderId(value.defaultProvider);
   const fallbackDefault =
-    AI_PROVIDER_IDS.find((id) => providers[id].enabled) ?? requestedDefault;
+    AI_PROVIDER_IDS.find((id) => isUsableAiProviderSettings(providers[id])) ??
+    AI_PROVIDER_IDS.find((id) => providers[id].enabled) ??
+    requestedDefault;
 
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : false,
@@ -428,7 +540,7 @@ export function parseAiWritingAssistantSettings(value: {
       typeof value.pageBuilderEnabled === "boolean"
         ? value.pageBuilderEnabled
         : false,
-    defaultProvider: providers[requestedDefault].enabled
+    defaultProvider: isUsableAiProviderSettings(providers[requestedDefault])
       ? requestedDefault
       : fallbackDefault,
     providers,
@@ -454,7 +566,9 @@ export function parseAiWritingAssistantServerSettings(value: {
   });
   const requestedDefault = normalizeAiProviderId(value.defaultProvider);
   const fallbackDefault =
-    AI_PROVIDER_IDS.find((id) => providers[id].enabled) ?? requestedDefault;
+    AI_PROVIDER_IDS.find((id) => isUsableAiProviderSettings(providers[id])) ??
+    AI_PROVIDER_IDS.find((id) => providers[id].enabled) ??
+    requestedDefault;
 
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : false,
@@ -462,7 +576,7 @@ export function parseAiWritingAssistantServerSettings(value: {
       typeof value.pageBuilderEnabled === "boolean"
         ? value.pageBuilderEnabled
         : false,
-    defaultProvider: providers[requestedDefault].enabled
+    defaultProvider: isUsableAiProviderSettings(providers[requestedDefault])
       ? requestedDefault
       : fallbackDefault,
     providers,
@@ -714,19 +828,38 @@ export const UpdateGlobalSettingsSchema = z
   .refine(
     (v) =>
       (!v.aiWritingAssistantEnabled && !v.aiPageBuilderAssistantEnabled) ||
-      AI_PROVIDER_IDS.some((id) => v.aiProviders[id].enabled),
+      AI_PROVIDER_IDS.some(
+        (id) =>
+          v.aiProviders[id].enabled &&
+          v.aiProviders[id].enabledModels.length > 0,
+      ),
     {
       message:
-        "Enable at least one AI provider before showing the assistant in editors.",
+        "Enable at least one AI provider model before showing the assistant in editors.",
+      path: ["aiProviders"],
+    },
+  )
+  .refine(
+    (v) =>
+      AI_PROVIDER_IDS.every((id) => {
+        const provider = v.aiProviders[id];
+        return (
+          provider.enabledModels.length === 0 ||
+          provider.enabledModels.includes(provider.model)
+        );
+      }),
+    {
+      message: "Default AI model must be enabled for its provider.",
       path: ["aiProviders"],
     },
   )
   .refine(
     (v) =>
       (!v.aiWritingAssistantEnabled && !v.aiPageBuilderAssistantEnabled) ||
-      v.aiProviders[v.aiDefaultProvider].enabled,
+      (v.aiProviders[v.aiDefaultProvider].enabled &&
+        v.aiProviders[v.aiDefaultProvider].enabledModels.length > 0),
     {
-      message: "Default provider must be enabled.",
+      message: "Default provider must be enabled and have an enabled model.",
       path: ["aiDefaultProvider"],
     },
   );
