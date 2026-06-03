@@ -27,7 +27,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com",
       "img-src 'self' blob: data: https:",
       "font-src 'self' https://rsms.me https://fonts.gstatic.com",
-      "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com https://challenges.cloudflare.com",
+      "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://*.public.blob.vercel-storage.com https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com https://challenges.cloudflare.com",
       "frame-src 'self' https://*.clerk.accounts.dev https://www.youtube.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
       "media-src 'self' blob: data: https://*.public.blob.vercel-storage.com",
       "worker-src 'self' blob:",
