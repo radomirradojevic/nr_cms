@@ -50,10 +50,10 @@ The `storage/` directory is gitignored. Files are streamed through the auth-gate
 
 Uploads (File Manager, Gallery Manager, global-settings logo, form-builder file fields) go through a single abstraction in [lib/file-storage.ts](lib/file-storage.ts). Two providers ship out of the box:
 
-| Provider      | Use case              | Notes                                                                                                                                                   |
-| ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `local`       | Self-hosted (default) | Writes to `UPLOADS_DIR`. Per-file cap up to `proxyClientMaxBodySize` (2 GB) × `MAX_FILE_SIZE` (300 MB).                                                 |
-| `vercel-blob` | Vercel deployments    | Stores objects in Vercel Blob, served via 307 redirect from `/api/files/[id]`. Per-request cap is ~4.5 MB unless Fluid Compute / overrides are enabled. |
+| Provider      | Use case              | Notes                                                                                                                                                                                                      |
+| ------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `local`       | Self-hosted (default) | Writes to `UPLOADS_DIR`. Per-file cap up to `proxyClientMaxBodySize` (2 GB) × `MAX_FILE_SIZE` (300 MB).                                                                                                    |
+| `vercel-blob` | Vercel deployments    | Stores objects in Vercel Blob, served via 307 redirect from `/api/files/[id]`. File Manager uploads go directly from the browser to Blob so they are not capped by the Vercel function request-body limit. |
 
 Selection rules (in order):
 
@@ -69,7 +69,7 @@ Adding a future provider (S3, Cloudflare R2, Supabase Storage, …) is a matter 
 
 ## Deploy on Vercel — Step by Step
 
-> **File storage on Vercel.** Vercel's serverless filesystem is read-only outside the ephemeral `/tmp`, so uploads cannot be persisted to disk. The CMS handles this by switching to the **Vercel Blob** provider — attach a Blob store to your project and the File Manager, Gallery Manager, logo picker, and form-builder file fields all work transparently. Per-request upload size is capped at ~4.5 MB by default; enable Fluid Compute (or set `VERCEL_FLUID_COMPUTE=1` / `VERCEL_BLOB_MAX_UPLOAD_BYTES`) to raise it.
+> **File storage on Vercel.** Vercel's serverless filesystem is read-only outside the ephemeral `/tmp`, so uploads cannot be persisted to disk. The CMS handles this by switching to the **Vercel Blob** provider — attach a Blob store to your project and the File Manager, Gallery Manager, logo picker, and form-builder file fields all work transparently. File Manager uploads use Vercel Blob client uploads to avoid the serverless request-body cap; server-routed uploads such as public form file fields still use function requests, where Fluid Compute (or `VERCEL_FLUID_COMPUTE=1` / `VERCEL_BLOB_MAX_UPLOAD_BYTES`) can raise the platform cap.
 
 ### 1. Provision a Postgres database (Neon recommended)
 
@@ -151,13 +151,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 - Trigger a Clerk event (update a user) → confirm `/api/webhooks/clerk` returns 200.
 - Submit a test comment on a blog post → confirm Turnstile passes and a row appears in `comments`.
 - Submit a form built in `/dashboard/form-builder` → confirm submission row + email notification.
-- Upload a small image in `/dashboard/filemanager` → confirm it lands in the attached Vercel Blob store and renders via `/api/files/[id]` (which now 307-redirects to the public Blob URL).
+- Upload an image larger than 4.5 MB in `/dashboard/filemanager` → confirm it lands in the attached Vercel Blob store and renders via `/api/files/[id]` (which now 307-redirects to the public Blob URL).
 
 ### 8. Production hardening
 
 - Promote `master` → Production branch in Vercel; use Preview deployments for PRs with a separate Clerk **dev** instance and a Neon **branch** database.
 - The Hobby plan has a 10-second function timeout. If form submission with attachments or other heavy routes time out, add `export const maxDuration = 60` to that route file or upgrade to Pro.
-- Vercel serverless functions cap request bodies at **4.5 MB** by default (configurable on Fluid Compute). The `proxyClientMaxBodySize: "2gb"` setting in `next.config.ts` only applies to self-hosted deploys. On Vercel, set `VERCEL_FLUID_COMPUTE=1` (or `VERCEL_BLOB_MAX_UPLOAD_BYTES=<bytes>`) once Fluid Compute is enabled — the upload routes return a clear error message when the cap is exceeded. For uploads beyond ~100 MB, switch to Vercel Blob's client-side direct upload flow (`@vercel/blob/client` `handleUpload`).
+- Vercel serverless functions cap request bodies at **4.5 MB** by default (configurable on Fluid Compute). The File Manager avoids that cap with Vercel Blob client uploads; other multipart routes that still post files through the app function can use `VERCEL_FLUID_COMPUTE=1` (or `VERCEL_BLOB_MAX_UPLOAD_BYTES=<bytes>`) once Fluid Compute is enabled. The `proxyClientMaxBodySize: "2gb"` setting in `next.config.ts` only applies to self-hosted deploys.
 - Preview deployments should use a separate Neon branch or separate Postgres database if they can contain schema changes. The migration runner serializes concurrent builds with a PostgreSQL advisory lock, but it intentionally applies the committed migration chain for whatever database `DATABASE_URL` points at.
 - Rotate `IP_HASH_SALT`, `CLERK_WEBHOOK_SECRET`, `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY` periodically.
 - Add a custom domain in Vercel → **Domains**, then update Clerk's allowed origins and Turnstile's allowed hostnames.

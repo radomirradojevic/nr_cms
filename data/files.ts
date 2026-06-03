@@ -89,6 +89,7 @@ export async function getFileByIdUnchecked(
 }
 
 export type InsertFileInput = {
+  id?: string;
   filename: string;
   storagePath: string;
   mimeType: string;
