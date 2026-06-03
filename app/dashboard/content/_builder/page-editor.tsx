@@ -86,6 +86,8 @@ type Props = {
   aiProviderOptions?: AiProviderOption[];
   aiProviderId?: AIProviderId;
   onAiProviderIdChange?: (providerId: AIProviderId) => void;
+  aiModelId?: string;
+  onAiModelIdChange?: (modelId: string) => void;
 };
 
 export type PageEditorSettingsTab =
@@ -115,6 +117,8 @@ export function PageEditor({
   aiProviderOptions = [],
   aiProviderId,
   onAiProviderIdChange,
+  aiModelId,
+  onAiModelIdChange,
 }: Props) {
   // Frame only reads `data` once on mount — derive a stable initial JSON.
   // Computed exactly once; subsequent prop changes are intentionally ignored.
@@ -188,6 +192,8 @@ export function PageEditor({
           aiProviderOptions={aiProviderOptions}
           aiProviderId={aiProviderId}
           onAiProviderIdChange={onAiProviderIdChange}
+          aiModelId={aiModelId}
+          onAiModelIdChange={onAiModelIdChange}
         />
       </Editor>
     </div>
@@ -209,6 +215,8 @@ function Inner({
   aiProviderOptions,
   aiProviderId,
   onAiProviderIdChange,
+  aiModelId,
+  onAiModelIdChange,
 }: {
   initialJson: string;
   onLatestNodes: (nodes: BuilderData["nodes"]) => void;
@@ -227,6 +235,8 @@ function Inner({
   aiProviderOptions: AiProviderOption[];
   aiProviderId?: AIProviderId;
   onAiProviderIdChange?: (providerId: AIProviderId) => void;
+  aiModelId?: string;
+  onAiModelIdChange?: (modelId: string) => void;
 }) {
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [sourceMode, setSourceMode] = useState(false);
@@ -334,6 +344,8 @@ function Inner({
         aiProviderOptions={aiProviderOptions}
         aiProviderId={aiProviderId}
         onAiProviderIdChange={onAiProviderIdChange}
+        aiModelId={aiModelId}
+        onAiModelIdChange={onAiModelIdChange}
         pageTitle={pageTitle}
       />
 

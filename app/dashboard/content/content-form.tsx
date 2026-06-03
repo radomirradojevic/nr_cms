@@ -89,6 +89,7 @@ import {
 } from "./actions";
 import type { AppearanceSettings } from "@/lib/appearance";
 import {
+  AI_PROVIDER_DEFAULT_MODELS,
   AI_PROVIDER_LABELS,
   type AIProviderId,
   type AiProviderOption,
@@ -160,7 +161,19 @@ export function ContentForm({
     }
 
     return aiWritingAssistantAvailable
-      ? [{ id: "openai", label: AI_PROVIDER_LABELS.openai }]
+      ? [
+          {
+            id: "openai",
+            label: AI_PROVIDER_LABELS.openai,
+            defaultModel: AI_PROVIDER_DEFAULT_MODELS.openai,
+            models: [
+              {
+                id: AI_PROVIDER_DEFAULT_MODELS.openai,
+                label: AI_PROVIDER_DEFAULT_MODELS.openai,
+              },
+            ],
+          },
+        ]
       : [];
   }, [aiWritingAssistantAvailable, aiWritingAssistantProviders]);
 
@@ -188,6 +201,24 @@ export function ContentForm({
   )
     ? aiProviderId
     : (aiProviderOptions[0]?.id ?? aiProviderId);
+  const effectiveAiProvider = aiProviderOptions.find(
+    (provider) => provider.id === effectiveAiProviderId,
+  );
+  const [aiModelId, setAiModelId] = useState<string>(() => {
+    const provider =
+      aiProviderOptions.find(
+        (option) => option.id === aiWritingAssistantDefaultProvider,
+      ) ?? aiProviderOptions[0];
+
+    return provider?.defaultModel ?? provider?.models[0]?.id ?? "";
+  });
+  const effectiveAiModelId = effectiveAiProvider?.models.some(
+    (model) => model.id === aiModelId,
+  )
+    ? aiModelId
+    : (effectiveAiProvider?.defaultModel ??
+      effectiveAiProvider?.models[0]?.id ??
+      aiModelId);
   const [aiWritingAssistantActive, setAiWritingAssistantActive] =
     useState(false);
   const [aiGenerationField, setAiGenerationField] =
@@ -267,6 +298,14 @@ export function ContentForm({
     sessionSecurity.maxSessionDurationMinutes,
   );
 
+  function handleAiProviderIdChange(providerId: AIProviderId) {
+    setAiProviderId(providerId);
+    const provider = aiProviderOptions.find(
+      (option) => option.id === providerId,
+    );
+    setAiModelId(provider?.defaultModel ?? provider?.models[0]?.id ?? "");
+  }
+
   useEffect(() => {
     function updateFloatingSaveVisibility() {
       setShowFloatingSave(window.scrollY > 160);
@@ -286,6 +325,7 @@ export function ContentForm({
     if (
       !aiWritingAssistantAvailable ||
       aiProviderOptions.length === 0 ||
+      !effectiveAiModelId ||
       !aiWritingAssistantActive
     ) {
       return;
@@ -318,6 +358,7 @@ export function ContentForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           providerId: effectiveAiProviderId,
+          model: effectiveAiModelId,
           field,
           surface,
           title: context.title,
@@ -599,6 +640,7 @@ export function ContentForm({
   const aiFieldsEnabled =
     aiWritingAssistantAvailable &&
     aiProviderOptions.length > 0 &&
+    Boolean(effectiveAiModelId) &&
     aiWritingAssistantActive;
 
   const seoSettings = (
@@ -992,7 +1034,9 @@ export function ContentForm({
                 }}
                 aiProviderOptions={aiProviderOptions}
                 aiProviderId={effectiveAiProviderId}
-                onAiProviderIdChange={setAiProviderId}
+                onAiProviderIdChange={handleAiProviderIdChange}
+                aiModelId={effectiveAiModelId}
+                onAiModelIdChange={setAiModelId}
               />
             ) : contentType === "hero_slider" ? (
               <HeroSliderEditor
@@ -1014,7 +1058,9 @@ export function ContentForm({
                 onAiWritingAssistantActiveChange={setAiWritingAssistantActive}
                 aiProviderOptions={aiProviderOptions}
                 aiProviderId={effectiveAiProviderId}
-                onAiProviderIdChange={setAiProviderId}
+                onAiProviderIdChange={handleAiProviderIdChange}
+                aiModelId={effectiveAiModelId}
+                onAiModelIdChange={setAiModelId}
                 title={title}
                 excerpt={excerpt}
                 registerGetValue={(getValue) => {

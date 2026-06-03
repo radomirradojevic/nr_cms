@@ -125,6 +125,8 @@ type Props = {
   aiProviderOptions?: AiProviderOption[];
   aiProviderId?: AIProviderId;
   onAiProviderIdChange?: (providerId: AIProviderId) => void;
+  aiModelId?: string;
+  onAiModelIdChange?: (modelId: string) => void;
   title?: string;
   excerpt?: string;
 };
@@ -217,6 +219,8 @@ export function BlogEditor({
   aiProviderOptions = [],
   aiProviderId: controlledAiProviderId,
   onAiProviderIdChange,
+  aiModelId: controlledAiModelId,
+  onAiModelIdChange,
   title = "",
   excerpt = "",
 }: Props) {
@@ -267,6 +271,12 @@ export function BlogEditor({
   const [localAiProviderId, setLocalAiProviderId] = useState<AIProviderId>(
     () => aiProviderOptions[0]?.id ?? "openai",
   );
+  const [localAiModelId, setLocalAiModelId] = useState<string>(
+    () =>
+      aiProviderOptions[0]?.defaultModel ??
+      aiProviderOptions[0]?.models[0]?.id ??
+      "",
+  );
   const aiWritingAssistantActive =
     controlledAiWritingAssistantActive ?? localAiWritingAssistantActive;
   const aiProviderId = controlledAiProviderId ?? localAiProviderId;
@@ -275,9 +285,24 @@ export function BlogEditor({
   )
     ? aiProviderId
     : (aiProviderOptions[0]?.id ?? aiProviderId);
+  const selectedAiProvider = aiProviderOptions.find(
+    (provider) => provider.id === effectiveAiProviderId,
+  );
   const selectedAiProviderLabel =
-    aiProviderOptions.find((provider) => provider.id === effectiveAiProviderId)
-      ?.label ?? AI_PROVIDER_LABELS[effectiveAiProviderId];
+    selectedAiProvider?.label ?? AI_PROVIDER_LABELS[effectiveAiProviderId];
+  const aiModelId = controlledAiModelId ?? localAiModelId;
+  const effectiveAiModelId = selectedAiProvider?.models.some(
+    (model) => model.id === aiModelId,
+  )
+    ? aiModelId
+    : (selectedAiProvider?.defaultModel ??
+      selectedAiProvider?.models[0]?.id ??
+      aiModelId);
+  const selectedAiModelLabel =
+    selectedAiProvider?.models.find((model) => model.id === effectiveAiModelId)
+      ?.label ??
+    effectiveAiModelId ??
+    "Model";
   const [aiSuggestionStatus, setAiSuggestionStatus] = useState<
     "idle" | "loading" | "error"
   >("idle");
@@ -336,7 +361,12 @@ export function BlogEditor({
       aiRequestRef.current = null;
     };
 
-    if (!aiWritingAssistantAvailable || !aiWritingAssistantActive || htmlMode) {
+    if (
+      !aiWritingAssistantAvailable ||
+      !aiWritingAssistantActive ||
+      !effectiveAiModelId ||
+      htmlMode
+    ) {
       cancelPending();
       clearAiSuggestion(editor);
       return;
@@ -364,6 +394,7 @@ export function BlogEditor({
             body: JSON.stringify({
               ...request.body,
               providerId: effectiveAiProviderId,
+              model: effectiveAiModelId,
             }),
             signal: controller.signal,
           });
@@ -419,6 +450,7 @@ export function BlogEditor({
   }, [
     aiWritingAssistantActive,
     aiWritingAssistantAvailable,
+    effectiveAiModelId,
     effectiveAiProviderId,
     editor,
     excerpt,
@@ -632,6 +664,15 @@ export function BlogEditor({
   function updateAiProviderId(nextProviderId: AIProviderId) {
     setLocalAiProviderId(nextProviderId);
     onAiProviderIdChange?.(nextProviderId);
+    const provider = aiProviderOptions.find(
+      (option) => option.id === nextProviderId,
+    );
+    updateAiModelId(provider?.defaultModel ?? provider?.models[0]?.id ?? "");
+  }
+
+  function updateAiModelId(nextModelId: string) {
+    setLocalAiModelId(nextModelId);
+    onAiModelIdChange?.(nextModelId);
   }
 
   function openVideoDialog() {
@@ -1032,6 +1073,35 @@ export function BlogEditor({
                 ) : (
                   <span className="truncate font-medium">
                     {selectedAiProviderLabel}
+                  </span>
+                )}
+              </div>
+            )}
+            {selectedAiProvider && selectedAiProvider.models.length > 0 && (
+              <div className="flex min-w-0 items-center gap-1 border-l pl-2">
+                <span className="text-muted-foreground">Model:</span>
+                {selectedAiProvider.models.length > 1 ? (
+                  <Select
+                    value={effectiveAiModelId}
+                    onValueChange={updateAiModelId}
+                  >
+                    <SelectTrigger
+                      aria-label="AI model"
+                      className="h-7 w-36 rounded-md px-2 text-xs"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedAiProvider.models.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="max-w-36 truncate font-medium">
+                    {selectedAiModelLabel}
                   </span>
                 )}
               </div>
