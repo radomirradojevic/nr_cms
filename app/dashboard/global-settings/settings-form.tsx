@@ -131,7 +131,6 @@ import {
   parseAppearanceRecipe,
   runAppearanceRecipeQualityChecks,
   serializeAppearanceRecipeExport,
-  type AppearanceLinkV1,
   type AppearanceShellPreset,
   type AppearanceRecipe,
   type AppearanceSlotV1,
@@ -153,6 +152,10 @@ import { LogoPickerDialog } from "./logo-picker-dialog";
 import { FooterContentEditor } from "./footer-content-editor";
 import { PresetCards, ShellPreview } from "./appearance-preview";
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
+import {
+  formatAppearanceLinksText,
+  parseAppearanceLinksText,
+} from "@/lib/appearance-link-text";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_REGIONAL_SETTINGS,
@@ -1006,28 +1009,8 @@ function findRecipeSlot<T extends AppearanceSlotV1["type"]>(
     null) as Extract<AppearanceSlotV1, { type: T }> | null;
 }
 
-function formatLinksText(links: AppearanceLinkV1[]): string {
-  return links.map((link) => `${link.label} | ${link.href}`).join("\n");
-}
-
-function parseLinksText(value: string): AppearanceLinkV1[] {
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 8)
-    .map((line) => {
-      const separatorIndex = line.indexOf("|");
-      if (separatorIndex === -1) {
-        return { label: line, href: line };
-      }
-      return {
-        label: line.slice(0, separatorIndex).trim(),
-        href: line.slice(separatorIndex + 1).trim(),
-      };
-    })
-    .filter((link) => link.label.length > 0 && link.href.length > 0);
-}
+const formatLinksText = formatAppearanceLinksText;
+const parseLinksText = parseAppearanceLinksText;
 
 function inferPresetId(recipe: AppearanceRecipe): AppearancePresetId | null {
   return (
