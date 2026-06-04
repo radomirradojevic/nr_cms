@@ -38,6 +38,7 @@ import {
   AlignJustify,
   Pencil,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 import { emptyTiptapJson } from "./tiptap-extensions";
 import { tiptapClientExtensions } from "./tiptap-client-extensions";
@@ -103,6 +104,7 @@ import {
   type AIProviderId,
   type AiProviderOption,
 } from "@/lib/global-settings";
+import { getAiProviderModelCostWarning } from "@/lib/ai-model-cost-warnings";
 
 type Props = {
   /**
@@ -303,6 +305,10 @@ export function BlogEditor({
       ?.label ??
     effectiveAiModelId ??
     "Model";
+  const selectedAiModelCostWarning = getAiProviderModelCostWarning(
+    effectiveAiProviderId,
+    effectiveAiModelId,
+  );
   const [aiSuggestionStatus, setAiSuggestionStatus] = useState<
     "idle" | "loading" | "error"
   >("idle");
@@ -1033,6 +1039,21 @@ export function BlogEditor({
             )}
             {aiSuggestionStatus === "error" && (
               <span className="text-[0.7rem] text-destructive">Error</span>
+            )}
+            {aiWritingAssistantActive && selectedAiModelCostWarning && (
+              <span
+                className={
+                  selectedAiModelCostWarning.tone === "danger"
+                    ? "flex min-w-0 items-center gap-1 text-[0.7rem] text-red-600 dark:text-red-300"
+                    : "flex min-w-0 items-center gap-1 text-[0.7rem] text-amber-600 dark:text-amber-300"
+                }
+                title={selectedAiModelCostWarning.text}
+              >
+                <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden max-w-48 truncate xl:inline">
+                  {selectedAiModelCostWarning.text}
+                </span>
+              </span>
             )}
             <Switch
               id="blog-ai-writing-assistant"

@@ -1,0 +1,1 @@
+ALTER TABLE "global_settings" ALTER COLUMN "ai_writing_assistant_model" SET DEFAULT 'gpt-4.1-mini';

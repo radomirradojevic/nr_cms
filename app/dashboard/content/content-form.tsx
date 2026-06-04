@@ -95,6 +95,10 @@ import {
   type AiProviderOption,
   type SessionSecuritySettings,
 } from "@/lib/global-settings";
+import {
+  buildAiCostConfirmationMessage,
+  getAiProviderModelCostWarning,
+} from "@/lib/ai-model-cost-warnings";
 import { useContentEditLockOptional } from "@/components/content-edit-lock-provider";
 
 export type ContentFormCategory = { id: string; name: string };
@@ -298,12 +302,73 @@ export function ContentForm({
     sessionSecurity.maxSessionDurationMinutes,
   );
 
-  function handleAiProviderIdChange(providerId: AIProviderId) {
-    setAiProviderId(providerId);
+  function confirmAiModelCost(
+    providerId: AIProviderId,
+    modelId: string,
+    action: "enableAssistant" | "changeActiveModel",
+  ) {
     const provider = aiProviderOptions.find(
       (option) => option.id === providerId,
     );
-    setAiModelId(provider?.defaultModel ?? provider?.models[0]?.id ?? "");
+    const warning = getAiProviderModelCostWarning(providerId, modelId);
+    if (!warning) return true;
+
+    const providerLabel = provider?.label ?? AI_PROVIDER_LABELS[providerId];
+    const modelLabel =
+      provider?.models.find((model) => model.id === modelId)?.label ?? modelId;
+
+    return window.confirm(
+      buildAiCostConfirmationMessage({
+        providerLabel,
+        modelLabel,
+        warning,
+        action,
+      }),
+    );
+  }
+
+  function handleAiWritingAssistantActiveChange(active: boolean) {
+    if (
+      active &&
+      effectiveAiModelId &&
+      !confirmAiModelCost(
+        effectiveAiProviderId,
+        effectiveAiModelId,
+        "enableAssistant",
+      )
+    ) {
+      return;
+    }
+
+    setAiWritingAssistantActive(active);
+  }
+
+  function handleAiProviderIdChange(providerId: AIProviderId) {
+    const provider = aiProviderOptions.find(
+      (option) => option.id === providerId,
+    );
+    const nextModelId = provider?.defaultModel ?? provider?.models[0]?.id ?? "";
+    if (
+      aiWritingAssistantActive &&
+      nextModelId &&
+      !confirmAiModelCost(providerId, nextModelId, "changeActiveModel")
+    ) {
+      return;
+    }
+
+    setAiProviderId(providerId);
+    setAiModelId(nextModelId);
+  }
+
+  function handleAiModelIdChange(modelId: string) {
+    if (
+      aiWritingAssistantActive &&
+      !confirmAiModelCost(effectiveAiProviderId, modelId, "changeActiveModel")
+    ) {
+      return;
+    }
+
+    setAiModelId(modelId);
   }
 
   useEffect(() => {
@@ -657,6 +722,8 @@ export function ContentForm({
         contentProvider={getCurrentContentText}
         onGenerate={generateAiField}
         generating={aiGenerationField === "metaTitle"}
+        aiProviderId={effectiveAiProviderId}
+        aiModelId={effectiveAiModelId}
         suggestionsEnabled={contentType === "blog_post"}
       />
       <AiTextAssistField
@@ -671,6 +738,8 @@ export function ContentForm({
         contentProvider={getCurrentContentText}
         onGenerate={generateAiField}
         generating={aiGenerationField === "metaDescription"}
+        aiProviderId={effectiveAiProviderId}
+        aiModelId={effectiveAiModelId}
         suggestionsEnabled={contentType === "blog_post"}
         multiline
         rows={3}
@@ -942,6 +1011,8 @@ export function ContentForm({
                 contentProvider={getCurrentContentText}
                 onGenerate={generateAiField}
                 generating={aiGenerationField === "excerpt"}
+                aiProviderId={effectiveAiProviderId}
+                aiModelId={effectiveAiModelId}
                 multiline
                 rows={3}
                 placeholder="Short summary"
@@ -1023,7 +1094,7 @@ export function ContentForm({
                   aiWritingAssistantAvailable && aiProviderOptions.length > 0
                 }
                 aiAssistantActive={aiWritingAssistantActive}
-                onAiAssistantActiveChange={setAiWritingAssistantActive}
+                onAiAssistantActiveChange={handleAiWritingAssistantActiveChange}
                 onAiSeoGenerated={(seo) => {
                   if (seo.metaTitle && !metaTitle.trim()) {
                     setMetaTitle(seo.metaTitle);
@@ -1036,7 +1107,7 @@ export function ContentForm({
                 aiProviderId={effectiveAiProviderId}
                 onAiProviderIdChange={handleAiProviderIdChange}
                 aiModelId={effectiveAiModelId}
-                onAiModelIdChange={setAiModelId}
+                onAiModelIdChange={handleAiModelIdChange}
               />
             ) : contentType === "hero_slider" ? (
               <HeroSliderEditor
@@ -1055,12 +1126,14 @@ export function ContentForm({
                   aiWritingAssistantAvailable && aiProviderOptions.length > 0
                 }
                 aiWritingAssistantActive={aiWritingAssistantActive}
-                onAiWritingAssistantActiveChange={setAiWritingAssistantActive}
+                onAiWritingAssistantActiveChange={
+                  handleAiWritingAssistantActiveChange
+                }
                 aiProviderOptions={aiProviderOptions}
                 aiProviderId={effectiveAiProviderId}
                 onAiProviderIdChange={handleAiProviderIdChange}
                 aiModelId={effectiveAiModelId}
-                onAiModelIdChange={setAiModelId}
+                onAiModelIdChange={handleAiModelIdChange}
                 title={title}
                 excerpt={excerpt}
                 registerGetValue={(getValue) => {
@@ -1170,6 +1243,8 @@ type AiTextAssistFieldProps = {
   contentProvider: () => string;
   onGenerate: (field: AiGeneratedField) => void;
   generating: boolean;
+  aiProviderId?: AIProviderId;
+  aiModelId?: string;
   suggestionsEnabled?: boolean;
   multiline?: boolean;
   rows?: number;
@@ -1188,6 +1263,8 @@ function AiTextAssistField({
   contentProvider,
   onGenerate,
   generating,
+  aiProviderId,
+  aiModelId,
   suggestionsEnabled = true,
   multiline = false,
   rows,
@@ -1247,6 +1324,8 @@ function AiTextAssistField({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            providerId: aiProviderId,
+            model: aiModelId,
             field,
             title,
             excerpt: field === "excerpt" ? value : excerpt,
@@ -1286,6 +1365,8 @@ function AiTextAssistField({
     }, 750);
   }, [
     aiEnabled,
+    aiModelId,
+    aiProviderId,
     contentProvider,
     excerpt,
     field,

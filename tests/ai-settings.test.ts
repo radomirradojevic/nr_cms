@@ -7,11 +7,13 @@ import {
   OpenAIProvider,
 } from "@/lib/ai-provider-registry";
 import {
+  AI_PROVIDER_DEFAULT_MODELS,
   getEnabledAiProviderOptions,
   parseAiProviderServerSettingsById,
   parseAiWritingAssistantSettings,
   resolveAiProviderModel,
 } from "@/lib/global-settings";
+import { getAiProviderModelCostWarning } from "@/lib/ai-model-cost-warnings";
 
 test("AI provider settings migrate legacy single model config to enabled models", () => {
   const providers = parseAiProviderServerSettingsById({
@@ -36,7 +38,7 @@ test("AI provider options exclude enabled providers with no enabled models", () 
     providerSettings: {
       openai: {
         enabled: true,
-        model: "gpt-5.5",
+        model: "gpt-4.1-mini",
         enabledModels: [],
         maxOutputTokens: 48,
         instructions: null,
@@ -65,8 +67,8 @@ test("AI model resolver rejects models not enabled for the provider", () => {
   const providers = parseAiProviderServerSettingsById({
     openai: {
       enabled: true,
-      model: "gpt-5.5",
-      enabledModels: ["gpt-5.5", "gpt-5.4"],
+      model: "gpt-4.1-mini",
+      enabledModels: ["gpt-4.1-mini", "gpt-5.4"],
       maxOutputTokens: 48,
       instructions: null,
     },
@@ -74,6 +76,25 @@ test("AI model resolver rejects models not enabled for the provider", () => {
 
   assert.equal(resolveAiProviderModel(providers.openai, "gpt-5.4"), "gpt-5.4");
   assert.equal(resolveAiProviderModel(providers.openai, "gpt-4.1"), null);
+});
+
+test("OpenAI defaults to the low-cost pinned CMS model", () => {
+  assert.equal(AI_PROVIDER_DEFAULT_MODELS.openai, "gpt-4.1-mini");
+});
+
+test("AI model cost warnings flag dynamic and premium OpenAI models", () => {
+  assert.equal(
+    getAiProviderModelCostWarning("openai", "gpt-4.1-mini"),
+    null,
+  );
+  assert.equal(
+    getAiProviderModelCostWarning("openai", "chat-latest")?.tone,
+    "warning",
+  );
+  assert.equal(
+    getAiProviderModelCostWarning("openai", "gpt-5.5-pro")?.tone,
+    "danger",
+  );
 });
 
 test("AI provider failure details explain unavailable models", () => {
@@ -112,7 +133,7 @@ test("AI provider failure details explain provider timeouts", () => {
   assert.match(details.message, /Try a faster model/);
 });
 
-test("OpenAI provider disables reasoning for short GPT-5.5 text tasks", async (t) => {
+test("OpenAI provider uses the configured token cap for GPT-5.5 text tasks", async (t) => {
   const requestBodies: Record<string, unknown>[] = [];
 
   t.mock.method(globalThis, "fetch", async (_url: RequestInfo | URL, init?: RequestInit) => {
@@ -137,10 +158,10 @@ test("OpenAI provider disables reasoning for short GPT-5.5 text tasks", async (t
   assert.equal(output, "Meta title");
   assert.deepEqual(requestBody.reasoning, { effort: "none" });
   assert.deepEqual(requestBody.text, { verbosity: "low" });
-  assert.equal(requestBody.max_output_tokens, 768);
+  assert.equal(requestBody.max_output_tokens, 64);
 });
 
-test("OpenAI provider preserves pro reasoning defaults but raises token budget", async (t) => {
+test("OpenAI provider preserves pro reasoning defaults and configured token cap", async (t) => {
   const requestBodies: Record<string, unknown>[] = [];
 
   t.mock.method(globalThis, "fetch", async (_url: RequestInfo | URL, init?: RequestInit) => {
@@ -165,7 +186,7 @@ test("OpenAI provider preserves pro reasoning defaults but raises token budget",
   assert.equal(output, "Meta description");
   assert.equal(requestBody.reasoning, undefined);
   assert.deepEqual(requestBody.text, { verbosity: "low" });
-  assert.equal(requestBody.max_output_tokens, 4096);
+  assert.equal(requestBody.max_output_tokens, 64);
 });
 
 test("OpenAI provider explains incomplete reasoning-only responses", async (t) => {
