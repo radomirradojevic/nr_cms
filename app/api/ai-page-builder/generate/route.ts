@@ -8,7 +8,10 @@ import {
 } from "@/app/dashboard/content/_builder/ai-page-plan";
 import { ROOT_NODE_ID } from "@/app/dashboard/content/_builder/types";
 import { getAiWritingAssistantServerSettings } from "@/data/global-settings";
-import { createAIProvider } from "@/lib/ai-provider-registry";
+import {
+  createAIProvider,
+  getAIProviderFailureDetails,
+} from "@/lib/ai-provider-registry";
 import {
   AI_PROVIDER_LABELS,
   AIProviderIdSchema,
@@ -99,7 +102,9 @@ export async function POST(request: Request) {
     maxOutputTokens: pageBuilderGenerationTokenLimit(
       providerSettings.maxOutputTokens,
     ),
-    timeoutMs: 30_000,
+    timeoutMs: getPageBuilderTimeoutMs(providerId, model),
+    openaiReasoningEffort: "low",
+    openaiTextVerbosity: "low",
   });
 
   let output: string;
@@ -109,10 +114,21 @@ export async function POST(request: Request) {
       "",
     );
   } catch (err) {
-    console.error("[ai-page-builder] provider request failed:", err);
+    const failure = getAIProviderFailureDetails(err, {
+      providerLabel: AI_PROVIDER_LABELS[providerId],
+      model,
+      serviceLabel: "generation",
+    });
+    console.error("[ai-page-builder] provider request failed:", {
+      providerId,
+      model,
+      providerStatus: failure.providerStatus,
+      providerMessage: failure.providerMessage,
+      timedOut: failure.timedOut,
+    });
     return NextResponse.json(
-      { error: "AI generation service is unavailable." },
-      { status: 502 },
+      { error: failure.message },
+      { status: failure.status },
     );
   }
 
@@ -213,4 +229,10 @@ function schemaReference() {
 
 function pageBuilderGenerationTokenLimit(configuredLimit: number) {
   return Math.min(4_000, Math.max(configuredLimit, 2_800));
+}
+
+function getPageBuilderTimeoutMs(providerId: string, model: string) {
+  return providerId === "openai" && /(?:^|[-.])pro(?:[-.]|$)/iu.test(model)
+    ? 75_000
+    : 30_000;
 }

@@ -138,7 +138,7 @@ export const AI_PROVIDER_MODEL_OPTIONS = {
 } as const satisfies Record<AIProviderId, readonly AIProviderModelOption[]>;
 
 export const AI_PROVIDER_DEFAULT_MODELS: Record<AIProviderId, string> = {
-  openai: "gpt-5.5",
+  openai: "gpt-4.1-mini",
   anthropic: "claude-sonnet-4-6",
   google: "gemini-3.5-flash",
   mistral: "mistral-medium-3-5",

@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getAiWritingAssistantServerSettings } from "@/data/global-settings";
-import { createAIProvider } from "@/lib/ai-provider-registry";
+import {
+  createAIProvider,
+  getAIProviderFailureDetails,
+} from "@/lib/ai-provider-registry";
 import {
   AI_PROVIDER_LABELS,
   AIProviderIdSchema,
@@ -112,17 +115,30 @@ export async function POST(request: Request) {
       body.field,
       providerSettings.maxOutputTokens,
     ),
-    timeoutMs: 15_000,
+    timeoutMs: getGenerationTimeoutMs(providerId, model),
+    openaiReasoningEffort: "none",
+    openaiTextVerbosity: "low",
   });
 
   let output: string;
   try {
     output = await provider.generateCompletion(prompt, "");
   } catch (err) {
-    console.error("[ai-writing-assistant] provider request failed:", err);
+    const failure = getAIProviderFailureDetails(err, {
+      providerLabel: AI_PROVIDER_LABELS[providerId],
+      model,
+      serviceLabel: "generation",
+    });
+    console.error("[ai-writing-assistant] provider request failed:", {
+      providerId,
+      model,
+      providerStatus: failure.providerStatus,
+      providerMessage: failure.providerMessage,
+      timedOut: failure.timedOut,
+    });
     return NextResponse.json(
-      { error: "AI generation service is unavailable." },
-      { status: 502 },
+      { error: failure.message },
+      { status: failure.status },
     );
   }
 
@@ -213,6 +229,12 @@ function getGenerationTokenLimit(
 ) {
   const suggestedMinimum = field === "metaTitle" ? 64 : 120;
   return Math.min(180, Math.max(configuredLimit, suggestedMinimum));
+}
+
+function getGenerationTimeoutMs(providerId: string, model: string) {
+  return providerId === "openai" && /(?:^|[-.])pro(?:[-.]|$)/iu.test(model)
+    ? 60_000
+    : 15_000;
 }
 
 function getFieldLabel(field: z.infer<typeof GenerateRequestSchema>["field"]) {

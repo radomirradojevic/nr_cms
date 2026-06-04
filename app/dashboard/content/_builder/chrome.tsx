@@ -38,6 +38,7 @@ import {
   Maximize2,
   Minimize2,
   Loader2,
+  TriangleAlert,
   Wand2,
 } from "lucide-react";
 import { resolver } from "./blocks/editable";
@@ -65,6 +66,10 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { AIProviderId, AiProviderOption } from "@/lib/global-settings";
+import {
+  buildAiCostConfirmationMessage,
+  getAiProviderModelCostWarning,
+} from "@/lib/ai-model-cost-warnings";
 import {
   getLayoutColumnCount,
   layoutPresets,
@@ -577,6 +582,10 @@ export function Toolbar({
       ?.label ??
     effectiveAiModelId ??
     "Model";
+  const selectedAiModelCostWarning = getAiProviderModelCostWarning(
+    effectiveAiProviderId,
+    effectiveAiModelId,
+  );
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiInsertMode, setAiInsertMode] = useState<"replace" | "append">(
@@ -672,6 +681,18 @@ export function Toolbar({
     if (aiInsertMode === "replace" && hasCurrentRootChildren(query)) {
       const confirmed = window.confirm(
         "Replace the current page content with the AI-generated page?",
+      );
+      if (!confirmed) return;
+    }
+
+    if (selectedAiModelCostWarning) {
+      const confirmed = window.confirm(
+        buildAiCostConfirmationMessage({
+          providerLabel: selectedAiProviderLabel,
+          modelLabel: selectedAiModelLabel,
+          warning: selectedAiModelCostWarning,
+          action: "pageBuilderGenerate",
+        }),
       );
       if (!confirmed) return;
     }
@@ -936,6 +957,28 @@ export function Toolbar({
                 </SelectContent>
               </Select>
             </div>
+            {selectedAiModelCostWarning && (
+              <div
+                className={cn(
+                  "flex items-start gap-2 rounded-md border px-3 py-2 text-xs leading-5",
+                  selectedAiModelCostWarning.tone === "danger"
+                    ? "border-red-500/50 bg-red-500/10 text-red-950 dark:text-red-100"
+                    : "border-amber-500/45 bg-amber-500/10 text-amber-950 dark:text-amber-100",
+                )}
+              >
+                <TriangleAlert
+                  aria-hidden
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                />
+                <div className="space-y-1">
+                  <p>{selectedAiModelCostWarning.text}</p>
+                  <p>
+                    Page builder uses a separate larger JSON budget of about
+                    2,800-4,000 output tokens.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
