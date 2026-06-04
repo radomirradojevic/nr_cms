@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Save,
   ShieldCheck,
+  TriangleAlert,
   Upload,
   X,
 } from "lucide-react";
@@ -55,6 +56,7 @@ import {
   ADMIN_PAGE_TARGETS,
   SYSTEM_PAGE_TARGETS,
 } from "@/lib/shell-visibility-targets";
+import { getAiProviderModelCostWarning } from "@/lib/ai-model-cost-warnings";
 import {
   AI_PROVIDER_DEFAULT_MODELS,
   AI_PROVIDER_IDS,
@@ -4394,15 +4396,26 @@ export function SettingsForm({
                           <div className="grid gap-2 sm:grid-cols-2">
                             {modelOptions.map((model) => {
                               const checkboxId = `${providerId}-model-${model.id}`;
+                              const costWarning = getAiProviderModelCostWarning(
+                                providerId,
+                                model.id,
+                              );
 
                               return (
                                 <label
                                   key={model.id}
                                   htmlFor={checkboxId}
-                                  className="flex min-h-10 items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                                  className={cn(
+                                    "flex min-h-10 items-start gap-2 rounded-md border px-3 py-2 text-sm",
+                                    costWarning?.tone === "danger" &&
+                                      "border-red-500/50 bg-red-500/10 text-red-950 dark:text-red-100",
+                                    costWarning?.tone === "warning" &&
+                                      "border-amber-500/45 bg-amber-500/10 text-amber-950 dark:text-amber-100",
+                                  )}
                                 >
                                   <Checkbox
                                     id={checkboxId}
+                                    className="mt-0.5"
                                     checked={provider.enabledModels.includes(
                                       model.id,
                                     )}
@@ -4414,8 +4427,19 @@ export function SettingsForm({
                                       )
                                     }
                                   />
-                                  <span className="min-w-0 truncate">
-                                    {model.label}
+                                  <span className="min-w-0 space-y-1">
+                                    <span className="block truncate">
+                                      {model.label}
+                                    </span>
+                                    {costWarning && (
+                                      <span className="flex items-start gap-1 text-xs leading-4">
+                                        <TriangleAlert
+                                          aria-hidden
+                                          className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                                        />
+                                        <span>{costWarning.text}</span>
+                                      </span>
+                                    )}
                                   </span>
                                 </label>
                               );
@@ -4476,7 +4500,7 @@ export function SettingsForm({
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="space-y-1.5">
                             <Label htmlFor={`${providerId}-max-tokens`}>
-                              Max suggestion tokens
+                              Max short-output tokens
                             </Label>
                             <Input
                               id={`${providerId}-max-tokens`}
@@ -4499,10 +4523,12 @@ export function SettingsForm({
                               }
                             />
                             <p className="text-xs leading-5 text-muted-foreground">
-                              Used as the output token limit for most models.
-                              OpenAI GPT-5 reasoning models may use a larger
-                              internal buffer so reasoning tokens do not consume
-                              the whole request before visible text is returned.
+                              Caps short editor suggestions and SEO output.
+                              Reasoning and pro models can spend this same
+                              budget on hidden reasoning, so higher values may
+                              increase cost without making the visible text
+                              longer. Page builder generation uses a separate
+                              larger JSON budget. Allowed range: 8-160.
                             </p>
                           </div>
                         </div>

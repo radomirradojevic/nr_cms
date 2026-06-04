@@ -357,7 +357,7 @@ function buildOpenAIRequestBody(
   const body: OpenAIRequestBody = {
     model,
     input,
-    max_output_tokens: getOpenAIMaxOutputTokens(model, config.maxOutputTokens),
+    max_output_tokens: config.maxOutputTokens,
     store: false,
   };
 
@@ -398,13 +398,6 @@ function getOpenAITextVerbosity(
   requestedVerbosity: OpenAITextVerbosity | undefined,
 ): OpenAITextVerbosity | null {
   return isOpenAIGpt5Model(model) ? (requestedVerbosity ?? "low") : null;
-}
-
-function getOpenAIMaxOutputTokens(model: string, configuredLimit: number) {
-  if (!isOpenAIReasoningModel(model)) return configuredLimit;
-  if (isOpenAIProModel(model)) return Math.max(configuredLimit, 4_096);
-  if (supportsOpenAINoneReasoning(model)) return Math.max(configuredLimit, 768);
-  return Math.max(configuredLimit, 1_536);
 }
 
 function isOpenAIReasoningModel(model: string): boolean {
