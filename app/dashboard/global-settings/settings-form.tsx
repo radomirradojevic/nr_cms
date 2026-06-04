@@ -1684,10 +1684,6 @@ export function SettingsForm({
   );
   const initialSiteMenuSlot = findRecipeSlot(initialHeaderSlots, "SiteMenu");
   const initialAdminMenuSlot = findRecipeSlot(initialHeaderSlots, "AdminMenu");
-  const initialAuthControlsSlot = findRecipeSlot(
-    initialHeaderSlots,
-    "AuthControls",
-  );
   const initialSearchSlot = findRecipeSlot(
     initialHeaderSlots,
     "Search",
@@ -1878,9 +1874,6 @@ export function SettingsForm({
   );
   const [adminMenuEnabled, setAdminMenuEnabled] = useState(
     initialAdminMenuSlot?.enabled ?? true,
-  );
-  const [authControlsEnabled, setAuthControlsEnabled] = useState(
-    initialAuthControlsSlot?.enabled ?? true,
   );
   const [searchEnabled, setSearchEnabled] = useState(
     initialSearchSlot?.enabled ?? false,
@@ -2373,7 +2366,7 @@ export function SettingsForm({
               return { ...slot, enabled: adminMenuEnabled };
             }
             if (slot.type === "AuthControls") {
-              return { ...slot, enabled: authControlsEnabled };
+              return { ...slot, enabled: true, visibility: "always" as const };
             }
             if (slot.type === "Search") {
               return {
@@ -2484,11 +2477,6 @@ export function SettingsForm({
       "AdminMenu",
       "admin-menu",
     );
-    const authControlsSlot = findRecipeSlot(
-      recipe.shell.header.slots,
-      "AuthControls",
-      "auth-controls",
-    );
     const searchSlot = findRecipeSlot(
       recipe.shell.header.slots,
       "Search",
@@ -2575,7 +2563,6 @@ export function SettingsForm({
     setHeaderCustomHtmlEnabled(headerHtmlSlot?.enabled ?? false);
     setSiteMenuEnabled(siteMenuSlot?.enabled ?? true);
     setAdminMenuEnabled(adminMenuSlot?.enabled ?? true);
-    setAuthControlsEnabled(authControlsSlot?.enabled ?? true);
     setSearchEnabled(searchSlot?.enabled ?? false);
     setSearchPlaceholder(searchSlot?.placeholder ?? "Search");
     setSearchBlogPosts(searchSlot?.contentTypes.includes("blog_post") ?? true);
@@ -2604,6 +2591,23 @@ export function SettingsForm({
     const nextRecipe = applyAppearancePresetToRecipe(draftRecipe, preset);
     syncDraftFromRecipe(nextRecipe, preset.id);
     toast.success(`${preset.name} applied as a draft.`);
+  }
+
+  function handleAdminMenuEnabledChange(enabled: boolean) {
+    setAdminMenuEnabled(enabled);
+
+    if (!enabled) {
+      const dashboardUrl =
+        typeof window === "undefined"
+          ? "/dashboard"
+          : `${window.location.origin}/dashboard`;
+
+      toast.warning("Admin menu hidden", {
+        id: "admin-menu-hidden-warning",
+        description: `Hiding the admin menu will remove the backend navigation links from the site header. To access the backend again, open ${dashboardUrl}.`,
+        duration: 30000,
+      });
+    }
   }
 
   function resetToDraftPreset() {
@@ -3276,17 +3280,7 @@ export function SettingsForm({
                         <Switch
                           id="adminMenuEnabled"
                           checked={adminMenuEnabled}
-                          onCheckedChange={setAdminMenuEnabled}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="authControlsEnabled">
-                          Auth Controls
-                        </Label>
-                        <Switch
-                          id="authControlsEnabled"
-                          checked={authControlsEnabled}
-                          onCheckedChange={setAuthControlsEnabled}
+                          onCheckedChange={handleAdminMenuEnabledChange}
                         />
                       </div>
                       <div className="flex items-center justify-between">

@@ -736,10 +736,15 @@ function mergeSlotWithLegacy(
     }
     case "SiteMenu":
     case "AdminMenu":
-    case "AuthControls":
       return {
         ...fallback,
         ...base,
+      };
+    case "AuthControls":
+      return {
+        ...fallback,
+        enabled: true,
+        visibility: "always",
       };
   }
 }
@@ -1678,6 +1683,27 @@ function updateSlotInList(
   return slots.map((slot) => (slot.id === id ? update(slot) : slot));
 }
 
+function ensureAuthControlsSlot(slots: AppearanceSlotV1[]): AppearanceSlotV1[] {
+  let hasAuthControls = false;
+  const normalizedSlots = slots.map((slot) => {
+    if (slot.type !== "AuthControls") return slot;
+    hasAuthControls = true;
+    return { ...slot, enabled: true, visibility: "always" as const };
+  });
+
+  if (hasAuthControls) return normalizedSlots;
+
+  return [
+    ...normalizedSlots,
+    {
+      id: "auth-controls",
+      type: "AuthControls",
+      enabled: true,
+      visibility: "always",
+    },
+  ];
+}
+
 export function applyAppearancePresetToRecipe(
   recipe: AppearanceRecipe,
   preset: AppearanceShellPreset,
@@ -1714,6 +1740,7 @@ export function applyAppearancePresetToRecipe(
           }
         : slot,
   );
+  const headerSlotsWithAuthControls = ensureAuthControlsSlot(headerSlots);
   const footerSlotsWithLinks = updateSlotInList(
     recipe.shell.footer.slots,
     "footer-links",
@@ -1780,7 +1807,7 @@ export function applyAppearancePresetToRecipe(
         hidden: false,
         sticky: preset.header.sticky,
         heightPx: preset.header.heightPx,
-        slots: headerSlots,
+        slots: headerSlotsWithAuthControls,
       },
       main: {
         variant: preset.main.variant,
