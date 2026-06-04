@@ -486,7 +486,7 @@ export const globalSettings = pgTable(
       .default(sql`'{}'::jsonb`),
     aiWritingAssistantModel: text("ai_writing_assistant_model")
       .notNull()
-      .default("gpt-5.5"),
+      .default("gpt-4.1-mini"),
     aiWritingAssistantMaxOutputTokens: integer(
       "ai_writing_assistant_max_output_tokens",
     )
