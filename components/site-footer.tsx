@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Mail, type LucideIcon } from "lucide-react";
 import * as SimpleIcons from "simple-icons";
 import type { SimpleIcon } from "simple-icons";
 
@@ -30,8 +31,6 @@ type FooterContext = Required<
 const SIMPLE_ICON_EXPORTS = SimpleIcons as Record<string, SimpleIcon>;
 
 const SOCIAL_ICON_ALIASES: Record<string, string> = {
-  email: "siGmail",
-  mail: "siGmail",
   x: "siX",
   twitter: "siX",
   twitterx: "siX",
@@ -71,7 +70,13 @@ const SOCIAL_ICON_MONOGRAMS: Record<string, string> = {
   linkedin: "in",
 };
 
+const SOCIAL_ICON_COMPONENTS: Partial<Record<string, LucideIcon>> = {
+  email: Mail,
+  mail: Mail,
+};
+
 type ResolvedSocialIcon =
+  | { type: "component"; Icon: LucideIcon }
   | { type: "simple"; icon: SimpleIcon }
   | { type: "monogram"; label: string };
 
@@ -112,6 +117,9 @@ function resolveSocialIcon(link: AppearanceLinkV1): ResolvedSocialIcon | null {
   ].filter(Boolean);
 
   for (const token of tokens) {
+    const Icon = SOCIAL_ICON_COMPONENTS[token];
+    if (Icon) return { type: "component", Icon };
+
     const aliasedIcon = SOCIAL_ICON_ALIASES[token];
     const icon =
       (aliasedIcon ? SIMPLE_ICON_EXPORTS[aliasedIcon] : undefined) ??
@@ -139,6 +147,11 @@ function renderSocialIcon(link: AppearanceLinkV1) {
         {icon.label}
       </span>
     );
+  }
+
+  if (icon.type === "component") {
+    const Icon = icon.Icon;
+    return <Icon aria-hidden="true" className="h-5 w-5" strokeWidth={2} />;
   }
 
   return (
@@ -211,6 +224,14 @@ function renderSlotLink({
       <Link href={href} className={className}>
         {children}
       </Link>
+    );
+  }
+
+  if (/^(mailto:|tel:)/i.test(href)) {
+    return (
+      <a href={href} className={className}>
+        {children}
+      </a>
     );
   }
 

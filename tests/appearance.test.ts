@@ -1284,6 +1284,33 @@ test("SiteFooter renders the classic footer slots with legacy classes", () => {
   );
 });
 
+test("SiteFooter renders mailto social links as email links and icons", () => {
+  const recipe = buildDefaultClassicAppearanceRecipe(classicLegacyInput);
+  const html = renderToStaticMarkup(
+    createElement(SiteFooter, {
+      region: {
+        ...recipe.shell.footer,
+        variant: "centered",
+        slots: [
+          {
+            id: "social-links",
+            type: "SocialLinks",
+            enabled: true,
+            visibility: "always",
+            generateSocialIcons: true,
+            links: [{ label: "email", href: "mailto:neki_email@test.com" }],
+          },
+        ],
+      },
+    }),
+  );
+
+  assert.ok(html.includes('href="mailto:neki_email@test.com"'));
+  assert.equal(html.includes('target="_blank"'), false);
+  assert.ok(html.includes('<span class="sr-only">email</span>'));
+  assert.ok(html.includes("lucide-mail"));
+});
+
 test("CMS HTML sanitizer removes executable markup and editor artifacts", () => {
   const html = sanitizeCmsHtml(
     '<div class="ProseMirror" contenteditable="true"><p data-placeholder="Enter footer content..." class="is-empty"></p><p><a href="javascript:alert(1)" onclick="alert(1)">Bad</a><script>alert(1)</script><img class="ProseMirror-separator" alt=""><svg contenteditable="false" viewBox="0 0 10 10"><path d="M0 0h10v10z" onclick="alert(1)"></path></svg></p></div>',
