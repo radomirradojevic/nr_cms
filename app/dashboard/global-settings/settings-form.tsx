@@ -4498,6 +4498,12 @@ export function SettingsForm({
                                 undefined
                               }
                             />
+                            <p className="text-xs leading-5 text-muted-foreground">
+                              Used as the output token limit for most models.
+                              OpenAI GPT-5 reasoning models may use a larger
+                              internal buffer so reasoning tokens do not consume
+                              the whole request before visible text is returned.
+                            </p>
                           </div>
                         </div>
 

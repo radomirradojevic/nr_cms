@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getAiWritingAssistantServerSettings } from "@/data/global-settings";
-import { createAIProvider } from "@/lib/ai-provider-registry";
+import {
+  createAIProvider,
+  getAIProviderFailureDetails,
+} from "@/lib/ai-provider-registry";
 import {
   AI_PROVIDER_LABELS,
   AIProviderIdSchema,
@@ -97,22 +100,41 @@ export async function POST(request: Request) {
     apiKey: providerSettings.apiKey,
     model,
     maxOutputTokens: providerSettings.maxOutputTokens,
-    timeoutMs: 12_000,
+    timeoutMs: getSuggestionTimeoutMs(providerId, model),
+    openaiReasoningEffort: "none",
+    openaiTextVerbosity: "low",
   });
 
   let output: string;
   try {
     output = await provider.generateCompletion(prompt, "");
   } catch (err) {
-    console.error("[ai-writing-assistant] provider request failed:", err);
+    const failure = getAIProviderFailureDetails(err, {
+      providerLabel: AI_PROVIDER_LABELS[providerId],
+      model,
+      serviceLabel: "suggestion",
+    });
+    console.error("[ai-writing-assistant] provider request failed:", {
+      providerId,
+      model,
+      providerStatus: failure.providerStatus,
+      providerMessage: failure.providerMessage,
+      timedOut: failure.timedOut,
+    });
     return NextResponse.json(
-      { error: "AI suggestion service is unavailable." },
-      { status: 502 },
+      { error: failure.message },
+      { status: failure.status },
     );
   }
 
   const suggestion = normalizeSuggestion(output, body.before);
   return NextResponse.json({ suggestion });
+}
+
+function getSuggestionTimeoutMs(providerId: string, model: string) {
+  return providerId === "openai" && /(?:^|[-.])pro(?:[-.]|$)/iu.test(model)
+    ? 45_000
+    : 12_000;
 }
 
 function buildSuggestionPrompt(
