@@ -115,6 +115,7 @@ function PresetHeaderDiagram({ preset }: { preset: AppearanceShellPreset }) {
   const ctaBlock = preset.header.cta.enabled ? (
     <PresetPreviewBlock className="h-4 w-10" label="CTA" tone="primary" />
   ) : null;
+  const authBlock = <PresetPreviewBlock className="h-4 w-10" label="Auth" />;
 
   if (preset.header.variant === "centered") {
     return (
@@ -124,6 +125,7 @@ function PresetHeaderDiagram({ preset }: { preset: AppearanceShellPreset }) {
           <PresetPreviewBlock className="h-4 w-10" label="Menu" />
           {searchBlock}
           {ctaBlock}
+          {authBlock}
         </div>
       </div>
     );
@@ -137,6 +139,7 @@ function PresetHeaderDiagram({ preset }: { preset: AppearanceShellPreset }) {
         <div className="flex min-w-0 items-center justify-end gap-1">
           {searchBlock}
           {ctaBlock}
+          {authBlock}
         </div>
       </div>
     );
@@ -148,7 +151,7 @@ function PresetHeaderDiagram({ preset }: { preset: AppearanceShellPreset }) {
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
           {searchBlock ?? <span />}
           <PresetPreviewBlock className="h-5 w-20" label="Brand" tone="brand" />
-          <PresetPreviewBlock className="ml-auto h-4 w-10" label="Auth" />
+          <span className="ml-auto">{authBlock}</span>
         </div>
         <div className="flex justify-center gap-1 border-t border-muted-foreground/15 pt-1">
           <PresetPreviewBlock className="h-4 w-10" label="Menu" />
@@ -170,6 +173,7 @@ function PresetHeaderDiagram({ preset }: { preset: AppearanceShellPreset }) {
         <PresetPreviewBlock className="h-4 w-10" label="Menu" />
         {searchBlock}
         {ctaBlock}
+        {authBlock}
       </div>
     </div>
   );
@@ -584,7 +588,6 @@ function PreviewHeader({
   );
   const siteMenuSlot = getSlot(recipe, "header", "SiteMenu", "site-menu");
   const adminMenuSlot = getSlot(recipe, "header", "AdminMenu", "admin-menu");
-  const authSlot = getSlot(recipe, "header", "AuthControls", "auth-controls");
   const searchSlot = getSlot(recipe, "header", "Search", "header-search");
   const ctaSlot = getSlot(recipe, "header", "CTA", "header-cta");
   const brand = (
@@ -623,10 +626,9 @@ function PreviewHeader({
     ctaSlot?.enabled && ctaSlot.label ? (
       <PreviewChip tone="primary">{ctaSlot.label}</PreviewChip>
     ) : null;
-  const auth =
-    authSlot?.enabled && !showCompact ? (
-      <PreviewChip tone="secondary">Auth</PreviewChip>
-    ) : null;
+  const auth = !showCompact ? (
+    <PreviewChip tone="secondary">Auth</PreviewChip>
+  ) : null;
   const mobileMenu = showCompact ? (
     <PreviewChip tone="border">Menu</PreviewChip>
   ) : null;

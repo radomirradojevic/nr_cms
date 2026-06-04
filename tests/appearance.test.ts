@@ -627,6 +627,12 @@ test("parseAppearanceRecipe preserves stored variants and safe slots while keepi
               enabled: false,
             },
             {
+              id: "auth-controls",
+              type: "AuthControls",
+              enabled: false,
+              visibility: "signed-in",
+            },
+            {
               id: "header-search",
               type: "Search",
               enabled: true,
@@ -669,6 +675,12 @@ test("parseAppearanceRecipe preserves stored variants and safe slots while keepi
     recipe.shell.header.slots.find((slot) => slot.id === "site-menu")?.enabled,
     false,
   );
+  const authControlsSlot = recipe.shell.header.slots.find(
+    (slot) => slot.id === "auth-controls",
+  );
+  assert.equal(authControlsSlot?.type, "AuthControls");
+  assert.equal(authControlsSlot?.enabled, true);
+  assert.equal(authControlsSlot?.visibility, "always");
   const searchSlot = recipe.shell.header.slots.find(
     (slot) => slot.id === "header-search",
   );
@@ -751,9 +763,23 @@ test("resolveAppearanceRecipeForWrite disables unsafe or empty CTA slots", () =>
 
 test("appearance shell presets are valid draft recipes", () => {
   const classic = buildDefaultClassicAppearanceRecipe(classicLegacyInput);
+  const recipeWithHiddenAuth = {
+    ...classic,
+    shell: {
+      ...classic.shell,
+      header: {
+        ...classic.shell.header,
+        slots: classic.shell.header.slots.map((slot) =>
+          slot.type === "AuthControls"
+            ? { ...slot, enabled: false, visibility: "signed-in" as const }
+            : slot,
+        ),
+      },
+    },
+  };
 
   for (const preset of APPEARANCE_SHELL_PRESETS) {
-    const recipe = applyAppearancePresetToRecipe(classic, preset);
+    const recipe = applyAppearancePresetToRecipe(recipeWithHiddenAuth, preset);
     const parsed = AppearanceRecipeV2Schema.parse(recipe);
 
     assert.equal(parsed.name, preset.name);
@@ -762,6 +788,13 @@ test("appearance shell presets are valid draft recipes", () => {
     assert.equal(parsed.shell.main.variant, preset.main.variant);
     assert.equal(parsed.shell.footer.variant, preset.footer.variant);
     assert.deepEqual(parsed.contentTemplates, preset.contentTemplates);
+
+    const authControlsSlot = parsed.shell.header.slots.find(
+      (slot) => slot.id === "auth-controls",
+    );
+    assert.equal(authControlsSlot?.type, "AuthControls");
+    assert.equal(authControlsSlot?.enabled, true);
+    assert.equal(authControlsSlot?.visibility, "always");
   }
 });
 

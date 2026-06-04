@@ -74,6 +74,22 @@ function findEnabledTypeSlot<T extends AppearanceSlotV1["type"]>(
     null) as SlotOf<T> | null;
 }
 
+function findAuthControlsSlot(
+  slots: AppearanceSlotV1[],
+): SlotOf<"AuthControls"> {
+  const slot = slots.find(
+    (item): item is SlotOf<"AuthControls"> => item.type === "AuthControls",
+  );
+
+  return {
+    ...(slot ?? {}),
+    id: slot?.id ?? "auth-controls",
+    type: "AuthControls",
+    enabled: true,
+    visibility: "always",
+  };
+}
+
 export function resolveHeaderHeight(region: HeaderRegionV1): number {
   if (region.hidden) return 0;
   return region.heightPx > 0 ? region.heightPx : 64;
@@ -354,11 +370,7 @@ export function SiteHeader({
   const richTextSlot = findEnabledSlot(region.slots, "RichText", context);
   const siteMenuSlot = findEnabledSlot(region.slots, "SiteMenu", context);
   const adminMenuSlot = findEnabledTypeSlot(region.slots, "AdminMenu");
-  const authControlsSlot = findEnabledSlot(
-    region.slots,
-    "AuthControls",
-    context,
-  );
+  const authControlsSlot = findAuthControlsSlot(region.slots);
   const searchSlot = findEnabledSlot(region.slots, "Search", context);
   const ctaSlot = findEnabledSlot(region.slots, "CTA", context);
   const headerH = resolveHeaderHeight(region);
