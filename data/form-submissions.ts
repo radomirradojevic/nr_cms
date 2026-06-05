@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/db";
 import { content, formSubmissions, forms, formFields } from "@/db/schema";
 import { asc, desc, eq, count, type SQL } from "drizzle-orm";
+import { buildLiveContentWhere } from "@/data/content";
 import { canViewContent } from "@/lib/content-visibility";
 import type { Role } from "@/lib/roles";
 import type {
@@ -57,7 +58,7 @@ function textHasFormSubmissionsEmbed(value: string | null, formId: string) {
 }
 
 /**
- * Public frontend access to submissions follows the published parent content:
+ * Public frontend access to submissions follows the live parent content:
  * if a visible page/blog post embeds this Form Submissions block, the viewer
  * may fetch its rows. Dashboard/admin access is still enforced by callers.
  */
@@ -72,7 +73,7 @@ export async function canViewFormSubmissionsViaPublishedContent(
       visibility: content.visibility,
     })
     .from(content)
-    .where(eq(content.status, "published"));
+    .where(buildLiveContentWhere());
 
   return rows.some(
     (row) =>

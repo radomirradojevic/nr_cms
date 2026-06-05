@@ -18,6 +18,7 @@ import {
 import { getContentById } from "@/data/content";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
+import { isContentLive } from "@/lib/content-schedule";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { checkCommentRateLimit, getClientIp, hashIp } from "@/lib/rate-limit";
 
@@ -133,8 +134,8 @@ export async function submitComment(
   if (!post.enableComments) {
     return { error: "Comments are disabled for this post." };
   }
-  if (post.status !== "published") {
-    return { error: "Cannot comment on unpublished posts." };
+  if (!isContentLive(post)) {
+    return { error: "Cannot comment on posts that are not live." };
   }
 
   // 2. Auth + identity snapshot
@@ -173,7 +174,7 @@ export async function submitComment(
       return { error: "Replies to replies are not allowed." };
     }
     if (parent.status !== "published") {
-      return { error: "Cannot reply to an unpublished comment." };
+      return { error: "Cannot reply to a comment that is not published." };
     }
     parentId = parent.id;
   }

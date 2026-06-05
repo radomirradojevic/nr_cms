@@ -1,8 +1,6 @@
 import "dotenv/config";
-import { drizzle } from "drizzle-orm/neon-http";
+import { db, pool } from "./index";
 import { contentCategories } from "./schema";
-
-const db = drizzle(process.env.DATABASE_URL!);
 
 async function seed() {
   await db
@@ -14,10 +12,12 @@ async function seed() {
     .onConflictDoNothing();
 
   console.log("Seeded default content categories successfully.");
-  process.exit(0);
 }
 
-seed().catch((err) => {
-  console.error("Seed failed:", err);
-  process.exit(1);
-});
+seed()
+  .then(() => pool.end())
+  .catch(async (err) => {
+    console.error("Seed failed:", err);
+    await pool.end();
+    process.exit(1);
+  });

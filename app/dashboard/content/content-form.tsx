@@ -20,6 +20,7 @@ import {
   Clock,
   Eye,
   FolderTree,
+  History as HistoryIcon,
   ImageIcon,
   Loader2,
   MessageSquare,
@@ -51,6 +52,12 @@ import {
 import { cn, slugify } from "@/lib/utils";
 import { hasRole, type Role } from "@/lib/roles";
 import {
+  CONTENT_CREATE_STATUSES,
+  CONTENT_STATUSES,
+  getContentStatusLabel,
+  type ContentStatus,
+} from "@/lib/content-status";
+import {
   DEFAULT_VISIBILITY,
   VISIBILITY_ROLES,
   type ContentVisibility,
@@ -67,7 +74,10 @@ import {
   isBuilderData,
   type BuilderData,
 } from "./_builder/types";
-import type { PageEditorSettingsPanels } from "./_builder/page-editor";
+import type {
+  PageEditorSettingsPanels,
+  PageEditorSettingsTab,
+} from "./_builder/page-editor";
 import {
   createDefaultHeroSlider,
   heroSliderToPlainText,
@@ -87,6 +97,10 @@ import {
   type CreateContentInput,
   type UpdateContentInput,
 } from "./actions";
+import {
+  ContentHistoryPanel,
+  type ContentHistoryRevision,
+} from "./content-history-panel";
 import type { AppearanceSettings } from "@/lib/appearance";
 import {
   AI_PROVIDER_DEFAULT_MODELS,
@@ -114,6 +128,11 @@ type Props = {
   aiWritingAssistantAvailable?: boolean;
   aiWritingAssistantProviders?: AiProviderOption[];
   aiWritingAssistantDefaultProvider?: AIProviderId;
+  initialInspectorTab?: string;
+  history?: {
+    revisions: ContentHistoryRevision[];
+    total: number;
+  };
   initial?: {
     id: string;
     title: string;
@@ -123,18 +142,21 @@ type Props = {
     metaDescription: string | null;
     excerpt: string | null;
     coverImage: string | null;
-    status: "published" | "unpublished" | "archived";
+    status: ContentStatus;
     homepage: boolean;
     enableComments: boolean;
     autoPublishComments: boolean;
     allowAnonymousComments: boolean;
     visibility: ContentVisibility;
     contentJson: unknown;
+    publishAt: string | Date | null;
+    unpublishAt: string | Date | null;
   };
 };
 
 type AiGeneratedField = "excerpt" | "metaTitle" | "metaDescription";
 type AiAssistantSurface = "blogEditor" | "pageBuilder";
+type InspectorTab = PageEditorSettingsTab | "comments";
 
 export function ContentForm({
   mode,
@@ -146,11 +168,16 @@ export function ContentForm({
   aiWritingAssistantAvailable = false,
   aiWritingAssistantProviders,
   aiWritingAssistantDefaultProvider,
+  initialInspectorTab,
+  history,
   initial,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const saveInFlightRef = useRef(false);
+  const [saveInFlight, setSaveInFlight] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewPending, setPreviewPending] = useState(false);
   const [staleVersion, setStaleVersion] = useState<number | null>(null);
   const [showFloatingSave, setShowFloatingSave] = useState(false);
   const lock = useContentEditLockOptional();
@@ -159,6 +186,15 @@ export function ContentForm({
   const isAdmin = hasRole(currentUserRoles, "admin");
   const isPublisher = hasRole(currentUserRoles, "publisher");
   const canChooseStatus = isAdmin || isPublisher;
+  const hasHistoryPanel = mode === "edit" && Boolean(initial?.id);
+  const [activeInspectorTab, setActiveInspectorTab] = useState<InspectorTab>(
+    () =>
+      normalizeInspectorTab({
+        value: initialInspectorTab,
+        contentType,
+        hasHistory: hasHistoryPanel,
+      }),
+  );
   const aiProviderOptions = useMemo<AiProviderOption[]>(() => {
     if (aiWritingAssistantProviders !== undefined) {
       return aiWritingAssistantProviders;
@@ -193,9 +229,15 @@ export function ContentForm({
   );
   const [excerpt, setExcerpt] = useState(initial?.excerpt ?? "");
   const [coverImage, setCoverImage] = useState(initial?.coverImage ?? "");
-  const [status, setStatus] = useState<
-    "published" | "unpublished" | "archived"
-  >(initial?.status ?? "unpublished");
+  const [status, setStatus] = useState<ContentStatus>(
+    initial?.status ?? "draft",
+  );
+  const [publishAt, setPublishAt] = useState(() =>
+    toDatetimeLocalValue(initial?.publishAt),
+  );
+  const [unpublishAt, setUnpublishAt] = useState(() =>
+    toDatetimeLocalValue(initial?.unpublishAt),
+  );
   const [aiProviderId, setAiProviderId] = useState<AIProviderId>(
     () =>
       aiWritingAssistantDefaultProvider ?? aiProviderOptions[0]?.id ?? "openai",
@@ -293,7 +335,8 @@ export function ContentForm({
   }
 
   const savedToastMessage = `${contentTypeLabel(contentType)} saved successfully`;
-  const primarySaveDisabled = pending || lockBlocksSave;
+  const savePending = pending || saveInFlight;
+  const primarySaveDisabled = savePending || lockBlocksSave;
   const primarySaveLabel = mode === "create" ? "Create" : "Save";
   const idleLogoutLabel = formatSessionMinutes(
     sessionSecurity.idleLogoutMinutes,
@@ -370,6 +413,20 @@ export function ContentForm({
 
     setAiModelId(modelId);
   }
+
+  const updateInspectorTab = useCallback(
+    (tab: InspectorTab) => {
+      const nextTab = normalizeInspectorTab({
+        value: tab,
+        contentType,
+        hasHistory: hasHistoryPanel,
+      });
+
+      setActiveInspectorTab(nextTab);
+      persistInspectorTabInUrl(nextTab, contentType);
+    },
+    [contentType, hasHistoryPanel],
+  );
 
   useEffect(() => {
     function updateFloatingSaveVisibility() {
@@ -483,8 +540,71 @@ export function ContentForm({
     if (showToast) toast.error(message);
   }
 
-  function submit(shouldClose = true, showToast = false) {
+  async function openPreview() {
+    if (mode !== "edit" || !initial?.id) {
+      toast.error("Save this content before previewing.");
+      return;
+    }
+
+    setPreviewPending(true);
+    try {
+      const response = await fetch("/api/content-preview-tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ contentId: initial.id }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        previewUrl?: unknown;
+        error?: unknown;
+      } | null;
+
+      if (!response.ok) {
+        toast.error(
+          typeof data?.error === "string"
+            ? data.error
+            : "Preview link could not be created.",
+        );
+        return;
+      }
+
+      const previewUrl =
+        typeof data?.previewUrl === "string" ? data.previewUrl : "";
+      if (!previewUrl) {
+        toast.error("Preview link could not be created.");
+        return;
+      }
+
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Preview link could not be created.");
+    } finally {
+      setPreviewPending(false);
+    }
+  }
+
+  function submit(
+    shouldClose = true,
+    showToast = false,
+    statusOverride?: ContentStatus,
+    scheduleOverride?: {
+      publishAt?: string | null;
+      unpublishAt?: string | null;
+    },
+  ) {
+    if (saveInFlightRef.current || lockBlocksSave) return;
+
     setError(null);
+    const effectiveStatus = statusOverride ?? status;
+    const effectivePublishAt = scheduleOverride?.publishAt ?? publishAt;
+    const effectiveUnpublishAt = scheduleOverride?.unpublishAt ?? unpublishAt;
+    if (statusOverride) setStatus(statusOverride);
+    if (scheduleOverride?.publishAt !== undefined) {
+      setPublishAt(scheduleOverride.publishAt ?? "");
+    }
+    if (scheduleOverride?.unpublishAt !== undefined) {
+      setUnpublishAt(scheduleOverride.unpublishAt ?? "");
+    }
     if (!title.trim()) return failSave("Title is required.", showToast);
     if (!slug.trim()) return failSave("Slug is required.", showToast);
     if (!categoryId) return failSave("Category is required.", showToast);
@@ -511,13 +631,22 @@ export function ContentForm({
       contentJson: JSON.parse(JSON.stringify(latestContent ?? null)),
     };
 
+    persistInspectorTabInUrl(activeInspectorTab, contentType);
+    saveInFlightRef.current = true;
+    setSaveInFlight(true);
     startTransition(async () => {
       try {
         if (mode === "create") {
           const input: CreateContentInput = {
             ...base,
             contentType,
-            ...(canChooseStatus ? { status } : {}),
+            ...(canChooseStatus ? { status: effectiveStatus } : {}),
+            ...(canChooseStatus
+              ? {
+                  publishAt: effectivePublishAt || null,
+                  unpublishAt: effectiveUnpublishAt || null,
+                }
+              : {}),
             ...(isAdmin && contentType === "page" ? { homepage } : {}),
             visibility: { public: visibilityPublic, roles: visibilityRoles },
             ...(contentType === "blog_post"
@@ -538,7 +667,15 @@ export function ContentForm({
           const input: UpdateContentInput = {
             ...base,
             id: initial!.id,
-            ...(canChooseStatus ? { status } : {}),
+            ...(canChooseStatus || effectiveStatus !== initial!.status
+              ? { status: effectiveStatus }
+              : {}),
+            ...(canChooseStatus
+              ? {
+                  publishAt: effectivePublishAt || null,
+                  unpublishAt: effectiveUnpublishAt || null,
+                }
+              : {}),
             ...(isAdmin && contentType === "page" ? { homepage } : {}),
             visibility: { public: visibilityPublic, roles: visibilityRoles },
             ...(contentType === "blog_post"
@@ -574,15 +711,41 @@ export function ContentForm({
             }
             setError(null);
             setStaleVersion(null);
-            if (showToast) toast.success(savedToastMessage);
+            if (showToast) {
+              if ("unchanged" in r && r.unchanged) {
+                toast.info("No changes to save.");
+              } else {
+                toast.success(savedToastMessage);
+              }
+            }
             if (shouldClose) router.push("/dashboard/content");
           }
         }
       } catch {
         failSave("Save failed. Please try again.", showToast);
+      } finally {
+        saveInFlightRef.current = false;
+        setSaveInFlight(false);
       }
     });
   }
+
+  const statusOptions =
+    mode === "create" ? CONTENT_CREATE_STATUSES : CONTENT_STATUSES;
+  const canSubmitForReview =
+    !canChooseStatus && mode === "edit" && status === "draft";
+  const canReturnToDraft =
+    !canChooseStatus && mode === "edit" && status === "in_review";
+  const hasSchedule = Boolean(publishAt || unpublishAt);
+  const publishAtIsFuture = publishAt
+    ? new Date(publishAt).getTime() > Date.now()
+    : false;
+  const scheduleSummary = [
+    publishAt ? `Publish at ${publishAt.replace("T", " ")}` : null,
+    unpublishAt ? `Unpublish at ${unpublishAt.replace("T", " ")}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const publishingSettings = (
     <div className="space-y-4">
@@ -597,18 +760,122 @@ export function ContentForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="unpublished">Unpublished</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
+              {statusOptions.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {getContentStatusLabel(option)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">
-          Authors create unpublished content. Ask a publisher or admin to
-          publish.
-        </p>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Current status:{" "}
+            <span className="font-medium text-foreground">
+              {getContentStatusLabel(status)}
+            </span>
+            . Authors can save drafts and submit their own drafts for review.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {canSubmitForReview && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={primarySaveDisabled}
+                onClick={() => submit(false, true, "in_review")}
+              >
+                Submit for review
+              </Button>
+            )}
+            {canReturnToDraft && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={primarySaveDisabled}
+                onClick={() => submit(false, true, "draft")}
+              >
+                Return to draft
+              </Button>
+            )}
+          </div>
+        </div>
       )}
+
+      {canChooseStatus ? (
+        <div className="space-y-3 rounded-md border p-3">
+          <div className="grid gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="publish-at">Publish at</Label>
+              <Input
+                id="publish-at"
+                type="datetime-local"
+                step={60}
+                value={publishAt}
+                onChange={(event) => setPublishAt(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unpublish-at">Unpublish at</Label>
+              <Input
+                id="unpublish-at"
+                type="datetime-local"
+                step={60}
+                value={unpublishAt}
+                onChange={(event) => setUnpublishAt(event.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={primarySaveDisabled}
+              onClick={() =>
+                submit(false, true, "published", { publishAt: "" })
+              }
+            >
+              Publish now
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={primarySaveDisabled || !publishAt}
+              onClick={() => submit(false, true, "approved")}
+            >
+              Schedule publish
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={primarySaveDisabled || !hasSchedule}
+              onClick={() =>
+                submit(false, true, undefined, {
+                  publishAt: "",
+                  unpublishAt: "",
+                })
+              }
+            >
+              Clear schedule
+            </Button>
+          </div>
+          {homepage && unpublishAt && (
+            <p className="text-xs text-muted-foreground">
+              Homepage will show the fallback page after this unpublish time
+              unless another live homepage is assigned.
+            </p>
+          )}
+        </div>
+      ) : hasSchedule ? (
+        <div className="rounded-md border p-3 text-xs text-muted-foreground">
+          {scheduleSummary}
+        </div>
+      ) : null}
 
       {isAdmin && contentType === "page" && (
         <div className="flex items-center justify-between gap-3">
@@ -617,14 +884,14 @@ export function ContentForm({
               Set as homepage
             </Label>
             <p className="text-xs text-muted-foreground">
-              Only one page can be the homepage. Must be published.
+              Only one page can be the homepage. Must be live now.
             </p>
           </div>
           <Switch
             id="homepage"
             checked={homepage}
             onCheckedChange={setHomepage}
-            disabled={status !== "published"}
+            disabled={status !== "published" || publishAtIsFuture}
           />
         </div>
       )}
@@ -808,11 +1075,39 @@ export function ContentForm({
     </div>
   );
 
+  const historyPanel =
+    mode === "edit" && initial?.id ? (
+      <ContentHistoryPanel
+        contentId={initial.id}
+        revisions={history?.revisions ?? []}
+        total={history?.total ?? 0}
+        current={{
+          slug: slugify(slug),
+          status,
+          homepage,
+          publishAt: toIsoOrNull(publishAt),
+          unpublishAt: toIsoOrNull(unpublishAt),
+        }}
+        expectedVersion={lock?.contentVersion}
+        lockClientId={lock?.clientId}
+        restoreDisabled={primarySaveDisabled}
+        onRestored={(version) => {
+          lock?.syncVersionAfterSave(version);
+          setError(null);
+          setStaleVersion(null);
+        }}
+        onStaleVersion={setStaleVersion}
+      />
+    ) : null;
+
   const pageEditorSettingsPanels: PageEditorSettingsPanels = {
     publishing: <div className="p-3">{publishingSettings}</div>,
     visibility: <div className="p-3">{visibilitySettings}</div>,
     category: <div className="p-3">{categorySettings}</div>,
     seo: <div className="p-3">{seoSettings}</div>,
+    ...(historyPanel
+      ? { history: <div className="p-3">{historyPanel}</div> }
+      : {}),
   };
 
   return (
@@ -832,7 +1127,7 @@ export function ContentForm({
           disabled={primarySaveDisabled}
           className="h-11 rounded-full px-4 shadow-lg shadow-black/15"
           aria-label={
-            pending
+            savePending
               ? mode === "create"
                 ? "Creating content"
                 : "Saving content"
@@ -846,20 +1141,20 @@ export function ContentForm({
               : undefined
           }
         >
-          {pending ? (
+          {savePending ? (
             <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
           ) : (
             <Save aria-hidden className="h-4 w-4" />
           )}
           <span className="hidden sm:inline">
-            {pending
+            {savePending
               ? mode === "create"
                 ? "Creating…"
                 : "Saving…"
               : primarySaveLabel}
           </span>
           <span className="sm:hidden">
-            {pending
+            {savePending
               ? mode === "create"
                 ? "Creating…"
                 : "Saving…"
@@ -881,11 +1176,29 @@ export function ContentForm({
         <div className="flex items-center gap-2">
           {mode === "create" ? (
             <Button onClick={submitPrimary} disabled={primarySaveDisabled}>
-              {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {savePending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create
             </Button>
           ) : (
             <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openPreview}
+                disabled={previewPending || status === "archived"}
+                title={
+                  status === "archived"
+                    ? "Archived content cannot be previewed."
+                    : "Open a frontend preview of the saved version."
+                }
+              >
+                {previewPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Eye className="mr-2 h-4 w-4" />
+                )}
+                Preview
+              </Button>
               <Button
                 onClick={submitPrimary}
                 disabled={primarySaveDisabled}
@@ -895,12 +1208,14 @@ export function ContentForm({
                     : undefined
                 }
               >
-                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {savePending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Save
               </Button>
               <Button
                 onClick={() => submit(true)}
-                disabled={pending || lockBlocksSave}
+                disabled={primarySaveDisabled}
                 variant="secondary"
                 title={
                   lockBlocksSave
@@ -908,12 +1223,14 @@ export function ContentForm({
                     : undefined
                 }
               >
-                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {savePending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Save and close
               </Button>
             </>
           )}
-          <Button variant="outline" asChild disabled={pending}>
+          <Button variant="outline" asChild disabled={savePending}>
             <Link href="/dashboard/content">Cancel</Link>
           </Button>
         </div>
@@ -1083,6 +1400,8 @@ export function ContentForm({
                 defaultValue={editorDefaultValue}
                 appearance={appearance}
                 settingsPanels={pageEditorSettingsPanels}
+                activeSettingsTab={toPageEditorSettingsTab(activeInspectorTab)}
+                onActiveSettingsTabChange={updateInspectorTab}
                 pageTitle={title}
                 registerGetValue={(getValue) => {
                   getEditorValueRef.current = getValue;
@@ -1150,7 +1469,10 @@ export function ContentForm({
         {contentType !== "page" && (
           <aside className="min-w-0 space-y-4 lg:sticky lg:top-[var(--sticky-header-h,0px)] lg:self-start">
             <Tabs
-              defaultValue="publishing"
+              value={toSidebarSettingsTab(activeInspectorTab, contentType)}
+              onValueChange={(value) =>
+                updateInspectorTab(value as InspectorTab)
+              }
               className="gap-0 rounded-lg border bg-background"
             >
               <TabsList className="m-2 grid h-auto w-auto grid-cols-2 gap-1 p-1">
@@ -1185,6 +1507,12 @@ export function ContentForm({
                     <span className="truncate">Comments</span>
                   </TabsTrigger>
                 )}
+                {historyPanel && (
+                  <TabsTrigger value="history" className="min-w-0 px-2 text-xs">
+                    <HistoryIcon className="h-4 w-4" />
+                    <span className="truncate">History</span>
+                  </TabsTrigger>
+                )}
               </TabsList>
               <TabsContent value="publishing" className="m-0 p-4 pt-2">
                 {publishingSettings}
@@ -1201,6 +1529,11 @@ export function ContentForm({
               {contentType === "blog_post" && (
                 <TabsContent value="comments" className="m-0 p-4 pt-2">
                   {commentsSettings}
+                </TabsContent>
+              )}
+              {historyPanel && (
+                <TabsContent value="history" className="m-0 p-4 pt-2">
+                  {historyPanel}
                 </TabsContent>
               )}
             </Tabs>
@@ -1229,6 +1562,77 @@ function contentTypeDescription(contentType: Props["contentType"]) {
     return "Hero slider editor for page builder embeds.";
   }
   return "Rich-text blog post editor.";
+}
+
+function getDefaultInspectorTab(
+  contentType: Props["contentType"],
+): InspectorTab {
+  return contentType === "page" ? "properties" : "publishing";
+}
+
+function normalizeInspectorTab(input: {
+  value: string | undefined;
+  contentType: Props["contentType"];
+  hasHistory: boolean;
+}): InspectorTab {
+  const allowed = new Set<InspectorTab>(
+    input.contentType === "page"
+      ? ["properties", "publishing", "visibility", "category", "seo"]
+      : ["publishing", "visibility", "category", "seo"],
+  );
+
+  if (input.contentType === "blog_post") allowed.add("comments");
+  if (input.hasHistory) allowed.add("history");
+
+  return input.value && allowed.has(input.value as InspectorTab)
+    ? (input.value as InspectorTab)
+    : getDefaultInspectorTab(input.contentType);
+}
+
+function persistInspectorTabInUrl(
+  tab: InspectorTab,
+  contentType: Props["contentType"],
+) {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  if (tab === getDefaultInspectorTab(contentType)) {
+    url.searchParams.delete("inspector");
+  } else {
+    url.searchParams.set("inspector", tab);
+  }
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${url.pathname}${url.search}${url.hash}`,
+  );
+}
+
+function toPageEditorSettingsTab(tab: InspectorTab): PageEditorSettingsTab {
+  return tab === "comments" ? "properties" : tab;
+}
+
+function toSidebarSettingsTab(
+  tab: InspectorTab,
+  contentType: Props["contentType"],
+) {
+  if (tab === "properties") return "publishing";
+  if (tab === "comments" && contentType !== "blog_post") return "publishing";
+  return tab;
+}
+
+function toDatetimeLocalValue(value: string | Date | null | undefined) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function toIsoOrNull(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 type AiTextAssistFieldProps = {

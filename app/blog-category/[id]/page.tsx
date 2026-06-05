@@ -59,7 +59,7 @@ export default async function BlogCategoryPage({
     page,
     pageSize: PAGE_SIZE,
     contentType: "blog_post",
-    status: "published",
+    liveOnly: true,
     categoryId: id,
     sort: "updated_desc",
     viewerRoles,

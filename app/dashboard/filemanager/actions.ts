@@ -112,7 +112,7 @@ export async function bulkDeleteFiles(input: BulkDeleteFilesInput) {
     // Purge content references first so we don't leave dangling links if the
     // disk unlink later fails.
     for (const id of parsed.data.ids) {
-      await purgeFileReferences(id);
+      await purgeFileReferences(id, caller.userId);
     }
 
     const removed = await deleteFiles(parsed.data.ids, caller);

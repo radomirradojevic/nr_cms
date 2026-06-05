@@ -7,6 +7,8 @@ import { FileText, GripVertical, Images, Newspaper } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { ContentPickerItem } from "@/data/top-menu";
+import { getContentStatusLabel } from "@/lib/content-status";
+import { getContentScheduleState } from "@/lib/content-schedule";
 
 type Props = {
   items: ContentPickerItem[];
@@ -52,6 +54,7 @@ function PickerRow({ item }: { item: ContentPickerItem }) {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.4 : 1,
   };
+  const scheduleState = getContentScheduleState(item);
 
   return (
     <li
@@ -72,7 +75,19 @@ function PickerRow({ item }: { item: ContentPickerItem }) {
       <span className="text-sm truncate flex-1">{item.title}</span>
       {item.status !== "published" && (
         <Badge variant="outline" className="text-[10px]">
-          {item.status}
+          {getContentStatusLabel(item.status)}
+        </Badge>
+      )}
+      {scheduleState && (
+        <Badge
+          variant={scheduleState === "expired" ? "destructive" : "outline"}
+          className="text-[10px]"
+        >
+          {scheduleState === "scheduled"
+            ? "Scheduled"
+            : scheduleState === "live_until"
+              ? "Live until"
+              : "Expired"}
         </Badge>
       )}
     </li>
