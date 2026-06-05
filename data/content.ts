@@ -8,16 +8,21 @@ import {
   eq,
   ilike,
   inArray,
+  isNull,
+  gt,
+  lte,
   ne,
   or,
   sql,
   type SQL,
 } from "drizzle-orm";
 import { buildVisibilityWhere } from "@/lib/content-visibility";
+import type { ContentStatus } from "@/lib/content-status";
+import { isContentLive } from "@/lib/content-schedule";
 import type { Role } from "@/lib/roles";
 
 export type ContentType = "page" | "blog_post" | "hero_slider";
-export type ContentStatus = "published" | "unpublished" | "archived";
+export type { ContentStatus } from "@/lib/content-status";
 
 export type ContentRow = typeof content.$inferSelect;
 export type NewContent = typeof content.$inferInsert;
@@ -65,7 +70,16 @@ export type ListContentParams = {
    * content regardless of visibility.
    */
   viewerRoles?: Role[] | null;
+  liveOnly?: boolean;
 };
+
+export function buildLiveContentWhere(now = new Date()): SQL {
+  return and(
+    eq(content.status, "published"),
+    or(isNull(content.publishAt), lte(content.publishAt, now)),
+    or(isNull(content.unpublishAt), gt(content.unpublishAt, now)),
+  )!;
+}
 
 export async function listContent(
   params: ListContentParams,
@@ -76,7 +90,11 @@ export async function listContent(
 
   const conditions: SQL[] = [];
   if (contentType) conditions.push(eq(content.contentType, contentType));
-  if (status) conditions.push(eq(content.status, status));
+  if (params.liveOnly) {
+    conditions.push(buildLiveContentWhere());
+  } else if (status) {
+    conditions.push(eq(content.status, status));
+  }
   if (categoryId) conditions.push(eq(content.categoryId, categoryId));
   if (authorId) conditions.push(eq(content.authorId, authorId));
   if (params.viewerRoles !== undefined) {
@@ -128,6 +146,8 @@ export async function listContent(
         metaDescription: content.metaDescription,
         status: content.status,
         publishedAt: content.publishedAt,
+        publishAt: content.publishAt,
+        unpublishAt: content.unpublishAt,
         excerpt: content.excerpt,
         coverImage: content.coverImage,
         slug: content.slug,
@@ -259,7 +279,7 @@ export async function searchPublishedContent(params: {
   const like = `%${query}%`;
   const prefixLike = `${query}%`;
   const conditions: SQL[] = [
-    eq(content.status, "published"),
+    buildLiveContentWhere(),
     inArray(content.contentType, contentTypes),
   ];
   if (params.viewerRoles !== undefined) {
@@ -354,10 +374,12 @@ export async function getHomepageContent(): Promise<ContentRow | undefined> {
   const rows = await db
     .select()
     .from(content)
-    .where(eq(content.homepage, true))
+    .where(and(eq(content.homepage, true), buildLiveContentWhere()))
     .limit(1);
   return rows[0];
 }
+
+export { isContentLive };
 
 export async function countContentByCategory(
   categoryId: string,

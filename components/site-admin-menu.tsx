@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SiteTopMenuLink } from "@/components/site-top-menu-link";
 import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
+import { headerNavTriggerClassName } from "@/components/site-header-nav-styles";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -23,6 +24,7 @@ import {
   NavigationMenuList,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
+import { cn } from "@/lib/utils";
 import { getRoles, hasRole } from "@/lib/roles";
 
 type SiteAdminMenuProps = {
@@ -107,7 +109,10 @@ export function SiteAdminMenu({
             ) : (
               <NavigationMenuLink
                 asChild
-                className={navigationMenuTriggerStyle()}
+                className={cn(
+                  navigationMenuTriggerStyle(),
+                  headerNavTriggerClassName,
+                )}
               >
                 <Link href="/dashboard">Dashboard</Link>
               </NavigationMenuLink>
@@ -139,7 +144,10 @@ export function SiteAdminMenu({
             ) : (
               <NavigationMenuLink
                 asChild
-                className={navigationMenuTriggerStyle()}
+                className={cn(
+                  navigationMenuTriggerStyle(),
+                  headerNavTriggerClassName,
+                )}
               >
                 <Link href="/dashboard/content">Content</Link>
               </NavigationMenuLink>

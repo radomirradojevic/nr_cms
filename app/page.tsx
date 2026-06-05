@@ -18,7 +18,7 @@ import { getRoles } from "@/lib/roles";
 export default async function Home() {
   const homepage = await getHomepageContent();
 
-  if (homepage && homepage.status === "published") {
+  if (homepage) {
     const me = await getOptionalCurrentUser(true);
     const viewerRoles = me ? getRoles(me.publicMetadata) : null;
     if (!canViewContent(homepage.visibility, viewerRoles)) {

@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import {
   Eye,
   FolderTree,
+  History,
   Monitor,
   PanelRightClose,
   PanelRightOpen,
@@ -75,6 +76,8 @@ type Props = {
    */
   appearance?: AppearanceSettings;
   settingsPanels?: PageEditorSettingsPanels;
+  activeSettingsTab?: PageEditorSettingsTab;
+  onActiveSettingsTabChange?: (tab: PageEditorSettingsTab) => void;
   pageTitle?: string;
   aiAssistantAvailable?: boolean;
   aiAssistantActive?: boolean;
@@ -95,7 +98,8 @@ export type PageEditorSettingsTab =
   | "publishing"
   | "visibility"
   | "category"
-  | "seo";
+  | "seo"
+  | "history";
 
 export type PageEditorSettingsPanels = Partial<
   Record<Exclude<PageEditorSettingsTab, "properties">, ReactNode>
@@ -109,6 +113,8 @@ export function PageEditor({
   onChange,
   appearance,
   settingsPanels,
+  activeSettingsTab,
+  onActiveSettingsTabChange,
   pageTitle,
   aiAssistantAvailable = false,
   aiAssistantActive = false,
@@ -184,6 +190,8 @@ export function PageEditor({
           onRemountWithJson={handleRemountWithJson}
           appearance={appearance}
           settingsPanels={settingsPanels}
+          activeSettingsTab={activeSettingsTab}
+          onActiveSettingsTabChange={onActiveSettingsTabChange}
           pageTitle={pageTitle}
           aiAssistantAvailable={aiAssistantAvailable}
           aiAssistantActive={aiAssistantActive}
@@ -207,6 +215,8 @@ function Inner({
   onRemountWithJson,
   appearance,
   settingsPanels,
+  activeSettingsTab: controlledActiveSettingsTab,
+  onActiveSettingsTabChange,
   pageTitle,
   aiAssistantAvailable,
   aiAssistantActive,
@@ -224,6 +234,8 @@ function Inner({
   onRemountWithJson: (json: string) => void;
   appearance?: AppearanceSettings;
   settingsPanels?: PageEditorSettingsPanels;
+  activeSettingsTab?: PageEditorSettingsTab;
+  onActiveSettingsTabChange?: (tab: PageEditorSettingsTab) => void;
   pageTitle?: string;
   aiAssistantAvailable: boolean;
   aiAssistantActive: boolean;
@@ -244,8 +256,10 @@ function Inner({
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] =
+  const [uncontrolledActiveSettingsTab, setUncontrolledActiveSettingsTab] =
     useState<PageEditorSettingsTab>("properties");
+  const activeSettingsTab =
+    controlledActiveSettingsTab ?? uncontrolledActiveSettingsTab;
   const { actions, query } = useEditor();
 
   const resolvedAppearance = useMemo(
@@ -328,6 +342,13 @@ function Inner({
     tablet: "768px",
     mobile: "390px",
   };
+
+  function handleActiveSettingsTabChange(tab: PageEditorSettingsTab) {
+    if (controlledActiveSettingsTab === undefined) {
+      setUncontrolledActiveSettingsTab(tab);
+    }
+    onActiveSettingsTabChange?.(tab);
+  }
 
   return (
     <ViewportProvider value={viewport}>
@@ -430,7 +451,7 @@ function Inner({
           >
             <RightEditorSidebar
               activeTab={activeSettingsTab}
-              onActiveTabChange={setActiveSettingsTab}
+              onActiveTabChange={handleActiveSettingsTabChange}
               collapsed={rightCollapsed}
               onCollapsedChange={setRightCollapsed}
               settingsPanels={settingsPanels}
@@ -465,7 +486,17 @@ function RightEditorSidebar({
   const previousSelectedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!selectedId || previousSelectedIdRef.current === selectedId) return;
+    if (!selectedId) {
+      previousSelectedIdRef.current = null;
+      return;
+    }
+
+    if (previousSelectedIdRef.current === null) {
+      previousSelectedIdRef.current = selectedId;
+      return;
+    }
+
+    if (previousSelectedIdRef.current === selectedId) return;
 
     previousSelectedIdRef.current = selectedId;
     onActiveTabChange("properties");
@@ -509,6 +540,14 @@ function RightEditorSidebar({
       content: settingsPanels?.seo,
     },
   ];
+  if (settingsPanels?.history) {
+    tabs.push({
+      value: "history",
+      label: "History",
+      icon: <History className="h-4 w-4" />,
+      content: settingsPanels.history,
+    });
+  }
 
   return (
     <TooltipProvider>

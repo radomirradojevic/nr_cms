@@ -53,8 +53,10 @@ export const content = pgTable(
     contentJson: jsonb("content_json"),
     metaTitle: text("meta_title"),
     metaDescription: text("meta_description"),
-    status: text("status").notNull().default("unpublished"),
+    status: text("status").notNull().default("draft"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishAt: timestamp("publish_at", { withTimezone: true }),
+    unpublishAt: timestamp("unpublish_at", { withTimezone: true }),
     excerpt: text("excerpt"),
     coverImage: text("cover_image"),
     slug: text("slug").notNull().unique(),
@@ -87,16 +89,124 @@ export const content = pgTable(
     ),
     check(
       "content_status_check",
-      sql`${table.status} IN ('published','unpublished','archived')`,
+      sql`${table.status} IN ('draft','in_review','approved','published','archived')`,
+    ),
+    check(
+      "content_schedule_window_check",
+      sql`${table.unpublishAt} IS NULL OR ${table.publishAt} IS NULL OR ${table.unpublishAt} > ${table.publishAt}`,
     ),
     uniqueIndex("content_only_one_homepage")
       .on(table.homepage)
       .where(sql`${table.homepage} = true`),
     index("content_slug_idx").on(table.slug),
     index("content_status_idx").on(table.status),
+    index("content_status_publish_at_idx").on(table.status, table.publishAt),
+    index("content_status_unpublish_at_idx").on(
+      table.status,
+      table.unpublishAt,
+    ),
     index("content_type_idx").on(table.contentType),
     index("content_category_id_idx").on(table.categoryId),
     index("content_author_id_idx").on(table.authorId),
+  ],
+);
+
+export const contentPreviewTokens = pgTable(
+  "content_preview_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contentId: uuid("content_id")
+      .notNull()
+      .references(() => content.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    createdBy: text("created_by").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("content_preview_tokens_hash_unique").on(table.tokenHash),
+    index("content_preview_tokens_content_id_idx").on(table.contentId),
+    index("content_preview_tokens_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
+export const contentRevisions = pgTable(
+  "content_revisions",
+  {
+    id: bigint("id", { mode: "number" })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    // Intentionally not an FK: deleted_snapshot revisions should survive a
+    // content row delete for audit/history retention.
+    contentId: uuid("content_id").notNull(),
+    revisionNumber: integer("revision_number").notNull(),
+    contentVersion: integer("content_version").notNull(),
+    contentType: text("content_type").notNull(),
+    title: text("title").notNull(),
+    slug: text("slug").notNull(),
+    categoryId: uuid("category_id"),
+    content: text("content"),
+    contentJson: jsonb("content_json"),
+    metaTitle: text("meta_title"),
+    metaDescription: text("meta_description"),
+    excerpt: text("excerpt"),
+    coverImage: text("cover_image"),
+    status: text("status").notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishAt: timestamp("publish_at", { withTimezone: true }),
+    unpublishAt: timestamp("unpublish_at", { withTimezone: true }),
+    homepage: boolean("homepage").notNull().default(false),
+    visibility: jsonb("visibility")
+      .notNull()
+      .default(sql`'{"public":true,"roles":[]}'::jsonb`),
+    enableComments: boolean("enable_comments").notNull().default(false),
+    autoPublishComments: boolean("auto_publish_comments")
+      .notNull()
+      .default(false),
+    allowAnonymousComments: boolean("allow_anonymous_comments")
+      .notNull()
+      .default(false),
+    authorId: text("author_id").notNull(),
+    updatedBy: text("updated_by"),
+    createdBy: text("created_by").notNull(),
+    changeType: text("change_type").notNull(),
+    changeNote: text("change_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("content_revisions_content_number_unique").on(
+      table.contentId,
+      table.revisionNumber,
+    ),
+    index("content_revisions_content_created_idx").on(
+      table.contentId,
+      table.createdAt,
+    ),
+    index("content_revisions_created_by_idx").on(
+      table.createdBy,
+      table.createdAt,
+    ),
+    check(
+      "content_revisions_type_check",
+      sql`${table.contentType} IN ('page','blog_post','hero_slider')`,
+    ),
+    check(
+      "content_revisions_status_check",
+      sql`${table.status} IN ('draft','in_review','approved','published','archived')`,
+    ),
+    check(
+      "content_revisions_schedule_window_check",
+      sql`${table.unpublishAt} IS NULL OR ${table.publishAt} IS NULL OR ${table.unpublishAt} > ${table.publishAt}`,
+    ),
+    check(
+      "content_revisions_change_type_check",
+      sql`${table.changeType} IN ('created','saved','submitted_for_review','approved','published','unpublished','archived','scheduled','restored','deleted_snapshot')`,
+    ),
   ],
 );
 

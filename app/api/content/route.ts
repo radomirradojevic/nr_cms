@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { listContent } from "@/data/content";
 import { listActiveLocksForContentIds } from "@/data/content-locks";
+import { isContentStatus } from "@/lib/content-status";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 
 const ALLOWED_PAGE_SIZES = [10, 20, 30];
 const ALLOWED_TYPES = ["page", "blog_post", "hero_slider"] as const;
-const ALLOWED_STATUSES = ["published", "unpublished", "archived"] as const;
 const ALLOWED_SORTS = [
   "updated_desc",
   "updated_asc",
@@ -40,9 +40,7 @@ export async function GET(request: NextRequest) {
 
   const rawStatus = searchParams.get("status");
   const status =
-    rawStatus && (ALLOWED_STATUSES as readonly string[]).includes(rawStatus)
-      ? (rawStatus as "published" | "unpublished" | "archived")
-      : undefined;
+    rawStatus && isContentStatus(rawStatus) ? rawStatus : undefined;
 
   const categoryId = searchParams.get("category") || undefined;
   const authorId = searchParams.get("author") || undefined;
@@ -109,6 +107,8 @@ export async function GET(request: NextRequest) {
         : null,
       updatedAt: r.updatedAt,
       publishedAt: r.publishedAt,
+      publishAt: r.publishAt,
+      unpublishAt: r.unpublishAt,
       editLock: activeLocks.get(r.id) ?? null,
     })),
     total,

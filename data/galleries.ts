@@ -397,14 +397,12 @@ export async function reorderGalleryImages(
   const gallery = await ensureGalleryOwnership(galleryId, caller);
   if (!gallery) return { error: "Gallery not found or access denied." };
 
-  // Sequential updates — drizzle-orm/neon-http doesn't support transactions.
-  // Two-phase update to avoid clashing on the (gallery_id, position) ordering
-  // (no unique constraint, but keep it tidy): bump everything well above the
-  // max first, then write the final positions.
-  const offset = 100000;
-  await Promise.all(
-    orderedFileIds.map((fileId, idx) =>
-      db
+  await db.transaction(async (tx) => {
+    // Two-phase update keeps ordering tidy if a unique position constraint is
+    // added later: move everything away first, then write final positions.
+    const offset = 100000;
+    for (const [idx, fileId] of orderedFileIds.entries()) {
+      await tx
         .update(galleryImages)
         .set({ position: offset + idx })
         .where(
@@ -412,12 +410,10 @@ export async function reorderGalleryImages(
             eq(galleryImages.galleryId, galleryId),
             eq(galleryImages.fileId, fileId),
           ),
-        ),
-    ),
-  );
-  await Promise.all(
-    orderedFileIds.map((fileId, idx) =>
-      db
+        );
+    }
+    for (const [idx, fileId] of orderedFileIds.entries()) {
+      await tx
         .update(galleryImages)
         .set({ position: idx })
         .where(
@@ -425,9 +421,9 @@ export async function reorderGalleryImages(
             eq(galleryImages.galleryId, galleryId),
             eq(galleryImages.fileId, fileId),
           ),
-        ),
-    ),
-  );
+        );
+    }
+  });
   return { success: true };
 }
 

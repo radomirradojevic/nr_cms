@@ -17,6 +17,11 @@ import { Badge } from "@/components/ui/badge";
 import { PageSizeSelector } from "@/app/dashboard/page-size-selector";
 import { type Role, hasRole } from "@/lib/roles";
 import type { LockHolder } from "@/lib/content-locks";
+import {
+  getContentStatusLabel,
+  type ContentStatus,
+} from "@/lib/content-status";
+import { getContentScheduleState } from "@/lib/content-schedule";
 import { ContentRowActions } from "./content-row-actions";
 import { BatchActions } from "./batch-actions";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
@@ -30,7 +35,7 @@ export type ContentRow = {
   categoryName: string;
   title: string;
   slug: string;
-  status: "published" | "unpublished" | "archived";
+  status: ContentStatus;
   homepage: boolean;
   authorId: string;
   authorName: string;
@@ -38,6 +43,8 @@ export type ContentRow = {
   updatedByName: string | null;
   updatedAt: string;
   publishedAt: string | null;
+  publishAt: string | null;
+  unpublishAt: string | null;
   editLock: LockHolder | null;
 };
 
@@ -59,8 +66,10 @@ const statusVariant: Record<
   ContentRow["status"],
   "default" | "secondary" | "outline" | "destructive"
 > = {
+  draft: "secondary",
+  in_review: "outline",
+  approved: "secondary",
   published: "default",
-  unpublished: "secondary",
   archived: "outline",
 };
 
@@ -122,14 +131,14 @@ export function ContentTable({
 
   const isAdmin = hasRole(currentUserRoles, "admin");
   const isPublisher = hasRole(currentUserRoles, "publisher");
-  const canPublishAny = isAdmin || isPublisher;
+  const canChangeWorkflowStatus = isAdmin || isPublisher;
 
   return (
     <div className="space-y-3">
       {someSelected && (
         <BatchActions
           ids={selectedSelectableIds}
-          canPublish={canPublishAny}
+          canChangeWorkflowStatus={canChangeWorkflowStatus}
           onCleared={() => {
             setSelectedIds(new Set());
             onMutated();
@@ -177,6 +186,13 @@ export function ContentTable({
               {rows.map((row) => {
                 const locked = Boolean(row.editLock);
                 const selected = !locked && selectedSelectableSet.has(row.id);
+                const scheduleState = getContentScheduleState(row);
+                const publishLabel = row.publishAt
+                  ? formatDateTime(row.publishAt)
+                  : null;
+                const unpublishLabel = row.unpublishAt
+                  ? formatDateTime(row.unpublishAt)
+                  : null;
                 return (
                   <TableRow
                     key={row.id}
@@ -247,9 +263,37 @@ export function ContentTable({
                       <div className="mt-0.5">{formatDate(row.createdAt)}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant[row.status]}>
-                        {row.status}
-                      </Badge>
+                      <div className="space-y-1">
+                        <Badge variant={statusVariant[row.status]}>
+                          {getContentStatusLabel(row.status)}
+                        </Badge>
+                        {scheduleState && (
+                          <div>
+                            <Badge
+                              variant={
+                                scheduleState === "expired"
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                              className="text-[10px]"
+                            >
+                              {scheduleState === "scheduled"
+                                ? "Scheduled"
+                                : scheduleState === "live_until"
+                                  ? "Live until"
+                                  : "Expired"}
+                            </Badge>
+                          </div>
+                        )}
+                        {(publishLabel || unpublishLabel) && (
+                          <div className="space-y-0.5 text-xs text-muted-foreground">
+                            {publishLabel && <div>Publish {publishLabel}</div>}
+                            {unpublishLabel && (
+                              <div>Unpublish {unpublishLabel}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       <div>{formatDateTime(row.updatedAt)}</div>

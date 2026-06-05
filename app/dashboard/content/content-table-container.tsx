@@ -11,6 +11,11 @@ import {
 } from "@/components/ui/select";
 import { ContentTable, type ContentRow } from "./content-table";
 import type { ContentAuthorInfo } from "@/data/content";
+import {
+  CONTENT_STATUSES,
+  getContentStatusLabel,
+  type ContentStatus,
+} from "@/lib/content-status";
 import type { Role } from "@/lib/roles";
 
 type AllowedPageSize = 10 | 20 | 30;
@@ -37,9 +42,7 @@ export function ContentTableContainer({
   const [type, setType] = useState<
     "all" | "page" | "blog_post" | "hero_slider"
   >("all");
-  const [status, setStatus] = useState<
-    "all" | "published" | "unpublished" | "archived"
-  >("all");
+  const [status, setStatus] = useState<"all" | ContentStatus>("all");
   const [categoryId, setCategoryId] = useState<string>("all");
   const [authorId, setAuthorId] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -162,9 +165,11 @@ export function ContentTableContainer({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="published">Published</SelectItem>
-            <SelectItem value="unpublished">Unpublished</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
+            {CONTENT_STATUSES.map((option) => (
+              <SelectItem key={option} value={option}>
+                {getContentStatusLabel(option)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select

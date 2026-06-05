@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { NavigationMenuTrigger } from "@/components/ui/navigation-menu";
+import { headerNavTriggerClassName } from "@/components/site-header-nav-styles";
+import { cn } from "@/lib/utils";
 
 function isExternal(url: string) {
   return /^https?:\/\//i.test(url);
@@ -20,7 +22,7 @@ export function SiteTopMenuParentTrigger({
 
   return (
     <NavigationMenuTrigger
-      className="cursor-pointer"
+      className={cn("cursor-pointer", headerNavTriggerClassName)}
       onClick={(e) => {
         // Don't interfere with modifier-clicks or middle-clicks.
         if (e.defaultPrevented) return;
