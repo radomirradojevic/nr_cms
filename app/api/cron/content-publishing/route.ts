@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { runContentPublishingSchedule } from "@/data/content-publishing";
+import { TOP_MENU_TAG } from "@/data/top-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ async function handleContentPublishingCron(request: NextRequest) {
   const changed = [...result.published, ...result.unpublished];
 
   if (changed.length > 0) {
-    updateTag("top-menu");
+    revalidateTag(TOP_MENU_TAG, { expire: 0 });
     revalidatePath("/");
     revalidatePath("/", "layout");
     revalidatePath("/dashboard/content");
