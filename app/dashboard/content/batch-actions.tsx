@@ -14,39 +14,36 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import type { ContentStatus } from "@/lib/content-status";
 import { batchDelete, batchSetStatus } from "./actions";
 
 type Props = {
   ids: string[];
-  canPublish: boolean;
+  canChangeWorkflowStatus: boolean;
   onCleared: () => void;
 };
 
-export function BatchActions({ ids, canPublish, onCleared }: Props) {
+export function BatchActions({
+  ids,
+  canChangeWorkflowStatus,
+  onCleared,
+}: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
-  function publish() {
+  function setWorkflowStatus(status: ContentStatus, failureLabel: string) {
     setError(null);
     startTransition(async () => {
-      const r = await batchSetStatus({ ids, status: "published" });
+      const r = await batchSetStatus({ ids, status });
       if ("error" in r) setError(r.error);
       else {
         const failed = r.results.filter((x) => !x.ok);
         if (failed.length > 0) {
-          setError(`${failed.length} item(s) could not be published.`);
+          setError(`${failed.length} item(s) could not be ${failureLabel}.`);
         }
         onCleared();
       }
-    });
-  }
-  function unpublish() {
-    setError(null);
-    startTransition(async () => {
-      const r = await batchSetStatus({ ids, status: "unpublished" });
-      if ("error" in r) setError(r.error);
-      else onCleared();
     });
   }
   function doDelete() {
@@ -70,23 +67,47 @@ export function BatchActions({ ids, canPublish, onCleared }: Props) {
     <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
       <span className="text-sm">{ids.length} selected</span>
       <div className="flex-1" />
-      {canPublish && (
+      {canChangeWorkflowStatus && (
         <>
           <Button
             variant="outline"
             size="sm"
             disabled={pending}
-            onClick={publish}
+            onClick={() => setWorkflowStatus("in_review", "submitted")}
           >
-            Publish
+            Submit for review
           </Button>
           <Button
             variant="outline"
             size="sm"
             disabled={pending}
-            onClick={unpublish}
+            onClick={() => setWorkflowStatus("approved", "approved")}
           >
-            Unpublish
+            Approve
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => setWorkflowStatus("published", "published")}
+          >
+            Publish now
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => setWorkflowStatus("draft", "moved to draft")}
+          >
+            Move to draft
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => setWorkflowStatus("archived", "archived")}
+          >
+            Archive
           </Button>
         </>
       )}
@@ -99,15 +120,15 @@ export function BatchActions({ ids, canPublish, onCleared }: Props) {
       >
         <AlertDialogTrigger asChild>
           <Button variant="destructive" size="sm" disabled={pending}>
-            Delete
+            Move to Deleted content
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete selected content?</AlertDialogTitle>
             <AlertDialogDescription>
-              {ids.length} item(s) will be permanently deleted. Items you do not
-              have permission to delete or that are the homepage will be
+              {ids.length} item(s) will be moved to Deleted content. Items you
+              do not have permission to delete or that are the homepage will be
               skipped.
             </AlertDialogDescription>
           </AlertDialogHeader>

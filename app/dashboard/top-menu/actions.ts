@@ -26,6 +26,10 @@ import {
   DEFAULT_HEADER_SETTINGS,
   HeaderSettingsSchema,
 } from "@/lib/global-settings";
+import {
+  isValidMenuUrl,
+  MENU_URL_SERVER_VALIDATION_MESSAGE,
+} from "@/lib/menu-url";
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -247,15 +251,12 @@ export async function deleteMenu(input: unknown, clientId?: string) {
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
-// URL must be either an absolute http(s) URL or a path starting with "/"
+// URL must be an absolute http(s) URL, a path starting with "/", or "#".
 const urlSchema = z
   .string()
   .min(1, "URL is required.")
   .max(2000)
-  .refine(
-    (v) => /^https?:\/\//i.test(v) || v.startsWith("/"),
-    "URL must start with http(s):// or /",
-  );
+  .refine(isValidMenuUrl, MENU_URL_SERVER_VALIDATION_MESSAGE);
 
 const targetSchema = z.enum(["_self", "_blank"]);
 const menuIdField = z.object({ menuId: z.string().uuid() });

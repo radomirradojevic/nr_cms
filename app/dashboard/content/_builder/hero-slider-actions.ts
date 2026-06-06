@@ -10,6 +10,8 @@ export type HeroSliderPickerItem = {
   name: string;
   slug: string;
   status: string;
+  publishAt: Date | null;
+  unpublishAt: Date | null;
 };
 
 async function canUseContentTools() {
@@ -50,6 +52,8 @@ export async function fetchHeroSliderPickerItems(input?: {
       name: row.title,
       slug: row.slug,
       status: row.status,
+      publishAt: row.publishAt,
+      unpublishAt: row.unpublishAt,
     })),
   };
 }
@@ -78,6 +82,8 @@ export async function fetchHeroSliderPreview(input: { id: string }): Promise<
       name: row.title,
       slug: row.slug,
       status: row.status,
+      publishAt: row.publishAt,
+      unpublishAt: row.unpublishAt,
       contentJson: row.contentJson,
     },
   };

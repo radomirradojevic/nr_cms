@@ -3,6 +3,7 @@ import { getContentById } from "@/data/content";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 import { canViewContent } from "@/lib/content-visibility";
+import { isContentLive } from "@/lib/content-schedule";
 import { HeroSliderRendererWithMenus } from "@/components/hero-slider-renderer-with-menus";
 import {
   applyBlockStyle,
@@ -28,7 +29,7 @@ export async function HeroSliderStatic({
   if (typeof heroSliderId !== "string" || !heroSliderId) return null;
 
   const row = await getContentById(heroSliderId);
-  if (!row || row.contentType !== "hero_slider" || row.status !== "published") {
+  if (!row || row.contentType !== "hero_slider" || !isContentLive(row)) {
     return null;
   }
 

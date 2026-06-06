@@ -18,7 +18,7 @@ type ClerkUserLike = {
   publicMetadata?: unknown;
 };
 
-function displayName(user: ClerkUserLike): string {
+export function getUserDisplayName(user: ClerkUserLike): string {
   return (
     user.fullName ||
     [user.firstName, user.lastName].filter(Boolean).join(" ") ||
@@ -29,11 +29,24 @@ function displayName(user: ClerkUserLike): string {
   );
 }
 
+export function formatActorDisplayName(actorId: string): string {
+  if (actorId.startsWith("system:")) {
+    const label = actorId
+      .slice("system:".length)
+      .split("-")
+      .filter(Boolean)
+      .join(" ");
+    return label ? `System (${label})` : "System";
+  }
+
+  return actorId;
+}
+
 function toBackendUserOption(user: ClerkUserLike): BackendUserOption | null {
   if (!hasBackendAccess(user.publicMetadata)) return null;
   return {
     id: user.id,
-    name: displayName(user),
+    name: getUserDisplayName(user),
   };
 }
 
@@ -47,6 +60,42 @@ export async function getBackendUserOptionById(
   } catch {
     return null;
   }
+}
+
+export async function getUserDisplayNameMap(
+  userIds: Iterable<string | null | undefined>,
+): Promise<Map<string, string>> {
+  const ids = [
+    ...new Set(
+      [...userIds].filter(
+        (id): id is string =>
+          typeof id === "string" &&
+          id.length > 0 &&
+          !id.startsWith("system:"),
+      ),
+    ),
+  ];
+  const names = new Map<string, string>();
+  if (ids.length === 0) return names;
+
+  try {
+    const client = await clerkClient();
+    const batchSize = 100;
+    for (let index = 0; index < ids.length; index += batchSize) {
+      const batch = ids.slice(index, index + batchSize);
+      const { data: users } = await client.users.getUserList({
+        userId: batch,
+        limit: batch.length,
+      });
+      for (const user of users) {
+        names.set(user.id, getUserDisplayName(user));
+      }
+    }
+  } catch {
+    return names;
+  }
+
+  return names;
 }
 
 export async function searchBackendUserOptions(input: {

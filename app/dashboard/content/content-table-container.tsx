@@ -9,8 +9,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentTable, type ContentRow } from "./content-table";
 import type { ContentAuthorInfo } from "@/data/content";
+import {
+  CONTENT_STATUSES,
+  getContentStatusLabel,
+  type ContentStatus,
+} from "@/lib/content-status";
 import type { Role } from "@/lib/roles";
 
 type AllowedPageSize = 10 | 20 | 30;
@@ -37,11 +43,10 @@ export function ContentTableContainer({
   const [type, setType] = useState<
     "all" | "page" | "blog_post" | "hero_slider"
   >("all");
-  const [status, setStatus] = useState<
-    "all" | "published" | "unpublished" | "archived"
-  >("all");
+  const [status, setStatus] = useState<"all" | ContentStatus>("all");
   const [categoryId, setCategoryId] = useState<string>("all");
   const [authorId, setAuthorId] = useState<string>("all");
+  const [view, setView] = useState<"content" | "deleted">("content");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<AllowedPageSize>(10);
   const [rows, setRows] = useState<ContentRow[]>([]);
@@ -73,7 +78,10 @@ export function ContentTableContainer({
         });
         if (debouncedQuery) params.set("search", debouncedQuery);
         if (type !== "all") params.set("type", type);
-        if (status !== "all") params.set("status", status);
+        if (view === "deleted") params.set("view", "deleted");
+        if (view === "content" && status !== "all") {
+          params.set("status", status);
+        }
         if (categoryId !== "all") params.set("category", categoryId);
         if (authorId !== "all") params.set("author", authorId);
         const res = await fetch(`/api/content?${params.toString()}`, {
@@ -88,7 +96,16 @@ export function ContentTableContainer({
         if (!options?.silent) setLoading(false);
       }
     },
-    [safePage, pageSize, debouncedQuery, type, status, categoryId, authorId],
+    [
+      safePage,
+      pageSize,
+      debouncedQuery,
+      type,
+      status,
+      categoryId,
+      authorId,
+      view,
+    ],
   );
 
   useEffect(() => {
@@ -121,6 +138,13 @@ export function ContentTableContainer({
     return () => window.clearTimeout(timeout);
   }, [type]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setPage(1);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [view]);
+
   const availableCategories =
     type === "page"
       ? pageCategories
@@ -132,6 +156,15 @@ export function ContentTableContainer({
 
   return (
     <div className="space-y-3">
+      <Tabs
+        value={view}
+        onValueChange={(value) => setView(value as typeof view)}
+      >
+        <TabsList>
+          <TabsTrigger value="content">Content</TabsTrigger>
+          <TabsTrigger value="deleted">Deleted content</TabsTrigger>
+        </TabsList>
+      </Tabs>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           value={query}
@@ -150,23 +183,27 @@ export function ContentTableContainer({
             <SelectItem value="hero_slider">Hero Slider</SelectItem>
           </SelectContent>
         </Select>
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            setStatus(v as typeof status);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="published">Published</SelectItem>
-            <SelectItem value="unpublished">Unpublished</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
+        {view === "content" && (
+          <Select
+            value={status}
+            onValueChange={(v) => {
+              setStatus(v as typeof status);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {CONTENT_STATUSES.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {getContentStatusLabel(option)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select
           value={categoryId}
           onValueChange={(v) => {
@@ -223,6 +260,7 @@ export function ContentTableContainer({
           setPage(1);
         }}
         onMutated={fetchRows}
+        deletedView={view === "deleted"}
       />
     </div>
   );

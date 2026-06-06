@@ -31,6 +31,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  isValidMenuUrl,
+  MENU_URL_VALIDATION_MESSAGE,
+} from "@/lib/menu-url";
 import { createMenuItem } from "./actions";
 
 const formSchema = z.object({
@@ -39,10 +43,7 @@ const formSchema = z.object({
     .string()
     .min(1, "URL is required.")
     .max(2000)
-    .refine(
-      (v) => /^https?:\/\//i.test(v) || v.startsWith("/"),
-      "Must start with http(s):// or /",
-    ),
+    .refine(isValidMenuUrl, MENU_URL_VALIDATION_MESSAGE),
   target: z.enum(["_self", "_blank"]),
 });
 
@@ -140,7 +141,7 @@ export function AddItemDialog({
                   <FormLabel>URL</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="https://example.com or /path"
+                      placeholder="https://example.com, /path, or #"
                       {...field}
                     />
                   </FormControl>

@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { listContent } from "@/data/content";
 import { listActiveLocksForContentIds } from "@/data/content-locks";
+import { isContentStatus } from "@/lib/content-status";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 
 const ALLOWED_PAGE_SIZES = [10, 20, 30];
 const ALLOWED_TYPES = ["page", "blog_post", "hero_slider"] as const;
-const ALLOWED_STATUSES = ["published", "unpublished", "archived"] as const;
 const ALLOWED_SORTS = [
   "updated_desc",
   "updated_asc",
@@ -40,9 +40,8 @@ export async function GET(request: NextRequest) {
 
   const rawStatus = searchParams.get("status");
   const status =
-    rawStatus && (ALLOWED_STATUSES as readonly string[]).includes(rawStatus)
-      ? (rawStatus as "published" | "unpublished" | "archived")
-      : undefined;
+    rawStatus && isContentStatus(rawStatus) ? rawStatus : undefined;
+  const view = searchParams.get("view") === "deleted" ? "deleted" : "content";
 
   const categoryId = searchParams.get("category") || undefined;
   const authorId = searchParams.get("author") || undefined;
@@ -58,10 +57,11 @@ export async function GET(request: NextRequest) {
     pageSize,
     search,
     contentType,
-    status,
+    status: view === "deleted" ? undefined : status,
     categoryId,
     authorId,
     sort,
+    deleted: view === "deleted" ? "only" : "exclude",
   });
   const activeLocks = await listActiveLocksForContentIds(rows.map((r) => r.id));
 
@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
     ...new Set(
       rows
         .flatMap((r) => [r.authorId, r.updatedBy])
+        .concat(rows.map((r) => r.deletedBy))
         .filter((id): id is string => Boolean(id)),
     ),
   ];
@@ -109,6 +110,13 @@ export async function GET(request: NextRequest) {
         : null,
       updatedAt: r.updatedAt,
       publishedAt: r.publishedAt,
+      publishAt: r.publishAt,
+      unpublishAt: r.unpublishAt,
+      deletedAt: r.deletedAt,
+      deletedBy: r.deletedBy,
+      deletedByName: r.deletedBy
+        ? (userNameMap.get(r.deletedBy) ?? null)
+        : null,
       editLock: activeLocks.get(r.id) ?? null,
     })),
     total,
