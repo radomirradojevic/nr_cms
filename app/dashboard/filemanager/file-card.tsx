@@ -10,6 +10,7 @@ import {
   Pencil,
   Trash2,
   UserRoundCog,
+  FolderInput,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -35,6 +36,7 @@ type Props = {
   onDeleted: (ids: string[]) => void;
   uploaderName: string;
   isAdmin?: boolean;
+  onMoveRequested?: (ids: string[]) => void;
   onReassigned?: (
     file: FileRow,
     newOwnerId: string,
@@ -50,6 +52,7 @@ export function FileCard({
   onDeleted,
   uploaderName,
   isAdmin,
+  onMoveRequested,
   onReassigned,
 }: Props) {
   const [editOpen, setEditOpen] = useState(false);
@@ -93,6 +96,11 @@ export function FileCard({
               <DropdownMenuItem onSelect={copyUrl}>
                 <Copy className="mr-2 h-4 w-4" /> Copy URL
               </DropdownMenuItem>
+              {onMoveRequested && (
+                <DropdownMenuItem onSelect={() => onMoveRequested([file.id])}>
+                  <FolderInput className="mr-2 h-4 w-4" /> Move
+                </DropdownMenuItem>
+              )}
               {isAdmin && (
                 <DropdownMenuItem onSelect={() => setReassignOpen(true)}>
                   <UserRoundCog className="mr-2 h-4 w-4" /> Reassign owner

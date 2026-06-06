@@ -7,7 +7,7 @@ import { sanitizeSvgMarkup } from "@/lib/content-sanitizer";
 import { getStorageProviderName } from "@/lib/file-storage";
 import { requireFileUploadUser } from "@/lib/file-upload-auth";
 import { verifyClientUploadTicket } from "@/lib/file-upload-tickets";
-import { getFileByIdUnchecked, insertFile } from "@/data/files";
+import { getFileByIdUnchecked, getFolderById, insertFile } from "@/data/files";
 
 export const maxDuration = 300;
 
@@ -187,6 +187,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const folderId = payload.folderId ?? null;
+  if (folderId) {
+    const folder = await getFolderById(folderId);
+    if (!folder) {
+      await deleteBlobQuietly(payload.storagePath);
+      return NextResponse.json(
+        { error: "Target folder was not found." },
+        { status: 400 },
+      );
+    }
+  }
+
   try {
     const row = await insertFile({
       id: payload.id,
@@ -195,6 +207,7 @@ export async function POST(req: NextRequest) {
       mimeType: validation.mime,
       sizeBytes,
       kind,
+      folderId,
       uploadedBy: payload.uploadedBy,
     });
     return NextResponse.json({ file: row });
