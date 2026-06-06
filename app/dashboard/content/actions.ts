@@ -26,6 +26,7 @@ import {
   updateContentWithRevision,
 } from "@/data/content-revisions";
 import { getCategoryById } from "@/data/content-categories";
+import { getGlobalSettings } from "@/data/global-settings";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
 import {
   formatActorDisplayName,
@@ -252,12 +253,14 @@ export async function createContent(input: CreateContentInput) {
   if (!status) {
     return { error: "Content cannot be created with that status." };
   }
+  const settings = await getGlobalSettings();
   const now = new Date();
   const schedule = normalizeContentScheduleForWrite({
     actorRoles: actor.roles,
     status,
     publishAtInput: data.publishAt,
     unpublishAtInput: data.unpublishAt,
+    timeZone: settings.regional.timezone,
     now,
   });
   if (!schedule.ok) return { error: schedule.error };
@@ -418,6 +421,8 @@ export async function updateContent(input: UpdateContentInput) {
     }
   }
 
+  const settings = await getGlobalSettings();
+
   // Status changes need publish permission
   const now = new Date();
   let nextStatus = target.status as ContentStatus;
@@ -438,6 +443,7 @@ export async function updateContent(input: UpdateContentInput) {
     unpublishAtInput: data.unpublishAt,
     currentPublishAt: target.publishAt,
     currentUnpublishAt: target.unpublishAt,
+    timeZone: settings.regional.timezone,
     now,
   });
   if (!schedule.ok) return { error: schedule.error };

@@ -286,13 +286,30 @@ function getTimeZoneParts(
   };
 }
 
+function padDatePart(value: number, length = 2): string {
+  return String(value).padStart(length, "0");
+}
+
 function zonedDateTimeToUtc(
   timeZone: string,
   year: number,
   month: number,
   day: number,
+  hour = 0,
+  minute = 0,
+  second = 0,
+  millisecond = 0,
 ): Date {
-  let utc = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
+  const targetUtc = Date.UTC(
+    year,
+    month - 1,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond,
+  );
+  let utc = targetUtc;
 
   for (let i = 0; i < 3; i += 1) {
     const parts = getTimeZoneParts(new Date(utc), timeZone);
@@ -303,14 +320,88 @@ function zonedDateTimeToUtc(
       parts.hour,
       parts.minute,
       parts.second,
-      0,
+      millisecond,
     );
-    const nextUtc = utc - (representedUtc - Date.UTC(year, month - 1, day));
+    const nextUtc = utc - (representedUtc - targetUtc);
     if (nextUtc === utc) break;
     utc = nextUtc;
   }
 
   return new Date(utc);
+}
+
+export function formatDateTimeLocalInputValue(
+  value: Date | string | null | undefined,
+  timeZone: string,
+): string {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const parts = getTimeZoneParts(date, timeZone);
+  return (
+    [
+      padDatePart(parts.year, 4),
+      padDatePart(parts.month),
+      padDatePart(parts.day),
+    ].join("-") + `T${padDatePart(parts.hour)}:${padDatePart(parts.minute)}`
+  );
+}
+
+export function dateTimeLocalInputToUtc(
+  value: string | null | undefined,
+  timeZone: string,
+): Date | undefined {
+  if (!value) return undefined;
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/.exec(
+      value,
+    );
+  if (!match) return undefined;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = match[6] ? Number(match[6]) : 0;
+  const millisecond = match[7] ? Number(match[7].padEnd(3, "0")) : 0;
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return undefined;
+  }
+
+  const date = zonedDateTimeToUtc(
+    timeZone,
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond,
+  );
+  const parts = getTimeZoneParts(date, timeZone);
+  if (
+    parts.year !== year ||
+    parts.month !== month ||
+    parts.day !== day ||
+    parts.hour !== hour ||
+    parts.minute !== minute ||
+    parts.second !== second ||
+    date.getUTCMilliseconds() !== millisecond
+  ) {
+    return undefined;
+  }
+
+  return date;
 }
 
 export function dateOnlyToUtcStart(
