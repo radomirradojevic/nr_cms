@@ -6,6 +6,7 @@ import { files, globalSettings } from "@/db/schema";
 import {
   AI_PROVIDER_IDS,
   AI_WRITING_ASSISTANT_DEFAULTS,
+  CONTENT_HISTORY_DEFAULTS,
   DEFAULT_FOOTER_SETTINGS,
   DEFAULT_HEADER_SETTINGS,
   DEFAULT_RESOLVED_GLOBAL_SETTINGS,
@@ -146,10 +147,29 @@ function isMissingAiWritingAssistantColumns(err: unknown): boolean {
   );
 }
 
+function isMissingContentHistoryColumn(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : "";
+  const cause =
+    typeof err === "object" && err !== null && "cause" in err
+      ? (err as { cause?: unknown }).cause
+      : null;
+  const causeCode =
+    typeof cause === "object" && cause !== null && "code" in cause
+      ? (cause as { code?: unknown }).code
+      : null;
+  const causeMessage = cause instanceof Error ? cause.message : "";
+  return (
+    causeCode === "42703" &&
+    (message.includes("content_history_enabled") ||
+      causeMessage.includes("content_history_enabled"))
+  );
+}
+
 async function loadGlobalSettingsRows(
   includeAppearanceRecipe: boolean,
   includeRegionalSettings: boolean,
   includeAiWritingAssistant: boolean,
+  includeContentHistory: boolean,
 ) {
   return db
     .select({
@@ -193,6 +213,9 @@ async function loadGlobalSettingsRows(
               globalSettings.aiWritingAssistantInstructions,
           }
         : {}),
+      ...(includeContentHistory
+        ? { contentHistoryEnabled: globalSettings.contentHistoryEnabled }
+        : {}),
       maxSessionDurationMinutes: globalSettings.maxSessionDurationMinutes,
       idleLogoutMinutes: globalSettings.idleLogoutMinutes,
       logoStoragePath: files.storagePath,
@@ -208,14 +231,16 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
   let includeAppearanceRecipe = true;
   let includeRegionalSettings = true;
   let includeAiWritingAssistant = true;
+  let includeContentHistory = true;
   let rows: Awaited<ReturnType<typeof loadGlobalSettingsRows>> | null = null;
 
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+  for (let attempt = 0; attempt < 9; attempt += 1) {
     try {
       rows = await loadGlobalSettingsRows(
         includeAppearanceRecipe,
         includeRegionalSettings,
         includeAiWritingAssistant,
+        includeContentHistory,
       );
       break;
     } catch (err) {
@@ -232,6 +257,10 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
         isMissingAiWritingAssistantColumns(err)
       ) {
         includeAiWritingAssistant = false;
+        continue;
+      }
+      if (includeContentHistory && isMissingContentHistoryColumn(err)) {
+        includeContentHistory = false;
         continue;
       }
       throw err;
@@ -314,6 +343,12 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
           ? row.aiWritingAssistantInstructions
           : undefined,
     }),
+    contentHistory: {
+      enabled:
+        typeof row.contentHistoryEnabled === "boolean"
+          ? row.contentHistoryEnabled
+          : CONTENT_HISTORY_DEFAULTS.enabled,
+    },
     sessionSecurity: parseSessionSecurity({
       maxSessionDurationMinutes: row.maxSessionDurationMinutes,
       idleLogoutMinutes: row.idleLogoutMinutes,
@@ -355,13 +390,14 @@ export const getGlobalSettings = unstable_cache(
       return normalizeResolvedGlobalSettings(DEFAULT_RESOLVED_GLOBAL_SETTINGS);
     }
   },
-  ["global-settings:resolved:v12"],
+  ["global-settings:resolved:v14"],
   { tags: [GLOBAL_SETTINGS_TAG] },
 );
 
 async function loadRawGlobalSettingsRows(
   includeAiProviderSettings: boolean,
   includeAiPageBuilderAssistant: boolean,
+  includeContentHistory: boolean,
 ) {
   return db
     .select({
@@ -405,6 +441,9 @@ async function loadRawGlobalSettingsRows(
         globalSettings.aiWritingAssistantMaxOutputTokens,
       aiWritingAssistantInstructions:
         globalSettings.aiWritingAssistantInstructions,
+      ...(includeContentHistory
+        ? { contentHistoryEnabled: globalSettings.contentHistoryEnabled }
+        : {}),
       maxSessionDurationMinutes: globalSettings.maxSessionDurationMinutes,
       idleLogoutMinutes: globalSettings.idleLogoutMinutes,
       updatedAt: globalSettings.updatedAt,
@@ -419,15 +458,21 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
   let rows: Awaited<ReturnType<typeof loadRawGlobalSettingsRows>>;
   let includeAiProviderSettings = true;
   let includeAiPageBuilderAssistant = true;
+  let includeContentHistory = true;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       rows = await loadRawGlobalSettingsRows(
         includeAiProviderSettings,
         includeAiPageBuilderAssistant,
+        includeContentHistory,
       );
       break;
     } catch (err) {
+      if (includeContentHistory && isMissingContentHistoryColumn(err)) {
+        includeContentHistory = false;
+        continue;
+      }
       if (!isMissingAiWritingAssistantColumns(err)) throw err;
       if (includeAiPageBuilderAssistant) {
         includeAiPageBuilderAssistant = false;
@@ -447,6 +492,7 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
     aiPageBuilderAssistantEnabled?: boolean;
     aiDefaultProvider?: GlobalSettingsRow["aiDefaultProvider"];
     aiProviderSettings?: GlobalSettingsRow["aiProviderSettings"];
+    contentHistoryEnabled?: boolean;
   };
 
   return {
@@ -455,6 +501,8 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
       rowWithOptionalAi.aiPageBuilderAssistantEnabled ?? false,
     aiDefaultProvider: rowWithOptionalAi.aiDefaultProvider ?? "openai",
     aiProviderSettings: rowWithOptionalAi.aiProviderSettings ?? {},
+    contentHistoryEnabled:
+      rowWithOptionalAi.contentHistoryEnabled ?? CONTENT_HISTORY_DEFAULTS.enabled,
   } as GlobalSettingsRow;
 }
 
@@ -645,6 +693,7 @@ export async function updateGlobalSettings(
     aiWritingAssistantModel: openaiProvider.model,
     aiWritingAssistantMaxOutputTokens: openaiProvider.maxOutputTokens,
     aiWritingAssistantInstructions: openaiProvider.instructions,
+    contentHistoryEnabled: input.contentHistoryEnabled,
     maxSessionDurationMinutes: input.maxSessionDurationMinutes,
     idleLogoutMinutes: input.idleLogoutMinutes,
     updatedBy: userId,
@@ -654,8 +703,23 @@ export async function updateGlobalSettings(
     ...values,
   };
 
-  await db.insert(globalSettings).values(insertValues).onConflictDoUpdate({
-    target: globalSettings.id,
-    set: values,
-  });
+  try {
+    await db.insert(globalSettings).values(insertValues).onConflictDoUpdate({
+      target: globalSettings.id,
+      set: values,
+    });
+  } catch (err) {
+    if (!isMissingContentHistoryColumn(err)) throw err;
+
+    const { contentHistoryEnabled, ...valuesWithoutContentHistory } = values;
+    void contentHistoryEnabled;
+
+    await db
+      .insert(globalSettings)
+      .values({ id: SINGLETON_ID, ...valuesWithoutContentHistory })
+      .onConflictDoUpdate({
+        target: globalSettings.id,
+        set: valuesWithoutContentHistory,
+      });
+  }
 }

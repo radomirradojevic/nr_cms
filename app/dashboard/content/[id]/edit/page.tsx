@@ -117,6 +117,7 @@ export default async function EditContentPage({ params, searchParams }: Props) {
           initialInspectorTab={initialInspectorTab}
           history={{
             total: revisions.total,
+            enabled: settings.contentHistory.enabled,
             revisions: revisions.rows.map((revision) => ({
               id: revision.id,
               revisionNumber: revision.revisionNumber,

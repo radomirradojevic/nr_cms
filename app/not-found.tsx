@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Search } from "lucide-react";
+import { Home } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -25,12 +25,6 @@ export default function NotFound() {
             <Link href="/">
               <Home aria-hidden className="size-4" />
               Home
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/search">
-              <Search aria-hidden className="size-4" />
-              Search site
             </Link>
           </Button>
         </div>

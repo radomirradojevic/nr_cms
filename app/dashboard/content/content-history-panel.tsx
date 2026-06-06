@@ -70,6 +70,7 @@ type Props = {
   total: number;
   expectedVersion?: number;
   lockClientId?: string;
+  contentHistoryEnabled?: boolean;
   restoreDisabled?: boolean;
   onRestored?: (version: number) => void;
   onStaleVersion?: (version: number | null) => void;
@@ -110,6 +111,7 @@ export function ContentHistoryPanel({
   total,
   expectedVersion,
   lockClientId,
+  contentHistoryEnabled = true,
   restoreDisabled = false,
   onRestored,
   onStaleVersion,
@@ -227,7 +229,40 @@ export function ContentHistoryPanel({
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-medium">History</h2>
+            <h2 className="text-sm font-medium">
+              History{" "}
+              {!contentHistoryEnabled && (
+                <span className="inline-flex items-center gap-1 text-amber-500">
+                  (disabled)
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-5 text-amber-500 hover:text-amber-600"
+                        aria-label="Content history is disabled"
+                      >
+                        <Info aria-hidden className="size-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-72 text-sm">
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          Versioning is disabled globally. New content changes
+                          will not create revision snapshots.
+                        </p>
+                        <Button asChild variant="outline" size="sm">
+                          <Link href="/dashboard/global-settings?tab=system">
+                            Open System settings
+                          </Link>
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </span>
+              )}
+            </h2>
             <p className="text-xs text-muted-foreground">
               {empty ? "No revisions" : `${visibleCountLabel} revisions`}
             </p>

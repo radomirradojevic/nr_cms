@@ -53,6 +53,20 @@ export const SESSION_SECURITY_DEFAULTS = {
   idleLogoutMinutes: 30,
 } as const;
 
+// ─── Content history ─────────────────────────────────────────────────────────
+
+export const CONTENT_HISTORY_DEFAULTS = {
+  enabled: true,
+} as const;
+
+export const ContentHistorySettingsSchema = z.object({
+  enabled: z.boolean(),
+});
+
+export type ContentHistorySettings = z.infer<
+  typeof ContentHistorySettingsSchema
+>;
+
 // ─── AI writing assistant ────────────────────────────────────────────────────
 
 export const MIN_AI_WRITING_ASSISTANT_MAX_OUTPUT_TOKENS = 8;
@@ -805,6 +819,7 @@ export const UpdateGlobalSettingsSchema = z
     radiusPreset: z.enum(RADIUS_PRESETS),
     shadowPreset: z.enum(SHADOW_PRESETS),
     appearanceRecipe: AppearanceRecipeV2Schema.optional(),
+    contentHistoryEnabled: z.boolean(),
     aiWritingAssistantEnabled: z.boolean(),
     aiPageBuilderAssistantEnabled: z.boolean(),
     aiDefaultProvider: AIProviderIdSchema,
@@ -944,6 +959,7 @@ export type ResolvedGlobalSettings = {
   regional: RegionalSettings;
   appearance: AppearanceSettings;
   resolvedAppearanceRecipe: AppearanceRecipe;
+  contentHistory: ContentHistorySettings;
   aiWritingAssistant: AiWritingAssistantSettings;
   sessionSecurity: SessionSecuritySettings;
 };
@@ -971,6 +987,7 @@ export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
     stickyHeaderHeight: 80,
     stickyFooterHeight: 110,
   }),
+  contentHistory: CONTENT_HISTORY_DEFAULTS,
   aiWritingAssistant: AI_WRITING_ASSISTANT_DEFAULTS,
   sessionSecurity: SESSION_SECURITY_DEFAULTS,
 };

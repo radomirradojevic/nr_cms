@@ -603,6 +603,10 @@ export const globalSettings = pgTable(
       .notNull()
       .default(48),
     aiWritingAssistantInstructions: text("ai_writing_assistant_instructions"),
+    // ─── Content history ───────────────────────────────────────────────────
+    contentHistoryEnabled: boolean("content_history_enabled")
+      .notNull()
+      .default(true),
     // ─── Session security (driven by lib/session-security.ts) ──────────────
     maxSessionDurationMinutes: integer("max_session_duration_minutes")
       .notNull()
