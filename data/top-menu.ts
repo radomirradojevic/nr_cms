@@ -14,6 +14,7 @@ import {
 import { db } from "@/db";
 import { content, contentCategories, menus, topMenuItems } from "@/db/schema";
 import { canViewContent } from "@/lib/content-visibility";
+import { isContentLive } from "@/lib/content-schedule";
 import type { Role } from "@/lib/roles";
 
 export type MenuRow = typeof menus.$inferSelect;
@@ -325,6 +326,8 @@ export type ContentPickerItem = {
   slug: string;
   contentType: "page" | "blog_post" | "hero_slider";
   status: string;
+  publishAt: Date | null;
+  unpublishAt: Date | null;
 };
 
 export async function listPickableContent(): Promise<ContentPickerItem[]> {
@@ -335,6 +338,8 @@ export async function listPickableContent(): Promise<ContentPickerItem[]> {
       slug: content.slug,
       contentType: content.contentType,
       status: content.status,
+      publishAt: content.publishAt,
+      unpublishAt: content.unpublishAt,
     })
     .from(content)
     .orderBy(asc(content.title));
@@ -344,6 +349,8 @@ export async function listPickableContent(): Promise<ContentPickerItem[]> {
     slug: r.slug,
     contentType: r.contentType as "page" | "blog_post" | "hero_slider",
     status: r.status,
+    publishAt: r.publishAt,
+    unpublishAt: r.unpublishAt,
   }));
 }
 
@@ -399,6 +406,9 @@ export async function getTopMenuTreeForViewer(
       .select({
         id: content.id,
         status: content.status,
+        publishAt: content.publishAt,
+        unpublishAt: content.unpublishAt,
+        deletedAt: content.deletedAt,
         visibility: content.visibility,
       })
       .from(content)
@@ -406,7 +416,9 @@ export async function getTopMenuTreeForViewer(
     for (const r of rows) {
       contentVis.set(r.id, {
         canSee:
-          r.status === "published" && canViewContent(r.visibility, viewerRoles),
+          !r.deletedAt &&
+          isContentLive(r) &&
+          canViewContent(r.visibility, viewerRoles),
       });
     }
   }
@@ -419,15 +431,19 @@ export async function getTopMenuTreeForViewer(
       .select({
         categoryId: content.categoryId,
         status: content.status,
+        publishAt: content.publishAt,
+        unpublishAt: content.unpublishAt,
         visibility: content.visibility,
       })
       .from(content)
-      .where(inArray(content.categoryId, categoryIds));
+      .where(
+        and(
+          inArray(content.categoryId, categoryIds),
+          isNull(content.deletedAt),
+        ),
+      );
     for (const r of rows) {
-      if (
-        r.status === "published" &&
-        canViewContent(r.visibility, viewerRoles)
-      ) {
+      if (isContentLive(r) && canViewContent(r.visibility, viewerRoles)) {
         categoryHasVisible.set(r.categoryId, true);
       }
     }

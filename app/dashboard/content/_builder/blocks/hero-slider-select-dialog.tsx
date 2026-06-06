@@ -17,6 +17,8 @@ import {
   fetchHeroSliderPickerItems,
   type HeroSliderPickerItem,
 } from "@/app/dashboard/content/_builder/hero-slider-actions";
+import { getContentStatusLabel } from "@/lib/content-status";
+import { getContentScheduleState } from "@/lib/content-schedule";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -113,6 +115,7 @@ export function HeroSliderSelectDialog({
             ) : (
               rows.map((row) => {
                 const active = selectedId === row.id;
+                const scheduleState = getContentScheduleState(row);
                 return (
                   <button
                     key={row.id}
@@ -134,8 +137,23 @@ export function HeroSliderSelectDialog({
                         row.status === "published" ? "default" : "outline"
                       }
                     >
-                      {row.status}
+                      {getContentStatusLabel(row.status)}
                     </Badge>
+                    {scheduleState && (
+                      <Badge
+                        variant={
+                          scheduleState === "expired"
+                            ? "destructive"
+                            : "outline"
+                        }
+                      >
+                        {scheduleState === "scheduled"
+                          ? "Scheduled"
+                          : scheduleState === "live_until"
+                            ? "Live until"
+                            : "Expired"}
+                      </Badge>
+                    )}
                   </button>
                 );
               })

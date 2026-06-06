@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  Eye,
   Lock,
   Loader2,
   MoreHorizontal,
@@ -29,6 +30,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { hasRole, type Role } from "@/lib/roles";
+import {
+  canAuthorEditOwnContentStatus,
+  isAuthorOnlyContentWorkflowRole,
+  type ContentStatus,
+} from "@/lib/content-status";
+import { isContentLive } from "@/lib/content-schedule";
 import { deleteContent, setHomepage, setStatus } from "./actions";
 import type { ContentRow } from "./content-table";
 import { ContentReassignDialog } from "./content-reassign-dialog";
@@ -50,16 +57,27 @@ export function ContentRowActions({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewPending, setPreviewPending] = useState(false);
 
   const isAdmin = hasRole(currentUserRoles, "admin");
   const isPublisher = hasRole(currentUserRoles, "publisher");
   const isOwn = row.authorId === currentUserId;
+  const isAuthorOnly = isAuthorOnlyContentWorkflowRole(currentUserRoles);
 
   // Conservative client-side gating; server re-checks on each call.
-  const canEdit = isAdmin || isOwn || isPublisher;
-  const canChangeStatus = isAdmin || isPublisher;
+  const canEdit =
+    isAdmin ||
+    isPublisher ||
+    (isOwn &&
+      (!isAuthorOnly ||
+        canAuthorEditOwnContentStatus(currentUserRoles, row.status)));
+  const canReviewStatus = isAdmin || isPublisher;
+  const canSubmitOwnDraft =
+    isOwn && (row.status === "draft" || row.status === "in_review");
+  const canPreview = isAdmin || isPublisher || isOwn;
   const canDelete = canEdit;
   const canSetHome = isAdmin && row.contentType === "page";
+  const rowIsLive = isContentLive(row);
   const lockError = row.editLock
     ? `Currently being edited by ${row.editLock.userDisplayName}. Wait until the current editor closes the page.`
     : null;
@@ -76,6 +94,54 @@ export function ContentRowActions({
       if (r.error) setError(r.error);
       else onMutated();
     });
+  }
+
+  function changeStatus(status: ContentStatus) {
+    run(() => setStatus({ id: row.id, status }));
+  }
+
+  async function openPreview() {
+    setError(null);
+    if (row.status === "archived") {
+      setError("Archived content cannot be previewed.");
+      return;
+    }
+
+    setPreviewPending(true);
+    try {
+      const response = await fetch("/api/content-preview-tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ contentId: row.id }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        previewUrl?: unknown;
+        error?: unknown;
+      } | null;
+
+      if (!response.ok) {
+        setError(
+          typeof data?.error === "string"
+            ? data.error
+            : "Preview link could not be created.",
+        );
+        return;
+      }
+
+      const previewUrl =
+        typeof data?.previewUrl === "string" ? data.previewUrl : "";
+      if (!previewUrl) {
+        setError("Preview link could not be created.");
+        return;
+      }
+
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      setError("Preview link could not be created.");
+    } finally {
+      setPreviewPending(false);
+    }
   }
 
   function openReassignDialog() {
@@ -124,37 +190,79 @@ export function ContentRowActions({
               <DropdownMenuSeparator />
             </>
           )}
-          {canChangeStatus && row.status !== "published" && (
+          {canPreview && (
             <DropdownMenuItem
-              disabled={actionDisabled}
-              onClick={() =>
-                run(() => setStatus({ id: row.id, status: "published" }))
-              }
+              disabled={previewPending || row.status === "archived"}
+              onClick={openPreview}
             >
-              Publish
+              {previewPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Eye className="mr-2 h-4 w-4" />
+              )}
+              Preview
             </DropdownMenuItem>
           )}
-          {canChangeStatus && row.status === "published" && (
+          {(canReviewStatus || canSubmitOwnDraft) && row.status === "draft" && (
             <DropdownMenuItem
               disabled={actionDisabled}
-              onClick={() =>
-                run(() => setStatus({ id: row.id, status: "unpublished" }))
-              }
+              onClick={() => changeStatus("in_review")}
             >
-              Unpublish
+              Submit for review
             </DropdownMenuItem>
           )}
-          {canChangeStatus && row.status !== "archived" && (
+          {(canReviewStatus || canSubmitOwnDraft) &&
+            row.status === "in_review" && (
+              <DropdownMenuItem
+                disabled={actionDisabled}
+                onClick={() => changeStatus("draft")}
+              >
+                Return to draft
+              </DropdownMenuItem>
+            )}
+          {canReviewStatus &&
+            (row.status === "approved" || row.status === "archived") && (
+              <DropdownMenuItem
+                disabled={actionDisabled}
+                onClick={() => changeStatus("draft")}
+              >
+                Move to draft
+              </DropdownMenuItem>
+            )}
+          {canReviewStatus &&
+            (row.status === "draft" || row.status === "in_review") && (
+              <DropdownMenuItem
+                disabled={actionDisabled}
+                onClick={() => changeStatus("approved")}
+              >
+                Approve
+              </DropdownMenuItem>
+            )}
+          {canReviewStatus && row.status !== "published" && (
             <DropdownMenuItem
               disabled={actionDisabled}
-              onClick={() =>
-                run(() => setStatus({ id: row.id, status: "archived" }))
-              }
+              onClick={() => changeStatus("published")}
+            >
+              Publish now
+            </DropdownMenuItem>
+          )}
+          {canReviewStatus && row.status === "published" && (
+            <DropdownMenuItem
+              disabled={actionDisabled}
+              onClick={() => changeStatus("draft")}
+            >
+              Unpublish to draft
+            </DropdownMenuItem>
+          )}
+          {canReviewStatus && row.status !== "archived" && (
+            <DropdownMenuItem
+              disabled={actionDisabled}
+              onClick={() => changeStatus("archived")}
             >
               Archive
             </DropdownMenuItem>
           )}
-          {canSetHome && !row.homepage && row.status === "published" && (
+          {canSetHome && !row.homepage && rowIsLive && (
             <DropdownMenuItem
               disabled={actionDisabled}
               onClick={() => run(() => setHomepage({ id: row.id }))}
@@ -181,7 +289,7 @@ export function ContentRowActions({
                 onClick={openDeleteDialog}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                Move to Deleted content
               </DropdownMenuItem>
             </>
           )}
@@ -212,8 +320,8 @@ export function ContentRowActions({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this content?</AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-medium">{row.title}</span> will be
-              permanently deleted. This cannot be undone.
+              <span className="font-medium">{row.title}</span> will be moved to
+              Deleted content with its revision history.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {error && <p className="text-sm text-destructive px-1">{error}</p>}
@@ -232,7 +340,7 @@ export function ContentRowActions({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Delete
+              Move to Deleted content
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

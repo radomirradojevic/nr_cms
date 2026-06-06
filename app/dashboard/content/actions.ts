@@ -6,19 +6,51 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { content, topMenuItems } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import {
-  deleteContentById,
   existsSlug,
   getContentById,
-  updateContentById,
   type ContentType,
   type ContentRow,
 } from "@/data/content";
+import {
+  clearOtherHomepageRowsWithSnapshots,
+  createContentRevisionSnapshotForRow,
+  getContentRevision,
+  hardDeleteContentWithRevisions,
+  listContentRevisions,
+  restoreDeletedContentWithRevision,
+  restoreContentRevision as restoreContentRevisionRow,
+  softDeleteContentWithRevision,
+  updateContentWithRevision,
+} from "@/data/content-revisions";
 import { getCategoryById } from "@/data/content-categories";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
-import { getBackendUserOptionById } from "@/lib/backend-users";
+import {
+  formatActorDisplayName,
+  getBackendUserOptionById,
+  getUserDisplayNameMap,
+} from "@/lib/backend-users";
+import {
+  canAuthorEditOwnContentStatus,
+  canTransitionContentStatus,
+  CONTENT_STATUSES,
+  hasElevatedContentWorkflowRole,
+  isAuthorOnlyContentWorkflowRole,
+  resolveCreateContentStatus,
+  type ContentStatus,
+} from "@/lib/content-status";
+import {
+  getStatusRevisionChangeType,
+  resolveRestoredContentStatus,
+  type ContentRevisionChangeType,
+} from "@/lib/content-revision-policy";
+import {
+  isContentLive,
+  normalizeContentScheduleForRestore,
+  normalizeContentScheduleForWrite,
+} from "@/lib/content-schedule";
 import {
   DEFAULT_VISIBILITY,
   sanitizeVisibilityInput,
@@ -27,13 +59,7 @@ import {
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { slugify } from "@/lib/utils";
 import { renderTiptapHtml } from "./_editors/render-tiptap-html";
-import {
-  getLock,
-  isLockedBy,
-  logLockEvent,
-  updateContentWithVersion,
-  getContentVersion,
-} from "@/data/content-locks";
+import { getLock, isLockedBy, logLockEvent } from "@/data/content-locks";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -69,8 +95,15 @@ function highestRole(roles: Role[]): Role {
 
 async function canEdit(actor: Actor, target: ContentRow): Promise<boolean> {
   if (hasRole(actor.roles, "admin")) return true;
-  // Same author always allowed
-  if (target.authorId === actor.userId) return true;
+  // Author-only users can keep working on their own drafts/review submissions,
+  // but published/approved/archived rows need a publisher/admin transition.
+  if (target.authorId === actor.userId) {
+    if (!isAuthorOnlyContentWorkflowRole(actor.roles)) return true;
+    return canAuthorEditOwnContentStatus(
+      actor.roles,
+      target.status as ContentStatus,
+    );
+  }
   // Publisher may edit author's content (not admin's, not other publisher's)
   if (hasRole(actor.roles, "publisher")) {
     const targetRoles = await getRolesForUserId(target.authorId);
@@ -79,15 +112,19 @@ async function canEdit(actor: Actor, target: ContentRow): Promise<boolean> {
   return false;
 }
 
-async function canPublish(actor: Actor, target: ContentRow): Promise<boolean> {
-  if (
-    hasRole(actor.roles, "author") &&
-    !hasRole(actor.roles, "publisher") &&
-    !hasRole(actor.roles, "admin")
-  ) {
-    return false;
-  }
-  return canEdit(actor, target);
+async function canTransitionStatus(
+  actor: Actor,
+  target: ContentRow,
+  nextStatus: ContentStatus,
+): Promise<boolean> {
+  const canEditTarget = await canEdit(actor, target);
+  return canTransitionContentStatus({
+    actorRoles: actor.roles,
+    canEditTarget,
+    fromStatus: target.status as ContentStatus,
+    isOwner: target.authorId === actor.userId,
+    toStatus: nextStatus,
+  });
 }
 
 function canSetHomepage(actor: Actor): boolean {
@@ -139,6 +176,11 @@ const baseFields = {
   contentJson: z.unknown(),
 };
 
+const scheduleDateSchema = z
+  .union([z.string(), z.date()])
+  .nullable()
+  .optional();
+
 const commentFlagFields = {
   enableComments: z.boolean().optional(),
   autoPublishComments: z.boolean().optional(),
@@ -154,7 +196,9 @@ const visibilitySchema = z
 
 const createSchema = z.object({
   contentType: z.enum(["page", "blog_post", "hero_slider"]),
-  status: z.enum(["published", "unpublished", "archived"]).optional(),
+  status: z.enum(CONTENT_STATUSES).optional(),
+  publishAt: scheduleDateSchema,
+  unpublishAt: scheduleDateSchema,
   homepage: z.boolean().optional(),
   visibility: visibilitySchema,
   ...commentFlagFields,
@@ -163,7 +207,9 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["published", "unpublished", "archived"]).optional(),
+  status: z.enum(CONTENT_STATUSES).optional(),
+  publishAt: scheduleDateSchema,
+  unpublishAt: scheduleDateSchema,
   homepage: z.boolean().optional(),
   visibility: visibilitySchema,
   /** Optimistic concurrency version loaded by the editor. */
@@ -202,15 +248,30 @@ export async function createContent(input: CreateContentInput) {
     return { error: "Slug is already in use." };
   }
 
-  const isAuthorOnly =
-    hasRole(actor.roles, "author") &&
-    !hasRole(actor.roles, "publisher") &&
-    !hasRole(actor.roles, "admin");
+  const status = resolveCreateContentStatus(actor.roles, data.status);
+  if (!status) {
+    return { error: "Content cannot be created with that status." };
+  }
+  const now = new Date();
+  const schedule = normalizeContentScheduleForWrite({
+    actorRoles: actor.roles,
+    status,
+    publishAtInput: data.publishAt,
+    unpublishAtInput: data.unpublishAt,
+    now,
+  });
+  if (!schedule.ok) return { error: schedule.error };
+  const publishedAt = status === "published" ? now : null;
+  const willBeLive = isContentLive(
+    {
+      status,
+      publishAt: schedule.publishAt,
+      unpublishAt: schedule.unpublishAt,
+    },
+    now,
+  );
 
-  const status = isAuthorOnly ? "unpublished" : (data.status ?? "unpublished");
-  const publishedAt = status === "published" ? new Date() : null;
-
-  // Homepage handling — admin only, page only, must be published
+  // Homepage handling — admin only, page only, must be live now.
   let homepage = false;
   if (data.homepage) {
     if (!canSetHomepage(actor)) {
@@ -219,8 +280,8 @@ export async function createContent(input: CreateContentInput) {
     if (data.contentType !== "page") {
       return { error: "Only pages can be set as the homepage." };
     }
-    if (status !== "published") {
-      return { error: "Homepage must be published." };
+    if (!willBeLive) {
+      return { error: "Homepage must be live now." };
     }
     homepage = true;
   }
@@ -236,45 +297,63 @@ export async function createContent(input: CreateContentInput) {
   }
 
   try {
-    if (homepage) {
-      await db
-        .update(content)
-        .set({ homepage: false, updatedBy: actor.userId })
-        .where(eq(content.homepage, true));
-    }
     const isBlogPost = data.contentType === "blog_post";
-    const rows = await db
-      .insert(content)
-      .values({
-        contentType: data.contentType,
-        categoryId: data.categoryId,
-        title: data.title,
-        slug,
-        content: html,
-        contentJson: data.contentJson as object,
-        metaTitle: data.metaTitle ?? null,
-        metaDescription: data.metaDescription ?? null,
-        excerpt: data.excerpt ?? null,
-        coverImage: data.coverImage ?? null,
-        status,
-        publishedAt,
-        authorId: actor.userId,
-        updatedBy: actor.userId,
-        homepage,
-        enableComments: isBlogPost ? !!data.enableComments : false,
-        autoPublishComments: isBlogPost ? !!data.autoPublishComments : false,
-        allowAnonymousComments: isBlogPost
-          ? !!data.allowAnonymousComments
-          : false,
-        visibility: sanitizeVisibilityInput(
-          data.visibility ?? DEFAULT_VISIBILITY,
-        ),
-      })
-      .returning();
-    const created = rows[0];
+    const created = await db.transaction(async (tx) => {
+      if (homepage) {
+        await clearOtherHomepageRowsWithSnapshots(
+          tx,
+          actor.userId,
+          undefined,
+          "saved",
+          "Cleared homepage before creating homepage content.",
+        );
+      }
+      const rows = await tx
+        .insert(content)
+        .values({
+          contentType: data.contentType,
+          categoryId: data.categoryId,
+          title: data.title,
+          slug,
+          content: html,
+          contentJson: data.contentJson as object,
+          metaTitle: data.metaTitle ?? null,
+          metaDescription: data.metaDescription ?? null,
+          excerpt: data.excerpt ?? null,
+          coverImage: data.coverImage ?? null,
+          status,
+          publishedAt,
+          publishAt: schedule.publishAt,
+          unpublishAt: schedule.unpublishAt,
+          authorId: actor.userId,
+          updatedBy: actor.userId,
+          homepage,
+          enableComments: isBlogPost ? !!data.enableComments : false,
+          autoPublishComments: isBlogPost ? !!data.autoPublishComments : false,
+          allowAnonymousComments: isBlogPost
+            ? !!data.allowAnonymousComments
+            : false,
+          visibility: sanitizeVisibilityInput(
+            data.visibility ?? DEFAULT_VISIBILITY,
+          ),
+        })
+        .returning();
+      const row = rows[0];
+      await createContentRevisionSnapshotForRow(
+        tx,
+        row,
+        actor.userId,
+        "created",
+      );
+      return row;
+    });
 
     revalidatePath("/dashboard/content");
-    if (status === "published" || homepage) revalidatePath("/");
+    if (willBeLive || homepage) {
+      updateTag("top-menu");
+      revalidatePath("/");
+      revalidatePath("/", "layout");
+    }
     return { success: true, id: created.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -340,10 +419,11 @@ export async function updateContent(input: UpdateContentInput) {
   }
 
   // Status changes need publish permission
-  let nextStatus = target.status as "published" | "unpublished" | "archived";
+  const now = new Date();
+  let nextStatus = target.status as ContentStatus;
   let nextPublishedAt = target.publishedAt;
   if (data.status && data.status !== target.status) {
-    if (!(await canPublish(actor, target))) {
+    if (!(await canTransitionStatus(actor, target, data.status))) {
       return { error: "You are not allowed to change the status." };
     }
     nextStatus = data.status;
@@ -351,6 +431,28 @@ export async function updateContent(input: UpdateContentInput) {
       nextPublishedAt = new Date();
     }
   }
+  const schedule = normalizeContentScheduleForWrite({
+    actorRoles: actor.roles,
+    status: nextStatus,
+    publishAtInput: data.publishAt,
+    unpublishAtInput: data.unpublishAt,
+    currentPublishAt: target.publishAt,
+    currentUnpublishAt: target.unpublishAt,
+    now,
+  });
+  if (!schedule.ok) return { error: schedule.error };
+  if (nextStatus === "published" && !target.publishedAt) {
+    nextPublishedAt = now;
+  }
+  const willBeLive = isContentLive(
+    {
+      status: nextStatus,
+      publishAt: schedule.publishAt,
+      unpublishAt: schedule.unpublishAt,
+    },
+    now,
+  );
+  const wasLive = isContentLive(target, now);
 
   // Homepage logic
   let homepage = target.homepage;
@@ -364,11 +466,14 @@ export async function updateContent(input: UpdateContentInput) {
       if (target.contentType !== "page") {
         return { error: "Only pages can be set as the homepage." };
       }
-      if (nextStatus !== "published") {
-        return { error: "Homepage must be published." };
+      if (!willBeLive) {
+        return { error: "Homepage must be live now." };
       }
     }
     homepage = data.homepage!;
+  }
+  if (homepage && !willBeLive) {
+    homepage = false;
   }
 
   let html = "";
@@ -379,13 +484,20 @@ export async function updateContent(input: UpdateContentInput) {
     return { error: "Failed to render content." };
   }
 
+  const scheduleChanged =
+    Number(target.publishAt ?? null) !== Number(schedule.publishAt ?? null) ||
+    Number(target.unpublishAt ?? null) !== Number(schedule.unpublishAt ?? null);
+  const revisionChangeType =
+    nextStatus !== target.status
+      ? getStatusRevisionChangeType({
+          fromStatus: target.status as ContentStatus,
+          toStatus: nextStatus,
+        })
+      : scheduleChanged
+        ? "scheduled"
+        : "saved";
+
   try {
-    if (wantsHomepageChange && homepage) {
-      await db
-        .update(content)
-        .set({ homepage: false, updatedBy: actor.userId })
-        .where(eq(content.homepage, true));
-    }
     const isBlogPost = target.contentType === "blog_post";
     // ─── Version-guarded UPDATE ───────────────────────────────────────────
     // If the editor passed an expectedVersion, use the optimistic
@@ -403,6 +515,8 @@ export async function updateContent(input: UpdateContentInput) {
       coverImage: data.coverImage ?? null,
       status: nextStatus,
       publishedAt: nextPublishedAt,
+      publishAt: schedule.publishAt,
+      unpublishAt: schedule.unpublishAt,
       updatedBy: actor.userId,
       homepage,
       ...(isBlogPost
@@ -426,39 +540,49 @@ export async function updateContent(input: UpdateContentInput) {
         : {}),
     } as const;
 
-    let newVersion: number;
-    if (typeof data.expectedVersion === "number") {
-      const result = await updateContentWithVersion(
-        data.id,
-        data.expectedVersion,
-        updatePayload,
-      );
-      if (result === null) {
-        const currentVersion = await getContentVersion(data.id);
+    const result = await updateContentWithRevision({
+      id: data.id,
+      actorId: actor.userId,
+      values: updatePayload,
+      changeType: revisionChangeType,
+      expectedVersion: data.expectedVersion,
+      skipIfUnchanged: true,
+      beforeUpdate:
+        wantsHomepageChange && homepage
+          ? async (tx) => {
+              await clearOtherHomepageRowsWithSnapshots(
+                tx,
+                actor.userId,
+                target.id,
+                "saved",
+                "Cleared homepage before saving homepage content.",
+              );
+            }
+          : undefined,
+    });
+    if (!result.ok) {
+      if (result.reason === "stale") {
         await logLockEvent({
           contentId: data.id,
           userId: actor.userId,
           event: "save_rejected_stale",
           metadata: {
             expectedVersion: data.expectedVersion,
-            currentVersion,
+            currentVersion: result.currentVersion,
           },
         });
         return {
           error:
             "This content was changed by someone else after you opened it. Reload to get the latest version.",
           code: "STALE_CONTENT" as const,
-          currentVersion,
+          currentVersion: result.currentVersion,
         };
       }
-      newVersion = result;
-    } else {
-      await db
-        .update(content)
-        .set({ ...updatePayload, version: sql`${content.version} + 1` })
-        .where(eq(content.id, data.id));
-      const v = await getContentVersion(data.id);
-      newVersion = v ?? 1;
+      return { error: "Content not found." };
+    }
+    const newVersion = result.row.version;
+    if (!result.changed) {
+      return { success: true, version: newVersion, unchanged: true as const };
     }
 
     revalidatePath("/dashboard/content");
@@ -475,12 +599,10 @@ export async function updateContent(input: UpdateContentInput) {
       updateTag("top-menu");
       revalidatePath("/", "layout");
     }
-    if (
-      nextStatus === "published" ||
-      target.status === "published" ||
-      wantsHomepageChange
-    ) {
+    if (wasLive || willBeLive || wantsHomepageChange || scheduleChanged) {
+      updateTag("top-menu");
       revalidatePath("/");
+      revalidatePath("/", "layout");
       revalidatePath(`/${slug}`);
       if (slug !== target.slug) revalidatePath(`/${target.slug}`);
     }
@@ -491,7 +613,7 @@ export async function updateContent(input: UpdateContentInput) {
     // navigates away → provider unmount → release; or Cancel → same).
     // Releasing on every Save would allow a waiting user to grab the lock
     // mid-edit and trigger a stale-takeover popup for the current editor.
-    return { success: true, version: newVersion };
+    return { success: true, version: newVersion, unchanged: false as const };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("unique") || msg.includes("duplicate")) {
@@ -525,6 +647,87 @@ export async function deleteContent(input: { id: string }) {
     };
   }
 
+  const wasLive = isContentLive(target);
+  const result = await softDeleteContentWithRevision({
+    row: target,
+    actorId: actor.userId,
+    changeNote: "Moved content to deleted items.",
+  });
+  if (!result.ok) {
+    return {
+      error:
+        result.reason === "not_found"
+          ? "Content not found."
+          : "Content is already deleted.",
+    };
+  }
+
+  revalidatePath("/dashboard/content");
+  if (wasLive) {
+    updateTag("top-menu");
+    revalidatePath("/", "layout");
+    revalidatePath("/");
+    revalidatePath(`/${target.slug}`);
+  }
+  return { success: true };
+}
+
+export async function restoreDeletedContent(input: { id: string }) {
+  const actor = await loadActor();
+  if (!actor) return { error: "Forbidden." };
+
+  const parsed = idSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid id." };
+
+  const target = await getContentById(parsed.data.id, { includeDeleted: true });
+  if (!target) return { error: "Content not found." };
+  if (!target.deletedAt) return { error: "Content is not deleted." };
+  if (!(await canEdit(actor, target))) return { error: "Forbidden." };
+
+  const lockError = await getListActionLockError(target.id);
+  if (lockError) return { error: lockError };
+
+  const result = await restoreDeletedContentWithRevision({
+    contentId: target.id,
+    actorId: actor.userId,
+    changeNote: "Restored deleted content.",
+  });
+  if (!result.ok) {
+    return {
+      error:
+        result.reason === "not_found"
+          ? "Content not found."
+          : "Content is not deleted.",
+    };
+  }
+
+  revalidatePath("/dashboard/content");
+  if (isContentLive(result.row)) {
+    updateTag("top-menu");
+    revalidatePath("/", "layout");
+    revalidatePath("/");
+    revalidatePath(`/${result.row.slug}`);
+  }
+  return { success: true };
+}
+
+export async function permanentlyDeleteContent(input: { id: string }) {
+  const actor = await loadActor();
+  if (!actor) return { error: "Forbidden." };
+  if (!hasRole(actor.roles, "admin")) return { error: "Forbidden." };
+
+  const parsed = idSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid id." };
+
+  const target = await getContentById(parsed.data.id, { includeDeleted: true });
+  if (!target) return { error: "Content not found." };
+  if (!target.deletedAt) {
+    return { error: "Only deleted content can be permanently deleted." };
+  }
+
+  const lockError = await getListActionLockError(target.id);
+  if (lockError) return { error: lockError };
+
   // Mark dependent menu items as broken before the FK nulls out content_id.
   const dependents = await db
     .select({ id: topMenuItems.id, label: topMenuItems.label })
@@ -546,13 +749,17 @@ export async function deleteContent(input: { id: string }) {
     );
   }
 
-  await deleteContentById(target.id);
+  const result = await hardDeleteContentWithRevisions({ contentId: target.id });
+  if (!result.ok) return { error: "Content not found." };
+
   revalidatePath("/dashboard/content");
   if (dependents.length > 0) {
     updateTag("top-menu");
     revalidatePath("/", "layout");
   }
-  if (target.status === "published") {
+  if (isContentLive(target)) {
+    updateTag("top-menu");
+    revalidatePath("/", "layout");
     revalidatePath("/");
     revalidatePath(`/${target.slug}`);
   }
@@ -563,7 +770,7 @@ export async function deleteContent(input: { id: string }) {
 
 const setStatusSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["published", "unpublished", "archived"]),
+  status: z.enum(CONTENT_STATUSES),
 });
 
 export async function setStatus(input: z.infer<typeof setStatusSchema>) {
@@ -575,25 +782,71 @@ export async function setStatus(input: z.infer<typeof setStatusSchema>) {
 
   const target = await getContentById(parsed.data.id);
   if (!target) return { error: "Content not found." };
-  if (!(await canPublish(actor, target))) return { error: "Forbidden." };
+  if (!(await canTransitionStatus(actor, target, parsed.data.status))) {
+    return { error: "Forbidden." };
+  }
   const lockError = await getListActionLockError(target.id);
   if (lockError) return { error: lockError };
 
+  const now = new Date();
   const updates: Partial<typeof content.$inferInsert> = {
     status: parsed.data.status,
     updatedBy: actor.userId,
   };
   if (parsed.data.status === "published" && !target.publishedAt) {
-    updates.publishedAt = new Date();
+    updates.publishedAt = now;
+  }
+  if (parsed.data.status === "published") {
+    updates.publishAt = null;
+    if (target.unpublishAt && target.unpublishAt <= now) {
+      updates.unpublishAt = null;
+    }
+  }
+  if (
+    parsed.data.status === "draft" ||
+    parsed.data.status === "in_review" ||
+    parsed.data.status === "archived"
+  ) {
+    updates.publishAt = null;
+    updates.unpublishAt = null;
   }
   // If unpublishing the homepage, also clear homepage flag
-  if (parsed.data.status !== "published" && target.homepage) {
+  if (
+    (parsed.data.status !== "published" ||
+      !isContentLive({
+        status: parsed.data.status,
+        publishAt:
+          "publishAt" in updates ? updates.publishAt : target.publishAt,
+        unpublishAt:
+          "unpublishAt" in updates ? updates.unpublishAt : target.unpublishAt,
+      })) &&
+    target.homepage
+  ) {
     updates.homepage = false;
   }
 
-  await updateContentById(target.id, updates);
+  const result = await updateContentWithRevision({
+    id: target.id,
+    actorId: actor.userId,
+    values: updates,
+    expectedVersion: target.version,
+    changeType: getStatusRevisionChangeType({
+      fromStatus: target.status as ContentStatus,
+      toStatus: parsed.data.status,
+    }),
+  });
+  if (!result.ok) {
+    return {
+      error:
+        result.reason === "stale"
+          ? "This content changed before the status update completed. Reload and try again."
+          : "Content not found.",
+    };
+  }
 
   revalidatePath("/dashboard/content");
+  updateTag("top-menu");
+  revalidatePath("/", "layout");
   revalidatePath("/");
   revalidatePath(`/${target.slug}`);
   return { success: true };
@@ -613,24 +866,298 @@ export async function setHomepage(input: { id: string }) {
   if (target.contentType !== "page") {
     return { error: "Only pages can be set as the homepage." };
   }
-  if (target.status !== "published") {
-    return { error: "Homepage must be published first." };
+  if (!isContentLive(target)) {
+    return { error: "Homepage must be live now." };
   }
   const lockError = await getListActionLockError(target.id);
   if (lockError) return { error: lockError };
 
-  await db
-    .update(content)
-    .set({ homepage: false, updatedBy: actor.userId })
-    .where(eq(content.homepage, true));
-  await db
-    .update(content)
-    .set({ homepage: true, updatedBy: actor.userId })
-    .where(eq(content.id, target.id));
+  const result = await updateContentWithRevision({
+    id: target.id,
+    actorId: actor.userId,
+    values: { homepage: true, updatedBy: actor.userId },
+    expectedVersion: target.version,
+    changeType: "saved",
+    changeNote: "Set as homepage.",
+    beforeUpdate: async (tx) => {
+      await clearOtherHomepageRowsWithSnapshots(
+        tx,
+        actor.userId,
+        target.id,
+        "saved",
+        "Cleared homepage before setting homepage.",
+      );
+    },
+  });
+  if (!result.ok) {
+    return {
+      error:
+        result.reason === "stale"
+          ? "This content changed before the homepage update completed. Reload and try again."
+          : "Content not found.",
+    };
+  }
 
   revalidatePath("/dashboard/content");
   revalidatePath("/");
   return { success: true };
+}
+
+const HISTORY_PAGE_SIZE = 3;
+
+const contentHistoryFilterSchema = z.enum([
+  "all",
+  "saved",
+  "workflow",
+  "restored",
+]);
+
+type ContentHistoryFilter = z.infer<typeof contentHistoryFilterSchema>;
+
+const historyFilterChangeTypes: Record<
+  ContentHistoryFilter,
+  readonly ContentRevisionChangeType[] | undefined
+> = {
+  all: undefined,
+  saved: ["created", "saved"],
+  workflow: [
+    "submitted_for_review",
+    "approved",
+    "published",
+    "unpublished",
+    "archived",
+    "scheduled",
+  ],
+  restored: ["restored"],
+};
+
+const listRevisionHistorySchema = z.object({
+  contentId: z.string().uuid(),
+  page: z.number().int().min(1).optional(),
+  pageSize: z.number().int().min(1).max(25).optional(),
+  filter: contentHistoryFilterSchema.optional(),
+});
+
+function serializeContentRevisionHistory(
+  revisions: Awaited<ReturnType<typeof listContentRevisions>>["rows"],
+  actorNameMap: Map<string, string>,
+) {
+  return revisions.map((revision) => ({
+    id: revision.id,
+    revisionNumber: revision.revisionNumber,
+    contentVersion: revision.contentVersion,
+    changeType: revision.changeType,
+    createdBy: revision.createdBy,
+    createdByName:
+      actorNameMap.get(revision.createdBy) ??
+      formatActorDisplayName(revision.createdBy),
+    createdAt: revision.createdAt.toISOString(),
+    status: revision.status as ContentStatus,
+    title: revision.title,
+    slug: revision.slug,
+    homepage: revision.homepage,
+    publishAt: revision.publishAt?.toISOString() ?? null,
+    unpublishAt: revision.unpublishAt?.toISOString() ?? null,
+  }));
+}
+
+export async function listContentRevisionHistory(
+  input: z.infer<typeof listRevisionHistorySchema>,
+) {
+  const actor = await loadActor();
+  if (!actor) return { error: "Forbidden." };
+
+  const parsed = listRevisionHistorySchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid input." };
+  const data = parsed.data;
+
+  const target = await getContentById(data.contentId);
+  if (!target) return { error: "Content not found." };
+  if (!(await canEdit(actor, target))) return { error: "Forbidden." };
+
+  const filter = data.filter ?? "all";
+  const page = data.page ?? 1;
+  const pageSize = data.pageSize ?? HISTORY_PAGE_SIZE;
+  const result = await listContentRevisions(target.id, {
+    page,
+    pageSize,
+    changeTypes: historyFilterChangeTypes[filter],
+  });
+  const actorNameMap = await getUserDisplayNameMap(
+    result.rows.map((revision) => revision.createdBy),
+  );
+
+  return {
+    success: true,
+    page,
+    pageSize,
+    total: result.total,
+    revisions: serializeContentRevisionHistory(result.rows, actorNameMap),
+  };
+}
+
+const restoreRevisionSchema = z.object({
+  contentId: z.string().uuid(),
+  revisionId: z.number().int().positive(),
+  expectedVersion: z.number().int().min(1).optional(),
+  lockClientId: z.string().min(1).max(128).optional(),
+});
+
+export async function restoreContentRevision(
+  input: z.infer<typeof restoreRevisionSchema>,
+) {
+  const actor = await loadActor();
+  if (!actor) return { error: "Forbidden." };
+
+  const parsed = restoreRevisionSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid input." };
+  const data = parsed.data;
+
+  const target = await getContentById(data.contentId);
+  if (!target) return { error: "Content not found." };
+  const canEditTarget = await canEdit(actor, target);
+  if (!canEditTarget) return { error: "Forbidden." };
+
+  if (data.lockClientId) {
+    const stillOwns = await isLockedBy({
+      contentId: target.id,
+      userId: actor.userId,
+      sessionId: (await auth()).sessionId ?? "",
+      clientId: data.lockClientId,
+    });
+    if (!stillOwns) {
+      return {
+        error:
+          "Your editing session was ended (another editor took over or your lock expired).",
+        code: "LOCK_LOST" as const,
+      };
+    }
+  } else {
+    const lockError = await getListActionLockError(target.id);
+    if (lockError) return { error: lockError };
+  }
+
+  const revision = await getContentRevision(data.contentId, data.revisionId);
+  if (!revision) return { error: "Revision not found." };
+
+  const revisionStatus = revision.status as ContentStatus;
+  const restoredStatus = resolveRestoredContentStatus({
+    actorRoles: actor.roles,
+    canEditTarget,
+    currentStatus: target.status as ContentStatus,
+    isOwner: target.authorId === actor.userId,
+    revisionStatus,
+  });
+
+  const schedule = normalizeContentScheduleForRestore({
+    actorRoles: actor.roles,
+    status: restoredStatus,
+    publishAtInput: hasElevatedContentWorkflowRole(actor.roles)
+      ? revision.publishAt
+      : undefined,
+    unpublishAtInput: hasElevatedContentWorkflowRole(actor.roles)
+      ? revision.unpublishAt
+      : undefined,
+    now: new Date(),
+  });
+  if (!schedule.ok) return { error: schedule.error };
+
+  const willBeLiveAfterRestore = isContentLive({
+    status: restoredStatus,
+    publishAt: schedule.publishAt,
+    unpublishAt: schedule.unpublishAt,
+  });
+  const restoredHomepage =
+    revision.homepage &&
+    canSetHomepage(actor) &&
+    target.contentType === "page" &&
+    willBeLiveAfterRestore;
+  const result = await restoreContentRevisionRow({
+    contentId: data.contentId,
+    revisionId: data.revisionId,
+    actorId: actor.userId,
+    status: restoredStatus,
+    publishAt: schedule.publishAt,
+    unpublishAt: schedule.unpublishAt,
+    homepage: restoredHomepage,
+    expectedVersion: data.expectedVersion,
+    changeNote: `Restored revision #${revision.revisionNumber}.`,
+  });
+
+  if (!result.ok) {
+    if (result.reason === "stale") {
+      await logLockEvent({
+        contentId: data.contentId,
+        userId: actor.userId,
+        event: "save_rejected_stale",
+        metadata: {
+          expectedVersion: data.expectedVersion,
+          currentVersion: result.currentVersion,
+          restoreRevisionId: data.revisionId,
+        },
+      });
+      return {
+        error:
+          "This content was changed by someone else after you opened it. Reload to get the latest version.",
+        code: "STALE_CONTENT" as const,
+        currentVersion: result.currentVersion,
+      };
+    }
+    if (result.reason === "slug_conflict") {
+      return {
+        error: "Revision slug is already in use by another content item.",
+      };
+    }
+    if (result.reason === "homepage_not_live") {
+      return {
+        error: "Homepage can only be restored to a live published page.",
+      };
+    }
+    return {
+      error:
+        result.reason === "revision_not_found"
+          ? "Revision not found."
+          : "Content not found.",
+    };
+  }
+
+  if (result.previous.slug !== result.row.slug) {
+    await db
+      .update(topMenuItems)
+      .set({ url: "/" + result.row.slug })
+      .where(eq(topMenuItems.contentId, result.row.id));
+  }
+
+  const wasLive = isContentLive(result.previous);
+  const isLive = isContentLive(result.row);
+  const publicAffected =
+    wasLive || isLive || result.previous.homepage || result.row.homepage;
+
+  revalidatePath("/dashboard/content");
+  revalidatePath(`/dashboard/content/${data.contentId}/edit`);
+  if (publicAffected) {
+    updateTag("top-menu");
+    revalidatePath("/");
+    revalidatePath("/", "layout");
+    revalidatePath(`/${result.row.slug}`);
+    if (result.previous.slug !== result.row.slug) {
+      revalidatePath(`/${result.previous.slug}`);
+    }
+  }
+
+  const warnings = [
+    revisionStatus !== restoredStatus
+      ? `Status restored as ${restoredStatus} instead of ${revisionStatus}.`
+      : null,
+    revision.homepage && !restoredHomepage
+      ? "Homepage flag was not restored."
+      : null,
+    schedule.sanitized
+      ? "Past or invalid schedule dates from the revision were not restored. Set a new schedule if needed."
+      : null,
+  ].filter((warning): warning is string => Boolean(warning));
+
+  return { success: true, version: result.row.version, warnings };
 }
 
 // ─── Batch ────────────────────────────────────────────────────────────────────
@@ -667,7 +1194,7 @@ export async function batchDelete(input: {
 
 const batchStatusSchema = z.object({
   ids: z.array(z.string().uuid()).min(1),
-  status: z.enum(["published", "unpublished", "archived"]),
+  status: z.enum(CONTENT_STATUSES),
 });
 
 export async function batchSetStatus(
@@ -732,10 +1259,25 @@ export async function reassignContent(input: {
   if (!author) return { error: "Target user must be a backend user." };
 
   try {
-    await updateContentById(parsed.data.id, {
-      authorId: parsed.data.newAuthorId,
-      updatedBy: actor.userId,
+    const result = await updateContentWithRevision({
+      id: parsed.data.id,
+      actorId: actor.userId,
+      values: {
+        authorId: parsed.data.newAuthorId,
+        updatedBy: actor.userId,
+      },
+      expectedVersion: target.version,
+      changeType: "saved",
+      changeNote: "Reassigned content author.",
     });
+    if (!result.ok) {
+      return {
+        error:
+          result.reason === "stale"
+            ? "This content changed before reassignment completed. Reload and try again."
+            : "Content not found.",
+      };
+    }
     revalidatePath("/dashboard/content");
     return { success: true };
   } catch {

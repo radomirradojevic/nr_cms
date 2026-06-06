@@ -121,6 +121,7 @@ export default async function RootLayout({
     ...(headerGlowVars as React.CSSProperties),
     ...(footerGlowVars as React.CSSProperties),
     ["--header-h" as string]: `${headerH}px`,
+    ["--footer-min-h" as string]: `${footerMinHeight}px`,
     ...(headerIsSticky
       ? { ["--sticky-header-h" as string]: `${headerH}px` }
       : {}),

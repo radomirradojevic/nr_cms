@@ -95,6 +95,73 @@ export function resolveHeaderHeight(region: HeaderRegionV1): number {
   return region.heightPx > 0 ? region.heightPx : 64;
 }
 
+function parseHexColor(
+  value: string | null | undefined,
+): { r: number; g: number; b: number } | null {
+  const hex = value?.trim().replace(/^#/, "");
+  if (!hex) return null;
+
+  if (/^[0-9a-f]{3,4}$/i.test(hex)) {
+    const [r, g, b] = hex
+      .slice(0, 3)
+      .split("")
+      .map((channel) => Number.parseInt(`${channel}${channel}`, 16));
+    return { r, g, b };
+  }
+
+  if (/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(hex)) {
+    return {
+      r: Number.parseInt(hex.slice(0, 2), 16),
+      g: Number.parseInt(hex.slice(2, 4), 16),
+      b: Number.parseInt(hex.slice(4, 6), 16),
+    };
+  }
+
+  return null;
+}
+
+function srgbChannelToLinear(channel: number): number {
+  const value = channel / 255;
+  return value <= 0.03928
+    ? value / 12.92
+    : Math.pow((value + 0.055) / 1.055, 2.4);
+}
+
+function resolveReadableHeaderForeground(
+  background: string | null | undefined,
+): string {
+  const color = parseHexColor(background);
+  if (!color) return "var(--foreground)";
+
+  const luminance =
+    0.2126 * srgbChannelToLinear(color.r) +
+    0.7152 * srgbChannelToLinear(color.g) +
+    0.0722 * srgbChannelToLinear(color.b);
+
+  return luminance > 0.5 ? "oklch(0.145 0 0)" : "oklch(0.985 0 0)";
+}
+
+function resolveHeaderStyle(
+  region: HeaderRegionV1,
+  headerH: number,
+  sizeProperty: "height" | "minHeight",
+): React.CSSProperties {
+  return {
+    [sizeProperty]: `${headerH}px`,
+    ...(region.background ? { backgroundColor: region.background } : {}),
+    color: "var(--site-header-foreground)",
+    ["--site-header-foreground" as string]: resolveReadableHeaderForeground(
+      region.background,
+    ),
+    ["--site-header-muted-foreground" as string]:
+      "color-mix(in oklch, var(--site-header-foreground) 70%, transparent)",
+    ["--site-header-hover-bg" as string]:
+      "color-mix(in oklch, var(--site-header-foreground) 13%, transparent)",
+    ["--site-header-active-bg" as string]:
+      "color-mix(in oklch, var(--site-header-foreground) 19%, transparent)",
+  } as React.CSSProperties;
+}
+
 function renderSlotLink({
   href,
   className,
@@ -150,7 +217,7 @@ function renderBrandSlot({
     <Link
       href="/"
       className={cn(
-        "text-xl font-bold leading-none tracking-tight text-gray-400 hover:text-foreground transition-colors flex items-center gap-2 shrink-0",
+        "flex shrink-0 items-center gap-2 text-xl font-bold leading-none text-[color:var(--site-header-muted-foreground)] transition-colors hover:text-[color:var(--site-header-foreground)]",
         className,
       )}
     >
@@ -374,10 +441,6 @@ export function SiteHeader({
   const searchSlot = findEnabledSlot(region.slots, "Search", context);
   const ctaSlot = findEnabledSlot(region.slots, "CTA", context);
   const headerH = resolveHeaderHeight(region);
-  const headerStyle = {
-    height: `${headerH}px`,
-    ...(region.background ? { backgroundColor: region.background } : {}),
-  };
   const brand = renderBrandSlot({
     slot: brandSlot,
     siteName,
@@ -411,6 +474,7 @@ export function SiteHeader({
   const search = renderSearchSlot(searchSlot, undefined, undefined, "right");
   const cta = renderCtaSlot(ctaSlot);
   const stickyClass = region.sticky && "sticky top-0 z-50";
+  const headerStyle = resolveHeaderStyle(region, headerH, "height");
   const renderShellHeader = (header: React.ReactNode) => (
     <>
       <div className="contents" data-shell-header-content>
@@ -449,10 +513,7 @@ export function SiteHeader({
           "site-header bg-background flex flex-col items-center justify-center gap-2 px-4 py-2 text-center",
           stickyClass,
         )}
-        style={{
-          minHeight: `${headerH}px`,
-          ...(region.background ? { backgroundColor: region.background } : {}),
-        }}
+        style={resolveHeaderStyle(region, headerH, "minHeight")}
       >
         {renderBrandSlot({
           slot: brandSlot,
@@ -538,10 +599,7 @@ export function SiteHeader({
           "site-header bg-background flex flex-col justify-center gap-3 border-b px-4 py-3",
           stickyClass,
         )}
-        style={{
-          minHeight: `${headerH}px`,
-          ...(region.background ? { backgroundColor: region.background } : {}),
-        }}
+        style={resolveHeaderStyle(region, headerH, "minHeight")}
       >
         <div className="grid w-full min-w-0 grid-cols-1 items-center gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-4">
           <div className="hidden min-w-0 justify-self-start lg:block">

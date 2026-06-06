@@ -17,9 +17,15 @@ import { Badge } from "@/components/ui/badge";
 import { PageSizeSelector } from "@/app/dashboard/page-size-selector";
 import { type Role, hasRole } from "@/lib/roles";
 import type { LockHolder } from "@/lib/content-locks";
+import {
+  getContentStatusLabel,
+  type ContentStatus,
+} from "@/lib/content-status";
+import { getContentScheduleState } from "@/lib/content-schedule";
 import { ContentRowActions } from "./content-row-actions";
 import { BatchActions } from "./batch-actions";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
+import { DeletedContentRowActions } from "./deleted-content-row-actions";
 
 type AllowedPageSize = 10 | 20 | 30;
 
@@ -30,7 +36,7 @@ export type ContentRow = {
   categoryName: string;
   title: string;
   slug: string;
-  status: "published" | "unpublished" | "archived";
+  status: ContentStatus;
   homepage: boolean;
   authorId: string;
   authorName: string;
@@ -38,6 +44,11 @@ export type ContentRow = {
   updatedByName: string | null;
   updatedAt: string;
   publishedAt: string | null;
+  publishAt: string | null;
+  unpublishAt: string | null;
+  deletedAt: string | null;
+  deletedBy: string | null;
+  deletedByName: string | null;
   editLock: LockHolder | null;
 };
 
@@ -53,14 +64,17 @@ type Props = {
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: AllowedPageSize) => void;
   onMutated: () => void;
+  deletedView?: boolean;
 };
 
 const statusVariant: Record<
   ContentRow["status"],
   "default" | "secondary" | "outline" | "destructive"
 > = {
+  draft: "secondary",
+  in_review: "outline",
+  approved: "secondary",
   published: "default",
-  unpublished: "secondary",
   archived: "outline",
 };
 
@@ -76,6 +90,7 @@ export function ContentTable({
   onPageChange,
   onPageSizeChange,
   onMutated,
+  deletedView = false,
 }: Props) {
   const { formatDate, formatDateTime, formatTime } = useRegionalSettings();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -83,7 +98,9 @@ export function ContentTable({
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const selectableIds = new Set(
-        rows.filter((row) => !row.editLock).map((row) => row.id),
+        deletedView
+          ? []
+          : rows.filter((row) => !row.editLock).map((row) => row.id),
       );
       setSelectedIds((prev) => {
         const next = new Set([...prev].filter((id) => selectableIds.has(id)));
@@ -91,9 +108,9 @@ export function ContentTable({
       });
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [rows]);
+  }, [deletedView, rows]);
 
-  const selectableRows = rows.filter((row) => !row.editLock);
+  const selectableRows = deletedView ? [] : rows.filter((row) => !row.editLock);
   const selectableIdSet = new Set(selectableRows.map((row) => row.id));
   const selectedSelectableIds = Array.from(selectedIds).filter((id) =>
     selectableIdSet.has(id),
@@ -122,14 +139,14 @@ export function ContentTable({
 
   const isAdmin = hasRole(currentUserRoles, "admin");
   const isPublisher = hasRole(currentUserRoles, "publisher");
-  const canPublishAny = isAdmin || isPublisher;
+  const canChangeWorkflowStatus = isAdmin || isPublisher;
 
   return (
     <div className="space-y-3">
-      {someSelected && (
+      {!deletedView && someSelected && (
         <BatchActions
           ids={selectedSelectableIds}
-          canPublish={canPublishAny}
+          canChangeWorkflowStatus={canChangeWorkflowStatus}
           onCleared={() => {
             setSelectedIds(new Set());
             onMutated();
@@ -143,33 +160,35 @@ export function ContentTable({
         </div>
       ) : total === 0 ? (
         <p className="text-muted-foreground text-sm py-12 text-center">
-          No content found.
+          {deletedView ? "No deleted content found." : "No content found."}
         </p>
       ) : (
         <>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40px]">
-                  <Checkbox
-                    checked={
-                      allSelected
-                        ? true
-                        : someSelected
-                          ? "indeterminate"
-                          : false
-                    }
-                    disabled={selectableRows.length === 0}
-                    onCheckedChange={(c) => toggleAll(!!c)}
-                    aria-label="Select all"
-                  />
-                </TableHead>
+                {!deletedView && (
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={
+                        allSelected
+                          ? true
+                          : someSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      disabled={selectableRows.length === 0}
+                      onCheckedChange={(c) => toggleAll(!!c)}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
+                )}
                 <TableHead>Title</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Author</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Updated</TableHead>
+                <TableHead>{deletedView ? "Deleted" : "Updated"}</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -177,31 +196,44 @@ export function ContentTable({
               {rows.map((row) => {
                 const locked = Boolean(row.editLock);
                 const selected = !locked && selectedSelectableSet.has(row.id);
+                const scheduleState = getContentScheduleState(row);
+                const publishLabel = row.publishAt
+                  ? formatDateTime(row.publishAt)
+                  : null;
+                const unpublishLabel = row.unpublishAt
+                  ? formatDateTime(row.unpublishAt)
+                  : null;
                 return (
                   <TableRow
                     key={row.id}
                     data-state={selected ? "selected" : undefined}
                   >
-                    <TableCell>
-                      <Checkbox
-                        checked={selected}
-                        disabled={locked}
-                        onCheckedChange={(c) => toggleOne(row.id, !!c)}
-                        aria-label={
-                          locked
-                            ? `${row.title} is locked for editing`
-                            : `Select ${row.title}`
-                        }
-                      />
-                    </TableCell>
+                    {!deletedView && (
+                      <TableCell>
+                        <Checkbox
+                          checked={selected}
+                          disabled={locked}
+                          onCheckedChange={(c) => toggleOne(row.id, !!c)}
+                          aria-label={
+                            locked
+                              ? `${row.title} is locked for editing`
+                              : `Select ${row.title}`
+                          }
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          href={`/dashboard/content/${row.id}/edit`}
-                          className="hover:underline"
-                        >
-                          {row.title}
-                        </Link>
+                        {deletedView ? (
+                          <span>{row.title}</span>
+                        ) : (
+                          <Link
+                            href={`/dashboard/content/${row.id}/edit`}
+                            className="hover:underline"
+                          >
+                            {row.title}
+                          </Link>
+                        )}
                         {row.editLock && (
                           <Badge
                             variant="outline"
@@ -221,14 +253,20 @@ export function ContentTable({
                           </Badge>
                         )}
                       </div>
-                      <a
-                        href={`/${row.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-muted-foreground mt-0.5 hover:underline"
-                      >
-                        /{row.slug}
-                      </a>
+                      {deletedView ? (
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          /{row.slug}
+                        </div>
+                      ) : (
+                        <a
+                          href={`/${row.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-muted-foreground mt-0.5 hover:underline"
+                        >
+                          /{row.slug}
+                        </a>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
@@ -247,30 +285,83 @@ export function ContentTable({
                       <div className="mt-0.5">{formatDate(row.createdAt)}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant[row.status]}>
-                        {row.status}
-                      </Badge>
+                      <div className="space-y-1">
+                        <Badge variant={statusVariant[row.status]}>
+                          {getContentStatusLabel(row.status)}
+                        </Badge>
+                        {scheduleState && (
+                          <div>
+                            <Badge
+                              variant={
+                                scheduleState === "expired"
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                              className="text-[10px]"
+                            >
+                              {scheduleState === "scheduled"
+                                ? "Scheduled"
+                                : scheduleState === "live_until"
+                                  ? "Live until"
+                                  : "Expired"}
+                            </Badge>
+                          </div>
+                        )}
+                        {(publishLabel || unpublishLabel) && (
+                          <div className="space-y-0.5 text-xs text-muted-foreground">
+                            {publishLabel && <div>Publish {publishLabel}</div>}
+                            {unpublishLabel && (
+                              <div>Unpublish {unpublishLabel}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      <div>{formatDateTime(row.updatedAt)}</div>
-                      <div className="mt-0.5">
-                        by {row.updatedByName ?? "Unknown"}
-                      </div>
+                      {deletedView ? (
+                        <>
+                          <div>
+                            {row.deletedAt
+                              ? formatDateTime(row.deletedAt)
+                              : "Unknown"}
+                          </div>
+                          <div className="mt-0.5">
+                            by {row.deletedByName ?? "Unknown"}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>{formatDateTime(row.updatedAt)}</div>
+                          <div className="mt-0.5">
+                            by {row.updatedByName ?? "Unknown"}
+                          </div>
+                        </>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/dashboard/content/${row.id}/edit`}>
-                            <Pencil className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
-                          </Link>
-                        </Button>
-                        <ContentRowActions
-                          row={row}
-                          currentUserId={currentUserId}
-                          currentUserRoles={currentUserRoles}
-                          onMutated={onMutated}
-                        />
+                        {deletedView ? (
+                          <DeletedContentRowActions
+                            row={row}
+                            currentUserRoles={currentUserRoles}
+                            onMutated={onMutated}
+                          />
+                        ) : (
+                          <>
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/dashboard/content/${row.id}/edit`}>
+                                <Pencil className="h-4 w-4" />
+                                <span className="sr-only">Edit</span>
+                              </Link>
+                            </Button>
+                            <ContentRowActions
+                              row={row}
+                              currentUserId={currentUserId}
+                              currentUserRoles={currentUserRoles}
+                              onMutated={onMutated}
+                            />
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

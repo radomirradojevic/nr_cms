@@ -1942,6 +1942,9 @@ export function SettingsForm({
       Math.round(Number(settings?.maxBatchUploadSizeBytes ?? 500 * MB) / MB),
     ),
   );
+  const [contentHistoryEnabled, setContentHistoryEnabled] = useState(
+    settings?.contentHistoryEnabled ?? true,
+  );
 
   // ─── Appearance ────────────────────────────────────────────────────────────
   const [theme, setTheme] = useState<Theme>(initialAppearanceSettings.theme);
@@ -2772,6 +2775,7 @@ export function SettingsForm({
           aiPageBuilderAssistantEnabled,
           aiDefaultProvider: effectiveAiDefaultProvider,
           aiProviders: parsedAiProviders,
+          contentHistoryEnabled,
           maxSessionDurationMinutes: parsedMax,
           idleLogoutMinutes: parsedIdle,
         },
@@ -4627,6 +4631,37 @@ export function SettingsForm({
                 <p className="text-xs text-muted-foreground">
                   {(parseInt(maxBatchUploadMB, 10) || 0) * MB} bytes
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Content History ── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Content History</CardTitle>
+              <CardDescription>
+                Control whether content saves create restorable revision
+                snapshots.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="content-history-enabled">
+                    Content history
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {contentHistoryEnabled
+                      ? "New content changes are saved as revision history."
+                      : "New content changes will not create revisions. Existing revisions remain available."}
+                  </p>
+                </div>
+                <Switch
+                  id="content-history-enabled"
+                  checked={contentHistoryEnabled}
+                  onCheckedChange={setContentHistoryEnabled}
+                  aria-label="Toggle content history"
+                />
               </div>
             </CardContent>
           </Card>

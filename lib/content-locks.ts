@@ -1,8 +1,13 @@
 // Content edit lock — shared constants, types, and authorization helpers.
 // See .github/instructions/cms-content-edit-locking.instructions.md
 
-import { hasRole, type Role } from "@/lib/roles";
 import type { ContentRow } from "@/data/content";
+import {
+  canAuthorEditOwnContentStatus,
+  isAuthorOnlyContentWorkflowRole,
+  type ContentStatus,
+} from "@/lib/content-status";
+import { hasRole, type Role } from "@/lib/roles";
 
 /** Server-enforced lease length. Clients receive this from /status. */
 export const LEASE_TTL_SECONDS = 90;
@@ -58,11 +63,17 @@ export function highestRole(roles: Role[]): Role | "viewer" {
  */
 export function canEditContent(
   actor: { userId: string; roles: Role[] },
-  target: Pick<ContentRow, "authorId">,
+  target: Pick<ContentRow, "authorId" | "status">,
   targetAuthorRoles?: Role[],
 ): boolean {
   if (hasRole(actor.roles, "admin")) return true;
-  if (target.authorId === actor.userId) return true;
+  if (target.authorId === actor.userId) {
+    if (!isAuthorOnlyContentWorkflowRole(actor.roles)) return true;
+    return canAuthorEditOwnContentStatus(
+      actor.roles,
+      target.status as ContentStatus,
+    );
+  }
   if (hasRole(actor.roles, "publisher")) {
     if (!targetAuthorRoles) return false;
     return highestRole(targetAuthorRoles) === "author";

@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { files, content } from "@/db/schema";
+import { updateContentWithRevision } from "@/data/content-revisions";
 import {
   and,
   asc,
@@ -204,7 +205,10 @@ function stripHtmlRefs(html: string, fileId: string): string {
   return out;
 }
 
-export async function purgeFileReferences(fileId: string): Promise<void> {
+export async function purgeFileReferences(
+  fileId: string,
+  actorId = "system:file-reference-purge",
+): Promise<void> {
   const rows = await findContentReferencingFile(fileId);
   for (const row of rows) {
     const patch: Partial<typeof content.$inferInsert> = {};
@@ -219,7 +223,14 @@ export async function purgeFileReferences(fileId: string): Promise<void> {
       patch.contentJson = (cleaned ?? null) as typeof row.contentJson;
     }
     if (Object.keys(patch).length > 0) {
-      await db.update(content).set(patch).where(eq(content.id, row.id));
+      await updateContentWithRevision({
+        id: row.id,
+        actorId,
+        values: patch,
+        expectedVersion: row.version,
+        changeType: "saved",
+        changeNote: `Removed references to deleted file ${fileId}.`,
+      });
     }
   }
 }
