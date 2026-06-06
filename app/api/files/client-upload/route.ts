@@ -13,6 +13,7 @@ import { buildStoragePath, getStorageProviderName } from "@/lib/file-storage";
 import { requireFileUploadUser } from "@/lib/file-upload-auth";
 import { createClientUploadTicket } from "@/lib/file-upload-tickets";
 import { getGlobalSettings } from "@/data/global-settings";
+import { getFolderById } from "@/data/files";
 
 export const maxDuration = 60;
 
@@ -22,6 +23,7 @@ const prepareSchema = z.object({
   filename: z.string().min(1).max(500),
   type: z.string().max(200).optional(),
   size: z.number().int().positive(),
+  folderId: z.string().uuid().nullable().optional(),
 });
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -108,6 +110,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const folderId = parsed.folderId ?? null;
+  if (folderId) {
+    const folder = await getFolderById(folderId);
+    if (!folder) {
+      return NextResponse.json(
+        { error: "Target folder was not found." },
+        { status: 400 },
+      );
+    }
+  }
+
   const id = randomUUID();
   const storagePath = buildStoragePath(id, extFromMime(mime));
   const expiresAt = Date.now() + TOKEN_TTL_MS;
@@ -118,6 +131,7 @@ export async function POST(req: NextRequest) {
     mimeType: mime,
     sizeBytes: parsed.size,
     kind,
+    folderId,
     uploadedBy: caller.userId,
     exp: expiresAt,
   });

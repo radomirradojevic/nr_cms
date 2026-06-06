@@ -15,6 +15,7 @@ type Props = {
   maxFileSize: number;
   maxBatchSize: number;
   storageProvider: "local" | "vercel-blob";
+  currentFolderId: string | null;
 };
 
 type UploadState = {
@@ -42,6 +43,7 @@ export function UploadDropzone({
   maxFileSize,
   maxBatchSize,
   storageProvider,
+  currentFolderId,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -72,6 +74,7 @@ export function UploadDropzone({
 
   async function uploadViaApi(accepted: File[]): Promise<FileRow[]> {
     const form = new FormData();
+    if (currentFolderId) form.append("folderId", currentFolderId);
     for (const f of accepted) form.append("file", f);
 
     const xhr = new XMLHttpRequest();
@@ -126,6 +129,7 @@ export function UploadDropzone({
         filename: file.name,
         type: file.type,
         size: file.size,
+        folderId: currentFolderId,
       }),
     });
     if (!res.ok) throw new Error(await readResponseError(res));

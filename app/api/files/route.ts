@@ -17,7 +17,7 @@ import {
   writeUpload,
 } from "@/lib/file-storage";
 import { requireFileUploadUser } from "@/lib/file-upload-auth";
-import { insertFile } from "@/data/files";
+import { getFolderById, insertFile } from "@/data/files";
 import { getGlobalSettings } from "@/data/global-settings";
 
 // Allow long-running uploads (sniffing, SVG sanitize, disk write, DB insert).
@@ -26,6 +26,15 @@ export const maxDuration = 300;
 type UploadResult =
   | { ok: true; file: Awaited<ReturnType<typeof insertFile>> }
   | { ok: false; filename: string; error: string };
+
+async function resolveFolderId(form: FormData): Promise<string | null | false> {
+  const raw = form.get("folderId");
+  if (raw === null || raw === "") return null;
+  if (typeof raw !== "string") return false;
+  if (!/^[0-9a-f-]{36}$/i.test(raw)) return false;
+  const folder = await getFolderById(raw);
+  return folder ? raw : false;
+}
 
 export async function POST(req: NextRequest) {
   const caller = await requireFileUploadUser();
@@ -55,6 +64,14 @@ export async function POST(req: NextRequest) {
   const entries = form.getAll("file");
   if (entries.length === 0) {
     return NextResponse.json({ error: "No files provided." }, { status: 400 });
+  }
+
+  const folderId = await resolveFolderId(form);
+  if (folderId === false) {
+    return NextResponse.json(
+      { error: "Target folder was not found." },
+      { status: 400 },
+    );
   }
 
   const settings = await getGlobalSettings();
@@ -142,6 +159,7 @@ export async function POST(req: NextRequest) {
         mimeType: mime,
         sizeBytes: buffer.length,
         kind,
+        folderId,
         uploadedBy: caller.userId,
       });
 
