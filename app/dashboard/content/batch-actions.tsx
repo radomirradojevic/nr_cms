@@ -120,15 +120,15 @@ export function BatchActions({
       >
         <AlertDialogTrigger asChild>
           <Button variant="destructive" size="sm" disabled={pending}>
-            Delete
+            Move to Deleted content
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete selected content?</AlertDialogTitle>
             <AlertDialogDescription>
-              {ids.length} item(s) will be permanently deleted. Items you do not
-              have permission to delete or that are the homepage will be
+              {ids.length} item(s) will be moved to Deleted content. Items you
+              do not have permission to delete or that are the homepage will be
               skipped.
             </AlertDialogDescription>
           </AlertDialogHeader>

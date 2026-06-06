@@ -88,6 +88,8 @@ export default async function ContentRevisionPage({ params }: Props) {
     authorId: revision.authorId,
     updatedBy: revision.updatedBy,
     homepage: revision.homepage,
+    deletedAt: null,
+    deletedBy: null,
     enableComments: revision.enableComments,
     autoPublishComments: revision.autoPublishComments,
     allowAnonymousComments: revision.allowAnonymousComments,
@@ -130,7 +132,9 @@ export default async function ContentRevisionPage({ params }: Props) {
           <Badge variant="secondary">
             {formatChangeType(revision.changeType)}
           </Badge>
-          <Badge variant="outline">{getContentStatusLabel(revision.status)}</Badge>
+          <Badge variant="outline">
+            {getContentStatusLabel(revision.status)}
+          </Badge>
           <Badge variant="outline">v{revision.contentVersion}</Badge>
         </div>
       </div>
@@ -217,7 +221,9 @@ function RevisionNavigation({
             aria-label={`Open next revision #${next.revisionNumber}`}
           >
             <span>Next</span>
-            <span className="text-muted-foreground">#{next.revisionNumber}</span>
+            <span className="text-muted-foreground">
+              #{next.revisionNumber}
+            </span>
             <ChevronRight aria-hidden className="size-4" />
           </Link>
         </Button>

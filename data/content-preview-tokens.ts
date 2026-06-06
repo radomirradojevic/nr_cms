@@ -2,7 +2,7 @@ import "server-only";
 
 import crypto from "node:crypto";
 
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, isNull, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import { content, contentPreviewTokens } from "@/db/schema";
@@ -69,6 +69,7 @@ export async function getContentPreviewByToken(
       and(
         eq(contentPreviewTokens.tokenHash, tokenHash),
         gt(contentPreviewTokens.expiresAt, new Date()),
+        isNull(content.deletedAt),
       ),
     )
     .limit(1);

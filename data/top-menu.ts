@@ -408,13 +408,17 @@ export async function getTopMenuTreeForViewer(
         status: content.status,
         publishAt: content.publishAt,
         unpublishAt: content.unpublishAt,
+        deletedAt: content.deletedAt,
         visibility: content.visibility,
       })
       .from(content)
       .where(inArray(content.id, contentIds));
     for (const r of rows) {
       contentVis.set(r.id, {
-        canSee: isContentLive(r) && canViewContent(r.visibility, viewerRoles),
+        canSee:
+          !r.deletedAt &&
+          isContentLive(r) &&
+          canViewContent(r.visibility, viewerRoles),
       });
     }
   }
@@ -432,12 +436,14 @@ export async function getTopMenuTreeForViewer(
         visibility: content.visibility,
       })
       .from(content)
-      .where(inArray(content.categoryId, categoryIds));
+      .where(
+        and(
+          inArray(content.categoryId, categoryIds),
+          isNull(content.deletedAt),
+        ),
+      );
     for (const r of rows) {
-      if (
-        isContentLive(r) &&
-        canViewContent(r.visibility, viewerRoles)
-      ) {
+      if (isContentLive(r) && canViewContent(r.visibility, viewerRoles)) {
         categoryHasVisible.set(r.categoryId, true);
       }
     }

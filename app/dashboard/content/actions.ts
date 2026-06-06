@@ -17,10 +17,12 @@ import {
 import {
   clearOtherHomepageRowsWithSnapshots,
   createContentRevisionSnapshotForRow,
-  deleteContentWithRevision,
   getContentRevision,
+  hardDeleteContentWithRevisions,
   listContentRevisions,
+  restoreDeletedContentWithRevision,
   restoreContentRevision as restoreContentRevisionRow,
+  softDeleteContentWithRevision,
   updateContentWithRevision,
 } from "@/data/content-revisions";
 import { getCategoryById } from "@/data/content-categories";
@@ -645,6 +647,87 @@ export async function deleteContent(input: { id: string }) {
     };
   }
 
+  const wasLive = isContentLive(target);
+  const result = await softDeleteContentWithRevision({
+    row: target,
+    actorId: actor.userId,
+    changeNote: "Moved content to deleted items.",
+  });
+  if (!result.ok) {
+    return {
+      error:
+        result.reason === "not_found"
+          ? "Content not found."
+          : "Content is already deleted.",
+    };
+  }
+
+  revalidatePath("/dashboard/content");
+  if (wasLive) {
+    updateTag("top-menu");
+    revalidatePath("/", "layout");
+    revalidatePath("/");
+    revalidatePath(`/${target.slug}`);
+  }
+  return { success: true };
+}
+
+export async function restoreDeletedContent(input: { id: string }) {
+  const actor = await loadActor();
+  if (!actor) return { error: "Forbidden." };
+
+  const parsed = idSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid id." };
+
+  const target = await getContentById(parsed.data.id, { includeDeleted: true });
+  if (!target) return { error: "Content not found." };
+  if (!target.deletedAt) return { error: "Content is not deleted." };
+  if (!(await canEdit(actor, target))) return { error: "Forbidden." };
+
+  const lockError = await getListActionLockError(target.id);
+  if (lockError) return { error: lockError };
+
+  const result = await restoreDeletedContentWithRevision({
+    contentId: target.id,
+    actorId: actor.userId,
+    changeNote: "Restored deleted content.",
+  });
+  if (!result.ok) {
+    return {
+      error:
+        result.reason === "not_found"
+          ? "Content not found."
+          : "Content is not deleted.",
+    };
+  }
+
+  revalidatePath("/dashboard/content");
+  if (isContentLive(result.row)) {
+    updateTag("top-menu");
+    revalidatePath("/", "layout");
+    revalidatePath("/");
+    revalidatePath(`/${result.row.slug}`);
+  }
+  return { success: true };
+}
+
+export async function permanentlyDeleteContent(input: { id: string }) {
+  const actor = await loadActor();
+  if (!actor) return { error: "Forbidden." };
+  if (!hasRole(actor.roles, "admin")) return { error: "Forbidden." };
+
+  const parsed = idSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid id." };
+
+  const target = await getContentById(parsed.data.id, { includeDeleted: true });
+  if (!target) return { error: "Content not found." };
+  if (!target.deletedAt) {
+    return { error: "Only deleted content can be permanently deleted." };
+  }
+
+  const lockError = await getListActionLockError(target.id);
+  if (lockError) return { error: lockError };
+
   // Mark dependent menu items as broken before the FK nulls out content_id.
   const dependents = await db
     .select({ id: topMenuItems.id, label: topMenuItems.label })
@@ -666,7 +749,9 @@ export async function deleteContent(input: { id: string }) {
     );
   }
 
-  await deleteContentWithRevision({ row: target, actorId: actor.userId });
+  const result = await hardDeleteContentWithRevisions({ contentId: target.id });
+  if (!result.ok) return { error: "Content not found." };
+
   revalidatePath("/dashboard/content");
   if (dependents.length > 0) {
     updateTag("top-menu");

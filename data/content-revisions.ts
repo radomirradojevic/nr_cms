@@ -63,6 +63,18 @@ export type RestoreContentRevisionResult =
   | { ok: false; reason: "slug_conflict" }
   | { ok: false; reason: "homepage_not_live" };
 
+export type RestoreDeletedContentResult =
+  | { ok: true; row: ContentRow; previous: ContentRow }
+  | { ok: false; reason: "not_found" | "not_deleted" };
+
+export type SoftDeleteContentResult =
+  | { ok: true; row: ContentRow; previous: ContentRow }
+  | { ok: false; reason: "not_found" | "already_deleted" };
+
+export type HardDeleteContentResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" };
+
 async function lockContentRow(
   client: RevisionClient,
   contentId: string,
@@ -144,7 +156,9 @@ export async function createContentRevisionSnapshotForRow(
   const revisionNumber = await nextRevisionNumber(client, row.id);
   const rows = await client
     .insert(contentRevisions)
-    .values(snapshotValues(row, actorId, changeType, revisionNumber, changeNote))
+    .values(
+      snapshotValues(row, actorId, changeType, revisionNumber, changeNote),
+    )
     .returning();
   return rows[0];
 }
@@ -272,12 +286,12 @@ export async function updateContentWithRevision(input: {
   });
 }
 
-export async function deleteContentWithRevision(input: {
+export async function softDeleteContentWithRevision(input: {
   row: ContentRow;
   actorId: string;
   changeNote?: string | null;
-}): Promise<void> {
-  await db.transaction(async (tx) => {
+}): Promise<SoftDeleteContentResult> {
+  return db.transaction(async (tx) => {
     await lockContentRow(tx, input.row.id);
     const currentRows = await tx
       .select()
@@ -285,7 +299,8 @@ export async function deleteContentWithRevision(input: {
       .where(eq(content.id, input.row.id))
       .limit(1);
     const current = currentRows[0];
-    if (!current) return;
+    if (!current) return { ok: false, reason: "not_found" };
+    if (current.deletedAt) return { ok: false, reason: "already_deleted" };
 
     await createContentRevisionSnapshotForRow(
       tx,
@@ -294,7 +309,76 @@ export async function deleteContentWithRevision(input: {
       "deleted_snapshot",
       input.changeNote,
     );
-    await tx.delete(content).where(eq(content.id, current.id));
+    const rows = await tx
+      .update(content)
+      .set({
+        deletedAt: new Date(),
+        deletedBy: input.actorId,
+        updatedBy: input.actorId,
+        version: sql`${content.version} + 1`,
+      })
+      .where(eq(content.id, current.id))
+      .returning();
+    const row = rows[0];
+    if (!row) return { ok: false, reason: "not_found" };
+    return { ok: true, row, previous: current };
+  });
+}
+
+export async function restoreDeletedContentWithRevision(input: {
+  contentId: string;
+  actorId: string;
+  changeNote?: string | null;
+}): Promise<RestoreDeletedContentResult> {
+  return db.transaction(async (tx) => {
+    await lockContentRow(tx, input.contentId);
+    const currentRows = await tx
+      .select()
+      .from(content)
+      .where(eq(content.id, input.contentId))
+      .limit(1);
+    const current = currentRows[0];
+    if (!current) return { ok: false, reason: "not_found" };
+    if (!current.deletedAt) return { ok: false, reason: "not_deleted" };
+
+    await createContentRevisionSnapshotForRow(
+      tx,
+      current,
+      input.actorId,
+      "restored",
+      input.changeNote,
+    );
+    const rows = await tx
+      .update(content)
+      .set({
+        deletedAt: null,
+        deletedBy: null,
+        updatedBy: input.actorId,
+        version: sql`${content.version} + 1`,
+      })
+      .where(eq(content.id, input.contentId))
+      .returning();
+    const row = rows[0];
+    if (!row) return { ok: false, reason: "not_found" };
+    return { ok: true, row, previous: current };
+  });
+}
+
+export async function hardDeleteContentWithRevisions(input: {
+  contentId: string;
+}): Promise<HardDeleteContentResult> {
+  return db.transaction(async (tx) => {
+    await lockContentRow(tx, input.contentId);
+    const rows = await tx
+      .delete(content)
+      .where(eq(content.id, input.contentId))
+      .returning({ id: content.id });
+    if (!rows[0]) return { ok: false, reason: "not_found" };
+
+    await tx
+      .delete(contentRevisions)
+      .where(eq(contentRevisions.contentId, input.contentId));
+    return { ok: true };
   });
 }
 
@@ -322,10 +406,7 @@ export async function listContentRevisions(
       )
       .limit(pageSize)
       .offset(offset),
-    db
-      .select({ total: count() })
-      .from(contentRevisions)
-      .where(where),
+    db.select({ total: count() }).from(contentRevisions).where(where),
   ]);
 
   return { rows, total: totalRows[0]?.total ?? 0 };
@@ -444,10 +525,7 @@ export async function restoreContentRevision(input: {
       .select({ id: content.id })
       .from(content)
       .where(
-        and(
-          eq(content.slug, revision.slug),
-          ne(content.id, input.contentId),
-        ),
+        and(eq(content.slug, revision.slug), ne(content.id, input.contentId)),
       )
       .limit(1);
     if (slugConflicts.length > 0) {

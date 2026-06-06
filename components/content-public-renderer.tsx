@@ -42,7 +42,9 @@ function PreviewNotice({ banner }: { banner?: PreviewBanner }) {
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3">
         <span className="font-medium">Preview - not public</span>
         {expiresAt ? (
-          <span className="text-amber-900/80">Expires {expiresAt}</span>
+          <span className="text-amber-900/80">
+            Preview link expires {expiresAt}
+          </span>
         ) : null}
         {banner?.editHref ? (
           <Link

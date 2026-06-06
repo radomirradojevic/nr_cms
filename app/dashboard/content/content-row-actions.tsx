@@ -289,7 +289,7 @@ export function ContentRowActions({
                 onClick={openDeleteDialog}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                Move to Deleted content
               </DropdownMenuItem>
             </>
           )}
@@ -320,8 +320,8 @@ export function ContentRowActions({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this content?</AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-medium">{row.title}</span> will be
-              permanently deleted. This cannot be undone.
+              <span className="font-medium">{row.title}</span> will be moved to
+              Deleted content with its revision history.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {error && <p className="text-sm text-destructive px-1">{error}</p>}
@@ -340,7 +340,7 @@ export function ContentRowActions({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Delete
+              Move to Deleted content
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
