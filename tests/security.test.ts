@@ -220,6 +220,7 @@ test("client upload tickets reject tampering and expiry", () => {
       mimeType: "image/jpeg",
       sizeBytes: 1024,
       kind: "image" as const,
+      folderId: "22222222-2222-4222-8222-222222222222",
       uploadedBy: "user_123",
       exp: Date.now() + 60_000,
     };

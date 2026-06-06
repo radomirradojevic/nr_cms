@@ -4,12 +4,24 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import {
+  createFolder as createFolderRow,
+  deleteFolder as deleteFolderRow,
   deleteFiles,
+  getFilesByIds,
+  getFolderBreadcrumb,
+  getFolderById,
+  getFolderContentCounts,
+  listAllFolders,
   listFiles,
+  listFolders,
+  moveFilesToFolder,
   purgeFileReferences,
+  sanitizeFolderName,
   updateFile as updateFileRow,
+  updateFolderName,
   reassignFileOwner,
   type FileRow,
+  type FileFolderRow,
 } from "@/data/files";
 import type { FileKind } from "@/lib/file-manager";
 import { deleteUpload } from "@/lib/file-storage";
@@ -34,6 +46,26 @@ async function getCaller() {
     return null;
   }
   return { userId, isAdmin: hasRole(roles, "admin") };
+}
+
+function canManageFolder(
+  folder: FileFolderRow,
+  caller: Awaited<ReturnType<typeof getCaller>>,
+) {
+  return Boolean(
+    caller && (caller.isAdmin || folder.createdBy === caller.userId),
+  );
+}
+
+function folderMutationError(err: unknown): string {
+  const code =
+    typeof err === "object" && err !== null && "code" in err
+      ? String((err as { code?: unknown }).code)
+      : "";
+  if (code === "23505") {
+    return "A folder with that name already exists here.";
+  }
+  return "Something went wrong. Please try again.";
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────
@@ -148,6 +180,7 @@ const listFilesSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   uploadedBy: z.string().optional(),
+  folderId: z.string().uuid("Invalid folder ID.").nullable().optional(),
   limit: z.number().int().min(1).max(200).default(60),
   offset: z.number().int().min(0).default(0),
 });
@@ -165,7 +198,8 @@ export async function fetchFiles(
   const parsed = listFilesSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const { kind, search, from, to, uploadedBy, limit, offset } = parsed.data;
+  const { kind, search, from, to, uploadedBy, folderId, limit, offset } =
+    parsed.data;
 
   // Non-admins can only see their own files — silently ignore uploadedBy.
   const resolvedUploadedBy = caller.isAdmin ? uploadedBy : undefined;
@@ -178,11 +212,237 @@ export async function fetchFiles(
     from: dateOnlyToUtcStart(from, settings.regional.timezone),
     toExclusive: dateOnlyToUtcEndExclusive(to, settings.regional.timezone),
     uploadedBy: resolvedUploadedBy,
+    folderId,
     limit,
     offset,
   });
 
   return { success: true, rows, total };
+}
+
+// ─── File Manager view (folder-aware listing) ────────────────────────────────
+
+const fileManagerViewSchema = listFilesSchema.extend({
+  folderId: z.string().uuid("Invalid folder ID.").nullable().default(null),
+});
+
+export type FileManagerViewInput = z.input<typeof fileManagerViewSchema>;
+
+export async function fetchFileManagerView(
+  input: FileManagerViewInput,
+): Promise<
+  | { error: string }
+  | {
+      success: true;
+      rows: FileRow[];
+      folders: FileFolderRow[];
+      breadcrumb: FileFolderRow[];
+      total: number;
+    }
+> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+
+  const parsed = fileManagerViewSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { kind, search, from, to, uploadedBy, folderId, limit, offset } =
+    parsed.data;
+
+  if (folderId) {
+    const folder = await getFolderById(folderId);
+    if (!folder) return { error: "Folder not found." };
+  }
+
+  const resolvedUploadedBy = caller.isAdmin ? uploadedBy : undefined;
+  const settings = await getGlobalSettings();
+
+  const [{ rows, total }, folders, breadcrumb] = await Promise.all([
+    listFiles({
+      caller,
+      kind: kind as FileKind | "all",
+      search,
+      from: dateOnlyToUtcStart(from, settings.regional.timezone),
+      toExclusive: dateOnlyToUtcEndExclusive(to, settings.regional.timezone),
+      uploadedBy: resolvedUploadedBy,
+      folderId,
+      limit,
+      offset,
+    }),
+    listFolders({ parentId: folderId, search }),
+    folderId ? getFolderBreadcrumb(folderId) : Promise.resolve([]),
+  ]);
+
+  return { success: true, rows, folders, breadcrumb, total };
+}
+
+// ─── Folders ────────────────────────────────────────────────────────────────
+
+const folderNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Folder name is required.")
+  .max(100, "Folder name must be 100 characters or fewer.");
+
+const createFolderSchema = z.object({
+  name: folderNameSchema,
+  parentId: z.string().uuid("Invalid parent folder ID.").nullable().optional(),
+});
+
+export async function createFileFolder(
+  input: z.input<typeof createFolderSchema>,
+): Promise<{ error: string } | { success: true; folder: FileFolderRow }> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+
+  const parsed = createFolderSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const parentId = parsed.data.parentId ?? null;
+  if (parentId) {
+    const parent = await getFolderById(parentId);
+    if (!parent) return { error: "Parent folder not found." };
+  }
+
+  const name = sanitizeFolderName(parsed.data.name);
+  if (!name) return { error: "Folder name is required." };
+
+  try {
+    const folder = await createFolderRow({
+      name,
+      parentId,
+      actorId: caller.userId,
+    });
+    revalidatePath("/dashboard/filemanager");
+    return { success: true, folder };
+  } catch (err) {
+    console.error("[createFileFolder] Unexpected error:", err);
+    return { error: folderMutationError(err) };
+  }
+}
+
+const renameFolderSchema = z.object({
+  id: z.string().uuid("Invalid folder ID."),
+  name: folderNameSchema,
+});
+
+export async function renameFileFolder(
+  input: z.input<typeof renameFolderSchema>,
+): Promise<{ error: string } | { success: true; folder: FileFolderRow }> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+
+  const parsed = renameFolderSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const folder = await getFolderById(parsed.data.id);
+  if (!folder) return { error: "Folder not found." };
+  if (!canManageFolder(folder, caller)) {
+    return { error: "Only the creator or an admin can rename this folder." };
+  }
+
+  const name = sanitizeFolderName(parsed.data.name);
+  if (!name) return { error: "Folder name is required." };
+
+  try {
+    const updated = await updateFolderName({
+      id: parsed.data.id,
+      name,
+      actorId: caller.userId,
+    });
+    if (!updated) return { error: "Folder not found." };
+    revalidatePath("/dashboard/filemanager");
+    return { success: true, folder: updated };
+  } catch (err) {
+    console.error("[renameFileFolder] Unexpected error:", err);
+    return { error: folderMutationError(err) };
+  }
+}
+
+const deleteFolderSchema = z.object({
+  id: z.string().uuid("Invalid folder ID."),
+});
+
+export async function deleteFileFolder(
+  input: z.input<typeof deleteFolderSchema>,
+): Promise<{ error: string } | { success: true; deleted: string }> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+
+  const parsed = deleteFolderSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const folder = await getFolderById(parsed.data.id);
+  if (!folder) return { error: "Folder not found." };
+  if (!canManageFolder(folder, caller)) {
+    return { error: "Only the creator or an admin can delete this folder." };
+  }
+
+  const counts = await getFolderContentCounts(parsed.data.id);
+  if (counts.files > 0 || counts.folders > 0) {
+    return { error: "Only empty folders can be deleted." };
+  }
+
+  try {
+    const deleted = await deleteFolderRow(parsed.data.id);
+    if (!deleted) return { error: "Folder not found." };
+    revalidatePath("/dashboard/filemanager");
+    return { success: true, deleted: deleted.id };
+  } catch (err) {
+    console.error("[deleteFileFolder] Unexpected error:", err);
+    return { error: "Something went wrong. Please try again." };
+  }
+}
+
+const moveFilesSchema = z.object({
+  ids: z
+    .array(z.string().uuid("Invalid file ID."))
+    .min(1, "Select at least one file.")
+    .max(100, "Cannot move more than 100 files at once."),
+  folderId: z.string().uuid("Invalid folder ID.").nullable(),
+});
+
+export async function moveSelectedFiles(
+  input: z.input<typeof moveFilesSchema>,
+): Promise<{ error: string } | { success: true; files: FileRow[] }> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+
+  const parsed = moveFilesSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  if (parsed.data.folderId) {
+    const target = await getFolderById(parsed.data.folderId);
+    if (!target) return { error: "Target folder not found." };
+  }
+
+  const selectedRows = await getFilesByIds(parsed.data.ids, caller);
+  if (selectedRows.length !== parsed.data.ids.length) {
+    return { error: "One or more files were not found or access was denied." };
+  }
+
+  try {
+    const moved = await moveFilesToFolder(
+      parsed.data.ids,
+      parsed.data.folderId,
+      caller,
+    );
+    revalidatePath("/dashboard/filemanager");
+    return { success: true, files: moved };
+  } catch (err) {
+    console.error("[moveSelectedFiles] Unexpected error:", err);
+    return { error: "Something went wrong. Please try again." };
+  }
+}
+
+export async function fetchFolderOptions(): Promise<
+  { error: string } | { success: true; folders: FileFolderRow[] }
+> {
+  const caller = await getCaller();
+  if (!caller) return { error: "Forbidden." };
+
+  const folders = await listAllFolders();
+  return { success: true, folders };
 }
 
 // ─── Reassign file owner (admin only) ─────────────────────────────────────────

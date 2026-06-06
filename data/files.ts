@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { files, content } from "@/db/schema";
+import { files, fileFolders, content } from "@/db/schema";
 import { updateContentWithRevision } from "@/data/content-revisions";
 import {
   and,
@@ -10,6 +10,7 @@ import {
   inArray,
   count,
   gte,
+  isNull,
   lt,
   lte,
   or,
@@ -18,11 +19,31 @@ import {
 import type { FileKind } from "@/lib/file-manager";
 
 export type FileRow = typeof files.$inferSelect;
+export type FileFolderRow = typeof fileFolders.$inferSelect;
 
 export type Caller = { userId: string; isAdmin: boolean };
 
 function ownerWhere(c: Caller) {
   return c.isAdmin ? undefined : eq(files.uploadedBy, c.userId);
+}
+
+function folderParentWhere(parentId: string | null) {
+  return parentId === null
+    ? isNull(fileFolders.parentId)
+    : eq(fileFolders.parentId, parentId);
+}
+
+export function sanitizeFolderName(name: string): string {
+  return name
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[\\/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);
+}
+
+export function normalizeFolderName(name: string): string {
+  return sanitizeFolderName(name).toLowerCase();
 }
 
 export async function listFiles(opts: {
@@ -33,6 +54,7 @@ export async function listFiles(opts: {
   to?: Date;
   toExclusive?: Date;
   uploadedBy?: string;
+  folderId?: string | null;
   limit: number;
   offset: number;
 }): Promise<{ rows: FileRow[]; total: number }> {
@@ -51,6 +73,13 @@ export async function listFiles(opts: {
   if (opts.to) conditions.push(lte(files.created, opts.to));
   if (opts.toExclusive) conditions.push(lt(files.created, opts.toExclusive));
   if (opts.uploadedBy) conditions.push(eq(files.uploadedBy, opts.uploadedBy));
+  if (opts.folderId !== undefined) {
+    conditions.push(
+      opts.folderId === null
+        ? isNull(files.folderId)
+        : eq(files.folderId, opts.folderId),
+    );
+  }
 
   const where = conditions.length ? and(...conditions) : undefined;
 
@@ -65,6 +94,115 @@ export async function listFiles(opts: {
     db.select({ total: count() }).from(files).where(where),
   ]);
   return { rows, total };
+}
+
+export async function listFolders(opts: {
+  parentId: string | null;
+  search?: string;
+}): Promise<FileFolderRow[]> {
+  const conditions = [folderParentWhere(opts.parentId)];
+  if (opts.search && opts.search.trim()) {
+    conditions.push(ilike(fileFolders.name, `%${opts.search.trim()}%`));
+  }
+  return db
+    .select()
+    .from(fileFolders)
+    .where(and(...conditions))
+    .orderBy(asc(fileFolders.name), asc(fileFolders.created));
+}
+
+export async function listAllFolders(): Promise<FileFolderRow[]> {
+  return db
+    .select()
+    .from(fileFolders)
+    .orderBy(asc(fileFolders.name), asc(fileFolders.created));
+}
+
+export async function getFolderById(id: string): Promise<FileFolderRow | null> {
+  const rows = await db
+    .select()
+    .from(fileFolders)
+    .where(eq(fileFolders.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getFolderBreadcrumb(
+  id: string,
+): Promise<FileFolderRow[]> {
+  const breadcrumb: FileFolderRow[] = [];
+  let current = await getFolderById(id);
+
+  for (let depth = 0; current && depth < 50; depth += 1) {
+    breadcrumb.unshift(current);
+    if (!current.parentId) break;
+    current = await getFolderById(current.parentId);
+  }
+
+  return breadcrumb;
+}
+
+export async function createFolder(input: {
+  name: string;
+  parentId: string | null;
+  actorId: string;
+}): Promise<FileFolderRow> {
+  const cleanName = sanitizeFolderName(input.name);
+  const rows = await db
+    .insert(fileFolders)
+    .values({
+      name: cleanName,
+      normalizedName: normalizeFolderName(cleanName),
+      parentId: input.parentId,
+      createdBy: input.actorId,
+      updatedBy: input.actorId,
+    })
+    .returning();
+  return rows[0];
+}
+
+export async function updateFolderName(input: {
+  id: string;
+  name: string;
+  actorId: string;
+}): Promise<FileFolderRow | null> {
+  const cleanName = sanitizeFolderName(input.name);
+  const rows = await db
+    .update(fileFolders)
+    .set({
+      name: cleanName,
+      normalizedName: normalizeFolderName(cleanName),
+      updatedBy: input.actorId,
+    })
+    .where(eq(fileFolders.id, input.id))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function getFolderContentCounts(id: string): Promise<{
+  files: number;
+  folders: number;
+}> {
+  const [[fileCount], [folderCount]] = await Promise.all([
+    db.select({ total: count() }).from(files).where(eq(files.folderId, id)),
+    db
+      .select({ total: count() })
+      .from(fileFolders)
+      .where(eq(fileFolders.parentId, id)),
+  ]);
+
+  return {
+    files: fileCount?.total ?? 0,
+    folders: folderCount?.total ?? 0,
+  };
+}
+
+export async function deleteFolder(id: string): Promise<FileFolderRow | null> {
+  const rows = await db
+    .delete(fileFolders)
+    .where(eq(fileFolders.id, id))
+    .returning();
+  return rows[0] ?? null;
 }
 
 export async function getFileById(
@@ -89,6 +227,21 @@ export async function getFileByIdUnchecked(
   return rows[0] ?? null;
 }
 
+export async function getFilesByIds(
+  ids: string[],
+  caller: Caller,
+): Promise<FileRow[]> {
+  if (ids.length === 0) return [];
+  const conditions = [inArray(files.id, ids)];
+  const owner = ownerWhere(caller);
+  if (owner) conditions.push(owner);
+  return db
+    .select()
+    .from(files)
+    .where(and(...conditions))
+    .orderBy(desc(files.created));
+}
+
 export type InsertFileInput = {
   id?: string;
   filename: string;
@@ -100,6 +253,7 @@ export type InsertFileInput = {
   height?: number | null;
   alt?: string | null;
   title?: string | null;
+  folderId?: string | null;
   uploadedBy: string;
 };
 
@@ -140,6 +294,22 @@ export async function deleteFiles(
   if (owner) conditions.push(owner);
   return db
     .delete(files)
+    .where(and(...conditions))
+    .returning();
+}
+
+export async function moveFilesToFolder(
+  ids: string[],
+  folderId: string | null,
+  caller: Caller,
+): Promise<FileRow[]> {
+  if (ids.length === 0) return [];
+  const conditions = [inArray(files.id, ids)];
+  const owner = ownerWhere(caller);
+  if (owner) conditions.push(owner);
+  return db
+    .update(files)
+    .set({ folderId })
     .where(and(...conditions))
     .returning();
 }
