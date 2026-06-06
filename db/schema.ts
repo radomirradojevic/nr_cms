@@ -63,6 +63,8 @@ export const content = pgTable(
     authorId: text("author_id").notNull(),
     updatedBy: text("updated_by"),
     homepage: boolean("homepage").notNull().default(false),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
     enableComments: boolean("enable_comments").notNull().default(false),
     autoPublishComments: boolean("auto_publish_comments")
       .notNull()
@@ -105,6 +107,7 @@ export const content = pgTable(
       table.status,
       table.unpublishAt,
     ),
+    index("content_deleted_at_idx").on(table.deletedAt),
     index("content_type_idx").on(table.contentType),
     index("content_category_id_idx").on(table.categoryId),
     index("content_author_id_idx").on(table.authorId),

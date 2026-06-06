@@ -1,53 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";
 import { z } from "zod";
 
-import { getContentById, type ContentRow } from "@/data/content";
+import { getContentById } from "@/data/content";
 import { createContentPreviewToken } from "@/data/content-preview-tokens";
-import {
-  canCreateContentPreviewToken,
-  highestContentPreviewRole,
-} from "@/lib/content-preview-auth";
-import type { ContentStatus } from "@/lib/content-status";
+import { hasContentPreviewRole } from "@/lib/content-preview-auth";
+import { canAccessContentPreviewTarget } from "@/lib/content-preview-auth-server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
-import { getRoles, hasRole, type Role } from "@/lib/roles";
+import { getRoles } from "@/lib/roles";
 
 const bodySchema = z.object({
   contentId: z.string().uuid(),
 });
-
-async function canCreatePreviewTokenForTarget(input: {
-  actorRoles: Role[];
-  actorUserId: string;
-  target: ContentRow;
-}) {
-  const { actorRoles, actorUserId, target } = input;
-  let targetAuthorTopRole: Role | undefined;
-
-  if (
-    hasRole(actorRoles, "publisher") &&
-    target.authorId !== actorUserId &&
-    !hasRole(actorRoles, "admin")
-  ) {
-    try {
-      const client = await clerkClient();
-      const author = await client.users.getUser(target.authorId);
-      targetAuthorTopRole = highestContentPreviewRole(
-        getRoles(author.publicMetadata),
-      );
-    } catch {
-      targetAuthorTopRole = "viewer";
-    }
-  }
-
-  return canCreateContentPreviewToken({
-    actorRoles,
-    actorUserId,
-    targetAuthorId: target.authorId,
-    targetAuthorTopRole,
-    targetStatus: target.status as ContentStatus,
-  });
-}
 
 function json(
   body: Record<string, unknown>,
@@ -63,11 +26,9 @@ export async function POST(request: NextRequest) {
   if (!user) return json({ error: "Unauthorized." }, { status: 401 });
 
   const roles = getRoles(user.publicMetadata);
-  const allowed =
-    hasRole(roles, "admin") ||
-    hasRole(roles, "publisher") ||
-    hasRole(roles, "author");
-  if (!allowed) return json({ error: "Forbidden." }, { status: 403 });
+  if (!hasContentPreviewRole(roles)) {
+    return json({ error: "Forbidden." }, { status: 403 });
+  }
 
   let body: unknown;
   try {
@@ -84,7 +45,7 @@ export async function POST(request: NextRequest) {
   if (!target) return json({ error: "Content not found." }, { status: 404 });
 
   if (
-    !(await canCreatePreviewTokenForTarget({
+    !(await canAccessContentPreviewTarget({
       actorRoles: roles,
       actorUserId: user.id,
       target,

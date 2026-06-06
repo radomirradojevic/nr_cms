@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ContentPublicRenderer } from "@/components/content-public-renderer";
 import { getContentPreviewByToken } from "@/data/content-preview-tokens";
+import { hasContentPreviewRole } from "@/lib/content-preview-auth";
+import { canAccessContentPreviewTarget } from "@/lib/content-preview-auth-server";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { getRoles } from "@/lib/roles";
 
 type Props = { params: Promise<{ token: string }> };
 
@@ -26,10 +30,24 @@ export default async function ContentPreviewPage({ params }: Props) {
   const detail = await getContentPreviewByToken(token);
   if (!detail || detail.content.status === "archived") notFound();
 
+  const user = await getOptionalCurrentUser();
+  if (!user) redirect("/");
+
+  const roles = getRoles(user.publicMetadata);
+  if (!hasContentPreviewRole(roles)) redirect("/");
+
+  const canPreview = await canAccessContentPreviewTarget({
+    actorRoles: roles,
+    actorUserId: user.id,
+    target: detail.content,
+  });
+  if (!canPreview) redirect("/dashboard/content");
+
   return (
     <ContentPublicRenderer
       row={detail.content}
       preview
+      viewerRoles={roles}
       previewBanner={{
         expiresAt: detail.token.expiresAt,
       }}

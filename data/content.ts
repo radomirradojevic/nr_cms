@@ -9,6 +9,7 @@ import {
   ilike,
   inArray,
   isNull,
+  isNotNull,
   gt,
   lte,
   ne,
@@ -63,6 +64,7 @@ export type ListContentParams = {
   categoryId?: string;
   authorId?: string;
   sort?: "updated_desc" | "updated_asc" | "title_asc" | "title_desc";
+  deleted?: "exclude" | "only" | "include";
   /**
    * When provided, restrict results to rows visible to a viewer with these
    * roles. Pass `null` for an anonymous (signed-out) visitor. Leave
@@ -75,6 +77,7 @@ export type ListContentParams = {
 
 export function buildLiveContentWhere(now = new Date()): SQL {
   return and(
+    isNull(content.deletedAt),
     eq(content.status, "published"),
     or(isNull(content.publishAt), lte(content.publishAt, now)),
     or(isNull(content.unpublishAt), gt(content.unpublishAt, now)),
@@ -89,6 +92,11 @@ export async function listContent(
   const offset = (page - 1) * pageSize;
 
   const conditions: SQL[] = [];
+  if (params.deleted === "only") {
+    conditions.push(isNotNull(content.deletedAt));
+  } else if (params.deleted !== "include") {
+    conditions.push(isNull(content.deletedAt));
+  }
   if (contentType) conditions.push(eq(content.contentType, contentType));
   if (params.liveOnly) {
     conditions.push(buildLiveContentWhere());
@@ -154,6 +162,8 @@ export async function listContent(
         authorId: content.authorId,
         updatedBy: content.updatedBy,
         homepage: content.homepage,
+        deletedAt: content.deletedAt,
+        deletedBy: content.deletedBy,
         enableComments: content.enableComments,
         autoPublishComments: content.autoPublishComments,
         allowAnonymousComments: content.allowAnonymousComments,
@@ -190,6 +200,7 @@ export async function listContentTargetOptions(): Promise<
       status: content.status,
     })
     .from(content)
+    .where(isNull(content.deletedAt))
     .orderBy(asc(content.contentType), asc(content.title));
 
   return rows.map((row) => ({
@@ -345,18 +356,24 @@ export async function searchPublishedContent(params: {
 
 export async function getContentById(
   id: string,
+  options: { includeDeleted?: boolean } = {},
 ): Promise<ContentRow | undefined> {
+  const conditions: SQL[] = [eq(content.id, id)];
+  if (!options.includeDeleted) conditions.push(isNull(content.deletedAt));
   const rows = await db
     .select()
     .from(content)
-    .where(eq(content.id, id))
+    .where(and(...conditions))
     .limit(1);
   return rows[0];
 }
 
 export async function getContentByIds(ids: string[]): Promise<ContentRow[]> {
   if (ids.length === 0) return [];
-  return db.select().from(content).where(inArray(content.id, ids));
+  return db
+    .select()
+    .from(content)
+    .where(and(inArray(content.id, ids), isNull(content.deletedAt)));
 }
 
 export async function getContentBySlug(
@@ -365,7 +382,7 @@ export async function getContentBySlug(
   const rows = await db
     .select()
     .from(content)
-    .where(eq(content.slug, slug))
+    .where(and(eq(content.slug, slug), isNull(content.deletedAt)))
     .limit(1);
   return rows[0];
 }
