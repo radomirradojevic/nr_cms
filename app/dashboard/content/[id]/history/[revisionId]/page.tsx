@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { clerkClient } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ContentPublicRenderer } from "@/components/content-public-renderer";
 import { getContentById, type ContentRow } from "@/data/content";
-import { getContentRevision } from "@/data/content-revisions";
+import {
+  getContentRevision,
+  getContentRevisionNavigation,
+  type ContentRevisionNavigationItem,
+} from "@/data/content-revisions";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import {
   formatActorDisplayName,
@@ -19,6 +24,7 @@ import {
   isAuthorOnlyContentWorkflowRole,
   type ContentStatus,
 } from "@/lib/content-status";
+import { RevisionPreviewRestoreButton } from "../../../revision-preview-restore-button";
 
 type Props = {
   params: Promise<{ id: string; revisionId: string }>;
@@ -52,9 +58,9 @@ export default async function ContentRevisionPage({ params }: Props) {
 
   const revision = await getContentRevision(id, revisionNumericId);
   if (!revision) notFound();
-  const userNameMap = await getUserDisplayNameMap([
-    revision.createdBy,
-    revision.authorId,
+  const [userNameMap, revisionNavigation] = await Promise.all([
+    getUserDisplayNameMap([revision.createdBy, revision.authorId]),
+    getContentRevisionNavigation(id, revision.revisionNumber),
   ]);
   const actorName =
     userNameMap.get(revision.createdBy) ??
@@ -99,19 +105,32 @@ export default async function ContentRevisionPage({ params }: Props) {
             <Link href={`/dashboard/content/${id}/edit`}>Back to editor</Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold">
-              Revision #{revision.revisionNumber}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold">
+                Revision #{revision.revisionNumber}
+              </h1>
+              <RevisionNavigation
+                contentId={id}
+                previous={revisionNavigation.previous}
+                next={revisionNavigation.next}
+              />
+            </div>
             <p className="text-sm text-muted-foreground">
               {revision.title} / {revision.slug}
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{formatChangeType(revision.changeType)}</Badge>
-          <Badge variant="outline">
-            {getContentStatusLabel(revision.status)}
+        <div className="flex flex-wrap items-center gap-2">
+          <RevisionPreviewRestoreButton
+            contentId={row.id}
+            revisionId={revision.id}
+            revisionNumber={revision.revisionNumber}
+            expectedVersion={row.version}
+          />
+          <Badge variant="secondary">
+            {formatChangeType(revision.changeType)}
           </Badge>
+          <Badge variant="outline">{getContentStatusLabel(revision.status)}</Badge>
           <Badge variant="outline">v{revision.contentVersion}</Badge>
         </div>
       </div>
@@ -141,6 +160,87 @@ export default async function ContentRevisionPage({ params }: Props) {
       </div>
     </div>
   );
+}
+
+function RevisionNavigation({
+  contentId,
+  previous,
+  next,
+}: {
+  contentId: string;
+  previous: ContentRevisionNavigationItem | null;
+  next: ContentRevisionNavigationItem | null;
+}) {
+  return (
+    <nav
+      aria-label="Revision navigation"
+      className="inline-flex overflow-hidden rounded-md border bg-background shadow-sm"
+    >
+      {previous ? (
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="h-8 rounded-none border-r px-2.5"
+        >
+          <Link
+            href={revisionPreviewHref(contentId, previous)}
+            aria-label={`Open previous revision #${previous.revisionNumber}`}
+          >
+            <ChevronLeft aria-hidden className="size-4" />
+            <span>Previous</span>
+            <span className="text-muted-foreground">
+              #{previous.revisionNumber}
+            </span>
+          </Link>
+        </Button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 rounded-none border-r px-2.5"
+          disabled
+        >
+          <ChevronLeft aria-hidden className="size-4" />
+          <span>Previous</span>
+        </Button>
+      )}
+      {next ? (
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="h-8 rounded-none px-2.5"
+        >
+          <Link
+            href={revisionPreviewHref(contentId, next)}
+            aria-label={`Open next revision #${next.revisionNumber}`}
+          >
+            <span>Next</span>
+            <span className="text-muted-foreground">#{next.revisionNumber}</span>
+            <ChevronRight aria-hidden className="size-4" />
+          </Link>
+        </Button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 rounded-none px-2.5"
+          disabled
+        >
+          <span>Next</span>
+          <ChevronRight aria-hidden className="size-4" />
+        </Button>
+      )}
+    </nav>
+  );
+}
+
+function revisionPreviewHref(
+  contentId: string,
+  revision: ContentRevisionNavigationItem,
+): string {
+  return `/dashboard/content/${contentId}/history/${revision.id}`;
 }
 
 function Meta({ label, value }: { label: string; value: string }) {

@@ -1,10 +1,23 @@
 import "server-only";
 
-import { and, count, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  lt,
+  ne,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 
 import { db } from "@/db";
 import { content, contentRevisions } from "@/db/schema";
 import type { ContentRow } from "@/data/content";
+import { getGlobalSettings } from "@/data/global-settings";
 import { hasMeaningfulContentChanges } from "@/lib/content-change-detection";
 import { isContentLive } from "@/lib/content-schedule";
 import type { ContentStatus } from "@/lib/content-status";
@@ -17,6 +30,10 @@ type RevisionClient = Pick<
 
 export type ContentRevisionRow = typeof contentRevisions.$inferSelect;
 export type NewContentRevision = typeof contentRevisions.$inferInsert;
+export type ContentRevisionNavigationItem = {
+  id: number;
+  revisionNumber: number;
+};
 
 export type ListContentRevisionsParams = {
   page?: number;
@@ -110,13 +127,20 @@ async function nextRevisionNumber(
   return rows[0]?.revisionNumber ?? 1;
 }
 
+async function shouldCreateContentRevision(): Promise<boolean> {
+  const settings = await getGlobalSettings();
+  return settings.contentHistory.enabled;
+}
+
 export async function createContentRevisionSnapshotForRow(
   client: RevisionClient,
   row: ContentRow,
   actorId: string,
   changeType: ContentRevisionChangeType,
   changeNote?: string | null,
-): Promise<ContentRevisionRow> {
+): Promise<ContentRevisionRow | null> {
+  if (!(await shouldCreateContentRevision())) return null;
+
   const revisionNumber = await nextRevisionNumber(client, row.id);
   const rows = await client
     .insert(contentRevisions)
@@ -322,6 +346,50 @@ export async function getContentRevision(
     )
     .limit(1);
   return rows[0];
+}
+
+export async function getContentRevisionNavigation(
+  contentId: string,
+  revisionNumber: number,
+): Promise<{
+  previous: ContentRevisionNavigationItem | null;
+  next: ContentRevisionNavigationItem | null;
+}> {
+  const [previousRows, nextRows] = await Promise.all([
+    db
+      .select({
+        id: contentRevisions.id,
+        revisionNumber: contentRevisions.revisionNumber,
+      })
+      .from(contentRevisions)
+      .where(
+        and(
+          eq(contentRevisions.contentId, contentId),
+          lt(contentRevisions.revisionNumber, revisionNumber),
+        ),
+      )
+      .orderBy(desc(contentRevisions.revisionNumber))
+      .limit(1),
+    db
+      .select({
+        id: contentRevisions.id,
+        revisionNumber: contentRevisions.revisionNumber,
+      })
+      .from(contentRevisions)
+      .where(
+        and(
+          eq(contentRevisions.contentId, contentId),
+          gt(contentRevisions.revisionNumber, revisionNumber),
+        ),
+      )
+      .orderBy(asc(contentRevisions.revisionNumber))
+      .limit(1),
+  ]);
+
+  return {
+    previous: previousRows[0] ?? null,
+    next: nextRows[0] ?? null,
+  };
 }
 
 export async function restoreContentRevision(input: {

@@ -132,6 +132,7 @@ type Props = {
   history?: {
     revisions: ContentHistoryRevision[];
     total: number;
+    enabled: boolean;
   };
   initial?: {
     id: string;
@@ -1081,6 +1082,7 @@ export function ContentForm({
         contentId={initial.id}
         revisions={history?.revisions ?? []}
         total={history?.total ?? 0}
+        contentHistoryEnabled={history?.enabled ?? true}
         current={{
           slug: slugify(slug),
           status,
