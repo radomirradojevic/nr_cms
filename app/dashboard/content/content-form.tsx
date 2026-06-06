@@ -114,6 +114,11 @@ import {
   getAiProviderModelCostWarning,
 } from "@/lib/ai-model-cost-warnings";
 import { useContentEditLockOptional } from "@/components/content-edit-lock-provider";
+import { useRegionalSettings } from "@/components/regional-settings-provider";
+import {
+  dateTimeLocalInputToUtc,
+  formatDateTimeLocalInputValue,
+} from "@/lib/regional-settings";
 
 export type ContentFormCategory = { id: string; name: string };
 
@@ -174,6 +179,7 @@ export function ContentForm({
   initial,
 }: Props) {
   const router = useRouter();
+  const { timezone } = useRegionalSettings();
   const [pending, startTransition] = useTransition();
   const saveInFlightRef = useRef(false);
   const [saveInFlight, setSaveInFlight] = useState(false);
@@ -234,10 +240,10 @@ export function ContentForm({
     initial?.status ?? "draft",
   );
   const [publishAt, setPublishAt] = useState(() =>
-    toDatetimeLocalValue(initial?.publishAt),
+    toDatetimeLocalValue(initial?.publishAt, timezone),
   );
   const [unpublishAt, setUnpublishAt] = useState(() =>
-    toDatetimeLocalValue(initial?.unpublishAt),
+    toDatetimeLocalValue(initial?.unpublishAt, timezone),
   );
   const [aiProviderId, setAiProviderId] = useState<AIProviderId>(
     () =>
@@ -599,6 +605,8 @@ export function ContentForm({
     const effectiveStatus = statusOverride ?? status;
     const effectivePublishAt = scheduleOverride?.publishAt ?? publishAt;
     const effectiveUnpublishAt = scheduleOverride?.unpublishAt ?? unpublishAt;
+    const effectivePublishAtIso = toIsoOrNull(effectivePublishAt, timezone);
+    const effectiveUnpublishAtIso = toIsoOrNull(effectiveUnpublishAt, timezone);
     if (statusOverride) setStatus(statusOverride);
     if (scheduleOverride?.publishAt !== undefined) {
       setPublishAt(scheduleOverride.publishAt ?? "");
@@ -644,8 +652,8 @@ export function ContentForm({
             ...(canChooseStatus ? { status: effectiveStatus } : {}),
             ...(canChooseStatus
               ? {
-                  publishAt: effectivePublishAt || null,
-                  unpublishAt: effectiveUnpublishAt || null,
+                  publishAt: effectivePublishAtIso,
+                  unpublishAt: effectiveUnpublishAtIso,
                 }
               : {}),
             ...(isAdmin && contentType === "page" ? { homepage } : {}),
@@ -673,8 +681,8 @@ export function ContentForm({
               : {}),
             ...(canChooseStatus
               ? {
-                  publishAt: effectivePublishAt || null,
-                  unpublishAt: effectiveUnpublishAt || null,
+                  publishAt: effectivePublishAtIso,
+                  unpublishAt: effectiveUnpublishAtIso,
                 }
               : {}),
             ...(isAdmin && contentType === "page" ? { homepage } : {}),
@@ -739,7 +747,8 @@ export function ContentForm({
     !canChooseStatus && mode === "edit" && status === "in_review";
   const hasSchedule = Boolean(publishAt || unpublishAt);
   const publishAtIsFuture = publishAt
-    ? new Date(publishAt).getTime() > Date.now()
+    ? (dateTimeLocalInputToUtc(publishAt, timezone)?.getTime() ?? 0) >
+      Date.now()
     : false;
   const scheduleSummary = [
     publishAt ? `Publish at ${publishAt.replace("T", " ")}` : null,
@@ -1087,8 +1096,8 @@ export function ContentForm({
           slug: slugify(slug),
           status,
           homepage,
-          publishAt: toIsoOrNull(publishAt),
-          unpublishAt: toIsoOrNull(unpublishAt),
+          publishAt: toIsoOrNull(publishAt, timezone),
+          unpublishAt: toIsoOrNull(unpublishAt, timezone),
         }}
         expectedVersion={lock?.contentVersion}
         lockClientId={lock?.clientId}
@@ -1623,18 +1632,16 @@ function toSidebarSettingsTab(
   return tab;
 }
 
-function toDatetimeLocalValue(value: string | Date | null | undefined) {
-  if (!value) return "";
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const offsetMs = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+function toDatetimeLocalValue(
+  value: string | Date | null | undefined,
+  timeZone: string,
+) {
+  return formatDateTimeLocalInputValue(value, timeZone);
 }
 
-function toIsoOrNull(value: string | null | undefined) {
+function toIsoOrNull(value: string | null | undefined, timeZone: string) {
   if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  return dateTimeLocalInputToUtc(value, timeZone)?.toISOString() ?? null;
 }
 
 type AiTextAssistFieldProps = {

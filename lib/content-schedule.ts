@@ -3,6 +3,7 @@ import {
   hasElevatedContentWorkflowRole,
   type ContentStatus,
 } from "@/lib/content-status";
+import { dateTimeLocalInputToUtc } from "@/lib/regional-settings";
 
 export type ContentScheduleDateInput = string | Date | null | undefined;
 
@@ -27,17 +28,30 @@ function toDate(value: string | Date | null | undefined): Date | null {
 function parseScheduleDate(
   value: ContentScheduleDateInput,
   label: string,
+  timeZone?: string,
 ): ParsedScheduleDate {
   if (value === undefined) return { ok: true, provided: false };
   if (value === null || value === "") {
     return { ok: true, provided: true, value: null };
   }
 
-  const date = value instanceof Date ? value : new Date(value);
+  const date =
+    typeof value === "string" && timeZone && !hasExplicitTimeZone(value)
+      ? dateTimeLocalInputToUtc(value, timeZone)
+      : value instanceof Date
+        ? value
+        : new Date(value);
+  if (!date) {
+    return { ok: false, error: `${label} must be a valid date and time.` };
+  }
   if (Number.isNaN(date.getTime())) {
     return { ok: false, error: `${label} must be a valid date and time.` };
   }
   return { ok: true, provided: true, value: date };
+}
+
+function hasExplicitTimeZone(value: string): boolean {
+  return /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
 }
 
 export function isContentLive(
@@ -83,6 +97,7 @@ export function normalizeContentScheduleForWrite(input: {
   unpublishAtInput?: ContentScheduleDateInput;
   currentPublishAt?: Date | null;
   currentUnpublishAt?: Date | null;
+  timeZone?: string;
   now?: Date;
 }):
   | {
@@ -105,11 +120,16 @@ export function normalizeContentScheduleForWrite(input: {
     };
   }
 
-  const parsedPublishAt = parseScheduleDate(input.publishAtInput, "Publish at");
+  const parsedPublishAt = parseScheduleDate(
+    input.publishAtInput,
+    "Publish at",
+    input.timeZone,
+  );
   if (!parsedPublishAt.ok) return parsedPublishAt;
   const parsedUnpublishAt = parseScheduleDate(
     input.unpublishAtInput,
     "Unpublish at",
+    input.timeZone,
   );
   if (!parsedUnpublishAt.ok) return parsedUnpublishAt;
 
@@ -168,6 +188,7 @@ export function normalizeContentScheduleForRestore(input: {
   status: ContentStatus;
   publishAtInput?: ContentScheduleDateInput;
   unpublishAtInput?: ContentScheduleDateInput;
+  timeZone?: string;
   now?: Date;
 }):
   | {
@@ -193,11 +214,16 @@ export function normalizeContentScheduleForRestore(input: {
     };
   }
 
-  const parsedPublishAt = parseScheduleDate(input.publishAtInput, "Publish at");
+  const parsedPublishAt = parseScheduleDate(
+    input.publishAtInput,
+    "Publish at",
+    input.timeZone,
+  );
   if (!parsedPublishAt.ok) return parsedPublishAt;
   const parsedUnpublishAt = parseScheduleDate(
     input.unpublishAtInput,
     "Unpublish at",
+    input.timeZone,
   );
   if (!parsedUnpublishAt.ok) return parsedUnpublishAt;
 

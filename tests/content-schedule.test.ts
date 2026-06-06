@@ -7,6 +7,10 @@ import {
   normalizeContentScheduleForRestore,
   normalizeContentScheduleForWrite,
 } from "@/lib/content-schedule";
+import {
+  dateTimeLocalInputToUtc,
+  formatDateTimeLocalInputValue,
+} from "@/lib/regional-settings";
 
 const NOW = new Date("2026-06-05T10:00:00.000Z");
 const PAST = new Date("2026-06-05T09:00:00.000Z");
@@ -93,6 +97,39 @@ test("publisher/admin scheduling rules reject invalid windows", () => {
     unpublishAt: null,
     ignoredInput: false,
   });
+});
+
+test("timezone-less schedule input uses configured regional timezone", () => {
+  const publishAt = dateTimeLocalInputToUtc(
+    "2026-06-06T19:15",
+    "Europe/Belgrade",
+  );
+  assert.equal(publishAt?.toISOString(), "2026-06-06T17:15:00.000Z");
+  assert.equal(
+    formatDateTimeLocalInputValue(publishAt, "Europe/Belgrade"),
+    "2026-06-06T19:15",
+  );
+
+  const scheduled = normalizeContentScheduleForWrite({
+    actorRoles: ["publisher"],
+    status: "approved",
+    publishAtInput: "2026-06-06T19:15",
+    unpublishAtInput: "2026-06-06T19:17",
+    timeZone: "Europe/Belgrade",
+    now: NOW,
+  });
+
+  assert.equal(scheduled.ok, true);
+  if (scheduled.ok) {
+    assert.equal(
+      scheduled.publishAt?.toISOString(),
+      "2026-06-06T17:15:00.000Z",
+    );
+    assert.equal(
+      scheduled.unpublishAt?.toISOString(),
+      "2026-06-06T17:17:00.000Z",
+    );
+  }
 });
 
 test("restore clears fully expired approved schedule windows", () => {
