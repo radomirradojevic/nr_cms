@@ -11,6 +11,7 @@ export type ClientUploadTicketPayload = {
   mimeType: string;
   sizeBytes: number;
   kind: FileKind;
+  folderId?: string | null;
   uploadedBy: string;
   exp: number;
 };

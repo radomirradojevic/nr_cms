@@ -280,6 +280,34 @@ export const topMenuItems = pgTable(
   ],
 );
 
+export const fileFolders = pgTable(
+  "file_folders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    parentId: uuid("parent_id").references((): AnyPgColumn => fileFolders.id, {
+      onDelete: "restrict",
+    }),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by"),
+    created: timestamp("created", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated: timestamp("updated", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("file_folders_parent_name_unique")
+      .on(table.parentId, table.normalizedName)
+      .nullsNotDistinct(),
+    index("file_folders_parent_idx").on(table.parentId),
+    index("file_folders_created_by_idx").on(table.createdBy),
+  ],
+);
+
 export const files = pgTable(
   "files",
   {
@@ -293,6 +321,9 @@ export const files = pgTable(
     height: integer("height"),
     alt: text("alt"),
     title: text("title"),
+    folderId: uuid("folder_id").references(() => fileFolders.id, {
+      onDelete: "set null",
+    }),
     uploadedBy: text("uploaded_by").notNull(),
     created: timestamp("created", { withTimezone: true })
       .notNull()
@@ -311,6 +342,7 @@ export const files = pgTable(
     index("files_kind_idx").on(table.kind),
     index("files_created_idx").on(table.created),
     index("files_mime_type_idx").on(table.mimeType),
+    index("files_folder_id_idx").on(table.folderId),
   ],
 );
 
