@@ -31,6 +31,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  isValidMenuUrl,
+  MENU_URL_VALIDATION_MESSAGE,
+} from "@/lib/menu-url";
 import { updateMenuItem } from "./actions";
 
 type Props = {
@@ -69,10 +73,7 @@ export function EditItemDialog({
           .string()
           .min(1, "URL is required.")
           .max(2000)
-          .refine(
-            (v) => /^https?:\/\//i.test(v) || v.startsWith("/"),
-            "Must start with http(s):// or /",
-          ),
+          .refine(isValidMenuUrl, MENU_URL_VALIDATION_MESSAGE),
     target: z.enum(["_self", "_blank"]),
   });
   type FormValues = z.infer<typeof formSchema>;
