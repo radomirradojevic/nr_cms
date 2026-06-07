@@ -279,6 +279,19 @@ html[data-appearance-motion="reduced"].theme-aurora body::before {
   }
 }
 
+.datetime-local-picker-contrast {
+  color-scheme: light;
+}
+
+.dark .datetime-local-picker-contrast {
+  color-scheme: dark;
+}
+
+.datetime-local-picker-contrast::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0;
+}
+
 /*
  * Configurable glowing borders for layout regions.
  *
