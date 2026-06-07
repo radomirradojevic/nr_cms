@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+  CalendarIcon,
   Clock,
   Eye,
   FolderTree,
@@ -182,6 +183,8 @@ export function ContentForm({
   const { timezone } = useRegionalSettings();
   const [pending, startTransition] = useTransition();
   const saveInFlightRef = useRef(false);
+  const publishAtInputRef = useRef<HTMLInputElement>(null);
+  const unpublishAtInputRef = useRef<HTMLInputElement>(null);
   const [saveInFlight, setSaveInFlight] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewPending, setPreviewPending] = useState(false);
@@ -245,6 +248,25 @@ export function ContentForm({
   const [unpublishAt, setUnpublishAt] = useState(() =>
     toDatetimeLocalValue(initial?.unpublishAt, timezone),
   );
+  const showDateTimePicker = useCallback((input: HTMLInputElement | null) => {
+    if (!input) {
+      return;
+    }
+
+    input.focus();
+
+    const pickerInput = input as HTMLInputElement & {
+      showPicker?: () => void;
+    };
+
+    if (typeof pickerInput.showPicker === "function") {
+      try {
+        pickerInput.showPicker();
+      } catch {
+        input.focus();
+      }
+    }
+  }, []);
   const [aiProviderId, setAiProviderId] = useState<AIProviderId>(
     () =>
       aiWritingAssistantDefaultProvider ?? aiProviderOptions[0]?.id ?? "openai",
@@ -819,23 +841,49 @@ export function ContentForm({
           <div className="grid gap-3">
             <div className="space-y-2">
               <Label htmlFor="publish-at">Publish at</Label>
-              <Input
-                id="publish-at"
-                type="datetime-local"
-                step={60}
-                value={publishAt}
-                onChange={(event) => setPublishAt(event.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="publish-at"
+                  ref={publishAtInputRef}
+                  type="datetime-local"
+                  className="datetime-local-picker-contrast pr-9"
+                  step={60}
+                  value={publishAt}
+                  onChange={(event) => setPublishAt(event.target.value)}
+                />
+                <button
+                  type="button"
+                  aria-label="Open publish date picker"
+                  className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-foreground/75 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => showDateTimePicker(publishAtInputRef.current)}
+                >
+                  <CalendarIcon aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="unpublish-at">Unpublish at</Label>
-              <Input
-                id="unpublish-at"
-                type="datetime-local"
-                step={60}
-                value={unpublishAt}
-                onChange={(event) => setUnpublishAt(event.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="unpublish-at"
+                  ref={unpublishAtInputRef}
+                  type="datetime-local"
+                  className="datetime-local-picker-contrast pr-9"
+                  step={60}
+                  value={unpublishAt}
+                  onChange={(event) => setUnpublishAt(event.target.value)}
+                />
+                <button
+                  type="button"
+                  aria-label="Open unpublish date picker"
+                  className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-foreground/75 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() =>
+                    showDateTimePicker(unpublishAtInputRef.current)
+                  }
+                >
+                  <CalendarIcon aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
