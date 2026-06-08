@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, Images, LayoutTemplate } from "lucide-react";
+import { FileText, Images, LayoutTemplate, Store } from "lucide-react";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
+import { canCreateContentType } from "@/lib/content-type-permissions";
 
 export default async function NewContentChoicePage() {
   const user = await getOptionalCurrentUser();
@@ -12,6 +13,7 @@ export default async function NewContentChoicePage() {
     hasRole(roles, "publisher") ||
     hasRole(roles, "author");
   if (!allowed) redirect("/dashboard");
+  const canCreateWebshop = canCreateContentType(roles, "webshop");
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
@@ -21,7 +23,7 @@ export default async function NewContentChoicePage() {
           Choose what you want to create.
         </p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link
           href="/dashboard/content/new/page"
           className="rounded-lg border p-6 hover:border-primary transition-colors group"
@@ -52,6 +54,18 @@ export default async function NewContentChoicePage() {
             Create reusable hero slides for page builder embeds.
           </p>
         </Link>
+        {canCreateWebshop && (
+          <Link
+            href="/dashboard/webshop"
+            className="rounded-lg border p-6 hover:border-primary transition-colors group"
+          >
+            <Store className="h-10 w-10 text-muted-foreground group-hover:text-primary" />
+            <h2 className="mt-4 text-lg font-semibold">Webshop</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Set up the paid commerce add-on and CMS shell.
+            </p>
+          </Link>
+        )}
       </div>
     </div>
   );

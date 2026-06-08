@@ -273,6 +273,7 @@ async function canViewHistory(input: {
   row: ContentRow;
 }): Promise<boolean> {
   if (hasRole(input.roles, "admin")) return true;
+  if (input.row.contentType === "webshop") return false;
 
   const isOwn = input.row.authorId === input.currentUserId;
   if (isOwn) {

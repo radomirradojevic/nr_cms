@@ -28,6 +28,7 @@ export async function SiteTopMenu({
   isLoggedIn = false,
   showMobileAuthControls = true,
   showMobileBackendMenu = true,
+  hasWebshopShell = false,
 }: {
   menuId: string | null;
   isBackendUser?: boolean;
@@ -35,6 +36,7 @@ export async function SiteTopMenu({
   isLoggedIn?: boolean;
   showMobileAuthControls?: boolean;
   showMobileBackendMenu?: boolean;
+  hasWebshopShell?: boolean;
 }) {
   const me = menuId ? await getOptionalCurrentUser(true) : null;
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
@@ -62,6 +64,7 @@ export async function SiteTopMenu({
         isLoggedIn={isLoggedIn}
         showAuthControls={showMobileAuthControls}
         showBackendMenu={showMobileBackendMenu}
+        hasWebshopShell={hasWebshopShell}
       />
     </>
   );

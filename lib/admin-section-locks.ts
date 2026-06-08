@@ -25,6 +25,9 @@ export const ADMIN_SECTION_KEYS = [
   "global-settings",
   "top-menu",
   "menus",
+  "webshop-payments",
+  "webshop-settings",
+  "webshop-storefront",
 ] as const;
 export type AdminSectionKey = (typeof ADMIN_SECTION_KEYS)[number];
 

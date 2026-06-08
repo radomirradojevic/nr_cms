@@ -25,6 +25,9 @@ const SuggestionRequestSchema = z.object({
   title: z.string().trim().max(200).optional(),
   excerpt: z.string().trim().max(2_000).optional(),
   content: z.string().trim().max(8_000).optional(),
+  surface: z
+    .enum(["blogEditor", "pageBuilder", "productEditor"])
+    .default("blogEditor"),
   before: z.string().max(4_000),
   after: z.string().max(1_000).optional(),
 });
@@ -142,10 +145,13 @@ function buildSuggestionPrompt(
   customInstructions: string | null,
 ) {
   return [
-    "You are an inline autocomplete assistant for a CMS blog editor.",
+    getSuggestionSurfaceIntro(body.surface),
     "Continue exactly from the cursor. Return only the suggested continuation.",
     "Do not explain, do not wrap the answer in quotes, and do not repeat the text before the cursor.",
     "Keep the continuation short: usually a phrase or one sentence.",
+    body.surface === "productEditor"
+      ? "Do not invent warranty, certification, shipping speed, discounts, health claims, origin claims, stock claims, or compatibility claims unless they are explicitly present in the input."
+      : "",
     "Include leading whitespace only when it is needed to continue naturally.",
     getSuggestionFieldInstruction(body.field ?? "content"),
     customInstructions ? `Editorial instructions: ${customInstructions}` : "",
@@ -162,6 +168,20 @@ function buildSuggestionPrompt(
   ]
     .filter((line) => line.length > 0)
     .join("\n");
+}
+
+function getSuggestionSurfaceIntro(
+  surface: z.infer<typeof SuggestionRequestSchema>["surface"],
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return "You are an inline autocomplete assistant for a CMS page builder.";
+    case "productEditor":
+      return "You are an inline autocomplete assistant for a private Webshop product editor.";
+    case "blogEditor":
+    default:
+      return "You are an inline autocomplete assistant for a CMS blog editor.";
+  }
 }
 
 function getSuggestionFieldInstruction(

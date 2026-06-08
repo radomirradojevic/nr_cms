@@ -16,6 +16,7 @@ import { content, contentCategories, menus, topMenuItems } from "@/db/schema";
 import { canViewContent } from "@/lib/content-visibility";
 import { isContentLive } from "@/lib/content-schedule";
 import type { Role } from "@/lib/roles";
+import type { ContentType } from "@/lib/content-types";
 
 export type MenuRow = typeof menus.$inferSelect;
 export type TopMenuItemRow = typeof topMenuItems.$inferSelect;
@@ -324,7 +325,7 @@ export type ContentPickerItem = {
   id: string;
   title: string;
   slug: string;
-  contentType: "page" | "blog_post" | "hero_slider";
+  contentType: ContentType;
   status: string;
   publishAt: Date | null;
   unpublishAt: Date | null;
@@ -347,7 +348,7 @@ export async function listPickableContent(): Promise<ContentPickerItem[]> {
     id: r.id,
     title: r.title,
     slug: r.slug,
-    contentType: r.contentType as "page" | "blog_post" | "hero_slider",
+    contentType: r.contentType as ContentType,
     status: r.status,
     publishAt: r.publishAt,
     unpublishAt: r.unpublishAt,

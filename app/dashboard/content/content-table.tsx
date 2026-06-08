@@ -26,12 +26,13 @@ import { ContentRowActions } from "./content-row-actions";
 import { BatchActions } from "./batch-actions";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
 import { DeletedContentRowActions } from "./deleted-content-row-actions";
+import { getContentTypeLabel, type ContentType } from "@/lib/content-types";
 
 type AllowedPageSize = 10 | 20 | 30;
 
 export type ContentRow = {
   id: string;
-  contentType: "page" | "blog_post" | "hero_slider";
+  contentType: ContentType;
   categoryId: string;
   categoryName: string;
   title: string;
@@ -270,11 +271,7 @@ export function ContentTable({
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {row.contentType === "page"
-                          ? "Page"
-                          : row.contentType === "hero_slider"
-                            ? "Hero Slider"
-                            : "Blog post"}
+                        {getContentTypeLabel(row.contentType)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">

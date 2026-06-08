@@ -38,6 +38,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# private add-ons and services
+.private/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

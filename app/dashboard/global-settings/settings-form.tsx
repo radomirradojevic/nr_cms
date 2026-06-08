@@ -1283,6 +1283,7 @@ const EMPTY_VISIBILITY_TARGETS: ShellVisibilityTargets = {
   pageIds: [],
   blogPostIds: [],
   heroSliderIds: [],
+  webshopIds: [],
   blogCategoryIds: [],
   adminPageIds: [],
 };
@@ -1299,6 +1300,7 @@ function cloneVisibilityTargets(
     pageIds: uniqueStrings(targets.pageIds),
     blogPostIds: uniqueStrings(targets.blogPostIds),
     heroSliderIds: uniqueStrings(targets.heroSliderIds),
+    webshopIds: uniqueStrings(targets.webshopIds),
     blogCategoryIds: uniqueStrings(targets.blogCategoryIds),
     adminPageIds: uniqueStrings(targets.adminPageIds),
   };
@@ -1749,6 +1751,17 @@ export function SettingsForm({
       label: "Hero Sliders",
       options: visibilityContentTargets
         .filter((item) => item.contentType === "hero_slider")
+        .map((item) => ({
+          id: item.id,
+          label: item.title,
+          meta: `/${item.slug} · ${item.status}`,
+        })),
+    },
+    {
+      key: "webshopIds",
+      label: "Webshops",
+      options: visibilityContentTargets
+        .filter((item) => item.contentType === "webshop")
         .map((item) => ({
           id: item.id,
           label: item.title,

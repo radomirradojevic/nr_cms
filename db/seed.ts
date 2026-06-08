@@ -8,6 +8,7 @@ async function seed() {
     .values([
       { name: "site", contentType: "page" },
       { name: "blog", contentType: "blog_post" },
+      { name: "Webshop", contentType: "webshop" },
     ])
     .onConflictDoNothing();
 

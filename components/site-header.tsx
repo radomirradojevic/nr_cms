@@ -29,11 +29,12 @@ type SiteHeaderProps = {
   isBackendUser: boolean;
   isAdmin: boolean;
   isLoggedIn: boolean;
+  hasWebshopShell: boolean;
 };
 
 type HeaderContext = Pick<
   SiteHeaderProps,
-  "isBackendUser" | "isAdmin" | "isLoggedIn"
+  "isBackendUser" | "isAdmin" | "isLoggedIn" | "hasWebshopShell"
 >;
 
 function slotIsVisible(
@@ -277,6 +278,7 @@ function renderSiteMenuSlot({
   isLoggedIn,
   showMobileAuthControls,
   showMobileBackendMenu,
+  hasWebshopShell,
 }: {
   slot: SlotOf<"SiteMenu"> | null;
   navigationMenuId: string | null;
@@ -285,6 +287,7 @@ function renderSiteMenuSlot({
   isLoggedIn: boolean;
   showMobileAuthControls: boolean;
   showMobileBackendMenu: boolean;
+  hasWebshopShell: boolean;
 }) {
   const menuId = slot ? navigationMenuId : null;
   const shouldRender =
@@ -300,6 +303,7 @@ function renderSiteMenuSlot({
       isLoggedIn={isLoggedIn}
       showMobileAuthControls={showMobileAuthControls}
       showMobileBackendMenu={showMobileBackendMenu}
+      hasWebshopShell={hasWebshopShell}
     />
   );
 }
@@ -308,10 +312,12 @@ function renderAdminMenuSlot({
   slot,
   isBackendUser,
   isAdmin,
+  hasWebshopShell,
 }: {
   slot: SlotOf<"AdminMenu"> | null;
   isBackendUser: boolean;
   isAdmin: boolean;
+  hasWebshopShell: boolean;
 }) {
   if (!slot) return null;
 
@@ -319,6 +325,7 @@ function renderAdminMenuSlot({
     <SiteAdminMenu
       fallbackIsBackendUser={isBackendUser}
       fallbackIsAdmin={isAdmin}
+      hasWebshopShell={hasWebshopShell}
     />
   );
 }
@@ -416,6 +423,7 @@ export function SiteHeader({
   isBackendUser,
   isAdmin,
   isLoggedIn,
+  hasWebshopShell,
 }: SiteHeaderProps) {
   const launcher = (
     <div data-shell-header-launcher>
@@ -423,6 +431,7 @@ export function SiteHeader({
         fallbackIsBackendUser={isBackendUser}
         fallbackIsAdmin={isAdmin}
         fallbackIsLoggedIn={isLoggedIn}
+        hasWebshopShell={hasWebshopShell}
       />
     </div>
   );
@@ -431,7 +440,7 @@ export function SiteHeader({
     return launcher;
   }
 
-  const context = { isBackendUser, isAdmin, isLoggedIn };
+  const context = { isBackendUser, isAdmin, isLoggedIn, hasWebshopShell };
   const brandSlot = findEnabledSlot(region.slots, "Brand", context);
   const customHtmlSlot = findEnabledSlot(region.slots, "CustomHtml", context);
   const richTextSlot = findEnabledSlot(region.slots, "RichText", context);
@@ -461,11 +470,13 @@ export function SiteHeader({
     isLoggedIn,
     showMobileAuthControls: Boolean(authControlsSlot),
     showMobileBackendMenu: Boolean(adminMenuSlot),
+    hasWebshopShell,
   });
   const adminMenu = renderAdminMenuSlot({
     slot: adminMenuSlot,
     isBackendUser,
     isAdmin,
+    hasWebshopShell,
   });
   const authControls = renderAuthControlsSlot({
     slot: authControlsSlot,

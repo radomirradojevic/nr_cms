@@ -3,6 +3,7 @@ import type { TopMenuTreeNode } from "@/data/top-menu";
 type BackendMenuAccess = {
   isBackendUser: boolean;
   isAdmin: boolean;
+  hasWebshopShell?: boolean;
 };
 
 type BackendMenuNodeDefinition = {
@@ -48,6 +49,12 @@ const BACKEND_MENU: BackendMenuNodeDefinition[] = [
     ],
   },
   {
+    id: "webshop",
+    href: "/dashboard/webshop",
+    label: "Webshop",
+    adminOnly: true,
+  },
+  {
     id: "filemanager",
     href: "/dashboard/filemanager",
     label: "File Manager",
@@ -72,10 +79,11 @@ const BACKEND_MENU: BackendMenuNodeDefinition[] = [
 export function getBackendMenuTree({
   isBackendUser,
   isAdmin,
+  hasWebshopShell = false,
 }: BackendMenuAccess): TopMenuTreeNode[] {
   if (!isBackendUser) return [];
   return BACKEND_MENU.map((item, order) =>
-    toTopMenuNode(item, null, order, isAdmin),
+    toTopMenuNode(item, null, order, { hasWebshopShell, isAdmin }),
   ).filter((item): item is TopMenuTreeNode => item !== null);
 }
 
@@ -104,9 +112,10 @@ function toTopMenuNode(
   item: BackendMenuNodeDefinition,
   parentId: string | null,
   order: number,
-  isAdmin: boolean,
+  access: { hasWebshopShell: boolean; isAdmin: boolean },
 ): TopMenuTreeNode | null {
-  if (item.adminOnly && !isAdmin) return null;
+  if (item.id === "webshop" && !access.hasWebshopShell) return null;
+  if (item.adminOnly && !access.isAdmin) return null;
 
   const id = `backend:${item.id}`;
   return {
@@ -119,7 +128,7 @@ function toTopMenuNode(
     categoryId: null,
     target: "_self",
     children: (item.children ?? [])
-      .map((child, childOrder) => toTopMenuNode(child, id, childOrder, isAdmin))
+      .map((child, childOrder) => toTopMenuNode(child, id, childOrder, access))
       .filter((child): child is TopMenuTreeNode => child !== null),
   };
 }

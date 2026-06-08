@@ -30,6 +30,7 @@ import { getRoles, hasRole } from "@/lib/roles";
 type SiteAdminMenuProps = {
   fallbackIsBackendUser?: boolean;
   fallbackIsAdmin?: boolean;
+  hasWebshopShell?: boolean;
 };
 
 type SiteAdminMenuLauncherProps = SiteAdminMenuProps & {
@@ -43,7 +44,9 @@ function useEffectiveBackendState({
   fallbackIsBackendUser,
   fallbackIsAdmin,
   fallbackIsLoggedIn = false,
-}: Required<SiteAdminMenuProps> & {
+}: {
+  fallbackIsBackendUser: boolean;
+  fallbackIsAdmin: boolean;
   fallbackIsLoggedIn?: boolean;
 }) {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -71,6 +74,7 @@ function useEffectiveBackendState({
 export function SiteAdminMenu({
   fallbackIsBackendUser = false,
   fallbackIsAdmin = false,
+  hasWebshopShell = false,
 }: SiteAdminMenuProps) {
   const { isAdmin, isBackendUser } = useEffectiveBackendState({
     fallbackIsBackendUser,
@@ -153,6 +157,11 @@ export function SiteAdminMenu({
               </NavigationMenuLink>
             )}
           </NavigationMenuItem>
+          {isAdmin && hasWebshopShell && (
+            <NavigationMenuItem>
+              <SiteTopMenuLink href="/dashboard/webshop" label="Webshop" />
+            </NavigationMenuItem>
+          )}
           <NavigationMenuItem>
             <SiteTopMenuParentTrigger
               url="/dashboard/filemanager"
@@ -200,6 +209,7 @@ export function SiteAdminMenuLauncher({
   fallbackIsBackendUser = false,
   fallbackIsAdmin = false,
   fallbackIsLoggedIn = false,
+  hasWebshopShell = false,
 }: SiteAdminMenuLauncherProps) {
   const { openSignIn, openSignUp, signOut } = useClerk();
   const { displayName, isAdmin, isBackendUser, isSignedIn } =
@@ -255,6 +265,11 @@ export function SiteAdminMenuLauncher({
                       Content Categories
                     </Link>
                   </DropdownMenuItem>
+                  {hasWebshopShell && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard/webshop">Webshop</Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard/users">Users</Link>
                   </DropdownMenuItem>
