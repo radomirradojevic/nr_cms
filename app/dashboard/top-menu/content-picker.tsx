@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { FileText, GripVertical, Images, Newspaper } from "lucide-react";
+import { FileText, GripVertical, Images, Newspaper, Store } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { ContentPickerItem } from "@/data/top-menu";
@@ -69,6 +69,8 @@ function PickerRow({ item }: { item: ContentPickerItem }) {
         <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
       ) : item.contentType === "hero_slider" ? (
         <Images className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      ) : item.contentType === "webshop" ? (
+        <Store className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
       ) : (
         <Newspaper className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
       )}

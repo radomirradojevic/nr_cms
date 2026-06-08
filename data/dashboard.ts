@@ -19,6 +19,7 @@ export type DashboardStats = {
     totalPages: number;
     totalBlogPosts: number;
     totalHeroSliders: number;
+    totalWebshops: number;
   };
   files: { total: number; images: number; videos: number; documents: number };
   galleries: { totalGalleries: number; totalImages: number };
@@ -98,6 +99,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     contentRows.find((r) => r.contentType === "blog_post")?.count ?? 0;
   const totalHeroSliders =
     contentRows.find((r) => r.contentType === "hero_slider")?.count ?? 0;
+  const totalWebshops =
+    contentRows.find((r) => r.contentType === "webshop")?.count ?? 0;
 
   const totalImages = fileRows.find((r) => r.kind === "image")?.count ?? 0;
   const totalVideos = fileRows.find((r) => r.kind === "video")?.count ?? 0;
@@ -125,7 +128,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 
   return {
-    content: { totalPages, totalBlogPosts, totalHeroSliders },
+    content: { totalPages, totalBlogPosts, totalHeroSliders, totalWebshops },
     files: {
       total: totalFiles,
       images: totalImages,

@@ -650,6 +650,7 @@ export const DEFAULT_SHELL_VISIBILITY_TARGETS = {
   pageIds: [],
   blogPostIds: [],
   heroSliderIds: [],
+  webshopIds: [],
   blogCategoryIds: [],
   adminPageIds: [],
 };
@@ -660,6 +661,7 @@ export const ShellVisibilityTargetsSchema = z
     pageIds: UuidArraySchema,
     blogPostIds: UuidArraySchema,
     heroSliderIds: UuidArraySchema,
+    webshopIds: UuidArraySchema,
     blogCategoryIds: UuidArraySchema,
     adminPageIds: StableSlugArraySchema,
   })

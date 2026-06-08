@@ -12,6 +12,7 @@ import {
   max,
   sql,
 } from "drizzle-orm";
+import { canMutateGalleryFromManager } from "@/lib/gallery-origin";
 import { slugify } from "@/lib/utils";
 
 export type GalleryRow = typeof galleries.$inferSelect;
@@ -57,6 +58,10 @@ export async function listGalleries(opts: {
         slug: galleries.slug,
         description: galleries.description,
         coverFileId: galleries.coverFileId,
+        origin: galleries.origin,
+        originType: galleries.originType,
+        originId: galleries.originId,
+        locked: galleries.locked,
         createdBy: galleries.createdBy,
         created: galleries.created,
         updated: galleries.updated,
@@ -107,6 +112,10 @@ export async function listGalleries(opts: {
     slug: r.slug,
     description: r.description,
     coverFileId: r.coverFileId ?? r.firstImageId ?? null,
+    origin: r.origin,
+    originType: r.originType,
+    originId: r.originId,
+    locked: r.locked,
     createdBy: r.createdBy,
     created: r.created,
     updated: r.updated,
@@ -217,6 +226,8 @@ export async function createGallery(
       name: input.name.trim(),
       slug,
       description: input.description?.trim() || null,
+      origin: "manual",
+      locked: false,
       createdBy: caller.userId,
     })
     .returning();
@@ -238,6 +249,14 @@ export async function updateGallery(
   const owner = ownerWhere(caller);
   if (owner) conditions.push(owner);
 
+  const existingRows = await db
+    .select()
+    .from(galleries)
+    .where(and(...conditions))
+    .limit(1);
+  const existing = existingRows[0];
+  if (!existing || !canMutateGalleryFromManager(existing)) return null;
+
   const updates: Partial<typeof galleries.$inferInsert> = {};
   if (patch.name !== undefined) updates.name = patch.name.trim();
   if (patch.description !== undefined)
@@ -245,12 +264,7 @@ export async function updateGallery(
   if (patch.coverFileId !== undefined) updates.coverFileId = patch.coverFileId;
 
   if (Object.keys(updates).length === 0) {
-    const existing = await db
-      .select()
-      .from(galleries)
-      .where(and(...conditions))
-      .limit(1);
-    return existing[0] ?? null;
+    return existing;
   }
 
   const rows = await db
@@ -268,6 +282,14 @@ export async function deleteGallery(
   const conditions = [eq(galleries.id, id)];
   const owner = ownerWhere(caller);
   if (owner) conditions.push(owner);
+
+  const existing = await db
+    .select()
+    .from(galleries)
+    .where(and(...conditions))
+    .limit(1);
+  if (!existing[0] || !canMutateGalleryFromManager(existing[0])) return false;
+
   const rows = await db
     .delete(galleries)
     .where(and(...conditions))
@@ -309,17 +331,29 @@ export async function addImagesToGallery(
 > {
   const gallery = await ensureGalleryOwnership(galleryId, caller);
   if (!gallery) return { error: "Gallery not found or access denied." };
+  if (!canMutateGalleryFromManager(gallery)) {
+    return { error: "Webshop galleries are managed from the Webshop editor." };
+  }
 
-  // Fetch existing files among requested set (must exist and be images? — no
-  // restriction here; the picker only surfaces images, but we don't enforce
-  // that server-side beyond existence).
+  // Server-side image guard keeps direct action calls aligned with the picker.
   const existingFiles = await db
-    .select({ id: files.id })
+    .select({ id: files.id, kind: files.kind })
     .from(files)
     .where(inArray(files.id, fileIds));
   const existingIds = new Set(existingFiles.map((f) => f.id));
   const missing = fileIds.filter((id) => !existingIds.has(id));
-  const candidates = fileIds.filter((id) => existingIds.has(id));
+  const imageIds = new Set(
+    existingFiles
+      .filter((file) => file.kind === "image")
+      .map((file) => file.id),
+  );
+  const nonImageIds = fileIds.filter(
+    (id) => existingIds.has(id) && !imageIds.has(id),
+  );
+  if (nonImageIds.length > 0) {
+    return { error: "Only image files can be added to galleries." };
+  }
+  const candidates = fileIds.filter((id) => imageIds.has(id));
 
   if (candidates.length === 0) {
     return { added: [], duplicates: [], missing };
@@ -377,6 +411,7 @@ export async function removeImageFromGallery(
 ): Promise<boolean> {
   const gallery = await ensureGalleryOwnership(galleryId, caller);
   if (!gallery) return false;
+  if (!canMutateGalleryFromManager(gallery)) return false;
   const rows = await db
     .delete(galleryImages)
     .where(
@@ -396,6 +431,9 @@ export async function reorderGalleryImages(
 ): Promise<{ error: string } | { success: true }> {
   const gallery = await ensureGalleryOwnership(galleryId, caller);
   if (!gallery) return { error: "Gallery not found or access denied." };
+  if (!canMutateGalleryFromManager(gallery)) {
+    return { error: "Webshop galleries are managed from the Webshop editor." };
+  }
 
   await db.transaction(async (tx) => {
     // Two-phase update keeps ordering tidy if a unique position constraint is
@@ -431,6 +469,13 @@ export async function reassignGallery(
   id: string,
   newOwnerId: string,
 ): Promise<GalleryRow | null> {
+  const existing = await db
+    .select()
+    .from(galleries)
+    .where(eq(galleries.id, id))
+    .limit(1);
+  if (!existing[0] || !canMutateGalleryFromManager(existing[0])) return null;
+
   const rows = await db
     .update(galleries)
     .set({ createdBy: newOwnerId })

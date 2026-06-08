@@ -37,7 +37,7 @@ async function getTargetAuthorTopRole(input: {
 export async function canAccessContentPreviewTarget(input: {
   actorRoles: readonly Role[];
   actorUserId: string;
-  target: Pick<ContentRow, "authorId" | "status">;
+  target: Pick<ContentRow, "authorId" | "contentType" | "status">;
 }): Promise<boolean> {
   const { actorRoles, actorUserId, target } = input;
   const targetAuthorTopRole = await getTargetAuthorTopRole({
@@ -51,6 +51,7 @@ export async function canAccessContentPreviewTarget(input: {
     actorUserId,
     targetAuthorId: target.authorId,
     targetAuthorTopRole,
+    targetContentType: target.contentType,
     targetStatus: target.status as ContentStatus,
   });
 }

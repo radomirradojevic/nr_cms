@@ -19,6 +19,7 @@ const MIGRATIONS_SCHEMA = "drizzle";
 const MIGRATIONS_TABLE = "__drizzle_migrations";
 const LOCK_KEY = "nr_cms:drizzle_migrations";
 const LATEST_EXPECTED_SNAPSHOT = 27;
+const POSTGRES_IDENTIFIER_MAX_LENGTH = 63;
 
 const DESTRUCTIVE_ALLOWLIST = new Set([
   "0001_safe_martin_li",
@@ -34,11 +35,15 @@ const SUPERSEDED_BY_CMS_SCHEMA = new Set([
 const LEGACY_MIGRATION_HASHES = new Map([
   [
     "0011_add_category_created_by",
-    new Set(["77e2c461336832a90e1dca7fa776647c62b35f9832c51ea1660eecab30a12f86"]),
+    new Set([
+      "77e2c461336832a90e1dca7fa776647c62b35f9832c51ea1660eecab30a12f86",
+    ]),
   ],
   [
     "0014_material_jetstream",
-    new Set(["769e0172ee176d8980d625f352c0193617093125375be8f716681494080abf99"]),
+    new Set([
+      "769e0172ee176d8980d625f352c0193617093125375be8f716681494080abf99",
+    ]),
   ],
 ]);
 
@@ -68,11 +73,7 @@ function sha256(value) {
 }
 
 function normalizeSql(value) {
-  return value
-    .replace(/\s+/g, " ")
-    .replace(/;$/, "")
-    .trim()
-    .toLowerCase();
+  return value.replace(/\s+/g, " ").replace(/;$/, "").trim().toLowerCase();
 }
 
 function stripOuterParens(value) {
@@ -141,8 +142,31 @@ function normalizeConstraintDefinition(value) {
 }
 
 function normalizeColumnDefault(value) {
-  return normalizeSql(stripOuterParens(value))
-    .replace(/::[a-z_][a-z0-9_]*(?:\[\])?/gi, "");
+  return normalizeSql(stripOuterParens(value)).replace(
+    /::[a-z_][a-z0-9_]*(?:\[\])?/gi,
+    "",
+  );
+}
+
+function postgresIdentifierName(value) {
+  return value.length > POSTGRES_IDENTIFIER_MAX_LENGTH
+    ? value.slice(0, POSTGRES_IDENTIFIER_MAX_LENGTH)
+    : value;
+}
+
+function identifierExists(names, expectedName) {
+  return (
+    names.has(expectedName) || names.has(postgresIdentifierName(expectedName))
+  );
+}
+
+function constraintDefinitionFor(schemaState, tableName, constraintName) {
+  return (
+    schemaState.constraintDefinitions.get(`${tableName}.${constraintName}`) ??
+    schemaState.constraintDefinitions.get(
+      `${tableName}.${postgresIdentifierName(constraintName)}`,
+    )
+  );
 }
 
 function constraintDefinitionMatches(expected, current) {
@@ -155,8 +179,10 @@ function constraintDefinitionMatches(expected, current) {
     return sameStringLiteralSet(expectedLiterals, currentLiterals);
   }
 
-  return normalizeConstraintDefinition(expected)
-    === normalizeConstraintDefinition(current);
+  return (
+    normalizeConstraintDefinition(expected) ===
+    normalizeConstraintDefinition(current)
+  );
 }
 
 function splitTopLevelCommaList(value) {
@@ -271,16 +297,20 @@ function findLatestSnapshotIndex() {
   const metaDir = path.join(MIGRATIONS_DIR, "meta");
   return fs
     .readdirSync(metaDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && /^\d{4}_snapshot\.json$/.test(entry.name))
+    .filter(
+      (entry) => entry.isFile() && /^\d{4}_snapshot\.json$/.test(entry.name),
+    )
     .map((entry) => Number(entry.name.slice(0, 4)))
     .sort((a, b) => b - a)[0];
 }
 
 function hasDestructiveSql(sql) {
-  return /\bDROP\s+TABLE\b/i.test(sql)
-    || /\bDROP\s+COLUMN\b/i.test(sql)
-    || /\bTRUNCATE\b/i.test(sql)
-    || /\bDELETE\s+FROM\b/i.test(sql);
+  return (
+    /\bDROP\s+TABLE\b/i.test(sql) ||
+    /\bDROP\s+COLUMN\b/i.test(sql) ||
+    /\bTRUNCATE\b/i.test(sql) ||
+    /\bDELETE\s+FROM\b/i.test(sql)
+  );
 }
 
 function loadMigrations() {
@@ -307,14 +337,19 @@ function loadMigrations() {
       fail(`entry at position ${position} has an invalid idx`);
     }
     if (entry.idx !== position) {
-      fail(`entry ${entry.tag ?? position} has idx ${entry.idx}; expected ${position}`);
+      fail(
+        `entry ${entry.tag ?? position} has idx ${entry.idx}; expected ${position}`,
+      );
     }
     if (seenIdx.has(entry.idx)) {
       fail(`duplicate migration idx ${entry.idx}`);
     }
     seenIdx.add(entry.idx);
 
-    if (typeof entry.tag !== "string" || !/^\d{4}_[a-z0-9_]+$/i.test(entry.tag)) {
+    if (
+      typeof entry.tag !== "string" ||
+      !/^\d{4}_[a-z0-9_]+$/i.test(entry.tag)
+    ) {
       fail(`entry ${entry.idx} has an invalid tag`);
     }
     if (seenTags.has(entry.tag)) {
@@ -323,19 +358,25 @@ function loadMigrations() {
     seenTags.add(entry.tag);
 
     if (!Number.isSafeInteger(entry.when) || entry.when <= previousWhen) {
-      fail(`migration ${entry.tag} must have a strictly increasing "when" value`);
+      fail(
+        `migration ${entry.tag} must have a strictly increasing "when" value`,
+      );
     }
     previousWhen = entry.when;
 
     const sqlPath = path.join(MIGRATIONS_DIR, `${entry.tag}.sql`);
     if (!fs.existsSync(sqlPath)) {
-      fail(`journal references missing file ${path.relative(process.cwd(), sqlPath)}`);
+      fail(
+        `journal references missing file ${path.relative(process.cwd(), sqlPath)}`,
+      );
     }
 
     const sql = fs.readFileSync(sqlPath, "utf8");
-    if (hasDestructiveSql(sql)
-      && !DESTRUCTIVE_ALLOWLIST.has(entry.tag)
-      && !sql.includes("nr-cms:allow-destructive")) {
+    if (
+      hasDestructiveSql(sql) &&
+      !DESTRUCTIVE_ALLOWLIST.has(entry.tag) &&
+      !sql.includes("nr-cms:allow-destructive")
+    ) {
       fail(
         `${entry.tag} contains destructive SQL. Add a reviewed nr-cms:allow-destructive comment if this is intentional.`,
       );
@@ -354,7 +395,9 @@ function loadMigrations() {
   const journalTags = new Set(migrations.map((migration) => migration.tag));
   const orphanedFiles = findSqlFiles().filter((tag) => !journalTags.has(tag));
   if (orphanedFiles.length > 0) {
-    fail(`SQL files are not present in the journal: ${orphanedFiles.join(", ")}`);
+    fail(
+      `SQL files are not present in the journal: ${orphanedFiles.join(", ")}`,
+    );
   }
 
   const minimumSnapshot = Math.max(
@@ -372,8 +415,10 @@ function loadMigrations() {
 }
 
 function shouldUseTransaction(migration) {
-  return !migration.sql.includes("nr-cms:no-transaction")
-    && !/\bCREATE\s+INDEX\s+CONCURRENTLY\b/i.test(migration.sql);
+  return (
+    !migration.sql.includes("nr-cms:no-transaction") &&
+    !/\bCREATE\s+INDEX\s+CONCURRENTLY\b/i.test(migration.sql)
+  );
 }
 
 function parseCreateTable(statement) {
@@ -543,18 +588,21 @@ function operationStatus(
     case "createTable": {
       if (!schemaState.tables.has(operation.table)) return { satisfied: false };
 
-      const columns = schemaState.tableColumns.get(operation.table) ?? new Set();
-      const missingColumns = operation.columns.filter((column) => !columns.has(column));
+      const columns =
+        schemaState.tableColumns.get(operation.table) ?? new Set();
+      const missingColumns = operation.columns.filter(
+        (column) => !columns.has(column),
+      );
       const missingConstraints = operation.constraints.filter(
-        (constraint) => !schemaState.constraints.has(constraint),
+        (constraint) => !identifierExists(schemaState.constraints, constraint),
       );
 
       if (missingColumns.length > 0 || missingConstraints.length > 0) {
         return {
           satisfied: false,
           unsafeReason:
-            `table "${operation.table}" already exists but is missing `
-            + [
+            `table "${operation.table}" already exists but is missing ` +
+            [
               missingColumns.length > 0
                 ? `columns: ${missingColumns.join(", ")}`
                 : null,
@@ -574,42 +622,57 @@ function operationStatus(
     case "addColumn":
       return {
         satisfied:
-          schemaState.tableColumns.get(operation.table)?.has(operation.column) ?? false,
+          schemaState.tableColumns
+            .get(operation.table)
+            ?.has(operation.column) ?? false,
       };
     case "dropColumn":
       return {
         satisfied:
-          !schemaState.tables.has(operation.table)
-          || !(schemaState.tableColumns.get(operation.table)?.has(operation.column) ?? false),
+          !schemaState.tables.has(operation.table) ||
+          !(
+            schemaState.tableColumns
+              .get(operation.table)
+              ?.has(operation.column) ?? false
+          ),
       };
-    case "addConstraint":
-      {
-        const constraintKey = `${operation.table}.${operation.constraint}`;
-        const currentDefinition = schemaState.constraintDefinitions.get(constraintKey);
+    case "addConstraint": {
+      const currentDefinition = constraintDefinitionFor(
+        schemaState,
+        operation.table,
+        operation.constraint,
+      );
 
-        if (!currentDefinition) {
-          return { satisfied: false };
-        }
-
-        if (
-          definitionSensitiveConstraints.has(operation.constraint)
-          && operation.definition
-        ) {
-          return {
-            satisfied: constraintDefinitionMatches(
-              operation.definition,
-              currentDefinition,
-            ),
-          };
-        }
-
-        return { satisfied: true };
+      if (!currentDefinition) {
+        return { satisfied: false };
       }
+
+      if (
+        definitionSensitiveConstraints.has(operation.constraint) &&
+        operation.definition
+      ) {
+        return {
+          satisfied: constraintDefinitionMatches(
+            operation.definition,
+            currentDefinition,
+          ),
+        };
+      }
+
+      return { satisfied: true };
+    }
     case "dropConstraint":
       if (finalAdds.has(operation.constraint)) return { satisfied: true };
-      return { satisfied: !schemaState.constraints.has(operation.constraint) };
+      return {
+        satisfied: !identifierExists(
+          schemaState.constraints,
+          operation.constraint,
+        ),
+      };
     case "createIndex":
-      return { satisfied: schemaState.indexes.has(operation.index) };
+      return {
+        satisfied: identifierExists(schemaState.indexes, operation.index),
+      };
     case "setDefault": {
       const current = schemaState.columnDefaults.get(
         `${operation.table}.${operation.column}`,
@@ -691,7 +754,9 @@ function migrationEndStateStatus(migration, schemaState) {
   }
 
   const analysis = analyzeMigration(migration);
-  const operations = analysis.statements.flatMap((statement) => statement.operations);
+  const operations = analysis.statements.flatMap(
+    (statement) => statement.operations,
+  );
   if (operations.length === 0) return { satisfied: false };
 
   for (const operation of operations) {
@@ -811,18 +876,17 @@ async function loadAppliedRowsReadOnly(client) {
 
 function findAppliedRow(rows, migration, options = {}) {
   const { tolerateHashMismatch = false } = options;
-  const hashMatches = (hash) => (
-    hash === migration.hash
-    || (LEGACY_MIGRATION_HASHES.get(migration.tag)?.has(hash) ?? false)
-  );
+  const hashMatches = (hash) =>
+    hash === migration.hash ||
+    (LEGACY_MIGRATION_HASHES.get(migration.tag)?.has(hash) ?? false);
 
   const byTag = rows.find((row) => row.tag === migration.tag);
   if (byTag) {
-    if (!hashMatches(byTag.hash) || Number(byTag.created_at) !== migration.when) {
-      if (
-        tolerateHashMismatch
-        && Number(byTag.created_at) === migration.when
-      ) {
+    if (
+      !hashMatches(byTag.hash) ||
+      Number(byTag.created_at) !== migration.when
+    ) {
+      if (tolerateHashMismatch && Number(byTag.created_at) === migration.when) {
         return byTag;
       }
       fail(
@@ -837,7 +901,9 @@ function findAppliedRow(rows, migration, options = {}) {
   );
   if (byCreatedAndHash) return byCreatedAndHash;
 
-  const byCreated = rows.find((row) => Number(row.created_at) === migration.when);
+  const byCreated = rows.find(
+    (row) => Number(row.created_at) === migration.when,
+  );
   if (byCreated) {
     if (tolerateHashMismatch) return byCreated;
     fail(
@@ -870,7 +936,13 @@ async function repairMigrationRecord(client, row, migration) {
           statements = COALESCE(statements, $4)
       WHERE id = $5
     `,
-    [migration.hash, migration.when, migration.tag, migration.statements.length, row.id],
+    [
+      migration.hash,
+      migration.when,
+      migration.tag,
+      migration.statements.length,
+      row.id,
+    ],
   );
 }
 
@@ -881,7 +953,12 @@ async function recordMigration(client, migration) {
         (hash, created_at, tag, statements)
       VALUES ($1, $2, $3, $4)
     `,
-    [migration.hash, migration.when, migration.tag, migration.statements.length],
+    [
+      migration.hash,
+      migration.when,
+      migration.tag,
+      migration.statements.length,
+    ],
   );
 }
 
@@ -968,10 +1045,13 @@ async function main() {
       const schemaState = await loadSchemaState(client);
       const pending = migrations
         .filter(
-          (migration) => !findAppliedRow(appliedRows, migration, {
-            tolerateHashMismatch:
-              migrationEndStateStatus(migration, schemaState).satisfied,
-          }),
+          (migration) =>
+            !findAppliedRow(appliedRows, migration, {
+              tolerateHashMismatch: migrationEndStateStatus(
+                migration,
+                schemaState,
+              ).satisfied,
+            }),
         )
         .map((migration) => {
           const status = migrationEndStateStatus(migration, schemaState);
@@ -1003,22 +1083,33 @@ async function main() {
       for (const migration of migrations) {
         const schemaState = await loadSchemaState(client);
         const status = migrationEndStateStatus(migration, schemaState);
-        const appliedRow = findAppliedRow(await loadAppliedRows(client), migration, {
-          tolerateHashMismatch: true,
-        });
+        const appliedRow = findAppliedRow(
+          await loadAppliedRows(client),
+          migration,
+          {
+            tolerateHashMismatch: true,
+          },
+        );
 
         if (appliedRow) {
           if (
-            status.satisfied
-            && (appliedRow.hash !== migration.hash
-              || Number(appliedRow.created_at) !== migration.when
-              || appliedRow.tag !== migration.tag)
+            status.satisfied &&
+            (appliedRow.hash !== migration.hash ||
+              Number(appliedRow.created_at) !== migration.when ||
+              appliedRow.tag !== migration.tag)
           ) {
-            await adoptExistingMigrationRecord(client, appliedRow, migration, status.reason);
+            await adoptExistingMigrationRecord(
+              client,
+              appliedRow,
+              migration,
+              status.reason,
+            );
             adopted += 1;
           }
           if (!status.satisfied) {
-            await applyMigration(client, migration, { existingRow: appliedRow });
+            await applyMigration(client, migration, {
+              existingRow: appliedRow,
+            });
             applied += 1;
           }
           continue;
@@ -1040,8 +1131,8 @@ async function main() {
       }
 
       log(
-        `applied ${applied} migration${applied === 1 ? "" : "s"}`
-        + `, adopted ${adopted}`,
+        `applied ${applied} migration${applied === 1 ? "" : "s"}` +
+          `, adopted ${adopted}`,
       );
     } finally {
       await releaseLock(client);

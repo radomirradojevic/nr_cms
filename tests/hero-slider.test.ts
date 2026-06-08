@@ -314,9 +314,26 @@ test("backend menu helper exposes stable role-aware targets", () => {
   const adminLinks = getBackendMenuLinks({
     isBackendUser: true,
     isAdmin: true,
+    hasWebshopShell: true,
   });
   assert.ok(adminLinks.some((item) => item.id === "backend:global-settings"));
+  assert.ok(adminLinks.some((item) => item.id === "backend:webshop"));
   assert.ok(adminLinks.some((item) => item.id === "backend:form-builder"));
+  assert.equal(
+    getBackendMenuLinks({
+      isBackendUser: true,
+      isAdmin: true,
+      hasWebshopShell: false,
+    }).some((item) => item.id === "backend:webshop"),
+    false,
+  );
+  assert.equal(
+    getBackendMenuLinks({
+      isBackendUser: true,
+      isAdmin: true,
+    }).some((item) => item.id === "backend:webshop"),
+    false,
+  );
   assert.deepEqual(
     adminLinks
       .filter((item) => item.isChild)

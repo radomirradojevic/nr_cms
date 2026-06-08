@@ -15,9 +15,15 @@ import { BlogComments } from "@/components/blog-comments";
 import { BlogPostTemplate } from "@/components/blog-post-template";
 import { HeroSliderRendererWithMenus } from "@/components/hero-slider-renderer-with-menus";
 import { PageTemplate } from "@/components/page-template";
+import { WebshopPublicPlaceholder } from "@/components/webshop-public-placeholder";
 import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
 import { getDateFormatter } from "@/lib/regional-settings";
 import { hasRole, type Role } from "@/lib/roles";
+import type {
+  WebshopAddon,
+  WebshopLicenseMode,
+} from "@/lib/webshop-addon/contract";
+import { resolveWebshopAddonState } from "@/lib/webshop-addon/license";
 
 type PreviewBanner = {
   editHref?: string;
@@ -29,7 +35,9 @@ type ContentPublicRendererProps = {
   preview?: boolean;
   previewBanner?: PreviewBanner;
   row: ContentRow;
+  searchParams?: Record<string, string | string[] | undefined>;
   viewerRoles?: Role[] | null;
+  webshopPath?: readonly string[];
 };
 
 function PreviewNotice({ banner }: { banner?: PreviewBanner }) {
@@ -64,7 +72,9 @@ export async function ContentPublicRenderer({
   preview = false,
   previewBanner,
   row,
+  searchParams,
   viewerRoles = null,
+  webshopPath = [],
 }: ContentPublicRendererProps) {
   let authorName: string | null = null;
   if (row.contentType === "blog_post") {
@@ -96,7 +106,7 @@ export async function ContentPublicRenderer({
   const pageTemplate = contentTemplates.page;
   const mainVariant = settings.resolvedAppearanceRecipe.shell.main.variant;
 
-  const body = (() => {
+  const body = await (async () => {
     if (row.contentType === "page") {
       const shouldDetachLeadingHero =
         builderHasLeadingHeroSlider(row.contentJson) &&
@@ -140,6 +150,57 @@ export async function ContentPublicRenderer({
           hasBody={shouldDetachHero ? false : undefined}
         >
           {shouldDetachHero ? null : heroSlider}
+        </PageTemplate>
+      );
+    }
+
+    if (row.contentType === "webshop") {
+      const addonState = await resolveWebshopAddonState();
+      const renderWebshopStorefront = async (
+        addon: WebshopAddon,
+        licenseMode: WebshopLicenseMode,
+      ) =>
+        webshopPath.length === 0
+          ? addon.renderStorefrontRoot({
+              contentId: row.id,
+              licenseMode,
+              path: [],
+              searchParams,
+              slug: row.slug,
+            })
+          : addon.renderStorefrontPath({
+              contentId: row.id,
+              licenseMode,
+              path: webshopPath,
+              searchParams,
+              slug: row.slug,
+            });
+
+      if (addonState.status === "ready") {
+        return (
+          <PageTemplate template={pageTemplate} mainVariant={mainVariant}>
+            {await renderWebshopStorefront(addonState.addon, "ready")}
+          </PageTemplate>
+        );
+      }
+
+      if (addonState.status === "license_expired") {
+        return (
+          <PageTemplate template={pageTemplate} mainVariant={mainVariant}>
+            {await renderWebshopStorefront(
+              addonState.addon,
+              "edit_existing_only",
+            )}
+          </PageTemplate>
+        );
+      }
+
+      return (
+        <PageTemplate template={pageTemplate} mainVariant={mainVariant}>
+          <WebshopPublicPlaceholder
+            title={row.title}
+            description={row.excerpt ?? row.metaDescription}
+          />
         </PageTemplate>
       );
     }

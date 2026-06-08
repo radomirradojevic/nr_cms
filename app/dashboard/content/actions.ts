@@ -61,6 +61,11 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { slugify } from "@/lib/utils";
 import { renderTiptapHtml } from "./_editors/render-tiptap-html";
 import { getLock, isLockedBy, logLockEvent } from "@/data/content-locks";
+import {
+  CMS_CONTENT_TYPES,
+  categoryTypeForContentType,
+} from "@/lib/content-types";
+import { canCreateContentType } from "@/lib/content-type-permissions";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -96,6 +101,7 @@ function highestRole(roles: Role[]): Role {
 
 async function canEdit(actor: Actor, target: ContentRow): Promise<boolean> {
   if (hasRole(actor.roles, "admin")) return true;
+  if (target.contentType === "webshop") return false;
   // Author-only users can keep working on their own drafts/review submissions,
   // but published/approved/archived rows need a publisher/admin transition.
   if (target.authorId === actor.userId) {
@@ -140,19 +146,17 @@ async function getListActionLockError(
   return `This content is currently being edited by ${lock.userDisplayName}. Wait until the current editor closes the page.`;
 }
 
-function categoryTypeForContent(
-  contentType: ContentType,
-): "page" | "blog_post" {
-  return contentType === "blog_post" ? "blog_post" : "page";
-}
-
 // ─── HTML rendering ───────────────────────────────────────────────────────────
 
 function renderHtml(contentType: ContentType, contentJson: unknown): string {
-  if (contentType === "page" || contentType === "hero_slider") {
+  if (
+    contentType === "page" ||
+    contentType === "hero_slider" ||
+    contentType === "webshop"
+  ) {
     // Pages are rendered at request time using Puck's RSC <Render>.
-    // Hero sliders are rendered from their JSON configuration.
-    // Storing an empty string keeps the column non-null for blog posts.
+    // Hero sliders and webshops are rendered from their structured CMS shell
+    // state, not pre-rendered rich text.
     return "";
   }
   return renderTiptapHtml(contentJson);
@@ -196,7 +200,7 @@ const visibilitySchema = z
   .optional();
 
 const createSchema = z.object({
-  contentType: z.enum(["page", "blog_post", "hero_slider"]),
+  contentType: z.enum(CMS_CONTENT_TYPES),
   status: z.enum(CONTENT_STATUSES).optional(),
   publishAt: scheduleDateSchema,
   unpublishAt: scheduleDateSchema,
@@ -234,10 +238,13 @@ export async function createContent(input: CreateContentInput) {
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const data = parsed.data;
+  if (!canCreateContentType(actor.roles, data.contentType)) {
+    return { error: "Forbidden." };
+  }
 
   const category = await getCategoryById(data.categoryId);
   if (!category) return { error: "Selected category does not exist." };
-  if (category.contentType !== categoryTypeForContent(data.contentType)) {
+  if (category.contentType !== categoryTypeForContentType(data.contentType)) {
     return {
       error: "Selected category does not match the chosen content type.",
     };
@@ -352,6 +359,7 @@ export async function createContent(input: CreateContentInput) {
     });
 
     revalidatePath("/dashboard/content");
+    if (data.contentType === "webshop") revalidatePath("/dashboard/webshop");
     if (willBeLive || homepage) {
       updateTag("top-menu");
       revalidatePath("/");
@@ -387,7 +395,7 @@ export async function updateContent(input: UpdateContentInput) {
   if (!category) return { error: "Selected category does not exist." };
   if (
     category.contentType !==
-    categoryTypeForContent(target.contentType as ContentType)
+    categoryTypeForContentType(target.contentType as ContentType)
   ) {
     return {
       error: "Selected category does not match this content's type.",
@@ -593,6 +601,7 @@ export async function updateContent(input: UpdateContentInput) {
 
     revalidatePath("/dashboard/content");
     revalidatePath(`/dashboard/content/${data.id}/edit`);
+    if (target.contentType === "webshop") revalidatePath("/dashboard/webshop");
     if (slug !== target.slug) {
       // Slug changed: refresh URLs of any menu items linked to this content
       await db
@@ -669,6 +678,7 @@ export async function deleteContent(input: { id: string }) {
   }
 
   revalidatePath("/dashboard/content");
+  if (target.contentType === "webshop") revalidatePath("/dashboard/webshop");
   if (wasLive) {
     updateTag("top-menu");
     revalidatePath("/", "layout");
@@ -708,6 +718,8 @@ export async function restoreDeletedContent(input: { id: string }) {
   }
 
   revalidatePath("/dashboard/content");
+  if (result.row.contentType === "webshop")
+    revalidatePath("/dashboard/webshop");
   if (isContentLive(result.row)) {
     updateTag("top-menu");
     revalidatePath("/", "layout");
@@ -759,6 +771,7 @@ export async function permanentlyDeleteContent(input: { id: string }) {
   if (!result.ok) return { error: "Content not found." };
 
   revalidatePath("/dashboard/content");
+  if (target.contentType === "webshop") revalidatePath("/dashboard/webshop");
   if (dependents.length > 0) {
     updateTag("top-menu");
     revalidatePath("/", "layout");
@@ -851,6 +864,7 @@ export async function setStatus(input: z.infer<typeof setStatusSchema>) {
   }
 
   revalidatePath("/dashboard/content");
+  if (target.contentType === "webshop") revalidatePath("/dashboard/webshop");
   updateTag("top-menu");
   revalidatePath("/", "layout");
   revalidatePath("/");
@@ -1141,6 +1155,8 @@ export async function restoreContentRevision(
 
   revalidatePath("/dashboard/content");
   revalidatePath(`/dashboard/content/${data.contentId}/edit`);
+  if (result.row.contentType === "webshop")
+    revalidatePath("/dashboard/webshop");
   if (publicAffected) {
     updateTag("top-menu");
     revalidatePath("/");
@@ -1285,6 +1301,7 @@ export async function reassignContent(input: {
       };
     }
     revalidatePath("/dashboard/content");
+    if (target.contentType === "webshop") revalidatePath("/dashboard/webshop");
     return { success: true };
   } catch {
     return { error: "Something went wrong." };

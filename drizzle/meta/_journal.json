@@ -330,6 +330,69 @@
       "when": 1781654400019,
       "tag": "0046_plain_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1781654400020,
+      "tag": "0047_webshop_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1781654400021,
+      "tag": "0048_curly_praxagora",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1781654400022,
+      "tag": "0049_massive_rawhide_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1781654400023,
+      "tag": "0050_chief_vivisector",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1781654400024,
+      "tag": "0051_first_veda",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1781654400025,
+      "tag": "0052_misty_cobalt_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1781654400026,
+      "tag": "0053_dizzy_wild_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1781654400027,
+      "tag": "0054_boring_gorilla_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1781654400028,
+      "tag": "0055_tricky_switch",
+      "breakpoints": true
     }
   ]
 }

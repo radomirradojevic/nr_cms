@@ -63,18 +63,22 @@ export function ContentRowActions({
   const isPublisher = hasRole(currentUserRoles, "publisher");
   const isOwn = row.authorId === currentUserId;
   const isAuthorOnly = isAuthorOnlyContentWorkflowRole(currentUserRoles);
+  const isWebshop = row.contentType === "webshop";
 
   // Conservative client-side gating; server re-checks on each call.
   const canEdit =
     isAdmin ||
-    isPublisher ||
-    (isOwn &&
-      (!isAuthorOnly ||
-        canAuthorEditOwnContentStatus(currentUserRoles, row.status)));
-  const canReviewStatus = isAdmin || isPublisher;
+    (!isWebshop &&
+      (isPublisher ||
+        (isOwn &&
+          (!isAuthorOnly ||
+            canAuthorEditOwnContentStatus(currentUserRoles, row.status)))));
+  const canReviewStatus = isAdmin || (!isWebshop && isPublisher);
   const canSubmitOwnDraft =
-    isOwn && (row.status === "draft" || row.status === "in_review");
-  const canPreview = isAdmin || isPublisher || isOwn;
+    !isWebshop &&
+    isOwn &&
+    (row.status === "draft" || row.status === "in_review");
+  const canPreview = isAdmin || (!isWebshop && (isPublisher || isOwn));
   const canDelete = canEdit;
   const canSetHome = isAdmin && row.contentType === "page";
   const rowIsLive = isContentLive(row);

@@ -83,6 +83,7 @@ export async function pruneShellVisibilitySettingsForWrite<
     ...targets.pageIds,
     ...targets.blogPostIds,
     ...targets.heroSliderIds,
+    ...targets.webshopIds,
   ]);
   const [contentRows, blogCategories] = await Promise.all([
     getContentByIds(selectedContentIds),
@@ -103,6 +104,11 @@ export async function pruneShellVisibilitySettingsForWrite<
       .filter((row) => row.contentType === "hero_slider")
       .map((row) => row.id),
   );
+  const validWebshopIds = new Set(
+    contentRows
+      .filter((row) => row.contentType === "webshop")
+      .map((row) => row.id),
+  );
   const validBlogCategoryIds = new Set(
     blogCategories
       .filter((category) => category.contentType === "blog_post")
@@ -121,6 +127,9 @@ export async function pruneShellVisibilitySettingsForWrite<
         ),
         heroSliderIds: unique(targets.heroSliderIds).filter((id) =>
           validHeroSliderIds.has(id),
+        ),
+        webshopIds: unique(targets.webshopIds).filter((id) =>
+          validWebshopIds.has(id),
         ),
         blogCategoryIds: unique(targets.blogCategoryIds).filter((id) =>
           validBlogCategoryIds.has(id),

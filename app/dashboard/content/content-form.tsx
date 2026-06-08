@@ -83,6 +83,7 @@ import {
   createDefaultHeroSlider,
   heroSliderToPlainText,
 } from "@/lib/hero-slider";
+import type { ContentType } from "@/lib/content-types";
 
 // PageEditor is heavy and uses Craft.js + CodeMirror — load client-only.
 const PageEditor = dynamic(
@@ -125,7 +126,7 @@ export type ContentFormCategory = { id: string; name: string };
 
 type Props = {
   mode: "create" | "edit";
-  contentType: "page" | "blog_post" | "hero_slider";
+  contentType: ContentType;
   categories: ContentFormCategory[];
   currentUserRoles: Role[];
   /** Appearance settings used by the page-builder preview. Defaults if omitted. */
@@ -164,6 +165,7 @@ type Props = {
 type AiGeneratedField = "excerpt" | "metaTitle" | "metaDescription";
 type AiAssistantSurface = "blogEditor" | "pageBuilder";
 type InspectorTab = PageEditorSettingsTab | "comments";
+const emptyWebshopContent = { version: 1 };
 
 export function ContentForm({
   mode,
@@ -339,7 +341,9 @@ export function ContentForm({
         ? emptyBuilderData
         : contentType === "hero_slider"
           ? createDefaultHeroSlider()
-          : emptyTiptapJson,
+          : contentType === "webshop"
+            ? emptyWebshopContent
+            : emptyTiptapJson,
   );
   const contentJsonRef = useRef<unknown>(editorDefaultValue);
   const getEditorValueRef = useRef<(() => unknown) | null>(null);
@@ -354,9 +358,11 @@ export function ContentForm({
         ? builderDataToPlainText(latestContent)
         : contentType === "hero_slider"
           ? heroSliderToPlainText(latestContent)
-          : tiptapJsonToPlainText(latestContent)
+          : contentType === "webshop"
+            ? [title, excerpt].filter(Boolean).join("\n")
+            : tiptapJsonToPlainText(latestContent)
     ).slice(0, 8_000);
-  }, [contentType]);
+  }, [contentType, excerpt, title]);
 
   function onTitleChange(v: string) {
     setTitle(v);
@@ -1450,79 +1456,85 @@ export function ContentForm({
             />
           )}
 
-          <div className="space-y-2">
-            <Label>
-              {contentType === "hero_slider" ? "Slides" : "Content"}
-            </Label>
-            {contentType === "page" ? (
-              <PageEditor
-                defaultValue={editorDefaultValue}
-                appearance={appearance}
-                settingsPanels={pageEditorSettingsPanels}
-                activeSettingsTab={toPageEditorSettingsTab(activeInspectorTab)}
-                onActiveSettingsTabChange={updateInspectorTab}
-                pageTitle={title}
-                registerGetValue={(getValue) => {
-                  getEditorValueRef.current = getValue;
-                }}
-                onChange={(d: BuilderData) => {
-                  contentJsonRef.current = d;
-                }}
-                aiAssistantAvailable={
-                  aiWritingAssistantAvailable && aiProviderOptions.length > 0
-                }
-                aiAssistantActive={aiWritingAssistantActive}
-                onAiAssistantActiveChange={handleAiWritingAssistantActiveChange}
-                onAiSeoGenerated={(seo) => {
-                  if (seo.metaTitle && !metaTitle.trim()) {
-                    setMetaTitle(seo.metaTitle);
+          {contentType !== "webshop" && (
+            <div className="space-y-2">
+              <Label>
+                {contentType === "hero_slider" ? "Slides" : "Content"}
+              </Label>
+              {contentType === "page" ? (
+                <PageEditor
+                  defaultValue={editorDefaultValue}
+                  appearance={appearance}
+                  settingsPanels={pageEditorSettingsPanels}
+                  activeSettingsTab={toPageEditorSettingsTab(
+                    activeInspectorTab,
+                  )}
+                  onActiveSettingsTabChange={updateInspectorTab}
+                  pageTitle={title}
+                  registerGetValue={(getValue) => {
+                    getEditorValueRef.current = getValue;
+                  }}
+                  onChange={(d: BuilderData) => {
+                    contentJsonRef.current = d;
+                  }}
+                  aiAssistantAvailable={
+                    aiWritingAssistantAvailable && aiProviderOptions.length > 0
                   }
-                  if (seo.metaDescription && !metaDescription.trim()) {
-                    setMetaDescription(seo.metaDescription);
+                  aiAssistantActive={aiWritingAssistantActive}
+                  onAiAssistantActiveChange={
+                    handleAiWritingAssistantActiveChange
                   }
-                }}
-                aiProviderOptions={aiProviderOptions}
-                aiProviderId={effectiveAiProviderId}
-                onAiProviderIdChange={handleAiProviderIdChange}
-                aiModelId={effectiveAiModelId}
-                onAiModelIdChange={handleAiModelIdChange}
-              />
-            ) : contentType === "hero_slider" ? (
-              <HeroSliderEditor
-                defaultValue={editorDefaultValue}
-                registerGetValue={(getValue) => {
-                  getEditorValueRef.current = getValue;
-                }}
-                onChange={(value) => {
-                  contentJsonRef.current = value;
-                }}
-              />
-            ) : (
-              <BlogEditor
-                defaultValue={editorDefaultValue as never}
-                aiWritingAssistantAvailable={
-                  aiWritingAssistantAvailable && aiProviderOptions.length > 0
-                }
-                aiWritingAssistantActive={aiWritingAssistantActive}
-                onAiWritingAssistantActiveChange={
-                  handleAiWritingAssistantActiveChange
-                }
-                aiProviderOptions={aiProviderOptions}
-                aiProviderId={effectiveAiProviderId}
-                onAiProviderIdChange={handleAiProviderIdChange}
-                aiModelId={effectiveAiModelId}
-                onAiModelIdChange={handleAiModelIdChange}
-                title={title}
-                excerpt={excerpt}
-                registerGetValue={(getValue) => {
-                  getEditorValueRef.current = getValue;
-                }}
-                onChange={(j) => {
-                  contentJsonRef.current = j;
-                }}
-              />
-            )}
-          </div>
+                  onAiSeoGenerated={(seo) => {
+                    if (seo.metaTitle && !metaTitle.trim()) {
+                      setMetaTitle(seo.metaTitle);
+                    }
+                    if (seo.metaDescription && !metaDescription.trim()) {
+                      setMetaDescription(seo.metaDescription);
+                    }
+                  }}
+                  aiProviderOptions={aiProviderOptions}
+                  aiProviderId={effectiveAiProviderId}
+                  onAiProviderIdChange={handleAiProviderIdChange}
+                  aiModelId={effectiveAiModelId}
+                  onAiModelIdChange={handleAiModelIdChange}
+                />
+              ) : contentType === "hero_slider" ? (
+                <HeroSliderEditor
+                  defaultValue={editorDefaultValue}
+                  registerGetValue={(getValue) => {
+                    getEditorValueRef.current = getValue;
+                  }}
+                  onChange={(value) => {
+                    contentJsonRef.current = value;
+                  }}
+                />
+              ) : (
+                <BlogEditor
+                  defaultValue={editorDefaultValue as never}
+                  aiWritingAssistantAvailable={
+                    aiWritingAssistantAvailable && aiProviderOptions.length > 0
+                  }
+                  aiWritingAssistantActive={aiWritingAssistantActive}
+                  onAiWritingAssistantActiveChange={
+                    handleAiWritingAssistantActiveChange
+                  }
+                  aiProviderOptions={aiProviderOptions}
+                  aiProviderId={effectiveAiProviderId}
+                  onAiProviderIdChange={handleAiProviderIdChange}
+                  aiModelId={effectiveAiModelId}
+                  onAiModelIdChange={handleAiModelIdChange}
+                  title={title}
+                  excerpt={excerpt}
+                  registerGetValue={(getValue) => {
+                    getEditorValueRef.current = getValue;
+                  }}
+                  onChange={(j) => {
+                    contentJsonRef.current = j;
+                  }}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {contentType !== "page" && (
@@ -1612,6 +1624,7 @@ const AI_FIELD_LABELS: Record<AiGeneratedField, string> = {
 function contentTypeLabel(contentType: Props["contentType"]) {
   if (contentType === "page") return "Page";
   if (contentType === "hero_slider") return "Hero Slider";
+  if (contentType === "webshop") return "Webshop";
   return "Blog Post";
 }
 
@@ -1619,6 +1632,9 @@ function contentTypeDescription(contentType: Props["contentType"]) {
   if (contentType === "page") return "Visual page builder.";
   if (contentType === "hero_slider") {
     return "Hero slider editor for page builder embeds.";
+  }
+  if (contentType === "webshop") {
+    return "Paid Webshop add-on shell for publishing, routing, and SEO.";
   }
   return "Rich-text blog post editor.";
 }

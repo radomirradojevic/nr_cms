@@ -21,8 +21,9 @@ import { buildVisibilityWhere } from "@/lib/content-visibility";
 import type { ContentStatus } from "@/lib/content-status";
 import { isContentLive } from "@/lib/content-schedule";
 import type { Role } from "@/lib/roles";
+import { isContentType, type ContentType } from "@/lib/content-types";
 
-export type ContentType = "page" | "blog_post" | "hero_slider";
+export type { ContentType } from "@/lib/content-types";
 export type { ContentStatus } from "@/lib/content-status";
 
 export type ContentRow = typeof content.$inferSelect;
@@ -223,10 +224,7 @@ export async function getDistinctContentAuthorIds(): Promise<string[]> {
 function normalizeSearchTypes(contentTypes: ContentType[]): ContentType[] {
   return Array.from(
     new Set(
-      contentTypes.filter(
-        (type): type is ContentType =>
-          type === "blog_post" || type === "page" || type === "hero_slider",
-      ),
+      contentTypes.filter((type): type is ContentType => isContentType(type)),
     ),
   );
 }

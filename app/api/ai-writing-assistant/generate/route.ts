@@ -20,7 +20,9 @@ const GenerateRequestSchema = z.object({
   providerId: AIProviderIdSchema.optional(),
   model: AIProviderModelIdSchema.optional(),
   field: z.enum(["excerpt", "metaTitle", "metaDescription"]),
-  surface: z.enum(["blogEditor", "pageBuilder"]).default("blogEditor"),
+  surface: z
+    .enum(["blogEditor", "pageBuilder", "productEditor"])
+    .default("blogEditor"),
   title: z.string().trim().max(200).optional(),
   excerpt: z.string().trim().max(2_000).optional(),
   content: z.string().trim().max(8_000).optional(),
@@ -190,10 +192,11 @@ function buildGenerationPrompt(
   const fieldLabel = getFieldLabel(body.field);
 
   return [
-    body.surface === "pageBuilder"
-      ? "You are an AI assistant inside a CMS page builder."
-      : "You are an AI writing assistant inside a CMS blog post editor.",
+    getSurfacePromptIntro(body.surface),
     "Write in the same language as the title, excerpt, and content.",
+    body.surface === "productEditor"
+      ? "Do not invent warranty, certification, shipping speed, discounts, health claims, origin claims, stock claims, or compatibility claims unless they are explicitly present in the input."
+      : "",
     "Return only the requested field text. Do not include labels, quotes, markdown, or explanations.",
     getGenerationFieldInstruction(body.field),
     customInstructions ? `Editorial instructions: ${customInstructions}` : "",
@@ -208,6 +211,20 @@ function buildGenerationPrompt(
   ]
     .filter((line) => line.length > 0)
     .join("\n");
+}
+
+function getSurfacePromptIntro(
+  surface: z.infer<typeof GenerateRequestSchema>["surface"],
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return "You are an AI assistant inside a CMS page builder.";
+    case "productEditor":
+      return "You are an AI writing assistant inside a private Webshop product editor.";
+    case "blogEditor":
+    default:
+      return "You are an AI writing assistant inside a CMS blog post editor.";
+  }
 }
 
 function getGenerationFieldInstruction(

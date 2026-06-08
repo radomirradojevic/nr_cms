@@ -63,10 +63,11 @@ export function highestRole(roles: Role[]): Role | "viewer" {
  */
 export function canEditContent(
   actor: { userId: string; roles: Role[] },
-  target: Pick<ContentRow, "authorId" | "status">,
+  target: Pick<ContentRow, "authorId" | "status" | "contentType">,
   targetAuthorRoles?: Role[],
 ): boolean {
   if (hasRole(actor.roles, "admin")) return true;
+  if (target.contentType === "webshop") return false;
   if (target.authorId === actor.userId) {
     if (!isAuthorOnlyContentWorkflowRole(actor.roles)) return true;
     return canAuthorEditOwnContentStatus(
