@@ -2035,6 +2035,9 @@ export function SettingsForm({
   );
   const [aiPageBuilderAssistantEnabled, setAiPageBuilderAssistantEnabled] =
     useState(settings?.aiPageBuilderAssistantEnabled ?? false);
+  const [aiWebshopAssistantEnabled, setAiWebshopAssistantEnabled] = useState(
+    settings?.aiWebshopAssistantEnabled ?? false,
+  );
   const [aiProviders, setAiProviders] = useState<AiProviderFormStateById>(() =>
     buildInitialAiProviderFormState(settings?.aiProviderSettings),
   );
@@ -2208,7 +2211,9 @@ export function SettingsForm({
     ? aiDefaultProvider
     : (usableAiProviderIds[0] ?? aiDefaultProvider);
   const aiAssistantShownInEditors =
-    aiWritingAssistantEnabled || aiPageBuilderAssistantEnabled;
+    aiWritingAssistantEnabled ||
+    aiPageBuilderAssistantEnabled ||
+    aiWebshopAssistantEnabled;
   const aiWritingAssistantSettingsValid =
     AI_PROVIDER_IDS.every((id) => {
       const provider = aiProviders[id];
@@ -2786,6 +2791,7 @@ export function SettingsForm({
           appearanceRecipe: draftRecipe,
           aiWritingAssistantEnabled,
           aiPageBuilderAssistantEnabled,
+          aiWebshopAssistantEnabled,
           aiDefaultProvider: effectiveAiDefaultProvider,
           aiProviders: parsedAiProviders,
           contentHistoryEnabled,
@@ -4250,6 +4256,23 @@ export function SettingsForm({
                     id="ai-page-builder-assistant-enabled"
                     checked={aiPageBuilderAssistantEnabled}
                     onCheckedChange={setAiPageBuilderAssistantEnabled}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="ai-webshop-assistant-enabled">
+                      Show in WebShop
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Controls the visibility of the WebShop product AI
+                      Assistant UI.
+                    </p>
+                  </div>
+                  <Switch
+                    id="ai-webshop-assistant-enabled"
+                    checked={aiWebshopAssistantEnabled}
+                    onCheckedChange={setAiWebshopAssistantEnabled}
                   />
                 </div>
               </div>

@@ -136,11 +136,13 @@ function isMissingAiWritingAssistantColumns(err: unknown): boolean {
     causeCode === "42703" &&
     (message.includes("ai_writing_assistant") ||
       message.includes("ai_page_builder_assistant") ||
+      message.includes("ai_webshop_assistant") ||
       message.includes("ai_default_provider") ||
       message.includes("ai_provider_settings") ||
       message.includes("openai_api_key") ||
       causeMessage.includes("ai_writing_assistant") ||
       causeMessage.includes("ai_page_builder_assistant") ||
+      causeMessage.includes("ai_webshop_assistant") ||
       causeMessage.includes("ai_default_provider") ||
       causeMessage.includes("ai_provider_settings") ||
       causeMessage.includes("openai_api_key"))
@@ -169,6 +171,7 @@ async function loadGlobalSettingsRows(
   includeAppearanceRecipe: boolean,
   includeRegionalSettings: boolean,
   includeAiWritingAssistant: boolean,
+  includeAiWebshopAssistant: boolean,
   includeContentHistory: boolean,
 ) {
   return db
@@ -204,6 +207,12 @@ async function loadGlobalSettingsRows(
             aiWritingAssistantEnabled: globalSettings.aiWritingAssistantEnabled,
             aiPageBuilderAssistantEnabled:
               globalSettings.aiPageBuilderAssistantEnabled,
+            ...(includeAiWebshopAssistant
+              ? {
+                  aiWebshopAssistantEnabled:
+                    globalSettings.aiWebshopAssistantEnabled,
+                }
+              : {}),
             aiDefaultProvider: globalSettings.aiDefaultProvider,
             aiProviderSettings: globalSettings.aiProviderSettings,
             aiWritingAssistantModel: globalSettings.aiWritingAssistantModel,
@@ -231,15 +240,17 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
   let includeAppearanceRecipe = true;
   let includeRegionalSettings = true;
   let includeAiWritingAssistant = true;
+  let includeAiWebshopAssistant = true;
   let includeContentHistory = true;
   let rows: Awaited<ReturnType<typeof loadGlobalSettingsRows>> | null = null;
 
-  for (let attempt = 0; attempt < 9; attempt += 1) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
     try {
       rows = await loadGlobalSettingsRows(
         includeAppearanceRecipe,
         includeRegionalSettings,
         includeAiWritingAssistant,
+        includeAiWebshopAssistant,
         includeContentHistory,
       );
       break;
@@ -256,6 +267,10 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
         includeAiWritingAssistant &&
         isMissingAiWritingAssistantColumns(err)
       ) {
+        if (includeAiWebshopAssistant) {
+          includeAiWebshopAssistant = false;
+          continue;
+        }
         includeAiWritingAssistant = false;
         continue;
       }
@@ -326,6 +341,10 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
         "aiPageBuilderAssistantEnabled" in row
           ? row.aiPageBuilderAssistantEnabled
           : undefined,
+      webshopEnabled:
+        "aiWebshopAssistantEnabled" in row
+          ? row.aiWebshopAssistantEnabled
+          : undefined,
       defaultProvider:
         "aiDefaultProvider" in row ? row.aiDefaultProvider : undefined,
       providerSettings:
@@ -390,13 +409,14 @@ export const getGlobalSettings = unstable_cache(
       return normalizeResolvedGlobalSettings(DEFAULT_RESOLVED_GLOBAL_SETTINGS);
     }
   },
-  ["global-settings:resolved:v14"],
+  ["global-settings:resolved:v15"],
   { tags: [GLOBAL_SETTINGS_TAG] },
 );
 
 async function loadRawGlobalSettingsRows(
   includeAiProviderSettings: boolean,
   includeAiPageBuilderAssistant: boolean,
+  includeAiWebshopAssistant: boolean,
   includeContentHistory: boolean,
 ) {
   return db
@@ -430,6 +450,11 @@ async function loadRawGlobalSettingsRows(
               globalSettings.aiPageBuilderAssistantEnabled,
           }
         : {}),
+      ...(includeAiWebshopAssistant
+        ? {
+            aiWebshopAssistantEnabled: globalSettings.aiWebshopAssistantEnabled,
+          }
+        : {}),
       ...(includeAiProviderSettings
         ? {
             aiDefaultProvider: globalSettings.aiDefaultProvider,
@@ -458,13 +483,15 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
   let rows: Awaited<ReturnType<typeof loadRawGlobalSettingsRows>>;
   let includeAiProviderSettings = true;
   let includeAiPageBuilderAssistant = true;
+  let includeAiWebshopAssistant = true;
   let includeContentHistory = true;
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       rows = await loadRawGlobalSettingsRows(
         includeAiProviderSettings,
         includeAiPageBuilderAssistant,
+        includeAiWebshopAssistant,
         includeContentHistory,
       );
       break;
@@ -474,6 +501,10 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
         continue;
       }
       if (!isMissingAiWritingAssistantColumns(err)) throw err;
+      if (includeAiWebshopAssistant) {
+        includeAiWebshopAssistant = false;
+        continue;
+      }
       if (includeAiPageBuilderAssistant) {
         includeAiPageBuilderAssistant = false;
         continue;
@@ -490,6 +521,7 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
   if (!row) return null;
   const rowWithOptionalAi = row as typeof row & {
     aiPageBuilderAssistantEnabled?: boolean;
+    aiWebshopAssistantEnabled?: boolean;
     aiDefaultProvider?: GlobalSettingsRow["aiDefaultProvider"];
     aiProviderSettings?: GlobalSettingsRow["aiProviderSettings"];
     contentHistoryEnabled?: boolean;
@@ -499,10 +531,13 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
     ...row,
     aiPageBuilderAssistantEnabled:
       rowWithOptionalAi.aiPageBuilderAssistantEnabled ?? false,
+    aiWebshopAssistantEnabled:
+      rowWithOptionalAi.aiWebshopAssistantEnabled ?? false,
     aiDefaultProvider: rowWithOptionalAi.aiDefaultProvider ?? "openai",
     aiProviderSettings: rowWithOptionalAi.aiProviderSettings ?? {},
     contentHistoryEnabled:
-      rowWithOptionalAi.contentHistoryEnabled ?? CONTENT_HISTORY_DEFAULTS.enabled,
+      rowWithOptionalAi.contentHistoryEnabled ??
+      CONTENT_HISTORY_DEFAULTS.enabled,
   } as GlobalSettingsRow;
 }
 
@@ -528,6 +563,7 @@ export async function getAdminGlobalSettings(): Promise<GlobalSettingsAdminFormR
 
 async function loadAiWritingAssistantServerSettingsRows(
   includePageBuilderAssistant: boolean,
+  includeWebshopAssistant: boolean,
 ) {
   return db
     .select({
@@ -535,6 +571,11 @@ async function loadAiWritingAssistantServerSettingsRows(
       ...(includePageBuilderAssistant
         ? {
             pageBuilderEnabled: globalSettings.aiPageBuilderAssistantEnabled,
+          }
+        : {}),
+      ...(includeWebshopAssistant
+        ? {
+            webshopEnabled: globalSettings.aiWebshopAssistantEnabled,
           }
         : {}),
       defaultProvider: globalSettings.aiDefaultProvider,
@@ -554,17 +595,24 @@ export async function getAiWritingAssistantServerSettings(): Promise<AiWritingAs
     ReturnType<typeof loadAiWritingAssistantServerSettingsRows>
   >;
   let includePageBuilderAssistant = true;
+  let includeWebshopAssistant = true;
 
   try {
     rows = await loadAiWritingAssistantServerSettingsRows(
       includePageBuilderAssistant,
+      includeWebshopAssistant,
     );
   } catch (err) {
     if (!isMissingAiWritingAssistantColumns(err)) throw err;
-    includePageBuilderAssistant = false;
+    if (includeWebshopAssistant) {
+      includeWebshopAssistant = false;
+    } else {
+      includePageBuilderAssistant = false;
+    }
     try {
       rows = await loadAiWritingAssistantServerSettingsRows(
         includePageBuilderAssistant,
+        includeWebshopAssistant,
       );
     } catch (retryErr) {
       if (!isMissingAiWritingAssistantColumns(retryErr)) throw retryErr;
@@ -583,6 +631,7 @@ export async function getAiWritingAssistantServerSettings(): Promise<AiWritingAs
     ...row,
     pageBuilderEnabled:
       "pageBuilderEnabled" in row ? row.pageBuilderEnabled : undefined,
+    webshopEnabled: "webshopEnabled" in row ? row.webshopEnabled : undefined,
   });
 }
 
@@ -687,6 +736,7 @@ export async function updateGlobalSettings(
     }),
     aiWritingAssistantEnabled: input.aiWritingAssistantEnabled,
     aiPageBuilderAssistantEnabled: input.aiPageBuilderAssistantEnabled,
+    aiWebshopAssistantEnabled: input.aiWebshopAssistantEnabled,
     aiDefaultProvider,
     aiProviderSettings,
     openaiApiKey: openaiProvider.apiKey,

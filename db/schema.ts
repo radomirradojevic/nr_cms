@@ -2096,6 +2096,9 @@ export const globalSettings = pgTable(
     aiPageBuilderAssistantEnabled: boolean("ai_page_builder_assistant_enabled")
       .notNull()
       .default(false),
+    aiWebshopAssistantEnabled: boolean("ai_webshop_assistant_enabled")
+      .notNull()
+      .default(false),
     aiDefaultProvider: text("ai_default_provider").notNull().default("openai"),
     aiProviderSettings: jsonb("ai_provider_settings")
       .notNull()

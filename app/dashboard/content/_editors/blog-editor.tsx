@@ -129,6 +129,13 @@ type Props = {
   onAiProviderIdChange?: (providerId: AIProviderId) => void;
   aiModelId?: string;
   onAiModelIdChange?: (modelId: string) => void;
+  aiSuggestionField?:
+    | "content"
+    | "description"
+    | "excerpt"
+    | "metaTitle"
+    | "metaDescription";
+  aiSuggestionSurface?: "blogEditor" | "pageBuilder" | "productEditor";
   title?: string;
   excerpt?: string;
 };
@@ -223,6 +230,8 @@ export function BlogEditor({
   onAiProviderIdChange,
   aiModelId: controlledAiModelId,
   onAiModelIdChange,
+  aiSuggestionField = "content",
+  aiSuggestionSurface = "blogEditor",
   title = "",
   excerpt = "",
 }: Props) {
@@ -383,7 +392,12 @@ export function BlogEditor({
       clearAiSuggestion(editor);
       setAiSuggestionStatus("idle");
 
-      const request = buildAiSuggestionRequest(editor, { title, excerpt });
+      const request = buildAiSuggestionRequest(editor, {
+        excerpt,
+        field: aiSuggestionField,
+        surface: aiSuggestionSurface,
+        title,
+      });
       if (!request) return;
 
       aiDebounceRef.current = setTimeout(async () => {
@@ -456,6 +470,8 @@ export function BlogEditor({
   }, [
     aiWritingAssistantActive,
     aiWritingAssistantAvailable,
+    aiSuggestionField,
+    aiSuggestionSurface,
     effectiveAiModelId,
     effectiveAiProviderId,
     editor,
@@ -2012,10 +2028,22 @@ function Sep() {
 
 function buildAiSuggestionRequest(
   editor: Editor,
-  meta: { title: string; excerpt: string },
+  meta: {
+    excerpt: string;
+    field: NonNullable<Props["aiSuggestionField"]>;
+    surface: NonNullable<Props["aiSuggestionSurface"]>;
+    title: string;
+  },
 ): {
   pos: number;
-  body: { title: string; excerpt: string; before: string; after: string };
+  body: {
+    after: string;
+    before: string;
+    excerpt: string;
+    field: NonNullable<Props["aiSuggestionField"]>;
+    surface: NonNullable<Props["aiSuggestionSurface"]>;
+    title: string;
+  };
 } | null {
   const { selection, doc } = editor.state;
   if (!editor.isFocused || !selection.empty) return null;
@@ -2037,10 +2065,12 @@ function buildAiSuggestionRequest(
   return {
     pos,
     body: {
-      title: meta.title,
-      excerpt: meta.excerpt,
-      before,
       after,
+      before,
+      excerpt: meta.excerpt,
+      field: meta.field,
+      surface: meta.surface,
+      title: meta.title,
     },
   };
 }
