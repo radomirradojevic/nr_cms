@@ -3,6 +3,8 @@
 @import "shadcn/tailwind.css";
 @import "../node_modules/@clerk/themes/dist/themes/shadcn.css";
 
+@source "../.private/webshop/src";
+
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
