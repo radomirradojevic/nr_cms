@@ -20,7 +20,7 @@ const SuggestionRequestSchema = z.object({
   providerId: AIProviderIdSchema.optional(),
   model: AIProviderModelIdSchema.optional(),
   field: z
-    .enum(["content", "excerpt", "metaTitle", "metaDescription"])
+    .enum(["content", "description", "excerpt", "metaTitle", "metaDescription"])
     .optional(),
   title: z.string().trim().max(200).optional(),
   excerpt: z.string().trim().max(2_000).optional(),
@@ -64,9 +64,9 @@ export async function POST(request: Request) {
   }
 
   const settings = await getAiWritingAssistantServerSettings();
-  if (!settings.enabled) {
+  if (!getAssistantEnabledForSurface(parsed.data.surface, settings)) {
     return NextResponse.json(
-      { error: "AI writing assistant is disabled." },
+      { error: getAssistantDisabledMessage(parsed.data.surface) },
       { status: 403 },
     );
   }
@@ -134,6 +134,35 @@ export async function POST(request: Request) {
   return NextResponse.json({ suggestion });
 }
 
+function getAssistantEnabledForSurface(
+  surface: z.infer<typeof SuggestionRequestSchema>["surface"],
+  settings: Awaited<ReturnType<typeof getAiWritingAssistantServerSettings>>,
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return settings.pageBuilderEnabled;
+    case "productEditor":
+      return settings.webshopEnabled;
+    case "blogEditor":
+    default:
+      return settings.enabled;
+  }
+}
+
+function getAssistantDisabledMessage(
+  surface: z.infer<typeof SuggestionRequestSchema>["surface"],
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return "AI assistant is disabled.";
+    case "productEditor":
+      return "WebShop AI assistant is disabled.";
+    case "blogEditor":
+    default:
+      return "AI writing assistant is disabled.";
+  }
+}
+
 function getSuggestionTimeoutMs(providerId: string, model: string) {
   return providerId === "openai" && /(?:^|[-.])pro(?:[-.]|$)/iu.test(model)
     ? 45_000
@@ -188,6 +217,8 @@ function getSuggestionFieldInstruction(
   field: NonNullable<z.infer<typeof SuggestionRequestSchema>["field"]>,
 ) {
   switch (field) {
+    case "description":
+      return "The active field is a webshop product description. Continue buyer-facing product copy with concrete details from the provided context.";
     case "excerpt":
       return "The active field is Excerpt. Continue a concise blog summary and avoid repeating the title.";
     case "metaTitle":
