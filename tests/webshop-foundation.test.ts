@@ -127,6 +127,39 @@ test("route index resolves webshop slug navigation", () => {
   assert.deepEqual(target, { contentId: webshopId, contentType: "webshop" });
 });
 
+test("route index resolves nested public webshop routes to the webshop", () => {
+  const webshopId = "77777777-7777-4777-8777-777777777777";
+  const routeIndex = {
+    homepage: null,
+    contents: [
+      {
+        slug: "shop",
+        contentId: webshopId,
+        contentType: "webshop" as const,
+      },
+      {
+        slug: "about",
+        contentId: "88888888-8888-4888-8888-888888888888",
+        contentType: "page" as const,
+      },
+    ],
+    blogCategoryIds: [],
+  };
+
+  assert.deepEqual(
+    resolveShellRenderTargetForPathname("/shop/p/samsung-a56", routeIndex),
+    { contentId: webshopId, contentType: "webshop" },
+  );
+  assert.deepEqual(
+    resolveShellRenderTargetForPathname("/shop/wishlist", routeIndex),
+    { contentId: webshopId, contentType: "webshop" },
+  );
+  assert.deepEqual(
+    resolveShellRenderTargetForPathname("/about/team", routeIndex),
+    {},
+  );
+});
+
 test("webshop public placeholder renders stable markup", () => {
   const html = renderToStaticMarkup(
     createElement(WebshopPublicPlaceholder, {
