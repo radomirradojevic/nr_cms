@@ -119,13 +119,14 @@ export function resolveShellRenderTargetForPathname(
     return { blogCategoryId };
   }
 
-  const slug = normalizedPathname.slice(1);
-  if (!slug || slug.includes("/")) return {};
+  const [slug, ...pathSegments] = normalizedPathname.slice(1).split("/");
+  if (!slug) return {};
 
   const content = routeIndex.contents.find((item) => item.slug === slug);
-  return content
-    ? { contentId: content.contentId, contentType: content.contentType }
-    : {};
+  if (!content) return {};
+  if (pathSegments.length > 0 && content.contentType !== "webshop") return {};
+
+  return { contentId: content.contentId, contentType: content.contentType };
 }
 
 export function shouldShowShellForTarget(
