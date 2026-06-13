@@ -400,6 +400,13 @@
       "when": 1781654400029,
       "tag": "0056_swift_sersi",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1781654400030,
+      "tag": "0057_webshop_product_price_minor_units",
+      "breakpoints": true
     }
   ]
 }

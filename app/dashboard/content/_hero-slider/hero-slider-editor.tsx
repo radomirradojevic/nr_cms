@@ -458,7 +458,7 @@ export function HeroSliderEditor({
   return (
     <div className="space-y-4 rounded-md border bg-background p-4">
       <Tabs defaultValue="slides" className="gap-4">
-        <TabsList className="grid h-auto w-full grid-cols-3 p-1 sm:w-[520px]">
+        <TabsList className="flex-wrap overflow-x-visible">
           <TabsTrigger value="slides">
             <Layers3 className="h-4 w-4" />
             Slides
@@ -558,7 +558,7 @@ export function HeroSliderEditor({
                 defaultValue="blocks"
                 className="gap-3 rounded-md border p-3"
               >
-                <TabsList className="grid h-auto w-full grid-cols-3 p-1">
+                <TabsList className="flex-wrap overflow-x-visible">
                   <TabsTrigger
                     value="blocks"
                     className="min-w-0 px-2 text-xs sm:text-sm"

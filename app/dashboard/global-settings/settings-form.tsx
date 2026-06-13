@@ -2867,7 +2867,7 @@ export function SettingsForm({
         onValueChange={handleSettingsTabChange}
         className="space-y-4"
       >
-        <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+        <TabsList className="flex-wrap overflow-x-visible">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="layout-design">Layout &amp; Design</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
@@ -2950,7 +2950,7 @@ export function SettingsForm({
             onValueChange={handleLayoutDesignTabChange}
             className="space-y-4"
           >
-            <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+            <TabsList className="flex-wrap overflow-x-visible">
               <TabsTrigger value="header">Header</TabsTrigger>
               <TabsTrigger value="footer">Footer</TabsTrigger>
               <TabsTrigger value="appearance">Appearance</TabsTrigger>
@@ -4286,7 +4286,7 @@ export function SettingsForm({
                 </div>
 
                 <Tabs defaultValue="openai" className="space-y-4">
-                  <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+                  <TabsList className="flex-wrap overflow-x-visible">
                     {AI_PROVIDER_IDS.map((providerId) => (
                       <TabsTrigger key={providerId} value={providerId}>
                         {AI_PROVIDER_LABELS[providerId]}
