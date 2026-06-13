@@ -1546,7 +1546,7 @@ export function ContentForm({
               }
               className="gap-0 rounded-lg border bg-background"
             >
-              <TabsList className="m-2 grid h-auto w-auto grid-cols-2 gap-1 p-1">
+              <TabsList className="m-2 w-auto flex-wrap overflow-x-visible">
                 <TabsTrigger
                   value="publishing"
                   className="min-w-0 px-2 text-xs"
