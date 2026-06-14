@@ -36,7 +36,7 @@ export async function renderWebshopDashboardPath(
   if (path.length === 0) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-6xl p-6">
+    <div className="mx-auto w-full max-w-[var(--backend-content-max-width)] p-6">
       <WebshopAddonRequired state={addonState} />
     </div>
   );
