@@ -570,6 +570,8 @@ export const webshopAttributes = pgTable(
     required: boolean("required").notNull().default(false),
     filterable: boolean("filterable").notNull().default(false),
     searchable: boolean("searchable").notNull().default(true),
+    useRichTextEditor: boolean("use_rich_text_editor").notNull().default(false),
+    showAsProductTab: boolean("show_as_product_tab").notNull().default(false),
     createdBy: text("created_by").notNull(),
     updatedBy: text("updated_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -605,6 +607,7 @@ export const webshopCategoryAttributes = pgTable(
     required: boolean("required"),
     filterable: boolean("filterable"),
     searchable: boolean("searchable"),
+    scope: text("scope").notNull().default("product"),
     createdBy: text("created_by").notNull(),
     updatedBy: text("updated_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -624,11 +627,16 @@ export const webshopCategoryAttributes = pgTable(
       "webshop_category_attributes_position_check",
       sql`${table.position} >= 0`,
     ),
+    check(
+      "webshop_category_attributes_scope_check",
+      sql`${table.scope} IN ('product','variant')`,
+    ),
     index("webshop_category_attributes_category_position_idx").on(
       table.categoryId,
       table.position,
     ),
     index("webshop_category_attributes_attribute_idx").on(table.attributeId),
+    index("webshop_category_attributes_scope_idx").on(table.scope),
   ],
 );
 
@@ -786,6 +794,9 @@ export const webshopProductMedia = pgTable(
     productId: uuid("product_id")
       .notNull()
       .references(() => webshopProducts.id, { onDelete: "cascade" }),
+    variantId: uuid("variant_id").references(() => webshopProductVariants.id, {
+      onDelete: "set null",
+    }),
     fileId: uuid("file_id")
       .notNull()
       .references(() => files.id, { onDelete: "restrict" }),
@@ -797,10 +808,9 @@ export const webshopProductMedia = pgTable(
       .defaultNow(),
   },
   (table) => [
-    unique("webshop_product_media_product_file_unique").on(
-      table.productId,
-      table.fileId,
-    ),
+    unique("webshop_product_media_product_file_variant_unique")
+      .on(table.productId, table.fileId, table.variantId)
+      .nullsNotDistinct(),
     check(
       "webshop_product_media_role_check",
       sql`${table.role} IN ('cover','gallery')`,
@@ -811,6 +821,7 @@ export const webshopProductMedia = pgTable(
       table.position,
     ),
     index("webshop_product_media_file_idx").on(table.fileId),
+    index("webshop_product_media_variant_idx").on(table.variantId),
   ],
 );
 
@@ -1864,6 +1875,36 @@ export const webshopProductAttributeValues = pgTable(
       .nullsNotDistinct(),
     index("webshop_product_attribute_values_product_idx").on(table.productId),
     index("webshop_product_attribute_values_attribute_idx").on(
+      table.attributeId,
+    ),
+  ],
+);
+
+export const webshopProductVariantAttributeValues = pgTable(
+  "webshop_product_variant_attribute_values",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    variantId: uuid("variant_id")
+      .notNull()
+      .references(() => webshopProductVariants.id, { onDelete: "cascade" }),
+    attributeId: uuid("attribute_id")
+      .notNull()
+      .references(() => webshopAttributes.id, { onDelete: "restrict" }),
+    valueText: text("value_text"),
+    valueNumber: bigint("value_number", { mode: "number" }),
+    valueBoolean: boolean("value_boolean"),
+    valueDate: date("value_date"),
+    valueJson: jsonb("value_json"),
+    optionId: text("option_id"),
+  },
+  (table) => [
+    unique("webshop_product_variant_attribute_values_unique")
+      .on(table.variantId, table.attributeId, table.optionId)
+      .nullsNotDistinct(),
+    index("webshop_product_variant_attribute_values_variant_idx").on(
+      table.variantId,
+    ),
+    index("webshop_product_variant_attribute_values_attribute_idx").on(
       table.attributeId,
     ),
   ],

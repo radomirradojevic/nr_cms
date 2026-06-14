@@ -407,6 +407,20 @@
       "when": 1781654400030,
       "tag": "0057_webshop_product_price_minor_units",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1781654400031,
+      "tag": "0058_webshop_attribute_text_display_options",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1781654400032,
+      "tag": "0059_webshop_variant_attributes_and_media",
+      "breakpoints": true
     }
   ]
 }
