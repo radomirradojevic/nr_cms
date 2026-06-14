@@ -63,7 +63,7 @@ export default async function WebshopDashboardPage() {
   const webshop = rows[0];
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
+    <div className="mx-auto w-full max-w-[var(--backend-content-max-width)] space-y-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Webshop</h1>
