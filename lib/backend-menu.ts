@@ -11,7 +11,7 @@ type BackendMenuNodeDefinition = {
   href: string;
   label: string;
   adminOnly?: boolean;
-  children?: BackendMenuNodeDefinition[];
+  children?: readonly BackendMenuNodeDefinition[];
 };
 
 export type BackendMenuLink = {
@@ -21,7 +21,45 @@ export type BackendMenuLink = {
   isChild?: boolean;
 };
 
-const BACKEND_MENU: BackendMenuNodeDefinition[] = [
+export const WEBSHOP_BACKEND_CHILD_LINKS = [
+  {
+    id: "webshop-categories",
+    href: "/dashboard/webshop/categories",
+    label: "Categories",
+  },
+  {
+    id: "webshop-orders",
+    href: "/dashboard/webshop/orders",
+    label: "Orders",
+  },
+  {
+    id: "webshop-wishlist",
+    href: "/dashboard/webshop/wishlists",
+    label: "Wishlist",
+  },
+  {
+    id: "webshop-settings",
+    href: "/dashboard/webshop/settings",
+    label: "Settings",
+  },
+  {
+    id: "webshop-products",
+    href: "/dashboard/webshop/products",
+    label: "Products",
+  },
+  {
+    id: "webshop-promotions",
+    href: "/dashboard/webshop/promotions",
+    label: "Promotions",
+  },
+  {
+    id: "webshop-storefront",
+    href: "/dashboard/webshop/storefront",
+    label: "Storefront",
+  },
+] as const satisfies readonly BackendMenuNodeDefinition[];
+
+const BACKEND_MENU: readonly BackendMenuNodeDefinition[] = [
   {
     id: "dashboard",
     href: "/dashboard",
@@ -53,6 +91,7 @@ const BACKEND_MENU: BackendMenuNodeDefinition[] = [
     href: "/dashboard/webshop",
     label: "Webshop",
     adminOnly: true,
+    children: WEBSHOP_BACKEND_CHILD_LINKS,
   },
   {
     id: "filemanager",
