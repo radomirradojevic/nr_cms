@@ -318,6 +318,7 @@ test("backend menu helper exposes stable role-aware targets", () => {
   });
   assert.ok(adminLinks.some((item) => item.id === "backend:global-settings"));
   assert.ok(adminLinks.some((item) => item.id === "backend:webshop"));
+  assert.ok(adminLinks.some((item) => item.id === "backend:webshop-orders"));
   assert.ok(adminLinks.some((item) => item.id === "backend:form-builder"));
   assert.equal(
     getBackendMenuLinks({
@@ -338,12 +339,39 @@ test("backend menu helper exposes stable role-aware targets", () => {
     adminLinks
       .filter((item) => item.isChild)
       .map((item) => item.id)
-      .slice(0, 3),
+      .slice(0, 9),
     [
       "backend:global-settings",
       "backend:content-categories",
-      "backend:gallerymanager",
+      "backend:webshop-categories",
+      "backend:webshop-orders",
+      "backend:webshop-wishlist",
+      "backend:webshop-settings",
+      "backend:webshop-products",
+      "backend:webshop-promotions",
+      "backend:webshop-storefront",
     ],
+  );
+  assert.deepEqual(
+    adminLinks
+      .filter((item) => item.id.startsWith("backend:webshop-"))
+      .map(({ href, label }) => ({ href, label })),
+    [
+      { href: "/dashboard/webshop/categories", label: "Categories" },
+      { href: "/dashboard/webshop/orders", label: "Orders" },
+      { href: "/dashboard/webshop/wishlists", label: "Wishlist" },
+      { href: "/dashboard/webshop/settings", label: "Settings" },
+      { href: "/dashboard/webshop/products", label: "Products" },
+      { href: "/dashboard/webshop/promotions", label: "Promotions" },
+      { href: "/dashboard/webshop/storefront", label: "Storefront" },
+    ],
+  );
+  assert.deepEqual(
+    adminLinks
+      .filter((item) => item.isChild)
+      .map((item) => item.id)
+      .slice(9, 10),
+    ["backend:gallerymanager"],
   );
 });
 

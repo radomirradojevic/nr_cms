@@ -1,5 +1,10 @@
-import { notFound, redirect } from "next/navigation";
+import type { ReactNode } from "react";
 
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { WebshopAddonRequired } from "@/components/webshop-addon-required";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
@@ -16,28 +21,49 @@ export async function renderWebshopDashboardPath(
   const addonState = await resolveWebshopAddonState();
 
   if (addonState.status === "ready") {
-    return addonState.addon.renderDashboardPath({
+    const content = await addonState.addon.renderDashboardPath({
       licenseMode: "ready",
       path,
       searchParams,
       userId: user!.id,
     });
+    return withWebshopHomeLink(path, content);
   }
 
   if (addonState.status === "license_expired") {
-    return addonState.addon.renderDashboardPath({
+    const content = await addonState.addon.renderDashboardPath({
       licenseMode: "edit_existing_only",
       path,
       searchParams,
       userId: user!.id,
     });
+    return withWebshopHomeLink(path, content);
   }
 
   if (path.length === 0) notFound();
 
-  return (
+  return withWebshopHomeLink(
+    path,
     <div className="mx-auto w-full max-w-[var(--backend-content-max-width)] p-6">
       <WebshopAddonRequired state={addonState} />
+    </div>,
+  );
+}
+
+function withWebshopHomeLink(path: readonly string[], content: ReactNode) {
+  if (path.length === 0) return content;
+
+  return (
+    <div className="w-full">
+      <div className="mx-auto w-full max-w-[var(--backend-content-max-width)] px-6 pt-6">
+        <Button asChild variant="ghost" size="sm" className="-ml-2">
+          <Link href="/dashboard/webshop">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Webshop
+          </Link>
+        </Button>
+      </div>
+      <div className="-mt-2">{content}</div>
     </div>
   );
 }

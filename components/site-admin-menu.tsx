@@ -25,6 +25,7 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 import { cn } from "@/lib/utils";
+import { WEBSHOP_BACKEND_CHILD_LINKS } from "@/lib/backend-menu";
 import { getRoles, hasRole } from "@/lib/roles";
 
 type SiteAdminMenuProps = {
@@ -159,7 +160,24 @@ export function SiteAdminMenu({
           </NavigationMenuItem>
           {isAdmin && hasWebshopShell && (
             <NavigationMenuItem>
-              <SiteTopMenuLink href="/dashboard/webshop" label="Webshop" />
+              <SiteTopMenuParentTrigger
+                url="/dashboard/webshop"
+                target="_self"
+                label="Webshop"
+              />
+              <NavigationMenuContent>
+                <ul className="grid w-52 gap-1 p-2">
+                  {WEBSHOP_BACKEND_CHILD_LINKS.map((item) => (
+                    <li key={item.id}>
+                      <NavigationMenuLink asChild>
+                        <Link href={item.href} className={submenuLinkClassName}>
+                          {item.label}
+                        </Link>
+                      </NavigationMenuLink>
+                    </li>
+                  ))}
+                </ul>
+              </NavigationMenuContent>
             </NavigationMenuItem>
           )}
           <NavigationMenuItem>
@@ -266,9 +284,16 @@ export function SiteAdminMenuLauncher({
                     </Link>
                   </DropdownMenuItem>
                   {hasWebshopShell && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/dashboard/webshop">Webshop</Link>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard/webshop">Webshop</Link>
+                      </DropdownMenuItem>
+                      {WEBSHOP_BACKEND_CHILD_LINKS.map((item) => (
+                        <DropdownMenuItem asChild inset key={item.id}>
+                          <Link href={item.href}>{item.label}</Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </>
                   )}
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard/users">Users</Link>
