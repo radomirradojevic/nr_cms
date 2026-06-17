@@ -32,6 +32,13 @@ const SUPERSEDED_BY_CMS_SCHEMA = new Set([
   "0001_safe_martin_li",
 ]);
 
+const SUPERSEDED_CONSTRAINTS = new Map([
+  [
+    "webshop_product_media_product_file_unique",
+    new Set(["webshop_product_media_product_file_variant_unique"]),
+  ],
+]);
+
 const LEGACY_MIGRATION_HASHES = new Map([
   [
     "0011_add_category_created_by",
@@ -167,6 +174,19 @@ function constraintDefinitionFor(schemaState, tableName, constraintName) {
       `${tableName}.${postgresIdentifierName(constraintName)}`,
     )
   );
+}
+
+function constraintExists(schemaState, expectedName) {
+  if (identifierExists(schemaState.constraints, expectedName)) return true;
+
+  const replacements = SUPERSEDED_CONSTRAINTS.get(expectedName);
+  if (!replacements) return false;
+
+  for (const replacement of replacements) {
+    if (identifierExists(schemaState.constraints, replacement)) return true;
+  }
+
+  return false;
 }
 
 function constraintDefinitionMatches(expected, current) {
@@ -594,7 +614,7 @@ function operationStatus(
         (column) => !columns.has(column),
       );
       const missingConstraints = operation.constraints.filter(
-        (constraint) => !identifierExists(schemaState.constraints, constraint),
+        (constraint) => !constraintExists(schemaState, constraint),
       );
 
       if (missingColumns.length > 0 || missingConstraints.length > 0) {
@@ -644,7 +664,9 @@ function operationStatus(
       );
 
       if (!currentDefinition) {
-        return { satisfied: false };
+        return {
+          satisfied: constraintExists(schemaState, operation.constraint),
+        };
       }
 
       if (
@@ -706,6 +728,12 @@ function analyzeMigration(migration) {
   );
 
   return { statements, finalAdds, replacedConstraints };
+}
+
+function migrationHasSchemaOperations(migration) {
+  return analyzeMigration(migration).statements.some(
+    (statement) => statement.operations.length > 0,
+  );
 }
 
 function hasGlobalSettingsColumns(schemaState, columns) {
@@ -786,6 +814,7 @@ function statementStatus(statement, schemaState) {
 }
 
 export const __migrationRunnerTesting = {
+  migrationHasSchemaOperations,
   migrationEndStateStatus,
   normalizeColumnDefault,
   supersededMigrationReason,
@@ -1092,6 +1121,10 @@ async function main() {
         );
 
         if (appliedRow) {
+          if (!migrationHasSchemaOperations(migration)) {
+            continue;
+          }
+
           if (
             status.satisfied &&
             (appliedRow.hash !== migration.hash ||

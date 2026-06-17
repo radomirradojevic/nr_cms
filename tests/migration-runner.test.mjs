@@ -62,6 +62,26 @@ test("migration runner normalizes postgres text casts in column defaults", () =>
   );
 });
 
+test("migration runner recognizes data-only migrations", () => {
+  assert.equal(
+    __migrationRunnerTesting.migrationHasSchemaOperations({
+      tag: "0057_webshop_product_price_minor_units",
+      statements: [
+        'UPDATE "webshop_products" SET "base_price_minor" = "base_price_minor" * 100',
+      ],
+    }),
+    false,
+  );
+
+  assert.equal(
+    __migrationRunnerTesting.migrationHasSchemaOperations({
+      tag: "0060_webshop_product_reviews",
+      statements: ['CREATE TABLE "webshop_product_reviews" ("id" uuid)'],
+    }),
+    true,
+  );
+});
+
 test("migration runner recognizes postgres-truncated constraint names", () => {
   const status = __migrationRunnerTesting.migrationEndStateStatus(
     {
@@ -92,6 +112,57 @@ test("migration runner recognizes postgres-truncated constraint names", () => {
   assert.equal(status.satisfied, true);
 });
 
+test("migration runner accepts superseded webshop media unique constraint", () => {
+  const status = __migrationRunnerTesting.migrationEndStateStatus(
+    {
+      tag: "0050_chief_vivisector",
+      statements: [
+        `CREATE TABLE "webshop_product_media" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "product_id" uuid NOT NULL,
+          "file_id" uuid NOT NULL,
+          "role" text DEFAULT 'gallery' NOT NULL,
+          "alt" text,
+          "position" integer DEFAULT 0 NOT NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+          CONSTRAINT "webshop_product_media_product_file_unique" UNIQUE("product_id","file_id"),
+          CONSTRAINT "webshop_product_media_role_check" CHECK ("webshop_product_media"."role" IN ('cover','gallery')),
+          CONSTRAINT "webshop_product_media_position_check" CHECK ("webshop_product_media"."position" >= 0)
+        )`,
+      ],
+    },
+    {
+      tables: new Set(["webshop_product_media"]),
+      tableColumns: new Map([
+        [
+          "webshop_product_media",
+          new Set([
+            "id",
+            "product_id",
+            "file_id",
+            "role",
+            "alt",
+            "position",
+            "created_at",
+            "variant_id",
+          ]),
+        ],
+      ]),
+      columnDefaults: new Map(),
+      indexes: new Set(),
+      constraints: new Set([
+        "webshop_product_media_pkey",
+        "webshop_product_media_product_file_variant_unique",
+        "webshop_product_media_role_check",
+        "webshop_product_media_position_check",
+      ]),
+      constraintDefinitions: new Map(),
+    },
+  );
+
+  assert.equal(status.satisfied, true);
+});
+
 test("webshop public migrations are present in checked migration files", () => {
   const contentTypeMigration = fs.readFileSync(
     new URL("../drizzle/0047_webshop_foundation.sql", import.meta.url),
@@ -107,4 +178,35 @@ test("webshop public migrations are present in checked migration files", () => {
     entitlementMigration,
     /CREATE TABLE "webshop_addon_entitlements"/,
   );
+});
+
+test("webshop price minor-unit migrations avoid repeated scaling", () => {
+  const priceUnitMigration = fs.readFileSync(
+    new URL(
+      "../drizzle/0057_webshop_product_price_minor_units.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const correctionMigration = fs.readFileSync(
+    new URL(
+      "../drizzle/0061_webshop_price_minor_unit_correction.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const repeatedCorrectionMigration = fs.readFileSync(
+    new URL(
+      "../drizzle/0062_webshop_repeated_price_scale_correction.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.match(priceUnitMigration, /"base_price_minor" < 1000000/);
+  assert.match(priceUnitMigration, /"price_minor" < 1000000/);
+  assert.match(correctionMigration, /"base_price_minor" >= 100000000/);
+  assert.match(correctionMigration, /"price_minor" >= 100000000/);
+  assert.match(repeatedCorrectionMigration, /"base_price_minor" >= 100000000/);
+  assert.match(repeatedCorrectionMigration, /"price_minor" >= 100000000/);
 });

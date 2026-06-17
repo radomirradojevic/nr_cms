@@ -421,6 +421,27 @@
       "when": 1781654400032,
       "tag": "0059_webshop_variant_attributes_and_media",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1781654400033,
+      "tag": "0060_webshop_product_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1781654400034,
+      "tag": "0061_webshop_price_minor_unit_correction",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1781654400035,
+      "tag": "0062_webshop_repeated_price_scale_correction",
+      "breakpoints": true
     }
   ]
 }
