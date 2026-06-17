@@ -711,6 +711,11 @@ export const webshopProducts = pgTable(
     serviceFields: jsonb("service_fields")
       .notNull()
       .default(sql`'{}'::jsonb`),
+    ratingsEnabled: boolean("ratings_enabled").notNull().default(false),
+    autoPublishRatings: boolean("auto_publish_ratings")
+      .notNull()
+      .default(false),
+    ratingsVisibility: text("ratings_visibility").notNull().default("public"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdBy: text("created_by").notNull(),
     updatedBy: text("updated_by").notNull(),
@@ -751,6 +756,10 @@ export const webshopProducts = pgTable(
     check(
       "webshop_products_low_stock_threshold_check",
       sql`${table.lowStockThreshold} IS NULL OR ${table.lowStockThreshold} >= 0`,
+    ),
+    check(
+      "webshop_products_ratings_visibility_check",
+      sql`${table.ratingsVisibility} IN ('public','authenticated','hidden')`,
     ),
     index("webshop_products_status_updated_idx").on(
       table.status,
@@ -1822,6 +1831,67 @@ export const webshopRelatedProducts = pgTable(
     ),
     index("webshop_related_products_related_idx").on(table.relatedProductId),
     index("webshop_related_products_webshop_idx").on(table.webshopId),
+  ],
+);
+
+export const webshopProductReviews = pgTable(
+  "webshop_product_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => webshopProducts.id, { onDelete: "cascade" }),
+    customerUserId: text("customer_user_id").notNull(),
+    orderId: uuid("order_id").references(() => webshopOrders.id, {
+      onDelete: "set null",
+    }),
+    orderItemId: uuid("order_item_id").references(() => webshopOrderItems.id, {
+      onDelete: "set null",
+    }),
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    status: text("status").notNull().default("pending"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    moderatedBy: text("moderated_by"),
+    moderatedAt: timestamp("moderated_at", { withTimezone: true }),
+    ipHash: text("ip_hash"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("webshop_product_reviews_customer_unique").on(
+      table.productId,
+      table.customerUserId,
+    ),
+    check(
+      "webshop_product_reviews_rating_check",
+      sql`${table.rating} BETWEEN 1 AND 5`,
+    ),
+    check(
+      "webshop_product_reviews_status_check",
+      sql`${table.status} IN ('pending','published')`,
+    ),
+    check(
+      "webshop_product_reviews_comment_length_check",
+      sql`${table.comment} IS NULL OR char_length(${table.comment}) BETWEEN 1 AND 5000`,
+    ),
+    index("webshop_product_reviews_product_status_created_idx").on(
+      table.productId,
+      table.status,
+      table.createdAt,
+    ),
+    index("webshop_product_reviews_customer_idx").on(table.customerUserId),
+    index("webshop_product_reviews_order_idx").on(
+      table.orderId,
+      table.orderItemId,
+    ),
+    index("webshop_product_reviews_ip_hash_idx").on(table.ipHash),
   ],
 );
 
