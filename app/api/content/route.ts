@@ -7,7 +7,7 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 import { CMS_CONTENT_TYPES, type ContentType } from "@/lib/content-types";
 
-const ALLOWED_PAGE_SIZES = [10, 20, 30];
+const ALLOWED_PAGE_SIZES = [10, 20, 30, 50, 100];
 const ALLOWED_SORTS = [
   "updated_desc",
   "updated_asc",

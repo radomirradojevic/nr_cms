@@ -20,7 +20,7 @@ import {
 import type { Role } from "@/lib/roles";
 import type { ContentType } from "@/lib/content-types";
 
-type AllowedPageSize = 10 | 20 | 30;
+type AllowedPageSize = 10 | 20 | 30 | 50 | 100;
 
 export type CategoryOption = { id: string; name: string };
 

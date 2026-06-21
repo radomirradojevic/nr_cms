@@ -9,19 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles, type Role } from "@/lib/roles";
 import { UsersFilters } from "./_components/users-filters";
+import { UsersTablePagination } from "./_components/users-table-pagination";
 import { LockUserButton } from "./[userId]/lock-user-button";
 import { ForceSignOutButton } from "./[userId]/force-signout-button";
 
@@ -35,20 +28,7 @@ const roleBadgeVariant: Record<
   admin: "destructive",
 };
 
-const PER_PAGE_OPTIONS = [10, 20, 30] as const;
-
-function buildHref(
-  current: URLSearchParams,
-  updates: Record<string, string>,
-): string {
-  const params = new URLSearchParams(current.toString());
-  for (const [k, v] of Object.entries(updates)) {
-    if (v) params.set(k, v);
-    else params.delete(k);
-  }
-  const qs = params.toString();
-  return `/dashboard/users${qs ? `?${qs}` : ""}`;
-}
+const PER_PAGE_OPTIONS = [10, 20, 30, 50, 100] as const;
 
 export default async function UsersPage({
   searchParams,
@@ -134,14 +114,6 @@ export default async function UsersPage({
     (currentPage - 1) * perPage,
     currentPage * perPage,
   );
-
-  // Build URLSearchParams for pagination links
-  const baseParams = new URLSearchParams();
-  if (search) baseParams.set("search", search);
-  if (statusFilter !== "all") baseParams.set("status", statusFilter);
-  if (roleFilter !== "all") baseParams.set("role", roleFilter);
-  if (presenceFilter !== "all") baseParams.set("presence", presenceFilter);
-  if (perPage !== 10) baseParams.set("perPage", String(perPage));
 
   return (
     <div className="p-6 space-y-6">
@@ -237,64 +209,12 @@ export default async function UsersPage({
         </TableBody>
       </Table>
 
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-muted-foreground">
-          {total === 0
-            ? "No users"
-            : `Showing ${(currentPage - 1) * perPage + 1}–${Math.min(currentPage * perPage, total)} of ${total} user${total === 1 ? "" : "s"}`}
-        </p>
-
-        {totalPages > 1 && (
-          <Pagination className="mx-0 w-auto">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href={
-                    currentPage > 1
-                      ? buildHref(baseParams, {
-                          page: String(currentPage - 1),
-                        })
-                      : undefined
-                  }
-                  aria-disabled={currentPage <= 1}
-                  className={
-                    currentPage <= 1 ? "pointer-events-none opacity-50" : ""
-                  }
-                />
-              </PaginationItem>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <PaginationItem key={p}>
-                  <PaginationLink
-                    href={buildHref(baseParams, { page: String(p) })}
-                    isActive={p === currentPage}
-                  >
-                    {p}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-
-              <PaginationItem>
-                <PaginationNext
-                  href={
-                    currentPage < totalPages
-                      ? buildHref(baseParams, {
-                          page: String(currentPage + 1),
-                        })
-                      : undefined
-                  }
-                  aria-disabled={currentPage >= totalPages}
-                  className={
-                    currentPage >= totalPages
-                      ? "pointer-events-none opacity-50"
-                      : ""
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
-      </div>
+      <UsersTablePagination
+        currentPage={currentPage}
+        perPage={perPage}
+        total={total}
+        totalPages={totalPages}
+      />
     </div>
   );
 }

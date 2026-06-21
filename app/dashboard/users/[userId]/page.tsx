@@ -66,15 +66,15 @@ export default async function UserDetailPage({ params }: Props) {
   }).format(new Date(user.createdAt));
 
   return (
-    <div className="p-6 space-y-6 max-w-xl">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="max-w-xl space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <Button variant="ghost" size="sm" asChild className="mb-2 -ml-2">
             <Link href="/dashboard/users">← Back to Users</Link>
           </Button>
           <h1 className="text-2xl font-semibold">User Details</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end [&_button]:w-full sm:[&_button]:w-auto">
           <ForceSignOutButton
             userId={user.id}
             disabled={user.id === caller?.id || !isOnline}
@@ -129,11 +129,9 @@ export default async function UserDetailPage({ params }: Props) {
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center px-4 py-3 gap-4">
-      <span className="w-36 text-sm text-muted-foreground shrink-0">
-        {label}
-      </span>
-      <span className="text-sm">{value}</span>
+    <div className="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-center sm:gap-4">
+      <span className="text-sm text-muted-foreground sm:shrink-0">{label}</span>
+      <div className="min-w-0 break-words text-sm">{value}</div>
     </div>
   );
 }
