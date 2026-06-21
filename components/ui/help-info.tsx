@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Info, X } from "lucide-react";
 
 import {
@@ -19,6 +19,8 @@ type HelpInfoProps = {
   title?: ReactNode;
 };
 
+const HELP_INFO_HOVER_OPEN_EVENT = "help-info-hover-open";
+
 export function HelpInfo({
   align = "start",
   children,
@@ -28,37 +30,42 @@ export function HelpInfo({
   title,
 }: HelpInfoProps) {
   const contentId = useId();
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoverOpen, setHoverOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const open = pinned || hoverOpen;
 
   useEffect(() => {
-    return () => {
-      if (closeTimer.current) clearTimeout(closeTimer.current);
-    };
-  }, []);
-
-  function clearCloseTimer() {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
+    function handleOtherHoverOpen(event: Event) {
+      if (pinned) return;
+      const detail = (event as CustomEvent<{ id?: string }>).detail;
+      if (detail?.id !== contentId) setHoverOpen(false);
     }
-  }
+
+    window.addEventListener(HELP_INFO_HOVER_OPEN_EVENT, handleOtherHoverOpen);
+    return () => {
+      window.removeEventListener(
+        HELP_INFO_HOVER_OPEN_EVENT,
+        handleOtherHoverOpen,
+      );
+    };
+  }, [contentId, pinned]);
 
   function openForHover() {
-    clearCloseTimer();
-    if (!pinned) setHoverOpen(true);
+    if (pinned) return;
+    window.dispatchEvent(
+      new CustomEvent(HELP_INFO_HOVER_OPEN_EVENT, {
+        detail: { id: contentId },
+      }),
+    );
+    setHoverOpen(true);
   }
 
-  function scheduleHoverClose() {
+  function closeHover() {
     if (pinned) return;
-    clearCloseTimer();
-    closeTimer.current = setTimeout(() => setHoverOpen(false), 120);
+    setHoverOpen(false);
   }
 
   function closePinned() {
-    clearCloseTimer();
     setPinned(false);
     setHoverOpen(false);
   }
@@ -80,17 +87,16 @@ export function HelpInfo({
             pinned && "border-primary/70 text-foreground",
             className,
           )}
-          onBlur={scheduleHoverClose}
+          onBlur={closeHover}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            clearCloseTimer();
             setHoverOpen(false);
             setPinned((current) => !current);
           }}
           onFocus={openForHover}
           onMouseEnter={openForHover}
-          onMouseLeave={scheduleHoverClose}
+          onMouseLeave={closeHover}
           type="button"
         >
           <Info aria-hidden className="size-3" />
@@ -103,8 +109,6 @@ export function HelpInfo({
           contentClassName,
         )}
         id={contentId}
-        onMouseEnter={openForHover}
-        onMouseLeave={scheduleHoverClose}
         onOpenAutoFocus={(event) => event.preventDefault()}
         side={side}
       >
