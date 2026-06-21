@@ -3,7 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor, JSONContent } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold,
@@ -41,7 +41,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { emptyTiptapJson } from "./tiptap-extensions";
-import { tiptapClientExtensions } from "./tiptap-client-extensions";
+import { createTiptapClientExtensions } from "./tiptap-client-extensions";
 import { TableMenu } from "./table-menu";
 import { ImageInsertDialog, type ImageAlignment } from "./image-insert-dialog";
 import { VideoInsertDialog } from "./video-insert-dialog";
@@ -138,6 +138,7 @@ type Props = {
   aiSuggestionSurface?: "blogEditor" | "pageBuilder" | "productEditor";
   title?: string;
   excerpt?: string;
+  placeholder?: string;
 };
 
 type VideoDialogValues = {
@@ -234,6 +235,7 @@ export function BlogEditor({
   aiSuggestionSurface = "blogEditor",
   title = "",
   excerpt = "",
+  placeholder = "Write your blog post…",
 }: Props) {
   const [initialContent] = useState<JSONContent>(
     () => defaultValue ?? emptyTiptapJson,
@@ -327,6 +329,10 @@ export function BlogEditor({
   const aiRequestRef = useRef<AbortController | null>(null);
   const aiRequestIdRef = useRef(0);
   const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const extensions = useMemo(
+    () => createTiptapClientExtensions(placeholder),
+    [placeholder],
+  );
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
@@ -335,7 +341,7 @@ export function BlogEditor({
   }, [layoutOverlay]);
 
   const editor = useEditor({
-    extensions: tiptapClientExtensions,
+    extensions,
     content: initialContent,
     immediatelyRender: false,
     editorProps: {

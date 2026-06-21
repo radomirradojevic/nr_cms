@@ -1,6 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
+import { HelpInfo } from "@/components/ui/help-info";
 import {
   Select,
   SelectContent,
@@ -38,11 +39,15 @@ export function Field({
 }) {
   return (
     <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
+      <div className="flex items-center gap-1">
+        <Label className="text-xs">{label}</Label>
+        {hint ? (
+          <HelpInfo className="size-4" side="right" title={label}>
+            {hint}
+          </HelpInfo>
+        ) : null}
+      </div>
       {children}
-      {hint ? (
-        <p className="text-[10px] text-muted-foreground">{hint}</p>
-      ) : null}
     </div>
   );
 }
