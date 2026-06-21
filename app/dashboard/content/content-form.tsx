@@ -10,6 +10,7 @@ import {
   type ChangeEvent,
   type FocusEvent,
   type KeyboardEvent,
+  type ReactNode,
   type Ref,
   type SyntheticEvent,
 } from "react";
@@ -31,6 +32,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HelpInfo } from "@/components/ui/help-info";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -166,6 +168,25 @@ type AiGeneratedField = "excerpt" | "metaTitle" | "metaDescription";
 type AiAssistantSurface = "blogEditor" | "pageBuilder";
 type InspectorTab = PageEditorSettingsTab | "comments";
 const emptyWebshopContent = { version: 1 };
+
+function InlineHelpLabel({
+  children,
+  htmlFor,
+  label,
+}: {
+  children: ReactNode;
+  htmlFor?: string;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label className="text-sm" htmlFor={htmlFor}>
+        {label}
+      </Label>
+      <HelpInfo title={label}>{children}</HelpInfo>
+    </div>
+  );
+}
 
 export function ContentForm({
   mode,
@@ -944,12 +965,9 @@ export function ContentForm({
       {isAdmin && contentType === "page" && (
         <div className="flex items-center justify-between gap-3">
           <div>
-            <Label htmlFor="homepage" className="text-sm">
-              Set as homepage
-            </Label>
-            <p className="text-xs text-muted-foreground">
+            <InlineHelpLabel htmlFor="homepage" label="Set as homepage">
               Only one page can be the homepage. Must be live now.
-            </p>
+            </InlineHelpLabel>
           </div>
           <Switch
             id="homepage"
@@ -964,9 +982,9 @@ export function ContentForm({
 
   const visibilitySettings = (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
+      <InlineHelpLabel label="Visibility">
         Choose who can view this content on the public site.
-      </p>
+      </InlineHelpLabel>
       <div className="space-y-3">
         <label className="flex items-start gap-3">
           <Checkbox
@@ -1082,12 +1100,9 @@ export function ContentForm({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Label htmlFor="enable-comments" className="text-sm">
-            Enable comments
-          </Label>
-          <p className="text-xs text-muted-foreground">
+          <InlineHelpLabel htmlFor="enable-comments" label="Enable comments">
             Master switch for the comment form and list.
-          </p>
+          </InlineHelpLabel>
         </div>
         <Switch
           id="enable-comments"
@@ -1097,12 +1112,12 @@ export function ContentForm({
       </div>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Label htmlFor="auto-publish-comments" className="text-sm">
-            Auto-publish comments
-          </Label>
-          <p className="text-xs text-muted-foreground">
+          <InlineHelpLabel
+            htmlFor="auto-publish-comments"
+            label="Auto-publish comments"
+          >
             Skip moderation queue for new comments.
-          </p>
+          </InlineHelpLabel>
         </div>
         <Switch
           id="auto-publish-comments"
@@ -1113,12 +1128,12 @@ export function ContentForm({
       </div>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Label htmlFor="allow-anon-comments" className="text-sm">
-            Allow anonymous
-          </Label>
-          <p className="text-xs text-muted-foreground">
+          <InlineHelpLabel
+            htmlFor="allow-anon-comments"
+            label="Allow anonymous"
+          >
             Guests can comment with name + optional email.
-          </p>
+          </InlineHelpLabel>
         </div>
         <Switch
           id="allow-anon-comments"

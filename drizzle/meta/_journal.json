@@ -442,6 +442,13 @@
       "when": 1781654400035,
       "tag": "0062_webshop_repeated_price_scale_correction",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1781654400036,
+      "tag": "0063_webshop_review_public_name_opt_in",
+      "breakpoints": true
     }
   ]
 }

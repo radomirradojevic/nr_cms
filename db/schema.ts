@@ -1850,6 +1850,8 @@ export const webshopProductReviews = pgTable(
     }),
     rating: integer("rating").notNull(),
     comment: text("comment"),
+    showCustomerName: boolean("show_customer_name").notNull().default(false),
+    customerDisplayNameSnapshot: text("customer_display_name_snapshot"),
     status: text("status").notNull().default("pending"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     moderatedBy: text("moderated_by"),

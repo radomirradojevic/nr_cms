@@ -93,14 +93,23 @@ const EditableSelectableCodeBlock = SelectableCodeBlock.extend({
   },
 });
 
-export const tiptapClientExtensions = tiptapExtensions.map((extension) => {
-  if (extension.name === SelectableCodeBlock.name) {
-    return EditableSelectableCodeBlock;
-  }
-  if (extension.name === GalleryNode.name) return GalleryPreviewNode;
-  if (extension.name === CmsFormNode.name) return CmsFormPreviewNode;
-  if (extension.name === CmsFormSubmissionsNode.name) {
-    return CmsFormSubmissionsPreviewNode;
-  }
-  return extension;
-});
+export function createTiptapClientExtensions(
+  placeholder = "Write your blog post…",
+) {
+  return tiptapExtensions.map((extension) => {
+    if (extension.name === SelectableCodeBlock.name) {
+      return EditableSelectableCodeBlock;
+    }
+    if (extension.name === GalleryNode.name) return GalleryPreviewNode;
+    if (extension.name === CmsFormNode.name) return CmsFormPreviewNode;
+    if (extension.name === CmsFormSubmissionsNode.name) {
+      return CmsFormSubmissionsPreviewNode;
+    }
+    if (extension.name === "placeholder") {
+      return extension.configure({ placeholder });
+    }
+    return extension;
+  });
+}
+
+export const tiptapClientExtensions = createTiptapClientExtensions();
