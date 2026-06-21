@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { PageSizeSelector } from "@/app/dashboard/page-size-selector";
+import { TablePagination } from "@/app/dashboard/table-pagination";
 import { type Role, hasRole } from "@/lib/roles";
 import type { LockHolder } from "@/lib/content-locks";
 import {
@@ -28,7 +28,7 @@ import { useRegionalSettings } from "@/components/regional-settings-provider";
 import { DeletedContentRowActions } from "./deleted-content-row-actions";
 import { getContentTypeLabel, type ContentType } from "@/lib/content-types";
 
-type AllowedPageSize = 10 | 20 | 30;
+type AllowedPageSize = 10 | 20 | 30 | 50 | 100;
 
 export type ContentRow = {
   id: string;
@@ -366,35 +366,14 @@ export function ContentTable({
               })}
             </TableBody>
           </Table>
-          <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-muted-foreground">
-              Page {safePage} of {totalPages} &mdash; {total} total
-            </p>
-            <div className="flex items-center gap-4">
-              <PageSizeSelector
-                pageSize={pageSize}
-                onChange={(s) => onPageSizeChange(s as AllowedPageSize)}
-              />
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={safePage <= 1}
-                  onClick={() => onPageChange(safePage - 1)}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={safePage >= totalPages}
-                  onClick={() => onPageChange(safePage + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
+          <TablePagination
+            page={safePage}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            onPageSizeChange={(s) => onPageSizeChange(s as AllowedPageSize)}
+          />
         </>
       )}
     </div>

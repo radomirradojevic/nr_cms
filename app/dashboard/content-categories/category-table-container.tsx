@@ -25,7 +25,7 @@ type CategoryRow = {
   itemCount: number;
 };
 
-type AllowedPageSize = 10 | 20 | 30;
+type AllowedPageSize = 10 | 20 | 30 | 50 | 100;
 
 type Props = {
   contentType: "page" | "blog_post";

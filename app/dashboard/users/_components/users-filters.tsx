@@ -13,7 +13,6 @@ import {
 import { Search } from "lucide-react";
 
 const ROLES = ["viewer", "author", "publisher", "admin"] as const;
-const PER_PAGE_OPTIONS = [10, 20, 30] as const;
 
 export function UsersFilters() {
   const router = useRouter();
@@ -54,8 +53,6 @@ export function UsersFilters() {
   const status = searchParams.get("status") ?? "all";
   const role = searchParams.get("role") ?? "all";
   const presence = searchParams.get("presence") ?? "all";
-  const perPage = searchParams.get("perPage") ?? "10";
-
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative flex-1 min-w-48">
@@ -110,22 +107,6 @@ export function UsersFilters() {
           <SelectItem value="all">All users</SelectItem>
           <SelectItem value="online">Online</SelectItem>
           <SelectItem value="offline">Offline</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={perPage}
-        onValueChange={(val) => updateFilter({ perPage: val })}
-      >
-        <SelectTrigger className="w-28">
-          <SelectValue placeholder="Per page" />
-        </SelectTrigger>
-        <SelectContent>
-          {PER_PAGE_OPTIONS.map((n) => (
-            <SelectItem key={n} value={String(n)}>
-              {n} / page
-            </SelectItem>
-          ))}
         </SelectContent>
       </Select>
     </div>

@@ -41,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { TablePagination } from "@/app/dashboard/table-pagination";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
 
 import {
@@ -59,7 +60,7 @@ import type {
 const STATUS_FILTER = ["all", "new", "read", "spam"] as const;
 type StatusFilter = (typeof STATUS_FILTER)[number];
 
-const PAGE_SIZE_OPTIONS = [10, 20, 30] as const;
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const;
 
 type Props = {
   formId: string;
@@ -298,163 +299,133 @@ export function SubmissionsList({
         </div>
       )}
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">
+              <Checkbox
+                checked={allChecked}
+                onCheckedChange={(c) => toggleAll(c === true)}
+                aria-label="Select all"
+              />
+            </TableHead>
+            <TableHead>Submitted</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Preview</TableHead>
+            <TableHead className="w-[1%]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length === 0 ? (
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={allChecked}
-                  onCheckedChange={(c) => toggleAll(c === true)}
-                  aria-label="Select all"
-                />
-              </TableHead>
-              <TableHead>Submitted</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Preview</TableHead>
-              <TableHead className="w-[1%]"></TableHead>
+              <TableCell
+                colSpan={6}
+                className="text-center text-muted-foreground"
+              >
+                No submissions.
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-center text-muted-foreground"
-                >
-                  No submissions.
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((r) => {
-                const data = (r.data ?? {}) as Record<string, unknown>;
-                const preview = fields
-                  .slice(0, 3)
-                  .map((f) => {
-                    const v = data[f.fieldKey];
-                    if (v === null || v === undefined || v === "") return null;
-                    if (Array.isArray(v)) return `${f.label}: ${v.join(", ")}`;
-                    if (typeof v === "object" && "originalName" in v)
-                      return `${f.label}: ${(v as { originalName: string }).originalName}`;
-                    return `${f.label}: ${String(v)}`;
-                  })
-                  .filter(Boolean)
-                  .join(" · ");
-                return (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selected.has(r.id)}
-                        onCheckedChange={(c) => toggleOne(r.id, c === true)}
-                        aria-label="Select row"
-                      />
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-xs">
-                      {formatDateTime(r.createdAt)}
-                    </TableCell>
-                    <TableCell>{statusBadge(r.status)}</TableCell>
-                    <TableCell className="text-xs">{r.emailStatus}</TableCell>
-                    <TableCell
-                      className="max-w-md truncate text-xs"
-                      title={preview}
-                    >
-                      {preview || (
-                        <span className="text-muted-foreground">(empty)</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setDetail(r);
-                            if (r.status === "new") {
-                              setStatusOne(r.id, "read");
-                            }
-                          }}
-                        >
-                          View
-                        </Button>
-                        <Select
-                          value={r.status}
-                          onValueChange={(v) =>
-                            setStatusOne(r.id, v as SubmissionStatus)
+          ) : (
+            rows.map((r) => {
+              const data = (r.data ?? {}) as Record<string, unknown>;
+              const preview = fields
+                .slice(0, 3)
+                .map((f) => {
+                  const v = data[f.fieldKey];
+                  if (v === null || v === undefined || v === "") return null;
+                  if (Array.isArray(v)) return `${f.label}: ${v.join(", ")}`;
+                  if (typeof v === "object" && "originalName" in v)
+                    return `${f.label}: ${(v as { originalName: string }).originalName}`;
+                  return `${f.label}: ${String(v)}`;
+                })
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(r.id)}
+                      onCheckedChange={(c) => toggleOne(r.id, c === true)}
+                      aria-label="Select row"
+                    />
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">
+                    {formatDateTime(r.createdAt)}
+                  </TableCell>
+                  <TableCell>{statusBadge(r.status)}</TableCell>
+                  <TableCell className="text-xs">{r.emailStatus}</TableCell>
+                  <TableCell
+                    className="max-w-md truncate text-xs"
+                    title={preview}
+                  >
+                    {preview || (
+                      <span className="text-muted-foreground">(empty)</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setDetail(r);
+                          if (r.status === "new") {
+                            setStatusOne(r.id, "read");
                           }
-                        >
-                          <SelectTrigger className="h-7 w-24 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent position="popper" align="end">
-                            <SelectItem value="new">new</SelectItem>
-                            <SelectItem value="read">read</SelectItem>
-                            <SelectItem value="spam">spam</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          onClick={() => setDeleteId(r.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                        }}
+                      >
+                        View
+                      </Button>
+                      <Select
+                        value={r.status}
+                        onValueChange={(v) =>
+                          setStatusOne(r.id, v as SubmissionStatus)
+                        }
+                      >
+                        <SelectTrigger className="h-7 w-24 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="popper" align="end">
+                          <SelectItem value="new">new</SelectItem>
+                          <SelectItem value="read">read</SelectItem>
+                          <SelectItem value="spam">spam</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => setDeleteId(r.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-muted-foreground">Per page</Label>
-          <Select
-            value={String(pageSize)}
-            onValueChange={(v) => reload(1, Number(v))}
-            disabled={pending}
-          >
-            <SelectTrigger className="h-8 w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">
+      <TablePagination
+        disabled={pending}
+        label={
+          <>
             {total === 0
               ? "0"
-              : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}`}{" "}
+              : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)}`}{" "}
             of {total}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => reload(page - 1)}
-            disabled={page <= 1 || pending}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => reload(page + 1)}
-            disabled={page >= totalPages || pending}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        onPageChange={(nextPage) => reload(nextPage)}
+        onPageSizeChange={(nextPageSize) => reload(1, nextPageSize)}
+      />
 
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-2xl">
