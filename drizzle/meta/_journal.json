@@ -449,6 +449,13 @@
       "when": 1781654400036,
       "tag": "0063_webshop_review_public_name_opt_in",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1781654400037,
+      "tag": "0064_webshop_offline_payment_provider_checks",
+      "breakpoints": true
     }
   ]
 }
