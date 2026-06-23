@@ -1563,6 +1563,39 @@ export const webshopFulfillments = pgTable(
   ],
 );
 
+export const webshopOrderDeliveryConfirmations = pgTable(
+  "webshop_order_delivery_confirmations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => webshopOrders.id, { onDelete: "cascade" }),
+    customerUserId: text("customer_user_id").notNull(),
+    message: text("message"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("webshop_order_delivery_confirmations_order_unique").on(
+      table.orderId,
+    ),
+    index("webshop_order_delivery_confirmations_customer_idx").on(
+      table.customerUserId,
+    ),
+    index("webshop_order_delivery_confirmations_confirmed_idx").on(
+      table.confirmedAt,
+    ),
+    check(
+      "webshop_order_delivery_confirmations_message_length_check",
+      sql`${table.message} IS NULL OR char_length(${table.message}) <= 2000`,
+    ),
+  ],
+);
+
 export const webshopRefunds = pgTable(
   "webshop_refunds",
   {

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useState,
+  type FocusEvent,
+  type ReactNode,
+} from "react";
 import { Info, X } from "lucide-react";
 
 import {
@@ -31,14 +37,18 @@ export function HelpInfo({
 }: HelpInfoProps) {
   const contentId = useId();
   const [hoverOpen, setHoverOpen] = useState(false);
+  const [focusOpen, setFocusOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
-  const open = pinned || hoverOpen;
+  const open = pinned || hoverOpen || focusOpen;
 
   useEffect(() => {
     function handleOtherHoverOpen(event: Event) {
       if (pinned) return;
       const detail = (event as CustomEvent<{ id?: string }>).detail;
-      if (detail?.id !== contentId) setHoverOpen(false);
+      if (detail?.id !== contentId) {
+        setFocusOpen(false);
+        setHoverOpen(false);
+      }
     }
 
     window.addEventListener(HELP_INFO_HOVER_OPEN_EVENT, handleOtherHoverOpen);
@@ -52,6 +62,7 @@ export function HelpInfo({
 
   function openForHover() {
     if (pinned) return;
+    setFocusOpen(false);
     window.dispatchEvent(
       new CustomEvent(HELP_INFO_HOVER_OPEN_EVENT, {
         detail: { id: contentId },
@@ -65,7 +76,25 @@ export function HelpInfo({
     setHoverOpen(false);
   }
 
+  function openForKeyboardFocus(event: FocusEvent<HTMLButtonElement>) {
+    if (pinned) return;
+    if (!event.currentTarget.matches(":focus-visible")) return;
+    setHoverOpen(false);
+    window.dispatchEvent(
+      new CustomEvent(HELP_INFO_HOVER_OPEN_EVENT, {
+        detail: { id: contentId },
+      }),
+    );
+    setFocusOpen(true);
+  }
+
+  function closeKeyboardFocus() {
+    if (pinned) return;
+    setFocusOpen(false);
+  }
+
   function closePinned() {
+    setFocusOpen(false);
     setPinned(false);
     setHoverOpen(false);
   }
@@ -87,16 +116,17 @@ export function HelpInfo({
             pinned && "border-primary/70 text-foreground",
             className,
           )}
-          onBlur={closeHover}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
+            setFocusOpen(false);
             setHoverOpen(false);
             setPinned((current) => !current);
           }}
-          onFocus={openForHover}
-          onMouseEnter={openForHover}
-          onMouseLeave={closeHover}
+          onBlur={closeKeyboardFocus}
+          onFocus={openForKeyboardFocus}
+          onPointerEnter={openForHover}
+          onPointerLeave={closeHover}
           type="button"
         >
           <Info aria-hidden className="size-3" />
