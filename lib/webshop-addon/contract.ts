@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 
-export const WEBSHOP_SUPPORTED_PROVIDERS = ["vercel_production_oidc"] as const;
+export const WEBSHOP_SUPPORTED_PROVIDERS = [
+  "vercel_production_oidc",
+  "self_hosted",
+] as const;
 
 export type WebshopSupportedProvider =
   (typeof WEBSHOP_SUPPORTED_PROVIDERS)[number];
@@ -14,6 +17,14 @@ export type WebshopDeploymentPlatform =
       ownerId: string;
       projectId: string;
       deploymentEnvironment: "production";
+    }
+  | {
+      status: "supported";
+      provider: "self_hosted";
+      mode: "standalone";
+      ownerId: string;
+      projectId: string;
+      deploymentEnvironment: "self_hosted";
     }
   | {
       status: "unsupported";

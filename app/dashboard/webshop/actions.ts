@@ -13,6 +13,7 @@ import {
   getWebshopRuntimeConfig,
 } from "@/lib/webshop-addon/config";
 import { requestWebshopLicenseActivation } from "@/lib/webshop-addon/license";
+import { loadWebshopAddon } from "@/lib/webshop-addon/loader";
 import { verifyWebshopDeploymentPlatform } from "@/lib/webshop-addon/platform";
 
 const ActivationSchema = z.object({
@@ -38,7 +39,8 @@ export async function activateWebshopAddonAction(
     return { status: "error", message: "Forbidden." };
   }
 
-  const installGate = canAttemptWebshopInstall(getWebshopRuntimeConfig());
+  const runtimeConfig = getWebshopRuntimeConfig();
+  const installGate = canAttemptWebshopInstall(runtimeConfig);
   if (!installGate.ok) {
     return { status: "error", message: installGate.message };
   }
@@ -54,17 +56,17 @@ export async function activateWebshopAddonAction(
     };
   }
 
-  const deploymentPlatform = await verifyWebshopDeploymentPlatform();
-  if (deploymentPlatform.status === "unsupported") {
-    return { status: "error", message: deploymentPlatform.message };
-  }
-
   const settings = await getGlobalSettings();
   const siteDomain =
     settings.publicSiteUrl ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.APP_URL ??
     process.env.VERCEL_PROJECT_PRODUCTION_URL ??
     process.env.VERCEL_URL ??
     "unknown";
+  const deploymentPlatform = await verifyWebshopDeploymentPlatform({
+    selfHostedSiteId: runtimeConfig.selfHostedSiteId ?? siteDomain,
+  });
 
   const activation = await requestWebshopLicenseActivation({
     deploymentPlatform,
@@ -78,6 +80,10 @@ export async function activateWebshopAddonAction(
     return { status: "error", message: activation.error };
   }
 
+  const loadResult = await loadWebshopAddon(runtimeConfig.addonModule);
+  const entitlementStatus =
+    loadResult.status === "loaded" ? "ready" : "install_pending";
+
   await saveWebshopAddonEntitlement({
     deploymentEnvironment: deploymentPlatform.deploymentEnvironment,
     entitlementToken: activation.entitlement.entitlementToken,
@@ -90,7 +96,7 @@ export async function activateWebshopAddonAction(
     providerMode: deploymentPlatform.mode,
     providerOwnerId: deploymentPlatform.ownerId,
     providerProjectId: deploymentPlatform.projectId,
-    status: "install_pending",
+    status: entitlementStatus,
     updatedBy: userId,
   });
 
@@ -98,6 +104,10 @@ export async function activateWebshopAddonAction(
   return {
     status: "success",
     message:
-      "License accepted. Webshop add-on install is pending the managed deployment pipeline.",
+      entitlementStatus === "ready"
+        ? "License accepted. Webshop add-on is ready."
+        : deploymentPlatform.provider === "self_hosted"
+          ? "License accepted. Install the private Webshop package, set WEBSHOP_ADDON_MODULE, and restart the CMS to finish setup."
+          : "License accepted. Webshop add-on install is pending the deployment pipeline.",
   };
 }

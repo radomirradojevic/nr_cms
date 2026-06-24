@@ -41,9 +41,9 @@ export function WebshopLicenseActivation({
           <div>
             <h2 className="text-lg font-semibold">Webshop activation</h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Activation is available only after the license server verifies a
-              supported managed deployment. Package tokens are used for install
-              only and are not stored by the CMS.
+              Activation is available for Vercel and self-hosted deployments.
+              Package tokens are used for install only and are not stored by the
+              CMS.
             </p>
           </div>
         </div>

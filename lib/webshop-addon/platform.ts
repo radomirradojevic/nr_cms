@@ -13,6 +13,29 @@ export type WebshopDeploymentHint = {
 
 export type PlatformVerifyResponse = WebshopDeploymentPlatform;
 
+type SupportedWebshopDeploymentPlatform = Extract<
+  WebshopDeploymentPlatform,
+  { status: "supported" }
+>;
+
+type SelfHostedWebshopDeploymentPlatform = Extract<
+  WebshopDeploymentPlatform,
+  { provider: "self_hosted" }
+>;
+
+const SELF_HOSTED_OWNER_ID = "self_hosted";
+const SELF_HOSTED_SITE_ID_FALLBACK = "self_hosted";
+
+function readOptionalEnv(env: EnvLike, key: string): string | null {
+  const value = env[key]?.trim();
+  return value ? value : null;
+}
+
+function normalizeSiteId(value: string | null | undefined): string | null {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
 export function getWebshopDeploymentHint(
   env: EnvLike = process.env,
 ): WebshopDeploymentHint {
@@ -48,31 +71,33 @@ export function getWebshopDeploymentHint(
 export function getUnsupportedPlatformFromHint(
   hint: WebshopDeploymentHint,
 ): WebshopDeploymentPlatform | null {
-  if (hint.providerHint === "vercel" && hint.attestationToken) return null;
+  void hint;
+  return null;
+}
 
-  if (hint.providerHint === "vercel") {
-    return {
-      status: "unsupported",
-      reason: "env_only_claimed_vercel",
-      message:
-        "Webshop add-on install requires a verified Vercel production OIDC token. Environment variables alone are not accepted.",
-    };
-  }
-
-  if (hint.providerHint !== "unknown") {
-    return {
-      status: "unsupported",
-      reason: "unsupported_provider",
-      message:
-        "This deployment provider is not yet supported for paid Webshop install. Move this site to a verified Vercel production deployment to continue.",
-    };
-  }
+export function getSelfHostedDeploymentPlatform({
+  env = process.env,
+  siteId,
+}: {
+  env?: EnvLike;
+  siteId?: string | null;
+} = {}): SelfHostedWebshopDeploymentPlatform {
+  const projectId =
+    normalizeSiteId(siteId) ??
+    readOptionalEnv(env, "WEBSHOP_SELF_HOSTED_SITE_ID") ??
+    readOptionalEnv(env, "NEXT_PUBLIC_APP_URL") ??
+    readOptionalEnv(env, "APP_URL") ??
+    readOptionalEnv(env, "VERCEL_PROJECT_PRODUCTION_URL") ??
+    readOptionalEnv(env, "VERCEL_URL") ??
+    SELF_HOSTED_SITE_ID_FALLBACK;
 
   return {
-    status: "unsupported",
-    reason: "local",
-    message:
-      "Webshop add-on install is available only on supported managed deployments. Move this site to Vercel to continue.",
+    status: "supported",
+    provider: "self_hosted",
+    mode: "standalone",
+    ownerId: SELF_HOSTED_OWNER_ID,
+    projectId,
+    deploymentEnvironment: "self_hosted",
   };
 }
 
@@ -83,47 +108,42 @@ function joinUrl(baseUrl: string, path: string): string {
 export async function verifyWebshopDeploymentPlatform({
   env = process.env,
   fetcher = fetch,
+  selfHostedSiteId,
 }: {
   env?: EnvLike;
   fetcher?: typeof fetch;
-} = {}): Promise<WebshopDeploymentPlatform> {
+  selfHostedSiteId?: string | null;
+} = {}): Promise<SupportedWebshopDeploymentPlatform> {
   const hint = getWebshopDeploymentHint(env);
-  const localUnsupported = getUnsupportedPlatformFromHint(hint);
-  if (localUnsupported) return localUnsupported;
-
   const licenseServerUrl = env.WEBSHOP_LICENSE_API_URL?.trim();
-  if (!licenseServerUrl) {
-    return {
-      status: "unsupported",
-      reason: "missing_attestation",
-      message:
-        "Webshop add-on install requires license-server platform verification before package installation can continue.",
-    };
+
+  if (
+    hint.providerHint === "vercel" &&
+    hint.attestationToken &&
+    licenseServerUrl
+  ) {
+    try {
+      const response = await fetcher(
+        joinUrl(licenseServerUrl, "/api/webshop/platform/verify"),
+        {
+          body: JSON.stringify({
+            providerHint: hint.providerHint,
+            supportedProviders: WEBSHOP_SUPPORTED_PROVIDERS,
+            token: hint.attestationToken,
+          }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        },
+      );
+
+      if (response.ok) {
+        const payload = (await response.json()) as PlatformVerifyResponse;
+        if (payload.status === "supported") return payload;
+      }
+    } catch {
+      // Platform attestation is best-effort now; license activation still runs.
+    }
   }
 
-  const response = await fetcher(
-    joinUrl(licenseServerUrl, "/api/webshop/platform/verify"),
-    {
-      body: JSON.stringify({
-        providerHint: hint.providerHint,
-        supportedProviders: WEBSHOP_SUPPORTED_PROVIDERS,
-        token: hint.attestationToken,
-      }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    },
-  );
-
-  if (!response.ok) {
-    return {
-      status: "unsupported",
-      reason: response.status === 401 ? "invalid_attestation" : "unknown",
-      message:
-        "The license server could not verify this deployment as a supported managed platform.",
-    };
-  }
-
-  const payload = (await response.json()) as PlatformVerifyResponse;
-  if (payload.status === "supported") return payload;
-  return payload;
+  return getSelfHostedDeploymentPlatform({ env, siteId: selfHostedSiteId });
 }

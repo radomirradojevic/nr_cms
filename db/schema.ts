@@ -457,11 +457,11 @@ export const webshopAddonEntitlements = pgTable(
     ),
     check(
       "webshop_addon_entitlements_provider_check",
-      sql`${table.provider} IS NULL OR ${table.provider} IN ('vercel')`,
+      sql`${table.provider} IS NULL OR ${table.provider} IN ('vercel','self_hosted')`,
     ),
     check(
       "webshop_addon_entitlements_environment_check",
-      sql`${table.deploymentEnvironment} IS NULL OR ${table.deploymentEnvironment} IN ('production')`,
+      sql`${table.deploymentEnvironment} IS NULL OR ${table.deploymentEnvironment} IN ('production','self_hosted')`,
     ),
   ],
 );

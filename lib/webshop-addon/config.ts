@@ -16,6 +16,7 @@ export type WebshopRuntimeConfig = {
   packageToken: string | null;
   paymentsMode: WebshopPaymentsMode;
   redeployWebhookUrl: string | null;
+  selfHostedSiteId: string | null;
   storefrontEnabled: boolean;
 };
 
@@ -71,6 +72,7 @@ export function getWebshopRuntimeConfig(
     packageToken: readOptionalEnv(env, "WEBSHOP_PACKAGE_TOKEN"),
     paymentsMode: parseWebshopPaymentsMode(env.WEBSHOP_PAYMENTS_MODE),
     redeployWebhookUrl: readOptionalEnv(env, "WEBSHOP_REDEPLOY_WEBHOOK_URL"),
+    selfHostedSiteId: readOptionalEnv(env, "WEBSHOP_SELF_HOSTED_SITE_ID"),
     storefrontEnabled: parseWebshopBoolean(
       env.WEBSHOP_STOREFRONT_ENABLED,
       true,
@@ -99,7 +101,7 @@ export function canAttemptWebshopInstall(
     return {
       ok: false,
       message:
-        "Webshop installation is disabled by WEBSHOP_INSTALL_MODE. Use managed_redeploy to enable activation.",
+        "Webshop installation is disabled by WEBSHOP_INSTALL_MODE. Enable install mode before activation.",
     };
   }
   return { ok: true };

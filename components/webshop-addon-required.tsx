@@ -42,7 +42,7 @@ export function WebshopAddonRequired({
           </div>
           {state.status === "platform_not_supported" ? (
             <p className="text-sm text-muted-foreground">
-              Supported install target:{" "}
+              Supported install targets:{" "}
               <span className="font-medium text-foreground">
                 {state.supportedProviders.join(", ")}
               </span>
@@ -72,19 +72,19 @@ function getStateContent(
       };
     case "platform_not_supported":
       return {
-        badge: "Managed platform required",
+        badge: "Install unavailable",
         description: state.message,
         icon: AlertTriangle,
-        title: "Webshop cannot be installed here",
+        title: "Webshop cannot be installed",
         tone: "warning" as const,
       };
     case "install_pending":
       return {
         badge: "Install pending",
         description:
-          "The license was accepted. The private add-on becomes available after the managed deployment pipeline installs it and rebuilds the app.",
+          "The license was accepted. Install the private Webshop package, set WEBSHOP_ADDON_MODULE, and rebuild or restart the CMS to finish setup.",
         icon: Store,
-        title: "Waiting for managed deployment",
+        title: "Waiting for add-on install",
         tone: "success" as const,
       };
     case "install_disabled":
@@ -107,7 +107,7 @@ function getStateContent(
       return {
         badge: "License required",
         description:
-          "Enter a valid Webshop license and package token to activate this paid add-on on a supported managed deployment.",
+          "Enter a valid Webshop license and package token to activate this paid add-on for this CMS deployment.",
         icon: Lock,
         title: "Activate Webshop",
         tone: "default" as const,
@@ -116,7 +116,7 @@ function getStateContent(
       return {
         badge: "Add-on required",
         description:
-          "The public CMS shell is ready. The private Webshop add-on must be installed through a supported managed deployment before commerce features are available.",
+          "The public CMS shell is ready. Activate the license, install the private Webshop add-on package, and configure WEBSHOP_ADDON_MODULE before commerce features are available.",
         icon: Store,
         title: "Webshop add-on is not installed",
         tone: "default" as const,
