@@ -453,6 +453,7 @@ Recommended setup:
 - Point `DATABASE_URL` at any Postgres (managed or self-hosted).
 - All other env vars (Clerk, Turnstile, email, `CRON_SECRET`, `IP_HASH_SALT`) are the same as on Vercel.
 - Paid Webshop activation works on self-hosted deployments. Set `WEBSHOP_SELF_HOSTED_SITE_ID` to a stable domain or install ID if the public URL can change, install the private Webshop package, and point `WEBSHOP_ADDON_MODULE` at its entrypoint.
+- Do not use `WEBSHOP_ADDON_MODULE=local-private-webshop` for self-hosted production. That alias is only a localhost development shortcut for `npm run dev`.
 
 The `proxyClientMaxBodySize: "2gb"` setting in `next.config.ts` is active in this mode, so large uploads up to `MAX_FILE_SIZE` (300 MB) work end-to-end.
 
