@@ -64,6 +64,50 @@ test("local private webshop alias requires explicit dev opt-in", async () => {
   assert.match(result.reason, /WEBSHOP_ALLOW_LOCAL_DEV_INSTALL=true/);
 });
 
+test("local private webshop alias is restricted to localhost development", async () => {
+  const env = process.env as Record<string, string | undefined>;
+  const originalAllow = env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL;
+  const originalNodeEnv = env.NODE_ENV;
+  const originalAppUrl = env.APP_URL;
+
+  try {
+    env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL = "true";
+    env.NODE_ENV = "production";
+    delete env.APP_URL;
+
+    const productionResult = await loadWebshopAddon(
+      LOCAL_PRIVATE_WEBSHOP_MODULE,
+    );
+    assert.equal(productionResult.status, "invalid");
+    assert.match(productionResult.reason, /NODE_ENV=development/);
+
+    env.NODE_ENV = "development";
+    env.APP_URL = "https://cms.example.com";
+
+    const publicUrlResult = await loadWebshopAddon(
+      LOCAL_PRIVATE_WEBSHOP_MODULE,
+    );
+    assert.equal(publicUrlResult.status, "invalid");
+    assert.match(publicUrlResult.reason, /localhost/);
+  } finally {
+    if (originalAllow === undefined) {
+      delete env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL;
+    } else {
+      env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL = originalAllow;
+    }
+    if (originalNodeEnv === undefined) {
+      delete env.NODE_ENV;
+    } else {
+      env.NODE_ENV = originalNodeEnv;
+    }
+    if (originalAppUrl === undefined) {
+      delete env.APP_URL;
+    } else {
+      env.APP_URL = originalAppUrl;
+    }
+  }
+});
+
 test("webshop rollout config parses explicit feature flags", () => {
   const config = getWebshopRuntimeConfig({
     WEBSHOP_ADDON_MODULE: " @nr-cms/webshop ",
