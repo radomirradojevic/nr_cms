@@ -23,6 +23,7 @@ import {
   loadWebshopAddon,
 } from "@/lib/webshop-addon/loader";
 import {
+  getSelfHostedDeploymentPlatform,
   getUnsupportedPlatformFromHint,
   getWebshopDeploymentHint,
   verifyWebshopDeploymentPlatform,
@@ -70,6 +71,7 @@ test("webshop rollout config parses explicit feature flags", () => {
     WEBSHOP_ENABLED: "true",
     WEBSHOP_INSTALL_MODE: "disabled",
     WEBSHOP_PAYMENTS_MODE: "live",
+    WEBSHOP_SELF_HOSTED_SITE_ID: " nr-cms.example.com ",
     WEBSHOP_STOREFRONT_ENABLED: "0",
   });
 
@@ -79,6 +81,7 @@ test("webshop rollout config parses explicit feature flags", () => {
   assert.equal(config.enabled, true);
   assert.equal(config.installMode, "disabled");
   assert.equal(config.paymentsMode, "live");
+  assert.equal(config.selfHostedSiteId, "nr-cms.example.com");
   assert.equal(config.storefrontEnabled, false);
 });
 
@@ -156,7 +159,7 @@ test("webshop add-on contract guard rejects incomplete modules", () => {
   assert.equal(isWebshopAddon({ version: "0.0.1" }), false);
 });
 
-test("platform hint treats vercel env without OIDC as spoofable", () => {
+test("platform hint treats vercel env without OIDC as self-hosted capable", () => {
   const hint = getWebshopDeploymentHint({
     VERCEL: "1",
     VERCEL_ENV: "production",
@@ -165,39 +168,84 @@ test("platform hint treats vercel env without OIDC as spoofable", () => {
 
   assert.equal(hint.providerHint, "vercel");
   assert.equal(hint.attestationToken, null);
-  assert.equal(result?.status, "unsupported");
-  assert.equal(result?.reason, "env_only_claimed_vercel");
+  assert.equal(result, null);
 });
 
-test("platform verification blocks local deployment before package token flow", async () => {
+test("self-hosted platform identity uses stable install id fallbacks", () => {
+  assert.deepEqual(
+    getSelfHostedDeploymentPlatform({
+      env: {
+        APP_URL: "https://ignored.example.com",
+        WEBSHOP_SELF_HOSTED_SITE_ID: " nr-cms.example.com ",
+      },
+    }),
+    {
+      deploymentEnvironment: "self_hosted",
+      mode: "standalone",
+      ownerId: "self_hosted",
+      projectId: "nr-cms.example.com",
+      provider: "self_hosted",
+      status: "supported",
+    },
+  );
+
+  assert.equal(
+    getSelfHostedDeploymentPlatform({
+      env: { APP_URL: "https://cms.example.com" },
+      siteId: "site-from-settings",
+    }).projectId,
+    "site-from-settings",
+  );
+});
+
+test("platform verification allows local deployment before package token flow", async () => {
   const result = await verifyWebshopDeploymentPlatform({ env: {} });
 
-  assert.equal(result.status, "unsupported");
-  assert.equal(result.reason, "local");
+  assert.deepEqual(result, {
+    deploymentEnvironment: "self_hosted",
+    mode: "standalone",
+    ownerId: "self_hosted",
+    projectId: "self_hosted",
+    provider: "self_hosted",
+    status: "supported",
+  });
 });
 
-test("platform verification blocks unsupported managed provider hints", async () => {
+test("platform verification treats non-vercel managed providers as self-hosted installs", async () => {
   const result = await verifyWebshopDeploymentPlatform({
-    env: { NETLIFY: "true" },
+    env: { NETLIFY: "true", WEBSHOP_SELF_HOSTED_SITE_ID: "netlify-site" },
   });
 
-  assert.equal(result.status, "unsupported");
-  assert.equal(result.reason, "unsupported_provider");
+  assert.deepEqual(result, {
+    deploymentEnvironment: "self_hosted",
+    mode: "standalone",
+    ownerId: "self_hosted",
+    projectId: "netlify-site",
+    provider: "self_hosted",
+    status: "supported",
+  });
 });
 
-test("platform verification maps rejected OIDC to invalid attestation", async () => {
+test("platform verification falls back to self-hosted when OIDC is rejected", async () => {
   const result = await verifyWebshopDeploymentPlatform({
     env: {
       VERCEL: "1",
       VERCEL_ENV: "production",
       VERCEL_OIDC_TOKEN: "bad-token",
       WEBSHOP_LICENSE_API_URL: "https://licenses.example.test",
+      WEBSHOP_SELF_HOSTED_SITE_ID: "vercel-fallback",
     },
     fetcher: async () => new Response(null, { status: 401 }),
   });
 
-  assert.equal(result.status, "unsupported");
-  assert.equal(result.reason, "invalid_attestation");
+  assert.deepEqual(result, {
+    deploymentEnvironment: "self_hosted",
+    mode: "standalone",
+    ownerId: "self_hosted",
+    projectId: "vercel-fallback",
+    provider: "self_hosted",
+    status: "supported",
+  });
 });
 
 test("platform verification accepts license-server verified vercel production OIDC", async () => {
@@ -232,18 +280,21 @@ test("platform verification accepts license-server verified vercel production OI
   });
 });
 
-test("license state maps missing module and unsupported platform", () => {
+test("license state maps missing module and supported self-hosted platform", () => {
   const state = resolveWebshopAddonStateFromInputs({
     entitlement: null,
     loadResult: { status: "not_installed" },
     platform: {
-      status: "unsupported",
-      reason: "local",
-      message: "Managed deployment required.",
+      deploymentEnvironment: "self_hosted",
+      mode: "standalone",
+      ownerId: "self_hosted",
+      projectId: "self-hosted-site",
+      provider: "self_hosted",
+      status: "supported",
     },
   });
 
-  assert.equal(state.status, "platform_not_supported");
+  assert.equal(state.status, "not_installed");
 });
 
 test("license state fails closed when webshop is globally disabled", () => {
