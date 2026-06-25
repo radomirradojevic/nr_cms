@@ -18,6 +18,7 @@ import {
   TAKEOVER_GRACE_SECONDS,
   type AdminSectionLockHolder,
 } from "@/lib/admin-section-locks";
+import { cn } from "@/lib/utils";
 
 type LockState =
   | { kind: "loading" }
@@ -54,6 +55,7 @@ type ProviderProps = {
   sectionKey: string;
   currentUserId: string;
   children: ReactNode;
+  showBanner?: boolean;
 };
 
 function createClientId(): string {
@@ -81,6 +83,7 @@ export function AdminSectionLockProvider({
   sectionKey,
   currentUserId,
   children,
+  showBanner = true,
 }: ProviderProps) {
   const [clientId] = useState(createClientId);
 
@@ -89,7 +92,7 @@ export function AdminSectionLockProvider({
   const lockedPollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const stateRef = useRef<LockState>({ kind: "loading" });
 
-  const apiBase = `/api/admin-section-locks/${encodeURIComponent(sectionKey)}`;
+  const apiBase = `/api/admin-section-locks?section=${encodeURIComponent(sectionKey)}`;
 
   const clearHeartbeat = useCallback(() => {
     if (heartbeatTimer.current) {
@@ -100,7 +103,7 @@ export function AdminSectionLockProvider({
 
   const doHeartbeat = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBase}/heartbeat`, {
+      const res = await fetch(`${apiBase}&action=heartbeat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId }),
@@ -109,7 +112,7 @@ export function AdminSectionLockProvider({
       if (res.status === 409) {
         clearHeartbeat();
         try {
-          const statusRes = await fetch(`${apiBase}/status`, {
+          const statusRes = await fetch(`${apiBase}&action=status`, {
             credentials: "same-origin",
             cache: "no-store",
           });
@@ -164,14 +167,14 @@ export function AdminSectionLockProvider({
         const blob = new Blob([JSON.stringify({ clientId })], {
           type: "application/json",
         });
-        navigator.sendBeacon(`${apiBase}/release`, blob);
+        navigator.sendBeacon(`${apiBase}&action=release`, blob);
         return;
       } catch {
         /* fall through */
       }
     }
     try {
-      void fetch(`${apiBase}/release`, {
+      void fetch(`${apiBase}&action=release`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId }),
@@ -187,7 +190,7 @@ export function AdminSectionLockProvider({
     const prevKind = stateRef.current.kind;
     setState({ kind: "loading" });
     try {
-      const res = await fetch(`${apiBase}/acquire`, {
+      const res = await fetch(`${apiBase}&action=acquire`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId }),
@@ -251,7 +254,7 @@ export function AdminSectionLockProvider({
 
   const reconcileViaStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBase}/status`, {
+      const res = await fetch(`${apiBase}&action=status`, {
         credentials: "same-origin",
         cache: "no-store",
       });
@@ -359,32 +362,62 @@ export function AdminSectionLockProvider({
 
   return (
     <LockContext.Provider value={value}>
-      <AdminSectionLockBanner />
+      {showBanner ? <AdminSectionLockBanner /> : null}
       {children}
     </LockContext.Provider>
   );
 }
 
-function AdminSectionLockBanner() {
-  const { state } = useAdminSectionLock();
+export function AdminSectionLockNotice({ className }: { className?: string }) {
+  const lock = useAdminSectionLockOptional();
+  if (!lock) return null;
+
+  return (
+    <AdminSectionLockNoticeContent className={className} state={lock.state} />
+  );
+}
+
+function AdminSectionLockNoticeContent({
+  className,
+  state,
+}: {
+  className?: string;
+  state: LockState;
+}) {
   const { formatTime } = useRegionalSettings();
+
   if (state.kind === "owner") {
     return (
-      <div className="mb-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-200">
+      <div
+        className={cn(
+          "rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-200",
+          className,
+        )}
+      >
         Editing — your changes are protected by an edit lock.
       </div>
     );
   }
   if (state.kind === "loading") {
     return (
-      <div className="mb-3 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+      <div
+        className={cn(
+          "rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground",
+          className,
+        )}
+      >
         Acquiring edit lock…
       </div>
     );
   }
   if (state.kind === "locked") {
     return (
-      <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
+      <div
+        className={cn(
+          "rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200",
+          className,
+        )}
+      >
         Currently being edited by{" "}
         <strong>{state.holder.userDisplayName}</strong> ({state.holder.userRole}
         ). Last activity {formatTime(state.holder.lastHeartbeatAt)}. You can
@@ -395,10 +428,19 @@ function AdminSectionLockBanner() {
   }
   if (state.kind === "error") {
     return (
-      <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+      <div
+        className={cn(
+          "rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive",
+          className,
+        )}
+      >
         {state.message}
       </div>
     );
   }
   return null;
+}
+
+function AdminSectionLockBanner() {
+  return <AdminSectionLockNotice className="mb-3" />;
 }

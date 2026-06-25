@@ -12,11 +12,11 @@ import { auth } from "@clerk/nextjs/server";
 import { isLockedBy } from "@/data/admin-section-locks";
 import {
   isAdminSectionKey,
-  type AdminSectionKey,
+  type AdminSectionLockKey,
 } from "@/lib/admin-section-locks";
 
 export async function requireAdminSectionLock(
-  sectionKey: AdminSectionKey,
+  sectionKey: AdminSectionLockKey | string,
   clientId: string | undefined | null,
 ): Promise<{ error: string } | null> {
   if (!isAdminSectionKey(sectionKey)) {

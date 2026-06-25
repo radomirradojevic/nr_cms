@@ -2,7 +2,7 @@
 // Mirrors data/content-locks.ts. See:
 //   .github/instructions/cms-content-edit-locking.instructions.md
 
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { adminSectionLockAudit, adminSectionLocks } from "@/db/schema";
@@ -271,6 +271,28 @@ export async function getLock(
     .limit(1);
   if (rows.length === 0) return null;
   return rowToHolder(rows[0]);
+}
+
+export async function getLocks(
+  sectionKeys: string[],
+): Promise<AdminSectionLockHolder[]> {
+  if (sectionKeys.length === 0) return [];
+
+  await db
+    .delete(adminSectionLocks)
+    .where(
+      and(
+        inArray(adminSectionLocks.sectionKey, sectionKeys),
+        lt(adminSectionLocks.leaseExpiresAt, sql`now()`),
+      ),
+    );
+
+  const rows = await db
+    .select()
+    .from(adminSectionLocks)
+    .where(inArray(adminSectionLocks.sectionKey, sectionKeys));
+
+  return rows.map(rowToHolder);
 }
 
 /**

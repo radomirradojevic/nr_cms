@@ -63,7 +63,7 @@ function withWebshopHomeLink(path: readonly string[], content: ReactNode) {
           </Link>
         </Button>
       </div>
-      <div className="-mt-2">{content}</div>
+      <div className="mt-3">{content}</div>
     </div>
   );
 }
