@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { webshopDigitalAssets } from "@/db/schema";
 import { getFileByIdUnchecked } from "@/data/files";
 import { readUpload } from "@/lib/file-storage";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
@@ -17,6 +20,15 @@ export async function GET(
 
   const row = await getFileByIdUnchecked(id);
   if (!row) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
+  const protectedDigitalAssetRows = await db
+    .select({ id: webshopDigitalAssets.id })
+    .from(webshopDigitalAssets)
+    .where(eq(webshopDigitalAssets.fileId, id))
+    .limit(1);
+  if (protectedDigitalAssetRows.length > 0) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 

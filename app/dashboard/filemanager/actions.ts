@@ -7,6 +7,7 @@ import {
   createFolder as createFolderRow,
   deleteFolder as deleteFolderRow,
   deleteFiles,
+  findBlockingFileDeleteReferences,
   getFilesByIds,
   getFolderBreadcrumb,
   getFolderById,
@@ -20,6 +21,7 @@ import {
   updateFile as updateFileRow,
   updateFolderName,
   reassignFileOwner,
+  type BlockingFileDeleteReferences,
   type FileRow,
   type FileFolderRow,
 } from "@/data/files";
@@ -65,6 +67,107 @@ function folderMutationError(err: unknown): string {
   if (code === "23505") {
     return "A folder with that name already exists here.";
   }
+  return "Something went wrong. Please try again.";
+}
+
+function blockingFileDeleteError(refs: BlockingFileDeleteReferences): string {
+  const single = refs.fileIds.length === 1;
+  const subject = single ? "This file" : "One or more selected files";
+  const object = single ? "it" : "them";
+  const verb = single ? "is" : "are";
+
+  const usages: string[] = [];
+  if (refs.productMedia > 0) {
+    usages.push(
+      `Webshop product media${formatNameList(refs.productMediaProductNames)}`,
+    );
+  }
+  if (refs.productCovers > 0) {
+    const coverLabel =
+      refs.productCovers === 1
+        ? "Webshop product cover"
+        : "Webshop product covers";
+    usages.push(`${coverLabel}${formatNameList(refs.productCoverNames)}`);
+  }
+  if (refs.digitalAssets > 0) {
+    if (refs.digitalAssetsWithEntitlements > 0) {
+      usages.push(
+        `Webshop digital assets with download entitlements${formatNameList(refs.digitalAssetEntitlementProductNames)}`,
+      );
+    }
+
+    if (refs.digitalAssetsWithoutPrivateReplacement > 0) {
+      usages.push(
+        `active legacy Webshop digital assets without a private file replacement${formatNameList(refs.digitalAssetMissingReplacementProductNames)}`,
+      );
+    }
+
+    const describedDigitalAssets =
+      refs.digitalAssetsWithEntitlements +
+      refs.digitalAssetsWithoutPrivateReplacement;
+    if (refs.digitalAssets > describedDigitalAssets) {
+      usages.push(
+        `Webshop digital assets${formatNameList(refs.digitalAssetProductNames)}`,
+      );
+    }
+  }
+  if (refs.categoryImages > 0) {
+    const categoryLabel =
+      refs.categoryImages === 1
+        ? "Webshop category image"
+        : "Webshop category images";
+    usages.push(`${categoryLabel}${formatNameList(refs.categoryNames)}`);
+  }
+  if (refs.galleryImages > 0 || refs.galleryCovers > 0) {
+    const galleryCount = refs.galleryNames.length;
+    const galleryLabel =
+      galleryCount === 1
+        ? "Gallery Manager gallery"
+        : "Gallery Manager galleries";
+    usages.push(`${galleryLabel}${formatNameList(refs.galleryNames)}`);
+  }
+
+  const legacyDigitalAssetHint =
+    refs.digitalAssetsWithoutPrivateReplacement > 0
+      ? " Open the product in Webshop, upload a private file in Fulfillment, and save it, or remove file delivery first."
+      : "";
+
+  return `${subject} cannot be deleted because ${object} ${verb} used by ${formatUsageList(usages)}. Remove or replace those references first.${legacyDigitalAssetHint}`;
+}
+
+function formatNameList(names: string[]): string {
+  if (names.length === 0) return "";
+  const visible = names.slice(0, 3);
+  const suffix =
+    names.length > visible.length
+      ? ` and ${names.length - visible.length} more`
+      : "";
+  return ` (${visible.join(", ")}${suffix})`;
+}
+
+function formatUsageList(usages: string[]): string {
+  if (usages.length <= 1) return usages[0] ?? "another record";
+  if (usages.length === 2) return `${usages[0]} and ${usages[1]}`;
+  return `${usages.slice(0, -1).join(", ")}, and ${usages[usages.length - 1]}`;
+}
+
+function fileDeleteMutationError(err: unknown): string {
+  const info =
+    typeof err === "object" && err !== null
+      ? (err as { code?: unknown; constraint?: unknown })
+      : null;
+  const code = info?.code ? String(info.code) : "";
+  const constraint = info?.constraint ? String(info.constraint) : "";
+
+  if (code === "23503") {
+    if (constraint === "webshop_digital_assets_file_id_files_id_fk") {
+      return "This file cannot be deleted because it is attached to a Webshop digital asset. Remove or replace that digital asset in Webshop first.";
+    }
+    if (constraint === "webshop_product_media_file_id_files_id_fk") {
+      return "This file cannot be deleted because it is used in Webshop product media. Remove or replace that media in Webshop first.";
+    }
+  }
+
   return "Something went wrong. Please try again.";
 }
 
@@ -139,15 +242,28 @@ export async function bulkDeleteFiles(input: BulkDeleteFilesInput) {
 
   const parsed = bulkDeleteSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const targetIds = Array.from(new Set(parsed.data.ids));
 
   try {
+    const targets = await getFilesByIds(targetIds, caller);
+    if (targets.length !== targetIds.length) {
+      return {
+        error: "One or more files were not found or access was denied.",
+      };
+    }
+
+    const blockingRefs = await findBlockingFileDeleteReferences(targetIds);
+    if (blockingRefs.fileIds.length > 0) {
+      return { error: blockingFileDeleteError(blockingRefs) };
+    }
+
     // Purge content references first so we don't leave dangling links if the
     // disk unlink later fails.
-    for (const id of parsed.data.ids) {
+    for (const id of targetIds) {
       await purgeFileReferences(id, caller.userId);
     }
 
-    const removed = await deleteFiles(parsed.data.ids, caller);
+    const removed = await deleteFiles(targetIds, caller);
 
     // Best-effort disk cleanup. Failures are logged but do not roll back the DB.
     await Promise.all(removed.map((row) => deleteUpload(row.storagePath)));
@@ -157,8 +273,11 @@ export async function bulkDeleteFiles(input: BulkDeleteFilesInput) {
 
     return { success: true, deleted: removed.length };
   } catch (err) {
-    console.error("[bulkDeleteFiles] Unexpected error:", err);
-    return { error: "Something went wrong. Please try again." };
+    const message = fileDeleteMutationError(err);
+    if (message === "Something went wrong. Please try again.") {
+      console.error("[bulkDeleteFiles] Unexpected error:", err);
+    }
+    return { error: message };
   }
 }
 

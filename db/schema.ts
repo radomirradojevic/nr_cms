@@ -910,6 +910,26 @@ export const webshopProductVariants = pgTable(
   ],
 );
 
+export const webshopDigitalAssetFiles = pgTable(
+  "webshop_digital_asset_files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    filename: text("filename").notNull(),
+    storagePath: text("storage_path").notNull().unique(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    uploadedBy: text("uploaded_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("webshop_digital_asset_files_uploaded_by_idx").on(table.uploadedBy),
+    index("webshop_digital_asset_files_created_idx").on(table.createdAt),
+    index("webshop_digital_asset_files_mime_type_idx").on(table.mimeType),
+  ],
+);
+
 export const webshopDigitalAssets = pgTable(
   "webshop_digital_assets",
   {
@@ -920,9 +940,13 @@ export const webshopDigitalAssets = pgTable(
     variantId: uuid("variant_id").references(() => webshopProductVariants.id, {
       onDelete: "set null",
     }),
-    fileId: uuid("file_id")
-      .notNull()
-      .references(() => files.id, { onDelete: "restrict" }),
+    assetFileId: uuid("asset_file_id").references(
+      () => webshopDigitalAssetFiles.id,
+      { onDelete: "restrict" },
+    ),
+    fileId: uuid("file_id").references(() => files.id, {
+      onDelete: "restrict",
+    }),
     version: text("version").notNull().default("1"),
     filenameOverride: text("filename_override"),
     downloadLimit: integer("download_limit"),
@@ -951,8 +975,13 @@ export const webshopDigitalAssets = pgTable(
       "webshop_digital_assets_expiry_check",
       sql`${table.downloadExpiresAfterDays} IS NULL OR ${table.downloadExpiresAfterDays} >= 0`,
     ),
+    check(
+      "webshop_digital_assets_file_source_check",
+      sql`${table.assetFileId} IS NOT NULL OR ${table.fileId} IS NOT NULL`,
+    ),
     index("webshop_digital_assets_product_idx").on(table.productId),
     index("webshop_digital_assets_variant_idx").on(table.variantId),
+    index("webshop_digital_assets_asset_file_idx").on(table.assetFileId),
     index("webshop_digital_assets_file_idx").on(table.fileId),
     index("webshop_digital_assets_status_idx").on(table.status),
   ],
@@ -1397,6 +1426,77 @@ export const webshopOrderItems = pgTable(
     index("webshop_order_items_order_idx").on(table.orderId),
     index("webshop_order_items_product_idx").on(table.productId),
     index("webshop_order_items_variant_idx").on(table.variantId),
+  ],
+);
+
+export const webshopLicenseKeys = pgTable(
+  "webshop_license_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => webshopProducts.id, { onDelete: "cascade" }),
+    variantId: uuid("variant_id").references(() => webshopProductVariants.id, {
+      onDelete: "set null",
+    }),
+    licenseKey: text("license_key").notNull(),
+    licenseKeyFingerprint: text("license_key_fingerprint").notNull(),
+    status: text("status").notNull().default("available"),
+    orderId: uuid("order_id").references(() => webshopOrders.id, {
+      onDelete: "set null",
+    }),
+    orderItemId: uuid("order_item_id").references(() => webshopOrderItems.id, {
+      onDelete: "set null",
+    }),
+    customerEmail: text("customer_email"),
+    assignedAt: timestamp("assigned_at", { withTimezone: true }),
+    validityDays: integer("validity_days"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    notes: text("notes"),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("webshop_license_keys_fingerprint_unique").on(
+      table.licenseKeyFingerprint,
+    ),
+    uniqueIndex("webshop_license_keys_order_item_unique")
+      .on(table.orderItemId)
+      .where(sql`${table.orderItemId} IS NOT NULL`),
+    check(
+      "webshop_license_keys_status_check",
+      sql`${table.status} IN ('available','assigned','revoked')`,
+    ),
+    check(
+      "webshop_license_keys_assignment_check",
+      sql`(${table.status} <> 'assigned') OR (${table.orderId} IS NOT NULL AND ${table.orderItemId} IS NOT NULL AND ${table.assignedAt} IS NOT NULL)`,
+    ),
+    check(
+      "webshop_license_keys_validity_days_check",
+      sql`${table.validityDays} IS NULL OR ${table.validityDays} > 0`,
+    ),
+    index("webshop_license_keys_product_status_idx").on(
+      table.productId,
+      table.status,
+      table.createdAt,
+    ),
+    index("webshop_license_keys_variant_status_idx").on(
+      table.variantId,
+      table.status,
+    ),
+    index("webshop_license_keys_order_idx").on(
+      table.orderId,
+      table.orderItemId,
+    ),
+    index("webshop_license_keys_expires_idx").on(table.expiresAt),
   ],
 );
 
