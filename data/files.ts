@@ -30,6 +30,7 @@ import {
   sql,
 } from "drizzle-orm";
 import type { FileKind } from "@/lib/file-manager";
+import { collectHeroSliderFileIds } from "@/lib/hero-slider";
 
 export type FileRow = typeof files.$inferSelect;
 export type FileFolderRow = typeof fileFolders.$inferSelect;
@@ -372,6 +373,8 @@ export type BlockingFileDeleteReferences = {
   galleryCovers: number;
   galleryImages: number;
   galleryNames: string[];
+  heroSliderMedia: number;
+  heroSliderNames: string[];
   productCovers: number;
   productCoverNames: string[];
   productMedia: number;
@@ -407,6 +410,8 @@ export async function findBlockingFileDeleteReferences(
       galleryCovers: 0,
       galleryImages: 0,
       galleryNames: [],
+      heroSliderMedia: 0,
+      heroSliderNames: [],
       productCovers: 0,
       productCoverNames: [],
       productMedia: 0,
@@ -418,6 +423,7 @@ export async function findBlockingFileDeleteReferences(
   const [
     categoryImages,
     digitalAssets,
+    heroSliderContentMedia,
     manualGalleryImages,
     manualGalleryCovers,
     productCovers,
@@ -458,6 +464,23 @@ export async function findBlockingFileDeleteReferences(
             and(
               eq(webshopDigitalAssets.status, "active"),
               sql`NOT ${digitalAssetHasPrivateReplacement()}`,
+            ),
+          ),
+        ),
+      ),
+    db
+      .select({
+        title: content.title,
+        contentJson: content.contentJson,
+      })
+      .from(content)
+      .where(
+        and(
+          eq(content.contentType, "hero_slider"),
+          isNull(content.deletedAt),
+          or(
+            ...ids.map(
+              (id) => sql`${content.contentJson}::text ILIKE ${`%${id}%`}`,
             ),
           ),
         ),
@@ -516,8 +539,11 @@ export async function findBlockingFileDeleteReferences(
   const digitalAssetEntitlementProductNames = new Set<string>();
   const digitalAssetMissingReplacementProductNames = new Set<string>();
   const galleryNames = new Set<string>();
+  const heroSliderNames = new Set<string>();
+  const targetIds = new Set(ids);
   let digitalAssetsWithEntitlements = 0;
   let digitalAssetsWithoutPrivateReplacement = 0;
+  let heroSliderMedia = 0;
 
   for (const row of categoryImages) {
     if (row.fileId) fileIds.add(row.fileId);
@@ -550,6 +576,18 @@ export async function findBlockingFileDeleteReferences(
   for (const row of manualGalleryCovers) {
     if (row.fileId) fileIds.add(row.fileId);
     galleryNames.add(row.galleryName);
+  }
+
+  for (const row of heroSliderContentMedia) {
+    const referencedIds = new Set(
+      collectHeroSliderFileIds(row.contentJson).filter((fileId) =>
+        targetIds.has(fileId),
+      ),
+    );
+    if (referencedIds.size === 0) continue;
+    heroSliderNames.add(row.title);
+    heroSliderMedia += referencedIds.size;
+    for (const fileId of referencedIds) fileIds.add(fileId);
   }
 
   const productCoverNames = new Set<string>();
@@ -588,6 +626,10 @@ export async function findBlockingFileDeleteReferences(
     galleryCovers: manualGalleryCovers.length,
     galleryImages: manualGalleryImages.length,
     galleryNames: Array.from(galleryNames).sort((a, b) => a.localeCompare(b)),
+    heroSliderMedia,
+    heroSliderNames: Array.from(heroSliderNames).sort((a, b) =>
+      a.localeCompare(b),
+    ),
     productCovers: productCovers.length,
     productCoverNames: Array.from(productCoverNames).sort((a, b) =>
       a.localeCompare(b),

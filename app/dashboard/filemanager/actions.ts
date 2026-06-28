@@ -126,6 +126,9 @@ function blockingFileDeleteError(refs: BlockingFileDeleteReferences): string {
         : "Gallery Manager galleries";
     usages.push(`${galleryLabel}${formatNameList(refs.galleryNames)}`);
   }
+  if (refs.heroSliderMedia > 0) {
+    usages.push(`Hero Slider content${formatNameList(refs.heroSliderNames)}`);
+  }
 
   const legacyDigitalAssetHint =
     refs.digitalAssetsWithoutPrivateReplacement > 0
