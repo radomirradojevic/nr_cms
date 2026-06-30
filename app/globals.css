@@ -238,6 +238,29 @@ html:has(.dashboard-content-root) {
   }
 }
 
+[data-webshop-product-grid] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  [data-webshop-product-grid][data-webshop-product-density="showcase"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-webshop-product-grid][data-webshop-product-density="editorial"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  [data-webshop-product-grid][data-webshop-product-density="comfortable"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  [data-webshop-product-grid][data-webshop-product-density="compact"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 html[data-appearance-background-effects="disabled"].theme-aurora body::before {
   content: none;
   animation: none;
