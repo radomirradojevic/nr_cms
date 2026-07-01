@@ -403,13 +403,13 @@ test("backend menu helper exposes stable role-aware targets", () => {
     [
       "backend:global-settings",
       "backend:content-categories",
+      "backend:webshop-settings",
+      "backend:webshop-storefront",
       "backend:webshop-categories",
+      "backend:webshop-products",
       "backend:webshop-orders",
       "backend:webshop-wishlist",
-      "backend:webshop-settings",
-      "backend:webshop-products",
       "backend:webshop-promotions",
-      "backend:webshop-storefront",
     ],
   );
   assert.deepEqual(
@@ -417,13 +417,13 @@ test("backend menu helper exposes stable role-aware targets", () => {
       .filter((item) => item.id.startsWith("backend:webshop-"))
       .map(({ href, label }) => ({ href, label })),
     [
+      { href: "/dashboard/webshop/settings", label: "Settings" },
+      { href: "/dashboard/webshop/storefront", label: "Storefront" },
       { href: "/dashboard/webshop/categories", label: "Categories" },
+      { href: "/dashboard/webshop/products", label: "Products" },
       { href: "/dashboard/webshop/orders", label: "Orders" },
       { href: "/dashboard/webshop/wishlists", label: "Wishlist" },
-      { href: "/dashboard/webshop/settings", label: "Settings" },
-      { href: "/dashboard/webshop/products", label: "Products" },
       { href: "/dashboard/webshop/promotions", label: "Promotions" },
-      { href: "/dashboard/webshop/storefront", label: "Storefront" },
     ],
   );
   assert.deepEqual(

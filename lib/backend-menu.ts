@@ -23,9 +23,24 @@ export type BackendMenuLink = {
 
 export const WEBSHOP_BACKEND_CHILD_LINKS = [
   {
+    id: "webshop-settings",
+    href: "/dashboard/webshop/settings",
+    label: "Settings",
+  },
+  {
+    id: "webshop-storefront",
+    href: "/dashboard/webshop/storefront",
+    label: "Storefront",
+  },
+  {
     id: "webshop-categories",
     href: "/dashboard/webshop/categories",
     label: "Categories",
+  },
+  {
+    id: "webshop-products",
+    href: "/dashboard/webshop/products",
+    label: "Products",
   },
   {
     id: "webshop-orders",
@@ -38,24 +53,9 @@ export const WEBSHOP_BACKEND_CHILD_LINKS = [
     label: "Wishlist",
   },
   {
-    id: "webshop-settings",
-    href: "/dashboard/webshop/settings",
-    label: "Settings",
-  },
-  {
-    id: "webshop-products",
-    href: "/dashboard/webshop/products",
-    label: "Products",
-  },
-  {
     id: "webshop-promotions",
     href: "/dashboard/webshop/promotions",
     label: "Promotions",
-  },
-  {
-    id: "webshop-storefront",
-    href: "/dashboard/webshop/storefront",
-    label: "Storefront",
   },
 ] as const satisfies readonly BackendMenuNodeDefinition[];
 
