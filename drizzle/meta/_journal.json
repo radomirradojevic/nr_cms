@@ -491,6 +491,13 @@
       "when": 1781654400042,
       "tag": "0069_webshop_private_digital_asset_files",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1781654400043,
+      "tag": "0070_rename_local_card_gateway_to_monri",
+      "breakpoints": true
     }
   ]
 }

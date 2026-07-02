@@ -1567,7 +1567,7 @@ export const webshopPayments = pgTable(
     ),
     check(
       "webshop_payments_provider_key_check",
-      sql`${table.providerKey} IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','local_card_gateway')`,
+      sql`${table.providerKey} IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','monri')`,
     ),
     check(
       "webshop_payments_status_check",
@@ -1616,7 +1616,7 @@ export const webshopPaymentEvents = pgTable(
     ),
     check(
       "webshop_payment_events_provider_key_check",
-      sql`${table.providerKey} IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','local_card_gateway')`,
+      sql`${table.providerKey} IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','monri')`,
     ),
     check(
       "webshop_payment_events_signature_status_check",
