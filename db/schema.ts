@@ -694,6 +694,7 @@ export const webshopProducts = pgTable(
       .default(0),
     compareAtPriceMinor: bigint("compare_at_price_minor", { mode: "number" }),
     currency: text("currency").notNull().default("RSD"),
+    paddlePriceId: text("paddle_price_id"),
     taxCategory: text("tax_category"),
     variantOptions: jsonb("variant_options")
       .notNull()
@@ -742,6 +743,10 @@ export const webshopProducts = pgTable(
       sql`${table.currency} ~ '^[A-Z]{3}$'`,
     ),
     check(
+      "webshop_products_paddle_price_id_check",
+      sql`${table.paddlePriceId} IS NULL OR ${table.paddlePriceId} ~ '^pri_[a-z0-9]{26}$'`,
+    ),
+    check(
       "webshop_products_base_price_check",
       sql`${table.basePriceMinor} >= 0`,
     ),
@@ -766,6 +771,7 @@ export const webshopProducts = pgTable(
       table.updatedAt,
     ),
     index("webshop_products_type_idx").on(table.productType),
+    index("webshop_products_paddle_price_idx").on(table.paddlePriceId),
     index("webshop_products_primary_category_idx").on(table.primaryCategoryId),
     index("webshop_products_price_idx").on(table.basePriceMinor),
     index("webshop_products_cover_image_idx").on(table.coverImageFileId),
@@ -847,6 +853,7 @@ export const webshopProductVariants = pgTable(
     priceMinor: bigint("price_minor", { mode: "number" }),
     compareAtPriceMinor: bigint("compare_at_price_minor", { mode: "number" }),
     currency: text("currency").notNull().default("RSD"),
+    paddlePriceId: text("paddle_price_id"),
     optionValues: jsonb("option_values")
       .notNull()
       .default(sql`'{}'::jsonb`),
@@ -879,6 +886,10 @@ export const webshopProductVariants = pgTable(
       sql`${table.currency} ~ '^[A-Z]{3}$'`,
     ),
     check(
+      "webshop_product_variants_paddle_price_id_check",
+      sql`${table.paddlePriceId} IS NULL OR ${table.paddlePriceId} ~ '^pri_[a-z0-9]{26}$'`,
+    ),
+    check(
       "webshop_product_variants_price_check",
       sql`${table.priceMinor} IS NULL OR ${table.priceMinor} >= 0`,
     ),
@@ -906,6 +917,7 @@ export const webshopProductVariants = pgTable(
       table.productId,
       table.position,
     ),
+    index("webshop_product_variants_paddle_price_idx").on(table.paddlePriceId),
     index("webshop_product_variants_status_idx").on(table.status),
   ],
 );
@@ -1567,7 +1579,7 @@ export const webshopPayments = pgTable(
     ),
     check(
       "webshop_payments_provider_key_check",
-      sql`${table.providerKey} IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','monri')`,
+      sql`${table.providerKey} IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','monri','paddle')`,
     ),
     check(
       "webshop_payments_status_check",
@@ -1616,7 +1628,7 @@ export const webshopPaymentEvents = pgTable(
     ),
     check(
       "webshop_payment_events_provider_key_check",
-      sql`${table.providerKey} IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','monri')`,
+      sql`${table.providerKey} IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','monri','paddle')`,
     ),
     check(
       "webshop_payment_events_signature_status_check",
