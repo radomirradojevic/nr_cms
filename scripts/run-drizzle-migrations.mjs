@@ -39,6 +39,17 @@ const SUPERSEDED_CONSTRAINTS = new Map([
   ],
 ]);
 
+const WEBSHOP_PAYMENT_PROVIDER_CHECKS = [
+  {
+    constraint: "webshop_payments_provider_key_check",
+    table: "webshop_payments",
+  },
+  {
+    constraint: "webshop_payment_events_provider_key_check",
+    table: "webshop_payment_events",
+  },
+];
+
 const LEGACY_MIGRATION_HASHES = new Map([
   [
     "0011_add_category_created_by",
@@ -203,6 +214,23 @@ function constraintDefinitionMatches(expected, current) {
     normalizeConstraintDefinition(expected) ===
     normalizeConstraintDefinition(current)
   );
+}
+
+function columnDefaultMatches(schemaState, table, column, expectedDefault) {
+  return (
+    schemaState.columnDefaults.get(`${table}.${column}`) ===
+    normalizeColumnDefault(expectedDefault)
+  );
+}
+
+function webshopPaymentProviderConstraintsInclude(schemaState, providers) {
+  return WEBSHOP_PAYMENT_PROVIDER_CHECKS.every(({ table, constraint }) => {
+    const definition = constraintDefinitionFor(schemaState, table, constraint);
+    if (!definition) return false;
+
+    const literals = new Set(extractSqlStringLiterals(definition));
+    return providers.every((provider) => literals.has(provider));
+  });
 }
 
 function splitTopLevelCommaList(value) {
@@ -766,10 +794,36 @@ function supersededMigrationReason(migration, schemaState) {
   }
 
   if (
+    migration.tag === "0030_bent_moonstone" &&
+    columnDefaultMatches(
+      schemaState,
+      "global_settings",
+      "ai_writing_assistant_model",
+      "'gpt-4.1-mini'",
+    )
+  ) {
+    return "superseded by 0039_youthful_risque";
+  }
+
+  if (
     migration.tag === "0015_appearance" &&
     isSplitAppearanceSchema(schemaState)
   ) {
     return "superseded by split appearance schema";
+  }
+
+  if (
+    migration.tag === "0064_webshop_offline_payment_provider_checks" &&
+    webshopPaymentProviderConstraintsInclude(schemaState, ["monri"])
+  ) {
+    return "superseded by Monri payment provider schema";
+  }
+
+  if (
+    migration.tag === "0070_rename_local_card_gateway_to_monri" &&
+    webshopPaymentProviderConstraintsInclude(schemaState, ["monri", "paddle"])
+  ) {
+    return "superseded by Paddle payment provider schema";
   }
 
   return null;

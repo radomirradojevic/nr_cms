@@ -15,6 +15,30 @@ function makeSchemaState(columns) {
   };
 }
 
+function makeWebshopProviderConstraintState(providerKeys) {
+  const providerList = providerKeys.map((key) => `'${key}'`).join(",");
+  return {
+    tables: new Set(["webshop_payment_events", "webshop_payments"]),
+    tableColumns: new Map(),
+    columnDefaults: new Map(),
+    indexes: new Set(),
+    constraints: new Set([
+      "webshop_payment_events_provider_key_check",
+      "webshop_payments_provider_key_check",
+    ]),
+    constraintDefinitions: new Map([
+      [
+        "webshop_payment_events.webshop_payment_events_provider_key_check",
+        `"webshop_payment_events"."provider_key" IN (${providerList})`,
+      ],
+      [
+        "webshop_payments.webshop_payments_provider_key_check",
+        `"webshop_payments"."provider_key" IN (${providerList})`,
+      ],
+    ]),
+  };
+}
+
 test("migration runner does not reapply legacy appearance migration after content width split", () => {
   const status = __migrationRunnerTesting.migrationEndStateStatus(
     {
@@ -37,6 +61,27 @@ test("migration runner does not reapply legacy appearance migration after conten
 
   assert.equal(status.satisfied, true);
   assert.equal(status.reason, "superseded by split appearance schema");
+});
+
+test("migration runner does not reapply superseded AI model default migration", () => {
+  const schemaState = makeSchemaState(["id", "ai_writing_assistant_model"]);
+  schemaState.columnDefaults.set(
+    "global_settings.ai_writing_assistant_model",
+    "'gpt-4.1-mini'",
+  );
+
+  const status = __migrationRunnerTesting.migrationEndStateStatus(
+    {
+      tag: "0030_bent_moonstone",
+      statements: [
+        'ALTER TABLE "global_settings" ALTER COLUMN "ai_writing_assistant_model" SET DEFAULT \'gpt-5.5\'',
+      ],
+    },
+    schemaState,
+  );
+
+  assert.equal(status.satisfied, true);
+  assert.equal(status.reason, "superseded by 0039_youthful_risque");
 });
 
 test("migration runner still applies appearance migration before split columns exist", () => {
@@ -110,6 +155,55 @@ test("migration runner recognizes postgres-truncated constraint names", () => {
   );
 
   assert.equal(status.satisfied, true);
+});
+
+test("migration runner does not reapply superseded webshop provider checks", () => {
+  const schemaState = makeWebshopProviderConstraintState([
+    "cash_on_delivery",
+    "stripe",
+    "paypal",
+    "bank_redirect",
+    "ips_qr",
+    "monri",
+    "paddle",
+  ]);
+
+  const monriStatus = __migrationRunnerTesting.migrationEndStateStatus(
+    {
+      tag: "0064_webshop_offline_payment_provider_checks",
+      statements: [
+        'ALTER TABLE "webshop_payments" DROP CONSTRAINT IF EXISTS "webshop_payments_provider_key_check"',
+        "ALTER TABLE \"webshop_payments\" ADD CONSTRAINT \"webshop_payments_provider_key_check\" CHECK (\"webshop_payments\".\"provider_key\" IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','local_card_gateway'))",
+        'ALTER TABLE "webshop_payment_events" DROP CONSTRAINT IF EXISTS "webshop_payment_events_provider_key_check"',
+        "ALTER TABLE \"webshop_payment_events\" ADD CONSTRAINT \"webshop_payment_events_provider_key_check\" CHECK (\"webshop_payment_events\".\"provider_key\" IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','local_card_gateway'))",
+      ],
+    },
+    schemaState,
+  );
+
+  const paddleStatus = __migrationRunnerTesting.migrationEndStateStatus(
+    {
+      tag: "0070_rename_local_card_gateway_to_monri",
+      statements: [
+        'ALTER TABLE "webshop_payment_events" DROP CONSTRAINT IF EXISTS "webshop_payment_events_provider_key_check"',
+        'ALTER TABLE "webshop_payments" DROP CONSTRAINT IF EXISTS "webshop_payments_provider_key_check"',
+        "ALTER TABLE \"webshop_payments\" ADD CONSTRAINT \"webshop_payments_provider_key_check\" CHECK (\"webshop_payments\".\"provider_key\" IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','monri'))",
+        "ALTER TABLE \"webshop_payment_events\" ADD CONSTRAINT \"webshop_payment_events_provider_key_check\" CHECK (\"webshop_payment_events\".\"provider_key\" IN ('cash_on_delivery','stripe','paypal','bank_redirect','ips_qr','monri'))",
+      ],
+    },
+    schemaState,
+  );
+
+  assert.equal(monriStatus.satisfied, true);
+  assert.equal(
+    monriStatus.reason,
+    "superseded by Monri payment provider schema",
+  );
+  assert.equal(paddleStatus.satisfied, true);
+  assert.equal(
+    paddleStatus.reason,
+    "superseded by Paddle payment provider schema",
+  );
 });
 
 test("migration runner accepts superseded webshop media unique constraint", () => {

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
+const webshopPublicBaseHost = publicBaseHost(
+  process.env.WEBSHOP_PUBLIC_BASE_URL,
+);
 
 const securityHeaders = [
   {
@@ -23,17 +26,17 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com`,
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com https://cdn.paddle.com https://*.paddle.com`,
       "style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com",
       "img-src 'self' blob: data: https:",
       "font-src 'self' https://rsms.me https://fonts.gstatic.com",
-      "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://*.public.blob.vercel-storage.com https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com https://challenges.cloudflare.com",
-      "frame-src 'self' https://*.clerk.accounts.dev https://www.youtube.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
+      "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://*.public.blob.vercel-storage.com https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com https://challenges.cloudflare.com https://*.paddle.com",
+      "frame-src 'self' https://*.clerk.accounts.dev https://www.youtube.com https://www.youtube-nocookie.com https://challenges.cloudflare.com https://*.paddle.com",
       "media-src 'self' blob: data: https://*.public.blob.vercel-storage.com",
       "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
-      "form-action 'self'",
+      "form-action 'self' https://*.paddle.com",
       "frame-ancestors 'none'",
       ...(isDev ? [] : ["upgrade-insecure-requests"]),
     ].join("; "),
@@ -41,7 +44,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["172.18.208.1"],
+  allowedDevOrigins: [
+    "172.18.208.1",
+    ...(webshopPublicBaseHost ? [webshopPublicBaseHost] : []),
+  ],
   productionBrowserSourceMaps: false,
   serverExternalPackages: ["pdfkit"],
   experimental: {
@@ -60,3 +66,12 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+function publicBaseHost(value: string | undefined) {
+  if (!value) return null;
+  try {
+    return new URL(value).host;
+  } catch {
+    return null;
+  }
+}
