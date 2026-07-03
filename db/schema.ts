@@ -1454,6 +1454,10 @@ export const webshopLicenseKeys = pgTable(
     licenseKey: text("license_key").notNull(),
     licenseKeyFingerprint: text("license_key_fingerprint").notNull(),
     status: text("status").notNull().default("available"),
+    checkoutSessionId: uuid("checkout_session_id").references(
+      () => webshopCheckoutSessions.id,
+      { onDelete: "set null" },
+    ),
     orderId: uuid("order_id").references(() => webshopOrders.id, {
       onDelete: "set null",
     }),
@@ -1461,6 +1465,10 @@ export const webshopLicenseKeys = pgTable(
       onDelete: "set null",
     }),
     customerEmail: text("customer_email"),
+    reservedAt: timestamp("reserved_at", { withTimezone: true }),
+    reservationExpiresAt: timestamp("reservation_expires_at", {
+      withTimezone: true,
+    }),
     assignedAt: timestamp("assigned_at", { withTimezone: true }),
     validityDays: integer("validity_days"),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
@@ -1485,11 +1493,15 @@ export const webshopLicenseKeys = pgTable(
       .where(sql`${table.orderItemId} IS NOT NULL`),
     check(
       "webshop_license_keys_status_check",
-      sql`${table.status} IN ('available','assigned','revoked')`,
+      sql`${table.status} IN ('available','reserved','assigned','revoked')`,
     ),
     check(
       "webshop_license_keys_assignment_check",
       sql`(${table.status} <> 'assigned') OR (${table.orderId} IS NOT NULL AND ${table.orderItemId} IS NOT NULL AND ${table.assignedAt} IS NOT NULL)`,
+    ),
+    check(
+      "webshop_license_keys_reservation_check",
+      sql`(${table.status} <> 'reserved') OR (${table.checkoutSessionId} IS NOT NULL AND ${table.reservedAt} IS NOT NULL AND (${table.reservationExpiresAt} IS NOT NULL OR (${table.orderId} IS NOT NULL AND ${table.orderItemId} IS NOT NULL)))`,
     ),
     check(
       "webshop_license_keys_validity_days_check",
@@ -1508,7 +1520,14 @@ export const webshopLicenseKeys = pgTable(
       table.orderId,
       table.orderItemId,
     ),
+    index("webshop_license_keys_checkout_session_idx").on(
+      table.checkoutSessionId,
+      table.status,
+    ),
     index("webshop_license_keys_expires_idx").on(table.expiresAt),
+    index("webshop_license_keys_reservation_expires_idx").on(
+      table.reservationExpiresAt,
+    ),
   ],
 );
 

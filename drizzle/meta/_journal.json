@@ -505,6 +505,13 @@
       "when": 1781654400044,
       "tag": "0071_webshop_paddle_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1781654400045,
+      "tag": "0072_webshop_license_key_reservations",
+      "breakpoints": true
     }
   ]
 }
