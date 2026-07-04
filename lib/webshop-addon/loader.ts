@@ -95,7 +95,9 @@ async function importWebshopAddonModule(
 ): Promise<WebshopAddonModule> {
   if (moduleSpecifier === LOCAL_PRIVATE_WEBSHOP_MODULE) {
     assertLocalPrivateWebshopAliasAllowed();
-    return import("@/.private/webshop/src/addon") as Promise<WebshopAddonModule>;
+    return import(
+      /* turbopackOptional: true */ "@/.private/webshop/src/addon"
+    ) as Promise<WebshopAddonModule>;
   }
 
   return import(moduleSpecifier) as Promise<WebshopAddonModule>;
