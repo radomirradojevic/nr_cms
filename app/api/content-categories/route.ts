@@ -4,7 +4,7 @@ import { getCategoriesPaginated } from "@/data/content-categories";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 
-const ALLOWED_PAGE_SIZES = [10, 20, 30];
+const ALLOWED_PAGE_SIZES = [10, 20, 30, 50, 100];
 const ALLOWED_TYPES = ["page", "blog_post"] as const;
 
 export async function GET(request: NextRequest) {

@@ -58,12 +58,14 @@ type Props = {
   initialMenuTrees?: HeroSliderMenuTrees;
   fallbackIsBackendUser?: boolean;
   fallbackIsAdmin?: boolean;
+  hasWebshopShell?: boolean;
 };
 
 type HeroSliderMenuTrees = Record<string, TopMenuTreeNode[]>;
 type HeroMenuRuntimeAuth = {
   fallbackIsBackendUser: boolean;
   fallbackIsAdmin: boolean;
+  hasWebshopShell: boolean;
 };
 
 const blockVisibilityCss = `
@@ -89,6 +91,7 @@ export function HeroSliderRenderer({
   initialMenuTrees,
   fallbackIsBackendUser = false,
   fallbackIsAdmin = false,
+  hasWebshopShell = false,
 }: Props) {
   const slider = useMemo(() => normalizeHeroSliderContent(data), [data]);
   const settings = slider.settings;
@@ -108,6 +111,7 @@ export function HeroSliderRenderer({
   const runtimeAuth: HeroMenuRuntimeAuth = {
     fallbackIsBackendUser,
     fallbackIsAdmin,
+    hasWebshopShell,
   };
   const slideCount = slides.length;
   const safeActiveIndex = Math.min(activeIndex, Math.max(0, slideCount - 1));
@@ -1164,6 +1168,7 @@ function HeroAuthMobileItems({ onNavigate }: { onNavigate: () => void }) {
 function useEffectiveHeroBackendAccess({
   fallbackIsBackendUser,
   fallbackIsAdmin,
+  hasWebshopShell,
 }: HeroMenuRuntimeAuth) {
   const { isLoaded, isSignedIn, user } = useUser();
   const roles = isLoaded && isSignedIn ? getRoles(user?.publicMetadata) : [];
@@ -1174,7 +1179,7 @@ function useEffectiveHeroBackendAccess({
       hasRole(roles, "author")
     : fallbackIsBackendUser;
 
-  return { isBackendUser, isAdmin };
+  return { hasWebshopShell, isBackendUser, isAdmin };
 }
 
 function DesktopMenuItem({

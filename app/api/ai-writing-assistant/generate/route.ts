@@ -19,8 +19,10 @@ import { getRoles, hasRole } from "@/lib/roles";
 const GenerateRequestSchema = z.object({
   providerId: AIProviderIdSchema.optional(),
   model: AIProviderModelIdSchema.optional(),
-  field: z.enum(["excerpt", "metaTitle", "metaDescription"]),
-  surface: z.enum(["blogEditor", "pageBuilder"]).default("blogEditor"),
+  field: z.enum(["description", "excerpt", "metaTitle", "metaDescription"]),
+  surface: z
+    .enum(["blogEditor", "pageBuilder", "productEditor"])
+    .default("blogEditor"),
   title: z.string().trim().max(200).optional(),
   excerpt: z.string().trim().max(2_000).optional(),
   content: z.string().trim().max(8_000).optional(),
@@ -65,18 +67,13 @@ export async function POST(request: Request) {
   }
 
   const settings = await getAiWritingAssistantServerSettings();
-  const assistantEnabled =
-    body.surface === "pageBuilder"
-      ? settings.pageBuilderEnabled
-      : settings.enabled;
+  const assistantEnabled = getAssistantEnabledForSurface(
+    body.surface,
+    settings,
+  );
   if (!assistantEnabled) {
     return NextResponse.json(
-      {
-        error:
-          body.surface === "pageBuilder"
-            ? "AI assistant is disabled."
-            : "AI writing assistant is disabled.",
-      },
+      { error: getAssistantDisabledMessage(body.surface) },
       { status: 403 },
     );
   }
@@ -154,11 +151,17 @@ export async function POST(request: Request) {
 }
 
 function getContextError(body: z.infer<typeof GenerateRequestSchema>) {
-  if (body.surface === "pageBuilder" && body.field === "excerpt") {
+  if (
+    body.surface === "pageBuilder" &&
+    (body.field === "description" || body.field === "excerpt")
+  ) {
     return "Page builder AI assistant can generate SEO text only.";
   }
 
   if (!hasText(body.title)) {
+    if (body.field === "description") {
+      return "Enter a title first so AI has enough context for the description.";
+    }
     return body.field === "excerpt"
       ? "Enter a title first so AI has enough context for the excerpt."
       : "Enter a title first so AI has enough context for SEO text.";
@@ -169,6 +172,7 @@ function getContextError(body: z.infer<typeof GenerateRequestSchema>) {
   }
 
   if (
+    body.field !== "description" &&
     body.field !== "excerpt" &&
     !hasText(body.excerpt) &&
     !hasText(body.content)
@@ -183,6 +187,35 @@ function hasText(value: string | null | undefined) {
   return !!value?.trim();
 }
 
+function getAssistantEnabledForSurface(
+  surface: z.infer<typeof GenerateRequestSchema>["surface"],
+  settings: Awaited<ReturnType<typeof getAiWritingAssistantServerSettings>>,
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return settings.pageBuilderEnabled;
+    case "productEditor":
+      return settings.webshopEnabled;
+    case "blogEditor":
+    default:
+      return settings.enabled;
+  }
+}
+
+function getAssistantDisabledMessage(
+  surface: z.infer<typeof GenerateRequestSchema>["surface"],
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return "AI assistant is disabled.";
+    case "productEditor":
+      return "WebShop AI assistant is disabled.";
+    case "blogEditor":
+    default:
+      return "AI writing assistant is disabled.";
+  }
+}
+
 function buildGenerationPrompt(
   body: z.infer<typeof GenerateRequestSchema>,
   customInstructions: string | null,
@@ -190,10 +223,11 @@ function buildGenerationPrompt(
   const fieldLabel = getFieldLabel(body.field);
 
   return [
-    body.surface === "pageBuilder"
-      ? "You are an AI assistant inside a CMS page builder."
-      : "You are an AI writing assistant inside a CMS blog post editor.",
+    getSurfacePromptIntro(body.surface),
     "Write in the same language as the title, excerpt, and content.",
+    body.surface === "productEditor"
+      ? "Do not invent warranty, certification, shipping speed, discounts, health claims, origin claims, stock claims, or compatibility claims unless they are explicitly present in the input."
+      : "",
     "Return only the requested field text. Do not include labels, quotes, markdown, or explanations.",
     getGenerationFieldInstruction(body.field),
     customInstructions ? `Editorial instructions: ${customInstructions}` : "",
@@ -210,10 +244,26 @@ function buildGenerationPrompt(
     .join("\n");
 }
 
+function getSurfacePromptIntro(
+  surface: z.infer<typeof GenerateRequestSchema>["surface"],
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return "You are an AI assistant inside a CMS page builder.";
+    case "productEditor":
+      return "You are an AI writing assistant inside a private Webshop product editor.";
+    case "blogEditor":
+    default:
+      return "You are an AI writing assistant inside a CMS blog post editor.";
+  }
+}
+
 function getGenerationFieldInstruction(
   field: z.infer<typeof GenerateRequestSchema>["field"],
 ) {
   switch (field) {
+    case "description":
+      return "Generate a product Description: helpful product copy in 1-2 short paragraphs, specific to the supplied facts, suitable for a webshop product page.";
     case "excerpt":
       return "Generate an Excerpt: one concise paragraph, 1-2 sentences, specific and useful, maximum 450 characters.";
     case "metaTitle":
@@ -228,7 +278,8 @@ function getGenerationTokenLimit(
   configuredLimit: number,
 ) {
   const suggestedMinimum = field === "metaTitle" ? 64 : 120;
-  return Math.min(180, Math.max(configuredLimit, suggestedMinimum));
+  const max = field === "description" ? 260 : 180;
+  return Math.min(max, Math.max(configuredLimit, suggestedMinimum));
 }
 
 function getGenerationTimeoutMs(providerId: string, model: string) {
@@ -239,6 +290,8 @@ function getGenerationTimeoutMs(providerId: string, model: string) {
 
 function getFieldLabel(field: z.infer<typeof GenerateRequestSchema>["field"]) {
   switch (field) {
+    case "description":
+      return "Description";
     case "excerpt":
       return "Excerpt";
     case "metaTitle":
@@ -260,7 +313,10 @@ function normalizeGeneratedText(
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  text = text.replace(/^(?:excerpt|meta title|meta description)\s*:\s*/iu, "");
+  text = text.replace(
+    /^(?:description|excerpt|meta title|meta description)\s*:\s*/iu,
+    "",
+  );
 
   if (
     (text.startsWith('"') && text.endsWith('"')) ||
@@ -275,6 +331,10 @@ function normalizeGeneratedText(
 
   if (field === "metaDescription") {
     return text.replace(/\s+/g, " ").slice(0, 1_000);
+  }
+
+  if (field === "description") {
+    return text.slice(0, 4_000);
   }
 
   return text.replace(/\n+/g, " ").replace(/\s+/g, " ").slice(0, 2_000);

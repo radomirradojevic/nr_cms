@@ -21,9 +21,10 @@ export default async function ContentPage() {
     hasRole(roles, "author");
   if (!allowed) redirect("/dashboard");
 
-  const [pageCats, blogCats, authorIds] = await Promise.all([
+  const [pageCats, blogCats, webshopCats, authorIds] = await Promise.all([
     getCategoriesByType("page"),
     getCategoriesByType("blog_post"),
+    getCategoriesByType("webshop"),
     getDistinctContentAuthorIds(),
   ]);
   const authorNameMap = new Map<string, string>();
@@ -54,7 +55,7 @@ export default async function ContentPage() {
         <div>
           <h1 className="text-2xl font-semibold">Content</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Manage pages, blog posts, and hero sliders.
+            Manage pages, blog posts, hero sliders, and webshops.
           </p>
         </div>
         <Button asChild>
@@ -70,6 +71,10 @@ export default async function ContentPage() {
         currentUserRoles={roles}
         pageCategories={pageCats.map((c) => ({ id: c.id, name: c.name }))}
         blogCategories={blogCats.map((c) => ({ id: c.id, name: c.name }))}
+        webshopCategories={webshopCats.map((c) => ({
+          id: c.id,
+          name: c.name,
+        }))}
         authors={authors}
       />
     </div>

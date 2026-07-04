@@ -18,8 +18,9 @@ import {
   type ContentStatus,
 } from "@/lib/content-status";
 import type { Role } from "@/lib/roles";
+import type { ContentType } from "@/lib/content-types";
 
-type AllowedPageSize = 10 | 20 | 30;
+type AllowedPageSize = 10 | 20 | 30 | 50 | 100;
 
 export type CategoryOption = { id: string; name: string };
 
@@ -28,6 +29,7 @@ type Props = {
   currentUserRoles: Role[];
   pageCategories: CategoryOption[];
   blogCategories: CategoryOption[];
+  webshopCategories: CategoryOption[];
   authors: ContentAuthorInfo[];
 };
 
@@ -36,13 +38,12 @@ export function ContentTableContainer({
   currentUserRoles,
   pageCategories,
   blogCategories,
+  webshopCategories,
   authors,
 }: Props) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [type, setType] = useState<
-    "all" | "page" | "blog_post" | "hero_slider"
-  >("all");
+  const [type, setType] = useState<"all" | ContentType>("all");
   const [status, setStatus] = useState<"all" | ContentStatus>("all");
   const [categoryId, setCategoryId] = useState<string>("all");
   const [authorId, setAuthorId] = useState<string>("all");
@@ -150,9 +151,11 @@ export function ContentTableContainer({
       ? pageCategories
       : type === "hero_slider"
         ? pageCategories
-        : type === "blog_post"
-          ? blogCategories
-          : [...pageCategories, ...blogCategories];
+        : type === "webshop"
+          ? webshopCategories
+          : type === "blog_post"
+            ? blogCategories
+            : [...pageCategories, ...blogCategories, ...webshopCategories];
 
   return (
     <div className="space-y-3">
@@ -181,6 +184,7 @@ export function ContentTableContainer({
             <SelectItem value="page">Page</SelectItem>
             <SelectItem value="blog_post">Blog post</SelectItem>
             <SelectItem value="hero_slider">Hero Slider</SelectItem>
+            <SelectItem value="webshop">Webshop</SelectItem>
           </SelectContent>
         </Select>
         {view === "content" && (

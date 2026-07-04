@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TablePagination } from "@/app/dashboard/table-pagination";
 import type { CommentRow } from "@/data/comments";
 import { CommentRowActions } from "./comment-row-actions";
 import { bulkModerate } from "@/app/dashboard/content/comment-actions";
@@ -170,156 +171,123 @@ export function CommentsTable({
         </div>
       )}
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={(c) => {
+                  if (c) setSelected(new Set(rows.map((r) => r.id)));
+                  else setSelected(new Set());
+                }}
+              />
+            </TableHead>
+            <TableHead>Author</TableHead>
+            <TableHead>Body</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length === 0 ? (
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={(c) => {
-                    if (c) setSelected(new Set(rows.map((r) => r.id)));
-                    else setSelected(new Set());
-                  }}
-                />
-              </TableHead>
-              <TableHead>Author</TableHead>
-              <TableHead>Body</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableCell
+                colSpan={7}
+                className="text-center text-muted-foreground py-8"
+              >
+                No comments found.
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="text-center text-muted-foreground py-8"
-                >
-                  No comments found.
+          ) : (
+            rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={selected.has(r.id)}
+                    onCheckedChange={(c) => {
+                      const next = new Set(selected);
+                      if (c) next.add(r.id);
+                      else next.delete(r.id);
+                      setSelected(next);
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm font-medium">{r.authorName}</div>
+                  {r.authorId ? (
+                    <div className="text-xs text-muted-foreground">
+                      signed-in
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">guest</div>
+                  )}
+                </TableCell>
+                <TableCell className="max-w-md">
+                  <p className="whitespace-pre-wrap text-sm">
+                    {truncate(r.body)}
+                  </p>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={r.status === "published" ? "default" : "secondary"}
+                  >
+                    {r.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {r.parentId ? (
+                    <span className="text-xs">
+                      Reply to{" "}
+                      <span className="font-medium">
+                        {parentLookup[r.parentId] ?? "—"}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      Top-level
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {formatDateTime(r.createdAt)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <CommentRowActions
+                    commentId={r.id}
+                    status={r.status as "pending" | "published"}
+                    onMutated={refresh}
+                  />
                 </TableCell>
               </TableRow>
-            ) : (
-              rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(r.id)}
-                      onCheckedChange={(c) => {
-                        const next = new Set(selected);
-                        if (c) next.add(r.id);
-                        else next.delete(r.id);
-                        setSelected(next);
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm font-medium">{r.authorName}</div>
-                    {r.authorId ? (
-                      <div className="text-xs text-muted-foreground">
-                        signed-in
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">guest</div>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-md">
-                    <p className="whitespace-pre-wrap text-sm">
-                      {truncate(r.body)}
-                    </p>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        r.status === "published" ? "default" : "secondary"
-                      }
-                    >
-                      {r.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {r.parentId ? (
-                      <span className="text-xs">
-                        Reply to{" "}
-                        <span className="font-medium">
-                          {parentLookup[r.parentId] ?? "—"}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Top-level
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatDateTime(r.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <CommentRowActions
-                      commentId={r.id}
-                      status={r.status as "pending" | "published"}
-                      onMutated={refresh}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            ))
+          )}
+        </TableBody>
+      </Table>
 
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <span className="text-sm text-muted-foreground">
-          {total} comment{total === 1 ? "" : "s"} · page {page} of {totalPages}
-        </span>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              Per page
-            </span>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(v) => {
-                const next = new URLSearchParams(sp.toString());
-                next.set("pageSize", v);
-                next.delete("page");
-                router.push(
-                  `/dashboard/content/${postId}/comments?${next.toString()}`,
-                );
-              }}
-            >
-              <SelectTrigger className="w-[80px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="30">30</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setParam("page", String(page - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => setParam("page", String(page + 1))}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      </div>
+      <TablePagination
+        label={
+          <>
+            {total} comment{total === 1 ? "" : "s"} &mdash; page {page} of{" "}
+            {totalPages}
+          </>
+        }
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        onPageChange={(nextPage) => setParam("page", String(nextPage))}
+        onPageSizeChange={(nextPageSize) => {
+          const next = new URLSearchParams(sp.toString());
+          next.set("pageSize", String(nextPageSize));
+          next.delete("page");
+          router.push(
+            `/dashboard/content/${postId}/comments?${next.toString()}`,
+          );
+        }}
+      />
     </div>
   );
 }

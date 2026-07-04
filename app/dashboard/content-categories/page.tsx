@@ -8,6 +8,7 @@ import {
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
 import { CategoryTableContainer } from "./category-table-container";
+import { WebshopCategoriesBridge } from "./webshop-categories-bridge";
 
 export default async function ContentCategoriesPage() {
   const user = await getOptionalCurrentUser();
@@ -59,6 +60,7 @@ export default async function ContentCategoriesPage() {
         <TabsList>
           <TabsTrigger value="page">Page categories</TabsTrigger>
           <TabsTrigger value="blog_post">Blog post categories</TabsTrigger>
+          <TabsTrigger value="webshop">Webshop categories</TabsTrigger>
         </TabsList>
 
         <TabsContent value="page">
@@ -73,6 +75,10 @@ export default async function ContentCategoriesPage() {
             contentType="blog_post"
             authors={toAuthorOptions(blogAuthorIds)}
           />
+        </TabsContent>
+
+        <TabsContent value="webshop">
+          <WebshopCategoriesBridge userId={user!.id} />
         </TabsContent>
       </Tabs>
     </div>

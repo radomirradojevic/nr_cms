@@ -57,6 +57,22 @@ test("CSP allows Vercel Blob videos as media sources", async () => {
   assert.match(csp, /connect-src[^;]*https:\/\/\*\.vercel-storage\.com/);
 });
 
+test("CSP allows Paddle.js checkout assets", async () => {
+  const routes = await nextConfig.headers?.();
+  assert.ok(routes);
+
+  const csp = routes
+    .flatMap((route) => route.headers)
+    .find((header) => header.key === "Content-Security-Policy")?.value;
+
+  assert.ok(csp);
+  assert.match(csp, /script-src[^;]*https:\/\/cdn\.paddle\.com/);
+  assert.match(csp, /script-src[^;]*https:\/\/\*\.paddle\.com/);
+  assert.match(csp, /connect-src[^;]*https:\/\/\*\.paddle\.com/);
+  assert.match(csp, /frame-src[^;]*https:\/\/\*\.paddle\.com/);
+  assert.match(csp, /form-action[^;]*https:\/\/\*\.paddle\.com/);
+});
+
 test("builder static renderers neutralize unsafe URLs", () => {
   const button = renderToStaticMarkup(
     createElement(ButtonStatic, {

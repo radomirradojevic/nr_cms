@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -28,6 +35,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { HelpInfo } from "@/components/ui/help-info";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -168,6 +176,23 @@ interface GlowFieldsProps {
   value: GlowEffect;
   colorValid: boolean;
   onChange: (next: GlowEffect) => void;
+}
+
+function LabelWithHelp({
+  children,
+  htmlFor,
+  label,
+}: {
+  children: ReactNode;
+  htmlFor?: string;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      <HelpInfo title={label}>{children}</HelpInfo>
+    </div>
+  );
 }
 
 function GlowFields({
@@ -1283,6 +1308,7 @@ const EMPTY_VISIBILITY_TARGETS: ShellVisibilityTargets = {
   pageIds: [],
   blogPostIds: [],
   heroSliderIds: [],
+  webshopIds: [],
   blogCategoryIds: [],
   adminPageIds: [],
 };
@@ -1299,6 +1325,7 @@ function cloneVisibilityTargets(
     pageIds: uniqueStrings(targets.pageIds),
     blogPostIds: uniqueStrings(targets.blogPostIds),
     heroSliderIds: uniqueStrings(targets.heroSliderIds),
+    webshopIds: uniqueStrings(targets.webshopIds),
     blogCategoryIds: uniqueStrings(targets.blogCategoryIds),
     adminPageIds: uniqueStrings(targets.adminPageIds),
   };
@@ -1756,6 +1783,17 @@ export function SettingsForm({
         })),
     },
     {
+      key: "webshopIds",
+      label: "Webshops",
+      options: visibilityContentTargets
+        .filter((item) => item.contentType === "webshop")
+        .map((item) => ({
+          id: item.id,
+          label: item.title,
+          meta: `/${item.slug} · ${item.status}`,
+        })),
+    },
+    {
       key: "blogCategoryIds",
       label: "Blog Categories",
       options: visibilityBlogCategories.map((category) => ({
@@ -2022,6 +2060,9 @@ export function SettingsForm({
   );
   const [aiPageBuilderAssistantEnabled, setAiPageBuilderAssistantEnabled] =
     useState(settings?.aiPageBuilderAssistantEnabled ?? false);
+  const [aiWebshopAssistantEnabled, setAiWebshopAssistantEnabled] = useState(
+    settings?.aiWebshopAssistantEnabled ?? false,
+  );
   const [aiProviders, setAiProviders] = useState<AiProviderFormStateById>(() =>
     buildInitialAiProviderFormState(settings?.aiProviderSettings),
   );
@@ -2195,7 +2236,9 @@ export function SettingsForm({
     ? aiDefaultProvider
     : (usableAiProviderIds[0] ?? aiDefaultProvider);
   const aiAssistantShownInEditors =
-    aiWritingAssistantEnabled || aiPageBuilderAssistantEnabled;
+    aiWritingAssistantEnabled ||
+    aiPageBuilderAssistantEnabled ||
+    aiWebshopAssistantEnabled;
   const aiWritingAssistantSettingsValid =
     AI_PROVIDER_IDS.every((id) => {
       const provider = aiProviders[id];
@@ -2773,6 +2816,7 @@ export function SettingsForm({
           appearanceRecipe: draftRecipe,
           aiWritingAssistantEnabled,
           aiPageBuilderAssistantEnabled,
+          aiWebshopAssistantEnabled,
           aiDefaultProvider: effectiveAiDefaultProvider,
           aiProviders: parsedAiProviders,
           contentHistoryEnabled,
@@ -2848,7 +2892,7 @@ export function SettingsForm({
         onValueChange={handleSettingsTabChange}
         className="space-y-4"
       >
-        <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+        <TabsList className="flex-wrap overflow-x-visible">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="layout-design">Layout &amp; Design</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
@@ -2931,7 +2975,7 @@ export function SettingsForm({
             onValueChange={handleLayoutDesignTabChange}
             className="space-y-4"
           >
-            <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+            <TabsList className="flex-wrap overflow-x-visible">
               <TabsTrigger value="header">Header</TabsTrigger>
               <TabsTrigger value="footer">Footer</TabsTrigger>
               <TabsTrigger value="appearance">Appearance</TabsTrigger>
@@ -3248,10 +3292,9 @@ export function SettingsForm({
                   />
                   <div className="space-y-3 rounded-md border p-3">
                     <div>
-                      <h3 className="text-sm font-medium">Header Slots</h3>
-                      <p className="text-xs text-muted-foreground">
+                      <LabelWithHelp label="Header Slots">
                         These controls enable curated, validated shell pieces.
-                      </p>
+                      </LabelWithHelp>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="flex items-center justify-between">
@@ -3493,11 +3536,10 @@ export function SettingsForm({
                   />
                   <div className="space-y-3 rounded-md border p-3">
                     <div>
-                      <h3 className="text-sm font-medium">Footer Slots</h3>
-                      <p className="text-xs text-muted-foreground">
+                      <LabelWithHelp label="Footer Slots">
                         Link slots use one item per line in the form: Label |
                         URL.
-                      </p>
+                      </LabelWithHelp>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="flex items-center justify-between">
@@ -3660,11 +3702,10 @@ export function SettingsForm({
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <Label>Shell Presets</Label>
-                        <p className="text-xs text-muted-foreground">
+                        <LabelWithHelp label="Shell Presets">
                           Presets update the draft recipe while keeping
                           identity, menus, and content.
-                        </p>
+                        </LabelWithHelp>
                         <div className="mt-3 flex gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
                           <Info
                             className="mt-0.5 h-4 w-4 shrink-0"
@@ -3813,10 +3854,9 @@ export function SettingsForm({
 
                   <div className="space-y-4 rounded-md border p-3">
                     <div>
-                      <Label>Content Templates</Label>
-                      <p className="text-xs text-muted-foreground">
+                      <LabelWithHelp label="Content Templates">
                         Global template selections for public content surfaces.
-                      </p>
+                      </LabelWithHelp>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1.5">
@@ -3998,11 +4038,10 @@ export function SettingsForm({
 
                   <div className="space-y-4 rounded-md border p-3">
                     <div>
-                      <Label>Motion & Effects</Label>
-                      <p className="text-xs text-muted-foreground">
+                      <LabelWithHelp label="Motion & Effects">
                         Recipe-level motion policy for animation and background
                         effects.
-                      </p>
+                      </LabelWithHelp>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1.5">
@@ -4058,11 +4097,10 @@ export function SettingsForm({
                   <div className="space-y-4 rounded-md border p-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <Label>Quality Gates</Label>
-                        <p className="text-xs text-muted-foreground">
+                        <LabelWithHelp label="Quality Gates">
                           Checks run across desktop, tablet, mobile, and auth
                           states.
-                        </p>
+                        </LabelWithHelp>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Badge
@@ -4108,13 +4146,13 @@ export function SettingsForm({
                   <div className="space-y-4 rounded-md border p-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <Label htmlFor="recipePortabilityText">
-                          Appearance Recipe JSON
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
+                        <LabelWithHelp
+                          htmlFor="recipePortabilityText"
+                          label="Appearance Recipe JSON"
+                        >
                           Portable recipe data. Imported HTML slots are
                           disabled.
-                        </p>
+                        </LabelWithHelp>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button
@@ -4208,13 +4246,13 @@ export function SettingsForm({
             <CardContent className="space-y-6">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="ai-writing-assistant-enabled">
-                      Show in blog editor
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
+                  <div>
+                    <LabelWithHelp
+                      htmlFor="ai-writing-assistant-enabled"
+                      label="Show in blog editor"
+                    >
                       Controls the visibility of the AI Writing Assistant UI.
-                    </p>
+                    </LabelWithHelp>
                   </div>
                   <Switch
                     id="ai-writing-assistant-enabled"
@@ -4224,19 +4262,36 @@ export function SettingsForm({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="ai-page-builder-assistant-enabled">
-                      Show in page builder
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
+                  <div>
+                    <LabelWithHelp
+                      htmlFor="ai-page-builder-assistant-enabled"
+                      label="Show in page builder"
+                    >
                       Controls the visibility of the page builder AI Assistant
                       UI.
-                    </p>
+                    </LabelWithHelp>
                   </div>
                   <Switch
                     id="ai-page-builder-assistant-enabled"
                     checked={aiPageBuilderAssistantEnabled}
                     onCheckedChange={setAiPageBuilderAssistantEnabled}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                  <div>
+                    <LabelWithHelp
+                      htmlFor="ai-webshop-assistant-enabled"
+                      label="Show in WebShop"
+                    >
+                      Controls the visibility of the WebShop product AI
+                      Assistant UI.
+                    </LabelWithHelp>
+                  </div>
+                  <Switch
+                    id="ai-webshop-assistant-enabled"
+                    checked={aiWebshopAssistantEnabled}
+                    onCheckedChange={setAiWebshopAssistantEnabled}
                   />
                 </div>
               </div>
@@ -4250,7 +4305,7 @@ export function SettingsForm({
                 </div>
 
                 <Tabs defaultValue="openai" className="space-y-4">
-                  <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+                  <TabsList className="flex-wrap overflow-x-visible">
                     {AI_PROVIDER_IDS.map((providerId) => (
                       <TabsTrigger key={providerId} value={providerId}>
                         {AI_PROVIDER_LABELS[providerId]}
@@ -4290,13 +4345,13 @@ export function SettingsForm({
                         className="space-y-5 rounded-md border p-4"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="space-y-0.5">
-                            <Label htmlFor={`${providerId}-enabled`}>
-                              Enabled
-                            </Label>
-                            <p className="text-xs text-muted-foreground">
+                          <div>
+                            <LabelWithHelp
+                              htmlFor={`${providerId}-enabled`}
+                              label="Enabled"
+                            >
                               Authors can use {providerLabel} when enabled.
-                            </p>
+                            </LabelWithHelp>
                           </div>
                           <Switch
                             id={`${providerId}-enabled`}

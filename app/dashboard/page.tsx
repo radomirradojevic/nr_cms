@@ -71,7 +71,7 @@ async function DashboardCards({ roles }: { roles: string[] }) {
       />
       <DashboardCard
         title="Content"
-        description="Pages, blog posts, and hero sliders"
+        description="Pages, blog posts, hero sliders, and webshops"
         icon={FileText}
         href="/dashboard/content"
         actionLabel="Manage Content"
@@ -80,6 +80,7 @@ async function DashboardCards({ roles }: { roles: string[] }) {
           { label: "Total Pages", value: stats.content.totalPages },
           { label: "Total Blog Posts", value: stats.content.totalBlogPosts },
           { label: "Hero Sliders", value: stats.content.totalHeroSliders },
+          { label: "Webshops", value: stats.content.totalWebshops },
         ]}
       />
       <DashboardCard

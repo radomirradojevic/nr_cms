@@ -60,6 +60,9 @@ export default async function RootLayout({
   const settings = await getGlobalSettings();
   const sessionSecurity = await getSessionSecuritySettings();
   const shellRouteIndex = await loadShellRouteIndex();
+  const hasWebshopShell = shellRouteIndex.contents.some(
+    (item) => item.contentType === "webshop",
+  );
   const requestHeaders = await headers();
   const currentPathname = requestHeaders.get("x-nr-pathname") ?? "/";
   const shellTarget = resolveShellRenderTargetForPathname(
@@ -183,6 +186,7 @@ export default async function RootLayout({
                 isBackendUser={isBackendUser}
                 isAdmin={isAdmin}
                 isLoggedIn={!!user}
+                hasWebshopShell={hasWebshopShell}
               />
               <SiteMain region={mainRegion}>{children}</SiteMain>
               <div className="contents" data-shell-footer-content>

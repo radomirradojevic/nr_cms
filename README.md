@@ -55,6 +55,7 @@ npm run content:scheduler:dev
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`                                      | Cloudflare Turnstile site key (public). Required for the blog comment form and public forms.                                                                                                                  | ✅                          |
 | `TURNSTILE_SECRET_KEY`                                                | Cloudflare Turnstile secret key. Verifies submissions server-side.                                                                                                                                            | ✅                          |
 | `IP_HASH_SALT`                                                        | ≥32-char random string used to SHA-256-hash visitor IPs for rate limiting. Raw IPs are never stored.                                                                                                          | ✅                          |
+| `WEBSHOP_SELF_HOSTED_SITE_ID`                                         | Optional stable install identifier for paid Webshop activation on self-hosted or non-Vercel deployments. Defaults to the configured public URL/env URL when available.                                        | optional                    |
 
 The `storage/` directory is gitignored. Files are streamed through the auth-gated route `app/api/files/[id]/route.ts`. When `STORAGE_PROVIDER=vercel-blob` that route 307-redirects to the public Blob URL instead of streaming bytes through the function.
 
@@ -451,6 +452,8 @@ Recommended setup:
 - Run `npm run content:scheduler:worker` as a second managed process, or call `/api/cron/content-publishing` every minute from system cron with `Authorization: Bearer $CRON_SECRET`.
 - Point `DATABASE_URL` at any Postgres (managed or self-hosted).
 - All other env vars (Clerk, Turnstile, email, `CRON_SECRET`, `IP_HASH_SALT`) are the same as on Vercel.
+- Paid Webshop activation works on self-hosted deployments. Set `WEBSHOP_SELF_HOSTED_SITE_ID` to a stable domain or install ID if the public URL can change, install the private Webshop package, and point `WEBSHOP_ADDON_MODULE` at its entrypoint.
+- Do not use `WEBSHOP_ADDON_MODULE=local-private-webshop` for self-hosted production. That alias is only a localhost development shortcut for `npm run dev`.
 
 The `proxyClientMaxBodySize: "2gb"` setting in `next.config.ts` is active in this mode, so large uploads up to `MAX_FILE_SIZE` (300 MB) work end-to-end.
 

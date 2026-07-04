@@ -11,8 +11,12 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import {
+  WEBSHOP_SYSTEM_CATEGORY_NAME,
+  type ContentCategoryType,
+} from "@/lib/content-types";
 
-export type ContentType = "page" | "blog_post";
+export type ContentType = ContentCategoryType;
 
 export type ContentCategory = {
   id: string;
@@ -148,7 +152,7 @@ export async function isCategoryInUse(id: string): Promise<boolean> {
 
 export async function insertCategory(data: {
   name: string;
-  contentType: string;
+  contentType: ContentType;
   createdBy?: string;
 }): Promise<ContentCategory> {
   const rows = await db
@@ -161,6 +165,61 @@ export async function insertCategory(data: {
     })
     .returning();
   return rows[0];
+}
+
+export async function getOrCreateSystemCategory(data: {
+  name: string;
+  contentType: ContentType;
+  actorId?: string;
+}): Promise<ContentCategory> {
+  const existing = await db
+    .select()
+    .from(contentCategories)
+    .where(
+      and(
+        eq(contentCategories.name, data.name),
+        eq(contentCategories.contentType, data.contentType),
+      ),
+    )
+    .limit(1);
+  if (existing[0]) return existing[0];
+
+  const inserted = await db
+    .insert(contentCategories)
+    .values({
+      name: data.name,
+      contentType: data.contentType,
+      createdBy: data.actorId ?? null,
+      updatedBy: data.actorId ?? null,
+    })
+    .onConflictDoNothing()
+    .returning();
+  if (inserted[0]) return inserted[0];
+
+  const rows = await db
+    .select()
+    .from(contentCategories)
+    .where(
+      and(
+        eq(contentCategories.name, data.name),
+        eq(contentCategories.contentType, data.contentType),
+      ),
+    )
+    .limit(1);
+  if (!rows[0]) {
+    throw new Error("System content category could not be created.");
+  }
+  return rows[0];
+}
+
+export async function getOrCreateWebshopCategory(
+  actorId?: string,
+): Promise<ContentCategory> {
+  return getOrCreateSystemCategory({
+    name: WEBSHOP_SYSTEM_CATEGORY_NAME,
+    contentType: "webshop",
+    actorId,
+  });
 }
 
 export async function updateCategoryName(

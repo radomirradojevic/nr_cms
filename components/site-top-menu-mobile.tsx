@@ -169,6 +169,7 @@ export function SiteTopMenuMobile({
   isAdmin = false,
   showAuthControls = true,
   showBackendMenu = true,
+  hasWebshopShell = false,
 }: {
   tree: TopMenuTreeNode[];
   isBackendUser?: boolean;
@@ -176,6 +177,7 @@ export function SiteTopMenuMobile({
   isLoggedIn?: boolean;
   showAuthControls?: boolean;
   showBackendMenu?: boolean;
+  hasWebshopShell?: boolean;
 }) {
   const { isLoaded, isSignedIn, user } = useUser();
   const [isOpen, setIsOpen] = useState(false);
@@ -238,6 +240,7 @@ export function SiteTopMenuMobile({
   const backendLinks = getBackendMenuLinks({
     isBackendUser: hasBackendNav,
     isAdmin: effectiveIsAdmin,
+    hasWebshopShell,
   });
 
   return (

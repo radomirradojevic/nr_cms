@@ -5,9 +5,9 @@ import { listActiveLocksForContentIds } from "@/data/content-locks";
 import { isContentStatus } from "@/lib/content-status";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
+import { CMS_CONTENT_TYPES, type ContentType } from "@/lib/content-types";
 
-const ALLOWED_PAGE_SIZES = [10, 20, 30];
-const ALLOWED_TYPES = ["page", "blog_post", "hero_slider"] as const;
+const ALLOWED_PAGE_SIZES = [10, 20, 30, 50, 100];
 const ALLOWED_SORTS = [
   "updated_desc",
   "updated_asc",
@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
 
   const rawType = searchParams.get("type");
   const contentType =
-    rawType && (ALLOWED_TYPES as readonly string[]).includes(rawType)
-      ? (rawType as "page" | "blog_post" | "hero_slider")
+    rawType && (CMS_CONTENT_TYPES as readonly string[]).includes(rawType)
+      ? (rawType as ContentType)
       : undefined;
 
   const rawStatus = searchParams.get("status");

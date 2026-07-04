@@ -190,12 +190,13 @@ export const AiWritingAssistantSettingsSchema = z
   .object({
     enabled: z.boolean(),
     pageBuilderEnabled: z.boolean(),
+    webshopEnabled: z.boolean(),
     defaultProvider: AIProviderIdSchema,
     providers: AiProviderSettingsByIdSchema,
   })
   .refine(
     (v) =>
-      (!v.enabled && !v.pageBuilderEnabled) ||
+      (!v.enabled && !v.pageBuilderEnabled && !v.webshopEnabled) ||
       (v.providers[v.defaultProvider].enabled &&
         v.providers[v.defaultProvider].enabledModels.length > 0),
     {
@@ -243,6 +244,7 @@ export type AiWritingAssistantServerSettings = Omit<
 export const AI_WRITING_ASSISTANT_DEFAULTS: AiWritingAssistantSettings = {
   enabled: false,
   pageBuilderEnabled: false,
+  webshopEnabled: false,
   defaultProvider: "openai",
   providers: createDefaultAiProviderSettingsById(),
 };
@@ -526,6 +528,7 @@ export function parseAiProviderServerSettingsById(
 export function parseAiWritingAssistantSettings(value: {
   enabled?: unknown;
   pageBuilderEnabled?: unknown;
+  webshopEnabled?: unknown;
   defaultProvider?: unknown;
   providerSettings?: unknown;
   model?: unknown;
@@ -554,6 +557,8 @@ export function parseAiWritingAssistantSettings(value: {
       typeof value.pageBuilderEnabled === "boolean"
         ? value.pageBuilderEnabled
         : false,
+    webshopEnabled:
+      typeof value.webshopEnabled === "boolean" ? value.webshopEnabled : false,
     defaultProvider: isUsableAiProviderSettings(providers[requestedDefault])
       ? requestedDefault
       : fallbackDefault,
@@ -564,6 +569,7 @@ export function parseAiWritingAssistantSettings(value: {
 export function parseAiWritingAssistantServerSettings(value: {
   enabled?: unknown;
   pageBuilderEnabled?: unknown;
+  webshopEnabled?: unknown;
   defaultProvider?: unknown;
   providerSettings?: unknown;
   model?: unknown;
@@ -590,6 +596,8 @@ export function parseAiWritingAssistantServerSettings(value: {
       typeof value.pageBuilderEnabled === "boolean"
         ? value.pageBuilderEnabled
         : false,
+    webshopEnabled:
+      typeof value.webshopEnabled === "boolean" ? value.webshopEnabled : false,
     defaultProvider: isUsableAiProviderSettings(providers[requestedDefault])
       ? requestedDefault
       : fallbackDefault,
@@ -650,6 +658,7 @@ export const DEFAULT_SHELL_VISIBILITY_TARGETS = {
   pageIds: [],
   blogPostIds: [],
   heroSliderIds: [],
+  webshopIds: [],
   blogCategoryIds: [],
   adminPageIds: [],
 };
@@ -660,6 +669,7 @@ export const ShellVisibilityTargetsSchema = z
     pageIds: UuidArraySchema,
     blogPostIds: UuidArraySchema,
     heroSliderIds: UuidArraySchema,
+    webshopIds: UuidArraySchema,
     blogCategoryIds: UuidArraySchema,
     adminPageIds: StableSlugArraySchema,
   })
@@ -822,6 +832,7 @@ export const UpdateGlobalSettingsSchema = z
     contentHistoryEnabled: z.boolean(),
     aiWritingAssistantEnabled: z.boolean(),
     aiPageBuilderAssistantEnabled: z.boolean(),
+    aiWebshopAssistantEnabled: z.boolean(),
     aiDefaultProvider: AIProviderIdSchema,
     aiProviders: AiProviderUpdateSettingsByIdSchema,
     maxSessionDurationMinutes: z
@@ -842,7 +853,9 @@ export const UpdateGlobalSettingsSchema = z
   })
   .refine(
     (v) =>
-      (!v.aiWritingAssistantEnabled && !v.aiPageBuilderAssistantEnabled) ||
+      (!v.aiWritingAssistantEnabled &&
+        !v.aiPageBuilderAssistantEnabled &&
+        !v.aiWebshopAssistantEnabled) ||
       AI_PROVIDER_IDS.some(
         (id) =>
           v.aiProviders[id].enabled &&
@@ -870,7 +883,9 @@ export const UpdateGlobalSettingsSchema = z
   )
   .refine(
     (v) =>
-      (!v.aiWritingAssistantEnabled && !v.aiPageBuilderAssistantEnabled) ||
+      (!v.aiWritingAssistantEnabled &&
+        !v.aiPageBuilderAssistantEnabled &&
+        !v.aiWebshopAssistantEnabled) ||
       (v.aiProviders[v.aiDefaultProvider].enabled &&
         v.aiProviders[v.aiDefaultProvider].enabledModels.length > 0),
     {

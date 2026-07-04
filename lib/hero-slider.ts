@@ -690,6 +690,22 @@ export function collectHeroSliderMenuIds(value: unknown): string[] {
   return Array.from(ids);
 }
 
+export function collectHeroSliderFileIds(value: unknown): string[] {
+  const data = normalizeHeroSliderContent(value);
+  const ids = new Set<string>();
+
+  for (const slide of data.slides) {
+    collectFileIdFromMediaSrc(slide.image.src, ids);
+    collectFileIdFromMediaSrc(slide.image.tabletSrc, ids);
+    collectFileIdFromMediaSrc(slide.image.mobileSrc, ids);
+    collectFileIdFromMediaSrc(slide.video.src, ids);
+    collectFileIdFromMediaSrc(slide.video.poster, ids);
+    collectBlockFileIds(slide.blocks, ids);
+  }
+
+  return Array.from(ids);
+}
+
 function templateLabel(template: HeroSliderTemplate) {
   return (
     HERO_SLIDER_TEMPLATE_OPTIONS.find((option) => option.value === template)
@@ -1189,6 +1205,32 @@ function collectMenuIdsFromMenus(menus: HeroSlideMenu[], ids: Set<string>) {
     if (typeof menu.props.menuId === "string") {
       const id = menu.props.menuId.trim();
       if (id) ids.add(id);
+    }
+  }
+}
+
+function collectBlockFileIds(blocks: HeroSlideBlock[], ids: Set<string>) {
+  for (const block of blocks) {
+    if (block.type === "image") {
+      collectFileIdFromMediaSrc(block.props.src, ids);
+    }
+    if (block.children) collectBlockFileIds(block.children, ids);
+    if (block.columns) {
+      for (const column of block.columns) collectBlockFileIds(column, ids);
+    }
+  }
+}
+
+function collectFileIdFromMediaSrc(value: unknown, ids: Set<string>) {
+  if (typeof value !== "string") return;
+  const matches = value.matchAll(/\/api\/files\/([^/?#"'\\\s]+)/g);
+  for (const match of matches) {
+    const encodedId = match[1];
+    if (!encodedId) continue;
+    try {
+      ids.add(decodeURIComponent(encodedId));
+    } catch {
+      ids.add(encodedId);
     }
   }
 }

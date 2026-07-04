@@ -9,6 +9,7 @@ import type { TopMenuTreeNode } from "@/data/top-menu";
 import { getBackendMenuLinks, getBackendMenuTree } from "@/lib/backend-menu";
 import {
   HERO_SLIDE_BLOCK_OPTIONS,
+  collectHeroSliderFileIds,
   collectHeroSliderMenuIds,
   normalizeHeroSliderContent,
 } from "@/lib/hero-slider";
@@ -80,6 +81,65 @@ test("hero slider menu blocks are normalized and collected deeply", () => {
     primaryMenuId,
     footerMenuId,
   ]);
+});
+
+test("hero slider file ids are collected from slide media and image blocks", () => {
+  const backgroundId = "11111111-1111-4111-8111-111111111111";
+  const tabletId = "22222222-2222-4222-8222-222222222222";
+  const videoId = "33333333-3333-4333-8333-333333333333";
+  const posterId = "44444444-4444-4444-8444-444444444444";
+  const blockId = "55555555-5555-4555-8555-555555555555";
+  const nestedId = "66666666-6666-4666-8666-666666666666";
+  const ignoredHrefId = "77777777-7777-4777-8777-777777777777";
+
+  assert.deepEqual(
+    collectHeroSliderFileIds({
+      version: 1,
+      settings: {},
+      slides: [
+        {
+          id: "slide",
+          name: "Slide",
+          image: {
+            src: `/api/files/${backgroundId}`,
+            tabletSrc: `https://cms.test/api/files/${tabletId}?variant=wide`,
+          },
+          video: {
+            src: `/api/files/${videoId}#t=0`,
+            poster: `/api/files/${posterId}`,
+          },
+          layout: {},
+          layers: {},
+          responsive: {},
+          blocks: [
+            {
+              id: "image",
+              type: "image",
+              props: { src: `/api/files/${blockId}` },
+            },
+            {
+              id: "container",
+              type: "container",
+              props: {},
+              children: [
+                {
+                  id: "nested-image",
+                  type: "image",
+                  props: { src: `/api/files/${nestedId}` },
+                },
+              ],
+            },
+            {
+              id: "button",
+              type: "button",
+              props: { href: `/api/files/${ignoredHrefId}` },
+            },
+          ],
+        },
+      ],
+    }),
+    [backgroundId, tabletId, videoId, posterId, blockId, nestedId],
+  );
 });
 
 test("hero slider menu presets upgrade legacy preset defaults", () => {
@@ -314,19 +374,64 @@ test("backend menu helper exposes stable role-aware targets", () => {
   const adminLinks = getBackendMenuLinks({
     isBackendUser: true,
     isAdmin: true,
+    hasWebshopShell: true,
   });
   assert.ok(adminLinks.some((item) => item.id === "backend:global-settings"));
+  assert.ok(adminLinks.some((item) => item.id === "backend:webshop"));
+  assert.ok(adminLinks.some((item) => item.id === "backend:webshop-orders"));
   assert.ok(adminLinks.some((item) => item.id === "backend:form-builder"));
+  assert.equal(
+    getBackendMenuLinks({
+      isBackendUser: true,
+      isAdmin: true,
+      hasWebshopShell: false,
+    }).some((item) => item.id === "backend:webshop"),
+    false,
+  );
+  assert.equal(
+    getBackendMenuLinks({
+      isBackendUser: true,
+      isAdmin: true,
+    }).some((item) => item.id === "backend:webshop"),
+    false,
+  );
   assert.deepEqual(
     adminLinks
       .filter((item) => item.isChild)
       .map((item) => item.id)
-      .slice(0, 3),
+      .slice(0, 9),
     [
       "backend:global-settings",
       "backend:content-categories",
-      "backend:gallerymanager",
+      "backend:webshop-settings",
+      "backend:webshop-storefront",
+      "backend:webshop-categories",
+      "backend:webshop-products",
+      "backend:webshop-orders",
+      "backend:webshop-wishlist",
+      "backend:webshop-promotions",
     ],
+  );
+  assert.deepEqual(
+    adminLinks
+      .filter((item) => item.id.startsWith("backend:webshop-"))
+      .map(({ href, label }) => ({ href, label })),
+    [
+      { href: "/dashboard/webshop/settings", label: "Settings" },
+      { href: "/dashboard/webshop/storefront", label: "Storefront" },
+      { href: "/dashboard/webshop/categories", label: "Categories" },
+      { href: "/dashboard/webshop/products", label: "Products" },
+      { href: "/dashboard/webshop/orders", label: "Orders" },
+      { href: "/dashboard/webshop/wishlists", label: "Wishlist" },
+      { href: "/dashboard/webshop/promotions", label: "Promotions" },
+    ],
+  );
+  assert.deepEqual(
+    adminLinks
+      .filter((item) => item.isChild)
+      .map((item) => item.id)
+      .slice(9, 10),
+    ["backend:gallerymanager"],
   );
 });
 

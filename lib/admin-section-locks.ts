@@ -25,11 +25,30 @@ export const ADMIN_SECTION_KEYS = [
   "global-settings",
   "top-menu",
   "menus",
+  "webshop-categories",
+  "webshop-payments",
+  "webshop-settings",
+  "webshop-storefront",
 ] as const;
 export type AdminSectionKey = (typeof ADMIN_SECTION_KEYS)[number];
+export type DynamicAdminSectionKey =
+  | `webshop-order:${string}`
+  | `webshop-product:${string}`
+  | `webshop-promotion:${string}`;
+export type AdminSectionLockKey = AdminSectionKey | DynamicAdminSectionKey;
 
-export function isAdminSectionKey(value: string): value is AdminSectionKey {
-  return (ADMIN_SECTION_KEYS as readonly string[]).includes(value);
+const UUID_PATTERN =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const DYNAMIC_ADMIN_SECTION_KEY_PATTERN = new RegExp(
+  `^webshop-(?:order|product|promotion):${UUID_PATTERN}$`,
+  "i",
+);
+
+export function isAdminSectionKey(value: string): value is AdminSectionLockKey {
+  return (
+    (ADMIN_SECTION_KEYS as readonly string[]).includes(value) ||
+    DYNAMIC_ADMIN_SECTION_KEY_PATTERN.test(value)
+  );
 }
 
 export type AdminSectionLockHolder = {

@@ -22,6 +22,7 @@ type ContentPreviewAccessInput = {
   targetAuthorId: string;
   targetAuthorTopRole?: Role;
   targetStatus: ContentStatus;
+  targetContentType?: string;
 };
 
 export function canAccessContentPreview(
@@ -32,12 +33,14 @@ export function canAccessContentPreview(
     actorUserId,
     targetAuthorId,
     targetAuthorTopRole,
+    targetContentType,
     targetStatus,
   } = input;
 
   if (!hasContentPreviewRole(actorRoles)) return false;
   if (targetStatus === "archived") return false;
   if (hasRole(actorRoles, "admin")) return true;
+  if (targetContentType === "webshop") return false;
   if (targetAuthorId === actorUserId) return true;
   if (!hasRole(actorRoles, "publisher")) return false;
   return targetAuthorTopRole === "author";

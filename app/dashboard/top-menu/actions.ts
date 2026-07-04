@@ -110,7 +110,7 @@ const reassignMenuOwnerSchema = menuIdSchema.extend({
 const listMenusSchema = z.object({
   search: z.string().trim().max(120).optional(),
   createdBy: z.string().min(1).optional(),
-  limit: z.number().int().min(1).max(50),
+  limit: z.number().int().min(1).max(100),
   offset: z.number().int().min(0),
 });
 
