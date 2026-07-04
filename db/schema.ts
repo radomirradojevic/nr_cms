@@ -1694,6 +1694,57 @@ export const webshopFulfillments = pgTable(
   ],
 );
 
+export const webshopFulfillmentDocuments = pgTable(
+  "webshop_fulfillment_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fulfillmentId: uuid("fulfillment_id")
+      .notNull()
+      .references(() => webshopFulfillments.id, { onDelete: "cascade" }),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => webshopOrders.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    referenceNumber: text("reference_number"),
+    url: text("url"),
+    note: text("note"),
+    fileId: uuid("file_id").references(() => files.id, { onDelete: "set null" }),
+    visibleToCustomer: boolean("visible_to_customer").notNull().default(true),
+    position: integer("position").notNull().default(0),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "webshop_fulfillment_documents_label_length_check",
+      sql`char_length(${table.label}) BETWEEN 1 AND 160`,
+    ),
+    check(
+      "webshop_fulfillment_documents_reference_length_check",
+      sql`${table.referenceNumber} IS NULL OR char_length(${table.referenceNumber}) <= 160`,
+    ),
+    check(
+      "webshop_fulfillment_documents_url_length_check",
+      sql`${table.url} IS NULL OR char_length(${table.url}) <= 2000`,
+    ),
+    check(
+      "webshop_fulfillment_documents_note_length_check",
+      sql`${table.note} IS NULL OR char_length(${table.note}) <= 1000`,
+    ),
+    check(
+      "webshop_fulfillment_documents_position_check",
+      sql`${table.position} >= 0`,
+    ),
+    index("webshop_fulfillment_documents_fulfillment_idx").on(
+      table.fulfillmentId,
+    ),
+    index("webshop_fulfillment_documents_order_idx").on(table.orderId),
+    index("webshop_fulfillment_documents_file_idx").on(table.fileId),
+  ],
+);
+
 export const webshopOrderDeliveryConfirmations = pgTable(
   "webshop_order_delivery_confirmations",
   {
