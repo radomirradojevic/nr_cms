@@ -330,6 +330,195 @@
       "when": 1781654400019,
       "tag": "0046_plain_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1781654400020,
+      "tag": "0047_webshop_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1781654400021,
+      "tag": "0048_curly_praxagora",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1781654400022,
+      "tag": "0049_massive_rawhide_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1781654400023,
+      "tag": "0050_chief_vivisector",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1781654400024,
+      "tag": "0051_first_veda",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1781654400025,
+      "tag": "0052_misty_cobalt_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1781654400026,
+      "tag": "0053_dizzy_wild_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1781654400027,
+      "tag": "0054_boring_gorilla_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1781654400028,
+      "tag": "0055_tricky_switch",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1781654400029,
+      "tag": "0056_swift_sersi",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1781654400030,
+      "tag": "0057_webshop_product_price_minor_units",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1781654400031,
+      "tag": "0058_webshop_attribute_text_display_options",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1781654400032,
+      "tag": "0059_webshop_variant_attributes_and_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1781654400033,
+      "tag": "0060_webshop_product_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1781654400034,
+      "tag": "0061_webshop_price_minor_unit_correction",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1781654400035,
+      "tag": "0062_webshop_repeated_price_scale_correction",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1781654400036,
+      "tag": "0063_webshop_review_public_name_opt_in",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1781654400037,
+      "tag": "0064_webshop_offline_payment_provider_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1781654400038,
+      "tag": "0065_webshop_order_delivery_confirmations",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1781654400039,
+      "tag": "0066_webshop_self_hosted_addon_install",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1781654400040,
+      "tag": "0067_webshop_license_key_pool",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1781654400041,
+      "tag": "0068_webshop_license_key_validity",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1781654400042,
+      "tag": "0069_webshop_private_digital_asset_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1781654400043,
+      "tag": "0070_rename_local_card_gateway_to_monri",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1781654400044,
+      "tag": "0071_webshop_paddle_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1781654400045,
+      "tag": "0072_webshop_license_key_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1781654400046,
+      "tag": "0073_webshop_fulfillment_documents",
+      "breakpoints": true
     }
   ]
 }

@@ -24,6 +24,7 @@ export const ADMIN_PAGE_TARGETS = [
     label: "Form Builder",
     path: "/dashboard/form-builder",
   },
+  { id: "webshop", label: "Webshop", path: "/dashboard/webshop" },
 ] as const;
 
 export const ADMIN_PAGE_TARGET_IDS = ADMIN_PAGE_TARGETS.map(
@@ -46,7 +47,7 @@ export type SystemPageTargetId = SystemPageTarget["id"];
 export type ShellRenderTarget = {
   systemPageId?: SystemPageTargetId;
   contentId?: string;
-  contentType?: "page" | "blog_post" | "hero_slider";
+  contentType?: "page" | "blog_post" | "hero_slider" | "webshop";
   blogCategoryId?: string;
   adminPageId?: AdminPageTargetId;
 };
@@ -54,7 +55,7 @@ export type ShellRenderTarget = {
 export type ShellRouteIndexContent = {
   slug: string;
   contentId: string;
-  contentType: "page" | "blog_post" | "hero_slider";
+  contentType: "page" | "blog_post" | "hero_slider" | "webshop";
 };
 
 export type ShellRouteIndex = {
@@ -87,17 +88,15 @@ function matchesPathTarget(
 }
 
 function adminPageIdForPath(pathname: string): AdminPageTargetId | undefined {
-  return ADMIN_PAGE_TARGETS.find((target) => matchesPathTarget(pathname, target))
-    ?.id;
+  return ADMIN_PAGE_TARGETS.find((target) =>
+    matchesPathTarget(pathname, target),
+  )?.id;
 }
 
-function systemPageIdForPath(
-  pathname: string,
-): SystemPageTargetId | undefined {
+function systemPageIdForPath(pathname: string): SystemPageTargetId | undefined {
   return SYSTEM_PAGE_TARGETS.find((target) =>
     matchesPathTarget(pathname, target),
-  )
-    ?.id;
+  )?.id;
 }
 
 export function resolveShellRenderTargetForPathname(
@@ -120,13 +119,14 @@ export function resolveShellRenderTargetForPathname(
     return { blogCategoryId };
   }
 
-  const slug = normalizedPathname.slice(1);
-  if (!slug || slug.includes("/")) return {};
+  const [slug, ...pathSegments] = normalizedPathname.slice(1).split("/");
+  if (!slug) return {};
 
   const content = routeIndex.contents.find((item) => item.slug === slug);
-  return content
-    ? { contentId: content.contentId, contentType: content.contentType }
-    : {};
+  if (!content) return {};
+  if (pathSegments.length > 0 && content.contentType !== "webshop") return {};
+
+  return { contentId: content.contentId, contentType: content.contentType };
 }
 
 export function shouldShowShellForTarget(
@@ -136,6 +136,7 @@ export function shouldShowShellForTarget(
       pageIds: string[];
       blogPostIds: string[];
       heroSliderIds: string[];
+      webshopIds: string[];
       blogCategoryIds: string[];
       adminPageIds: string[];
       systemPageIds: string[];
@@ -170,5 +171,7 @@ export function shouldShowShellForTarget(
       return targets.blogPostIds.includes(target.contentId);
     case "hero_slider":
       return targets.heroSliderIds.includes(target.contentId);
+    case "webshop":
+      return targets.webshopIds.includes(target.contentId);
   }
 }

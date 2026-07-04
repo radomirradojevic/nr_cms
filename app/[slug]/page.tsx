@@ -7,6 +7,7 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 import { canViewContent } from "@/lib/content-visibility";
 import { isContentLive } from "@/lib/content-schedule";
+import { getWebshopRuntimeConfig } from "@/lib/webshop-addon/config";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -14,6 +15,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const row = await getContentBySlug(slug);
   if (!row) return {};
+  if (
+    row.contentType === "webshop" &&
+    !getWebshopRuntimeConfig().storefrontEnabled
+  ) {
+    return {};
+  }
   if (!isContentLive(row)) return {};
   // Do not leak title/description for restricted content. Generic title only.
   const me = await getOptionalCurrentUser(true);
@@ -31,6 +38,12 @@ export default async function PublicContentPage({ params }: Props) {
   const { slug } = await params;
   const row = await getContentBySlug(slug);
   if (!row) notFound();
+  if (
+    row.contentType === "webshop" &&
+    !getWebshopRuntimeConfig().storefrontEnabled
+  ) {
+    notFound();
+  }
 
   // Visibility check — admin always passes; public passes for anyone;
   // otherwise the viewer must have a matching role.

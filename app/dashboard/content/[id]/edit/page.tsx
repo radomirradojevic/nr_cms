@@ -19,6 +19,10 @@ import {
   isAuthorOnlyContentWorkflowRole,
   type ContentStatus,
 } from "@/lib/content-status";
+import {
+  categoryTypeForContentType,
+  type ContentType,
+} from "@/lib/content-types";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -47,6 +51,7 @@ export default async function EditContentPage({ params, searchParams }: Props) {
   const isOwn = row.authorId === user.id;
   const isAdmin = hasRole(roles, "admin");
   const isPublisher = hasRole(roles, "publisher");
+  if (!isAdmin && row.contentType === "webshop") redirect("/dashboard/content");
   let canEdit = isAdmin;
   if (!canEdit && isOwn) {
     canEdit = isAuthorOnlyContentWorkflowRole(roles)
@@ -73,7 +78,9 @@ export default async function EditContentPage({ params, searchParams }: Props) {
   if (!canEdit) redirect("/dashboard/content");
 
   const [categories, settings, revisions] = await Promise.all([
-    getCategoriesByType(row.contentType === "blog_post" ? "blog_post" : "page"),
+    getCategoriesByType(
+      categoryTypeForContentType(row.contentType as ContentType),
+    ),
     getGlobalSettings(),
     listContentRevisions(row.id, { pageSize: 3 }),
   ]);
@@ -92,7 +99,7 @@ export default async function EditContentPage({ params, searchParams }: Props) {
         <ContentForm
           key={`${row.id}:${row.version}`}
           mode="edit"
-          contentType={row.contentType as "page" | "blog_post" | "hero_slider"}
+          contentType={row.contentType as ContentType}
           currentUserRoles={roles}
           categories={categories.map((c) => ({ id: c.id, name: c.name }))}
           appearance={settings.appearance}

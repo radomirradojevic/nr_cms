@@ -8,12 +8,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const PAGE_SIZE_OPTIONS = ["10", "20", "30"] as const;
+export const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const;
+export type DashboardPageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
 export function PageSizeSelector({
+  disabled,
   pageSize,
   onChange,
 }: {
+  disabled?: boolean;
   pageSize: number;
   onChange: (size: number) => void;
 }) {
@@ -21,6 +24,7 @@ export function PageSizeSelector({
     <div className="flex items-center gap-2">
       <span className="text-sm text-muted-foreground">Rows per page</span>
       <Select
+        disabled={disabled}
         value={String(pageSize)}
         onValueChange={(v) => onChange(Number(v))}
       >
@@ -29,7 +33,7 @@ export function PageSizeSelector({
         </SelectTrigger>
         <SelectContent>
           {PAGE_SIZE_OPTIONS.map((size) => (
-            <SelectItem key={size} value={size}>
+            <SelectItem key={size} value={String(size)}>
               {size}
             </SelectItem>
           ))}

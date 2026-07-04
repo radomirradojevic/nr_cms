@@ -10,6 +10,7 @@ import {
   type ChangeEvent,
   type FocusEvent,
   type KeyboardEvent,
+  type ReactNode,
   type Ref,
   type SyntheticEvent,
 } from "react";
@@ -31,6 +32,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HelpInfo } from "@/components/ui/help-info";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -83,6 +85,7 @@ import {
   createDefaultHeroSlider,
   heroSliderToPlainText,
 } from "@/lib/hero-slider";
+import type { ContentType } from "@/lib/content-types";
 
 // PageEditor is heavy and uses Craft.js + CodeMirror — load client-only.
 const PageEditor = dynamic(
@@ -125,7 +128,7 @@ export type ContentFormCategory = { id: string; name: string };
 
 type Props = {
   mode: "create" | "edit";
-  contentType: "page" | "blog_post" | "hero_slider";
+  contentType: ContentType;
   categories: ContentFormCategory[];
   currentUserRoles: Role[];
   /** Appearance settings used by the page-builder preview. Defaults if omitted. */
@@ -164,6 +167,26 @@ type Props = {
 type AiGeneratedField = "excerpt" | "metaTitle" | "metaDescription";
 type AiAssistantSurface = "blogEditor" | "pageBuilder";
 type InspectorTab = PageEditorSettingsTab | "comments";
+const emptyWebshopContent = { version: 1 };
+
+function InlineHelpLabel({
+  children,
+  htmlFor,
+  label,
+}: {
+  children: ReactNode;
+  htmlFor?: string;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label className="text-sm" htmlFor={htmlFor}>
+        {label}
+      </Label>
+      <HelpInfo title={label}>{children}</HelpInfo>
+    </div>
+  );
+}
 
 export function ContentForm({
   mode,
@@ -339,7 +362,9 @@ export function ContentForm({
         ? emptyBuilderData
         : contentType === "hero_slider"
           ? createDefaultHeroSlider()
-          : emptyTiptapJson,
+          : contentType === "webshop"
+            ? emptyWebshopContent
+            : emptyTiptapJson,
   );
   const contentJsonRef = useRef<unknown>(editorDefaultValue);
   const getEditorValueRef = useRef<(() => unknown) | null>(null);
@@ -354,9 +379,11 @@ export function ContentForm({
         ? builderDataToPlainText(latestContent)
         : contentType === "hero_slider"
           ? heroSliderToPlainText(latestContent)
-          : tiptapJsonToPlainText(latestContent)
+          : contentType === "webshop"
+            ? [title, excerpt].filter(Boolean).join("\n")
+            : tiptapJsonToPlainText(latestContent)
     ).slice(0, 8_000);
-  }, [contentType]);
+  }, [contentType, excerpt, title]);
 
   function onTitleChange(v: string) {
     setTitle(v);
@@ -938,12 +965,9 @@ export function ContentForm({
       {isAdmin && contentType === "page" && (
         <div className="flex items-center justify-between gap-3">
           <div>
-            <Label htmlFor="homepage" className="text-sm">
-              Set as homepage
-            </Label>
-            <p className="text-xs text-muted-foreground">
+            <InlineHelpLabel htmlFor="homepage" label="Set as homepage">
               Only one page can be the homepage. Must be live now.
-            </p>
+            </InlineHelpLabel>
           </div>
           <Switch
             id="homepage"
@@ -958,9 +982,9 @@ export function ContentForm({
 
   const visibilitySettings = (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
+      <InlineHelpLabel label="Visibility">
         Choose who can view this content on the public site.
-      </p>
+      </InlineHelpLabel>
       <div className="space-y-3">
         <label className="flex items-start gap-3">
           <Checkbox
@@ -1076,12 +1100,9 @@ export function ContentForm({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Label htmlFor="enable-comments" className="text-sm">
-            Enable comments
-          </Label>
-          <p className="text-xs text-muted-foreground">
+          <InlineHelpLabel htmlFor="enable-comments" label="Enable comments">
             Master switch for the comment form and list.
-          </p>
+          </InlineHelpLabel>
         </div>
         <Switch
           id="enable-comments"
@@ -1091,12 +1112,12 @@ export function ContentForm({
       </div>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Label htmlFor="auto-publish-comments" className="text-sm">
-            Auto-publish comments
-          </Label>
-          <p className="text-xs text-muted-foreground">
+          <InlineHelpLabel
+            htmlFor="auto-publish-comments"
+            label="Auto-publish comments"
+          >
             Skip moderation queue for new comments.
-          </p>
+          </InlineHelpLabel>
         </div>
         <Switch
           id="auto-publish-comments"
@@ -1107,12 +1128,12 @@ export function ContentForm({
       </div>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Label htmlFor="allow-anon-comments" className="text-sm">
-            Allow anonymous
-          </Label>
-          <p className="text-xs text-muted-foreground">
+          <InlineHelpLabel
+            htmlFor="allow-anon-comments"
+            label="Allow anonymous"
+          >
             Guests can comment with name + optional email.
-          </p>
+          </InlineHelpLabel>
         </div>
         <Switch
           id="allow-anon-comments"
@@ -1450,79 +1471,85 @@ export function ContentForm({
             />
           )}
 
-          <div className="space-y-2">
-            <Label>
-              {contentType === "hero_slider" ? "Slides" : "Content"}
-            </Label>
-            {contentType === "page" ? (
-              <PageEditor
-                defaultValue={editorDefaultValue}
-                appearance={appearance}
-                settingsPanels={pageEditorSettingsPanels}
-                activeSettingsTab={toPageEditorSettingsTab(activeInspectorTab)}
-                onActiveSettingsTabChange={updateInspectorTab}
-                pageTitle={title}
-                registerGetValue={(getValue) => {
-                  getEditorValueRef.current = getValue;
-                }}
-                onChange={(d: BuilderData) => {
-                  contentJsonRef.current = d;
-                }}
-                aiAssistantAvailable={
-                  aiWritingAssistantAvailable && aiProviderOptions.length > 0
-                }
-                aiAssistantActive={aiWritingAssistantActive}
-                onAiAssistantActiveChange={handleAiWritingAssistantActiveChange}
-                onAiSeoGenerated={(seo) => {
-                  if (seo.metaTitle && !metaTitle.trim()) {
-                    setMetaTitle(seo.metaTitle);
+          {contentType !== "webshop" && (
+            <div className="space-y-2">
+              <Label>
+                {contentType === "hero_slider" ? "Slides" : "Content"}
+              </Label>
+              {contentType === "page" ? (
+                <PageEditor
+                  defaultValue={editorDefaultValue}
+                  appearance={appearance}
+                  settingsPanels={pageEditorSettingsPanels}
+                  activeSettingsTab={toPageEditorSettingsTab(
+                    activeInspectorTab,
+                  )}
+                  onActiveSettingsTabChange={updateInspectorTab}
+                  pageTitle={title}
+                  registerGetValue={(getValue) => {
+                    getEditorValueRef.current = getValue;
+                  }}
+                  onChange={(d: BuilderData) => {
+                    contentJsonRef.current = d;
+                  }}
+                  aiAssistantAvailable={
+                    aiWritingAssistantAvailable && aiProviderOptions.length > 0
                   }
-                  if (seo.metaDescription && !metaDescription.trim()) {
-                    setMetaDescription(seo.metaDescription);
+                  aiAssistantActive={aiWritingAssistantActive}
+                  onAiAssistantActiveChange={
+                    handleAiWritingAssistantActiveChange
                   }
-                }}
-                aiProviderOptions={aiProviderOptions}
-                aiProviderId={effectiveAiProviderId}
-                onAiProviderIdChange={handleAiProviderIdChange}
-                aiModelId={effectiveAiModelId}
-                onAiModelIdChange={handleAiModelIdChange}
-              />
-            ) : contentType === "hero_slider" ? (
-              <HeroSliderEditor
-                defaultValue={editorDefaultValue}
-                registerGetValue={(getValue) => {
-                  getEditorValueRef.current = getValue;
-                }}
-                onChange={(value) => {
-                  contentJsonRef.current = value;
-                }}
-              />
-            ) : (
-              <BlogEditor
-                defaultValue={editorDefaultValue as never}
-                aiWritingAssistantAvailable={
-                  aiWritingAssistantAvailable && aiProviderOptions.length > 0
-                }
-                aiWritingAssistantActive={aiWritingAssistantActive}
-                onAiWritingAssistantActiveChange={
-                  handleAiWritingAssistantActiveChange
-                }
-                aiProviderOptions={aiProviderOptions}
-                aiProviderId={effectiveAiProviderId}
-                onAiProviderIdChange={handleAiProviderIdChange}
-                aiModelId={effectiveAiModelId}
-                onAiModelIdChange={handleAiModelIdChange}
-                title={title}
-                excerpt={excerpt}
-                registerGetValue={(getValue) => {
-                  getEditorValueRef.current = getValue;
-                }}
-                onChange={(j) => {
-                  contentJsonRef.current = j;
-                }}
-              />
-            )}
-          </div>
+                  onAiSeoGenerated={(seo) => {
+                    if (seo.metaTitle && !metaTitle.trim()) {
+                      setMetaTitle(seo.metaTitle);
+                    }
+                    if (seo.metaDescription && !metaDescription.trim()) {
+                      setMetaDescription(seo.metaDescription);
+                    }
+                  }}
+                  aiProviderOptions={aiProviderOptions}
+                  aiProviderId={effectiveAiProviderId}
+                  onAiProviderIdChange={handleAiProviderIdChange}
+                  aiModelId={effectiveAiModelId}
+                  onAiModelIdChange={handleAiModelIdChange}
+                />
+              ) : contentType === "hero_slider" ? (
+                <HeroSliderEditor
+                  defaultValue={editorDefaultValue}
+                  registerGetValue={(getValue) => {
+                    getEditorValueRef.current = getValue;
+                  }}
+                  onChange={(value) => {
+                    contentJsonRef.current = value;
+                  }}
+                />
+              ) : (
+                <BlogEditor
+                  defaultValue={editorDefaultValue as never}
+                  aiWritingAssistantAvailable={
+                    aiWritingAssistantAvailable && aiProviderOptions.length > 0
+                  }
+                  aiWritingAssistantActive={aiWritingAssistantActive}
+                  onAiWritingAssistantActiveChange={
+                    handleAiWritingAssistantActiveChange
+                  }
+                  aiProviderOptions={aiProviderOptions}
+                  aiProviderId={effectiveAiProviderId}
+                  onAiProviderIdChange={handleAiProviderIdChange}
+                  aiModelId={effectiveAiModelId}
+                  onAiModelIdChange={handleAiModelIdChange}
+                  title={title}
+                  excerpt={excerpt}
+                  registerGetValue={(getValue) => {
+                    getEditorValueRef.current = getValue;
+                  }}
+                  onChange={(j) => {
+                    contentJsonRef.current = j;
+                  }}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {contentType !== "page" && (
@@ -1534,7 +1561,7 @@ export function ContentForm({
               }
               className="gap-0 rounded-lg border bg-background"
             >
-              <TabsList className="m-2 grid h-auto w-auto grid-cols-2 gap-1 p-1">
+              <TabsList className="m-2 w-auto flex-wrap overflow-x-visible">
                 <TabsTrigger
                   value="publishing"
                   className="min-w-0 px-2 text-xs"
@@ -1612,6 +1639,7 @@ const AI_FIELD_LABELS: Record<AiGeneratedField, string> = {
 function contentTypeLabel(contentType: Props["contentType"]) {
   if (contentType === "page") return "Page";
   if (contentType === "hero_slider") return "Hero Slider";
+  if (contentType === "webshop") return "Webshop";
   return "Blog Post";
 }
 
@@ -1619,6 +1647,9 @@ function contentTypeDescription(contentType: Props["contentType"]) {
   if (contentType === "page") return "Visual page builder.";
   if (contentType === "hero_slider") {
     return "Hero slider editor for page builder embeds.";
+  }
+  if (contentType === "webshop") {
+    return "Paid Webshop add-on shell for publishing, routing, and SEO.";
   }
   return "Rich-text blog post editor.";
 }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useFormEditLock } from "@/components/form-edit-lock-provider";
+import { HelpInfo } from "@/components/ui/help-info";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -28,6 +29,21 @@ type Props = {
   initialSettings: FormSettingsRow;
   fields: FormFieldRow[];
 };
+
+function LabelWithHelp({
+  children,
+  label,
+}: {
+  children: ReactNode;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label className="text-sm font-medium">{label}</Label>
+      <HelpInfo title={label}>{children}</HelpInfo>
+    </div>
+  );
+}
 
 export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
   const router = useRouter();
@@ -105,10 +121,9 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
       <div className="space-y-3 rounded-md border p-4">
         <div className="flex items-center justify-between">
           <div>
-            <Label className="text-sm font-medium">Spam protection</Label>
-            <p className="text-xs text-muted-foreground">
+            <LabelWithHelp label="Spam protection">
               Require Cloudflare Turnstile on the public form.
-            </p>
+            </LabelWithHelp>
           </div>
           <Switch
             checked={enableTurnstile}
@@ -121,10 +136,9 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
       <div className="space-y-3 rounded-md border p-4">
         <div className="flex items-center justify-between">
           <div>
-            <Label className="text-sm font-medium">Email notifications</Label>
-            <p className="text-xs text-muted-foreground">
+            <LabelWithHelp label="Email notifications">
               Send an email to one or more recipients on every new submission.
-            </p>
+            </LabelWithHelp>
           </div>
           <Switch
             checked={enableEmail}
@@ -277,11 +291,10 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
       </div>
 
       <div className="space-y-1 rounded-md border p-4">
-        <Label className="text-sm font-medium">Redirect after submit</Label>
-        <p className="text-xs text-muted-foreground">
+        <LabelWithHelp label="Redirect after submit">
           Optional. Same-origin path only (e.g. <code>/thanks</code>). If empty,
           the success message is shown in place.
-        </p>
+        </LabelWithHelp>
         <Input
           value={redirectUrl}
           onChange={(e) => setRedirectUrl(e.target.value)}

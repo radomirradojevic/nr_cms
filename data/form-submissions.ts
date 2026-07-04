@@ -1,7 +1,24 @@
 import "server-only";
 import { db } from "@/db";
-import { content, formSubmissions, forms, formFields } from "@/db/schema";
-import { asc, desc, eq, count, type SQL } from "drizzle-orm";
+import {
+  content,
+  formSubmissions,
+  forms,
+  formFields,
+  webshopProductAttributeValues,
+  webshopProducts,
+} from "@/db/schema";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  count,
+  isNull,
+  lte,
+  or,
+  type SQL,
+} from "drizzle-orm";
 import { buildLiveContentWhere } from "@/data/content";
 import { canViewContent } from "@/lib/content-visibility";
 import type { Role } from "@/lib/roles";
@@ -15,7 +32,10 @@ export type SubmissionWithForm = FormSubmissionRow & {
   form?: FormRow;
 };
 
-function objectHasFormSubmissionsEmbed(value: unknown, formId: string): boolean {
+function objectHasFormSubmissionsEmbed(
+  value: unknown,
+  formId: string,
+): boolean {
   if (!value || typeof value !== "object") return false;
 
   if (Array.isArray(value)) {
@@ -66,20 +86,69 @@ export async function canViewFormSubmissionsViaPublishedContent(
   formId: string,
   viewerRoles: Role[] | null,
 ): Promise<boolean> {
-  const rows = await db
-    .select({
-      content: content.content,
-      contentJson: content.contentJson,
-      visibility: content.visibility,
-    })
-    .from(content)
-    .where(buildLiveContentWhere());
+  const now = new Date();
+  const publicProductWhere = and(
+    eq(webshopProducts.status, "active"),
+    or(
+      isNull(webshopProducts.publishedAt),
+      lte(webshopProducts.publishedAt, now),
+    )!,
+  );
 
-  return rows.some(
+  const [rows, productRows, productAttributeRows] = await Promise.all([
+    db
+      .select({
+        content: content.content,
+        contentJson: content.contentJson,
+        visibility: content.visibility,
+      })
+      .from(content)
+      .where(buildLiveContentWhere()),
+    db
+      .select({
+        description: webshopProducts.description,
+        descriptionJson: webshopProducts.descriptionJson,
+      })
+      .from(webshopProducts)
+      .where(publicProductWhere),
+    db
+      .select({
+        valueJson: webshopProductAttributeValues.valueJson,
+        valueText: webshopProductAttributeValues.valueText,
+      })
+      .from(webshopProductAttributeValues)
+      .innerJoin(
+        webshopProducts,
+        eq(webshopProductAttributeValues.productId, webshopProducts.id),
+      )
+      .where(publicProductWhere),
+  ]);
+
+  if (
+    rows.some(
+      (row) =>
+        canViewContent(row.visibility, viewerRoles) &&
+        (objectHasFormSubmissionsEmbed(row.contentJson, formId) ||
+          textHasFormSubmissionsEmbed(row.content, formId)),
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    productRows.some(
+      (row) =>
+        objectHasFormSubmissionsEmbed(row.descriptionJson, formId) ||
+        textHasFormSubmissionsEmbed(row.description, formId),
+    )
+  ) {
+    return true;
+  }
+
+  return productAttributeRows.some(
     (row) =>
-      canViewContent(row.visibility, viewerRoles) &&
-      (objectHasFormSubmissionsEmbed(row.contentJson, formId) ||
-        textHasFormSubmissionsEmbed(row.content, formId)),
+      objectHasFormSubmissionsEmbed(row.valueJson, formId) ||
+      textHasFormSubmissionsEmbed(row.valueText, formId),
   );
 }
 

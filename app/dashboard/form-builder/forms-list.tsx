@@ -39,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TablePagination } from "@/app/dashboard/table-pagination";
 import { fetchFormsList } from "./actions";
 import { DeleteFormDialog } from "./delete-form-dialog";
 import { ReassignFormDialog } from "./reassign-form-dialog";
@@ -74,7 +75,8 @@ export function FormsList({
 }: Props) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
-  const [offset, setOffset] = useState(initialRows.length);
+  const [page, setPage] = useState(1);
+  const [currentPageSize, setCurrentPageSize] = useState(pageSize);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | FormStatus>("all");
   const [creator, setCreator] = useState("all");
@@ -93,7 +95,7 @@ export function FormsList({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runFetch(0, true), 300);
+    debounceRef.current = setTimeout(() => runFetch(1), 300);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -101,22 +103,23 @@ export function FormsList({
   }, [search, status, creator]);
 
   function runFetch(
-    nextOffset: number,
-    replace: boolean,
-    options?: { limit?: number; silent?: boolean },
+    nextPage = page,
+    nextPageSize = currentPageSize,
+    options?: { silent?: boolean },
   ) {
     const load = async () => {
       const res = await fetchFormsList({
         search: search || undefined,
         status: status === "all" ? undefined : status,
         createdBy: creator === "all" ? undefined : creator,
-        limit: options?.limit ?? pageSize,
-        offset: nextOffset,
+        limit: nextPageSize,
+        offset: (nextPage - 1) * nextPageSize,
       });
       if ("error" in res) return;
       setTotal(res.total);
-      setRows((prev) => (replace ? res.rows : [...prev, ...res.rows]));
-      setOffset(nextOffset + res.rows.length);
+      setRows(res.rows);
+      setPage(nextPage);
+      setCurrentPageSize(nextPageSize);
     };
 
     if (options?.silent) {
@@ -128,8 +131,7 @@ export function FormsList({
 
   useEffect(() => {
     const refreshLocks = () =>
-      runFetch(0, true, {
-        limit: Math.max(pageSize, rows.length),
+      runFetch(page, currentPageSize, {
         silent: true,
       });
     window.addEventListener("focus", refreshLocks);
@@ -141,9 +143,10 @@ export function FormsList({
       window.clearInterval(intervalId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, status, creator, pageSize, rows.length]);
+  }, [search, status, creator, page, currentPageSize]);
 
-  const hasMore = rows.length < total;
+  const totalPages = Math.max(1, Math.ceil(total / currentPageSize));
+  const safePage = Math.min(page, totalPages);
 
   return (
     <div className="space-y-4">
@@ -187,169 +190,158 @@ export function FormsList({
         )}
       </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Creator</TableHead>
-              <TableHead className="text-right">Fields</TableHead>
-              <TableHead className="text-right">Submissions</TableHead>
-              <TableHead>Updated</TableHead>
-              <TableHead className="w-[60px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pending && rows.length === 0 ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={7}>
-                    <Skeleton className="h-6 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="text-center text-muted-foreground py-10"
-                >
-                  No forms yet.
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Creator</TableHead>
+            <TableHead className="text-right">Fields</TableHead>
+            <TableHead className="text-right">Submissions</TableHead>
+            <TableHead>Updated</TableHead>
+            <TableHead className="w-[60px]" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pending && rows.length === 0 ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell colSpan={7}>
+                  <Skeleton className="h-6 w-full" />
                 </TableCell>
               </TableRow>
-            ) : (
-              rows.map((r) => {
-                const locked = Boolean(r.editLock);
-                return (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          href={`/dashboard/form-builder/${r.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {r.name}
-                        </Link>
-                        {r.editLock && (
-                          <Badge
-                            variant="outline"
-                            className="max-w-[280px] gap-1 text-xs"
-                            title={`Currently being edited by ${r.editLock.userDisplayName}. Last activity ${formatTime(r.editLock.lastHeartbeatAt)}.`}
-                          >
-                            <Lock className="h-3 w-3 shrink-0" />
-                            <span className="truncate">
-                              Currently edited by {r.editLock.userDisplayName}
-                            </span>
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">{r.slug}</p>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          r.status === "published" ? "default" : "secondary"
-                        }
+            ))
+          ) : rows.length === 0 ? (
+            <TableRow>
+              <TableCell
+                colSpan={7}
+                className="text-center text-muted-foreground py-10"
+              >
+                No forms yet.
+              </TableCell>
+            </TableRow>
+          ) : (
+            rows.map((r) => {
+              const locked = Boolean(r.editLock);
+              return (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/dashboard/form-builder/${r.id}`}
+                        className="font-medium hover:underline"
                       >
-                        {r.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      <div>{r.createdByName ?? "—"}</div>
-                      <div className="mt-0.5">{formatDate(r.createdAt)}</div>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {r.fieldCount}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {r.submissionCount}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      <div>{formatDateTime(r.updatedAt)}</div>
-                      <div className="mt-0.5">
-                        by {r.updatedByName ?? "Unknown"}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
-                          {r.editLock && (
-                            <>
-                              <DropdownMenuItem
-                                disabled
-                                className="whitespace-normal text-muted-foreground"
-                              >
-                                <Lock className="mr-2 h-4 w-4 shrink-0" />
-                                Locked by {r.editLock.userDisplayName}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                            </>
-                          )}
-                          <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/form-builder/${r.id}`}>
-                              <Pencil className="mr-2 h-4 w-4" /> Edit
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link
-                              href={`/dashboard/form-builder/${r.id}/submissions`}
+                        {r.name}
+                      </Link>
+                      {r.editLock && (
+                        <Badge
+                          variant="outline"
+                          className="max-w-[280px] gap-1 text-xs"
+                          title={`Currently being edited by ${r.editLock.userDisplayName}. Last activity ${formatTime(r.editLock.lastHeartbeatAt)}.`}
+                        >
+                          <Lock className="h-3 w-3 shrink-0" />
+                          <span className="truncate">
+                            Currently edited by {r.editLock.userDisplayName}
+                          </span>
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{r.slug}</p>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        r.status === "published" ? "default" : "secondary"
+                      }
+                    >
+                      {r.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    <div>{r.createdByName ?? "—"}</div>
+                    <div className="mt-0.5">{formatDate(r.createdAt)}</div>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {r.fieldCount}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {r.submissionCount}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    <div>{formatDateTime(r.updatedAt)}</div>
+                    <div className="mt-0.5">
+                      by {r.updatedByName ?? "Unknown"}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        {r.editLock && (
+                          <>
+                            <DropdownMenuItem
+                              disabled
+                              className="whitespace-normal text-muted-foreground"
                             >
-                              <Inbox className="mr-2 h-4 w-4" /> Submissions
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/form-builder/${r.id}`}>
-                              <FileText className="mr-2 h-4 w-4" /> Fields
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={locked}
-                            onSelect={() => setReassignTarget(r)}
+                              <Lock className="mr-2 h-4 w-4 shrink-0" />
+                              Locked by {r.editLock.userDisplayName}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        <DropdownMenuItem asChild>
+                          <Link href={`/dashboard/form-builder/${r.id}`}>
+                            <Pencil className="mr-2 h-4 w-4" /> Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/dashboard/form-builder/${r.id}/submissions`}
                           >
-                            <UserCog className="mr-2 h-4 w-4" /> Reassign
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={locked}
-                            onSelect={() => setDeleteTarget(r)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                            <Inbox className="mr-2 h-4 w-4" /> Submissions
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/dashboard/form-builder/${r.id}`}>
+                            <FileText className="mr-2 h-4 w-4" /> Fields
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={locked}
+                          onSelect={() => setReassignTarget(r)}
+                        >
+                          <UserCog className="mr-2 h-4 w-4" /> Reassign
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={locked}
+                          onSelect={() => setDeleteTarget(r)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing {rows.length} of {total}
-        </p>
-        {hasMore && (
-          <Button
-            variant="outline"
-            onClick={() => runFetch(offset, false)}
-            disabled={pending}
-          >
-            {pending ? "Loading…" : "Load more"}
-          </Button>
-        )}
-      </div>
+      <TablePagination
+        disabled={pending}
+        page={safePage}
+        pageSize={currentPageSize}
+        total={total}
+        totalPages={totalPages}
+        onPageChange={(nextPage) => runFetch(nextPage)}
+        onPageSizeChange={(nextPageSize) => runFetch(1, nextPageSize)}
+      />
 
       {deleteTarget && (
         <DeleteFormDialog
@@ -360,7 +352,8 @@ export function FormsList({
           onDeleted={(id) => {
             setRows((prev) => prev.filter((r) => r.id !== id));
             setTotal((t) => Math.max(0, t - 1));
-            setOffset((o) => Math.max(0, o - 1));
+            setDeleteTarget(null);
+            runFetch(safePage);
           }}
         />
       )}
@@ -394,7 +387,7 @@ export function FormsList({
             );
             if (creator !== "all" && creator !== newOwnerId) {
               setTotal((t) => Math.max(0, t - 1));
-              setOffset((o) => Math.max(0, o - 1));
+              runFetch(safePage);
             }
             setReassignTarget(null);
           }}

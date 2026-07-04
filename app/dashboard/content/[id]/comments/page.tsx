@@ -24,7 +24,7 @@ type Props = {
   }>;
 };
 
-const VALID_PAGE_SIZES = [10, 20, 30] as const;
+const VALID_PAGE_SIZES = [10, 20, 30, 50, 100] as const;
 const DEFAULT_PAGE_SIZE = 10;
 
 async function highestRoleForUserId(userId: string): Promise<Role> {

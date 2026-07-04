@@ -35,6 +35,7 @@ export function DeletedContentRowActions({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const isAdmin = hasRole(currentUserRoles, "admin");
+  const canRestore = isAdmin || row.contentType !== "webshop";
 
   function run(action: () => Promise<{ error?: string; success?: boolean }>) {
     setError(null);
@@ -53,18 +54,20 @@ export function DeletedContentRowActions({
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={pending}
-          onClick={() => {
-            setError(null);
-            setRestoreOpen(true);
-          }}
-        >
-          <RotateCcw className="h-4 w-4" />
-          Restore
-        </Button>
+        {canRestore && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => {
+              setError(null);
+              setRestoreOpen(true);
+            }}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Restore
+          </Button>
+        )}
         {isAdmin && (
           <Button
             variant="destructive"

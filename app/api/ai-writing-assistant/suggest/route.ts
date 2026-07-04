@@ -20,11 +20,14 @@ const SuggestionRequestSchema = z.object({
   providerId: AIProviderIdSchema.optional(),
   model: AIProviderModelIdSchema.optional(),
   field: z
-    .enum(["content", "excerpt", "metaTitle", "metaDescription"])
+    .enum(["content", "description", "excerpt", "metaTitle", "metaDescription"])
     .optional(),
   title: z.string().trim().max(200).optional(),
   excerpt: z.string().trim().max(2_000).optional(),
   content: z.string().trim().max(8_000).optional(),
+  surface: z
+    .enum(["blogEditor", "pageBuilder", "productEditor"])
+    .default("blogEditor"),
   before: z.string().max(4_000),
   after: z.string().max(1_000).optional(),
 });
@@ -61,9 +64,9 @@ export async function POST(request: Request) {
   }
 
   const settings = await getAiWritingAssistantServerSettings();
-  if (!settings.enabled) {
+  if (!getAssistantEnabledForSurface(parsed.data.surface, settings)) {
     return NextResponse.json(
-      { error: "AI writing assistant is disabled." },
+      { error: getAssistantDisabledMessage(parsed.data.surface) },
       { status: 403 },
     );
   }
@@ -131,6 +134,35 @@ export async function POST(request: Request) {
   return NextResponse.json({ suggestion });
 }
 
+function getAssistantEnabledForSurface(
+  surface: z.infer<typeof SuggestionRequestSchema>["surface"],
+  settings: Awaited<ReturnType<typeof getAiWritingAssistantServerSettings>>,
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return settings.pageBuilderEnabled;
+    case "productEditor":
+      return settings.webshopEnabled;
+    case "blogEditor":
+    default:
+      return settings.enabled;
+  }
+}
+
+function getAssistantDisabledMessage(
+  surface: z.infer<typeof SuggestionRequestSchema>["surface"],
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return "AI assistant is disabled.";
+    case "productEditor":
+      return "WebShop AI assistant is disabled.";
+    case "blogEditor":
+    default:
+      return "AI writing assistant is disabled.";
+  }
+}
+
 function getSuggestionTimeoutMs(providerId: string, model: string) {
   return providerId === "openai" && /(?:^|[-.])pro(?:[-.]|$)/iu.test(model)
     ? 45_000
@@ -142,10 +174,13 @@ function buildSuggestionPrompt(
   customInstructions: string | null,
 ) {
   return [
-    "You are an inline autocomplete assistant for a CMS blog editor.",
+    getSuggestionSurfaceIntro(body.surface),
     "Continue exactly from the cursor. Return only the suggested continuation.",
     "Do not explain, do not wrap the answer in quotes, and do not repeat the text before the cursor.",
     "Keep the continuation short: usually a phrase or one sentence.",
+    body.surface === "productEditor"
+      ? "Do not invent warranty, certification, shipping speed, discounts, health claims, origin claims, stock claims, or compatibility claims unless they are explicitly present in the input."
+      : "",
     "Include leading whitespace only when it is needed to continue naturally.",
     getSuggestionFieldInstruction(body.field ?? "content"),
     customInstructions ? `Editorial instructions: ${customInstructions}` : "",
@@ -164,10 +199,26 @@ function buildSuggestionPrompt(
     .join("\n");
 }
 
+function getSuggestionSurfaceIntro(
+  surface: z.infer<typeof SuggestionRequestSchema>["surface"],
+) {
+  switch (surface) {
+    case "pageBuilder":
+      return "You are an inline autocomplete assistant for a CMS page builder.";
+    case "productEditor":
+      return "You are an inline autocomplete assistant for a private Webshop product editor.";
+    case "blogEditor":
+    default:
+      return "You are an inline autocomplete assistant for a CMS blog editor.";
+  }
+}
+
 function getSuggestionFieldInstruction(
   field: NonNullable<z.infer<typeof SuggestionRequestSchema>["field"]>,
 ) {
   switch (field) {
+    case "description":
+      return "The active field is a webshop product description. Continue buyer-facing product copy with concrete details from the provided context.";
     case "excerpt":
       return "The active field is Excerpt. Continue a concise blog summary and avoid repeating the title.";
     case "metaTitle":

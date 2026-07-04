@@ -12,6 +12,7 @@ import {
   UserRoundCog,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
@@ -30,6 +31,11 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { GalleryListItem } from "@/data/galleries";
+import {
+  getGalleryManagerHref,
+  isLockedGallery,
+  isWebshopGalleryOrigin,
+} from "@/lib/gallery-origin";
 import { fetchGalleries } from "./actions";
 import type { CreatorInfo } from "./page";
 import { EditGalleryDialog } from "./edit-gallery-dialog";
@@ -142,86 +148,105 @@ export function GalleryList({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {rows.map((g) => (
-            <Card key={g.id} className="overflow-hidden p-0 flex flex-col">
-              <Link
-                href={`/dashboard/gallerymanager/${g.id}`}
-                className="aspect-video bg-muted flex items-center justify-center overflow-hidden relative"
-              >
-                {g.coverFileId ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={`/api/files/${g.coverFileId}`}
-                    alt={g.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <ImageIcon className="h-10 w-10 text-muted-foreground" />
-                )}
-              </Link>
+          {rows.map((g) => {
+            const href = getGalleryManagerHref(g);
+            const locked = isLockedGallery(g);
+            const webshopGallery = isWebshopGalleryOrigin(g);
 
-              <CardContent className="p-3 space-y-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <Link
-                    href={`/dashboard/gallerymanager/${g.id}`}
-                    className="font-medium truncate hover:underline"
-                    title={g.name}
-                  >
-                    {g.name}
-                  </Link>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/gallerymanager/${g.id}`}>
-                          Open
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => setEditTarget(g)}>
-                        <Pencil className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      {isAdmin && (
-                        <DropdownMenuItem onSelect={() => setReassignTarget(g)}>
-                          <UserRoundCog className="mr-2 h-4 w-4" /> Reassign
-                          Owner
+            return (
+              <Card key={g.id} className="overflow-hidden p-0 flex flex-col">
+                <Link
+                  href={href}
+                  className="aspect-video bg-muted flex items-center justify-center overflow-hidden relative"
+                >
+                  {g.coverFileId ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/files/${g.coverFileId}`}
+                      alt={g.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                  )}
+                </Link>
+
+                <CardContent className="p-3 space-y-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      href={href}
+                      className="font-medium truncate hover:underline"
+                      title={g.name}
+                    >
+                      {g.name}
+                    </Link>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={href}>Open</Link>
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        onSelect={() => setDeleteTarget(g)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                {g.description && (
-                  <p
-                    className="text-xs text-muted-foreground line-clamp-2"
-                    title={g.description}
-                  >
-                    {g.description}
-                  </p>
-                )}
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <User className="h-3 w-3 shrink-0" />
-                  <span className="truncate" title={g.creatorName}>
-                    {g.creatorName}
+                        {locked ? (
+                          <DropdownMenuItem disabled>
+                            Managed in Webshop
+                          </DropdownMenuItem>
+                        ) : (
+                          <>
+                            <DropdownMenuItem onSelect={() => setEditTarget(g)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            {isAdmin && (
+                              <DropdownMenuItem
+                                onSelect={() => setReassignTarget(g)}
+                              >
+                                <UserRoundCog className="mr-2 h-4 w-4" />{" "}
+                                Reassign Owner
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onSelect={() => setDeleteTarget(g)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  {webshopGallery && (
+                    <Badge className="w-fit" variant="secondary">
+                      Webshop gallery
+                    </Badge>
+                  )}
+                  {g.description && (
+                    <p
+                      className="text-xs text-muted-foreground line-clamp-2"
+                      title={g.description}
+                    >
+                      {g.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <User className="h-3 w-3 shrink-0" />
+                    <span className="truncate" title={g.creatorName}>
+                      {g.creatorName}
+                    </span>
+                  </div>
+                </CardContent>
+                <CardFooter className="mt-auto px-3 pb-3 pt-0 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>
+                    {g.imageCount} image{g.imageCount === 1 ? "" : "s"}
                   </span>
-                </div>
-              </CardContent>
-              <CardFooter className="mt-auto px-3 pb-3 pt-0 flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  {g.imageCount} image{g.imageCount === 1 ? "" : "s"}
-                </span>
-                <span>{formatDate(g.created)}</span>
-              </CardFooter>
-            </Card>
-          ))}
+                  <span>{formatDate(g.created)}</span>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
 

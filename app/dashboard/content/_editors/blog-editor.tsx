@@ -3,7 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor, JSONContent } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold,
@@ -41,7 +41,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { emptyTiptapJson } from "./tiptap-extensions";
-import { tiptapClientExtensions } from "./tiptap-client-extensions";
+import { createTiptapClientExtensions } from "./tiptap-client-extensions";
 import { TableMenu } from "./table-menu";
 import { ImageInsertDialog, type ImageAlignment } from "./image-insert-dialog";
 import { VideoInsertDialog } from "./video-insert-dialog";
@@ -129,8 +129,16 @@ type Props = {
   onAiProviderIdChange?: (providerId: AIProviderId) => void;
   aiModelId?: string;
   onAiModelIdChange?: (modelId: string) => void;
+  aiSuggestionField?:
+    | "content"
+    | "description"
+    | "excerpt"
+    | "metaTitle"
+    | "metaDescription";
+  aiSuggestionSurface?: "blogEditor" | "pageBuilder" | "productEditor";
   title?: string;
   excerpt?: string;
+  placeholder?: string;
 };
 
 type VideoDialogValues = {
@@ -223,8 +231,11 @@ export function BlogEditor({
   onAiProviderIdChange,
   aiModelId: controlledAiModelId,
   onAiModelIdChange,
+  aiSuggestionField = "content",
+  aiSuggestionSurface = "blogEditor",
   title = "",
   excerpt = "",
+  placeholder = "Write your blog post…",
 }: Props) {
   const [initialContent] = useState<JSONContent>(
     () => defaultValue ?? emptyTiptapJson,
@@ -318,6 +329,10 @@ export function BlogEditor({
   const aiRequestRef = useRef<AbortController | null>(null);
   const aiRequestIdRef = useRef(0);
   const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const extensions = useMemo(
+    () => createTiptapClientExtensions(placeholder),
+    [placeholder],
+  );
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
@@ -326,7 +341,7 @@ export function BlogEditor({
   }, [layoutOverlay]);
 
   const editor = useEditor({
-    extensions: tiptapClientExtensions,
+    extensions,
     content: initialContent,
     immediatelyRender: false,
     editorProps: {
@@ -383,7 +398,12 @@ export function BlogEditor({
       clearAiSuggestion(editor);
       setAiSuggestionStatus("idle");
 
-      const request = buildAiSuggestionRequest(editor, { title, excerpt });
+      const request = buildAiSuggestionRequest(editor, {
+        excerpt,
+        field: aiSuggestionField,
+        surface: aiSuggestionSurface,
+        title,
+      });
       if (!request) return;
 
       aiDebounceRef.current = setTimeout(async () => {
@@ -456,6 +476,8 @@ export function BlogEditor({
   }, [
     aiWritingAssistantActive,
     aiWritingAssistantAvailable,
+    aiSuggestionField,
+    aiSuggestionSurface,
     effectiveAiModelId,
     effectiveAiProviderId,
     editor,
@@ -2012,10 +2034,22 @@ function Sep() {
 
 function buildAiSuggestionRequest(
   editor: Editor,
-  meta: { title: string; excerpt: string },
+  meta: {
+    excerpt: string;
+    field: NonNullable<Props["aiSuggestionField"]>;
+    surface: NonNullable<Props["aiSuggestionSurface"]>;
+    title: string;
+  },
 ): {
   pos: number;
-  body: { title: string; excerpt: string; before: string; after: string };
+  body: {
+    after: string;
+    before: string;
+    excerpt: string;
+    field: NonNullable<Props["aiSuggestionField"]>;
+    surface: NonNullable<Props["aiSuggestionSurface"]>;
+    title: string;
+  };
 } | null {
   const { selection, doc } = editor.state;
   if (!editor.isFocused || !selection.empty) return null;
@@ -2037,10 +2071,12 @@ function buildAiSuggestionRequest(
   return {
     pos,
     body: {
-      title: meta.title,
-      excerpt: meta.excerpt,
-      before,
       after,
+      before,
+      excerpt: meta.excerpt,
+      field: meta.field,
+      surface: meta.surface,
+      title: meta.title,
     },
   };
 }
