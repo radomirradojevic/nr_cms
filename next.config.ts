@@ -54,6 +54,8 @@ const nextConfig: NextConfig = {
     // Allow large multipart uploads through proxy.ts (default is 10MB).
     // MAX_FILE_SIZE is 300MB and uploads can include multiple files.
     proxyClientMaxBodySize: "2gb",
+    // Fulfillment document uploads use Server Actions and are capped in code.
+    serverActions: { bodySizeLimit: "25mb" },
   },
   async headers() {
     return [

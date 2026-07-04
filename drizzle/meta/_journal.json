@@ -512,6 +512,13 @@
       "when": 1781654400045,
       "tag": "0072_webshop_license_key_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1781654400046,
+      "tag": "0073_webshop_fulfillment_documents",
+      "breakpoints": true
     }
   ]
 }
