@@ -8,15 +8,23 @@ import { SiteFooter, resolveFooterMinHeight } from "@/components/site-footer";
 import { SiteHeader, resolveHeaderHeight } from "@/components/site-header";
 import { SiteMain } from "@/components/site-main";
 import { getGlobalSettings } from "@/data/global-settings";
-import { getSessionSecuritySettings } from "@/lib/session-security";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { I18nProvider } from "@/components/i18n-provider";
 import { SessionSecurityProvider } from "@/components/session-security-provider";
 import { RegionalSettingsProvider } from "@/components/regional-settings-provider";
 import { ShellVisibilityController } from "@/components/shell-visibility-controller";
 import { cn } from "@/lib/utils";
+import {
+  cmsLanguageToLocale,
+  getCmsLanguageDirection,
+} from "@/lib/i18n/languages";
+import { en } from "@/lib/i18n/messages/en";
+import { loadMessages } from "@/lib/i18n/server";
+import { createTranslator } from "@/lib/i18n/translate";
 import { cssVarsToInlineStyle, resolveAppearance } from "@/lib/appearance";
 import { resolveAppearanceMotionAttributes } from "@/lib/appearance-recipe";
 import { resolveGlowCssVars } from "@/lib/glow";
+import { resolveHasLicenseServerShellForMenu } from "@/lib/license-server-addon/menu-access";
 import { loadShellRouteIndex } from "@/lib/shell-visibility";
 import {
   resolveShellRenderTargetForPathname,
@@ -58,13 +66,22 @@ export default async function RootLayout({
     hasRole(roles, "author");
   const isAdmin = hasRole(roles, "admin");
   const settings = await getGlobalSettings();
-  const sessionSecurity = await getSessionSecuritySettings();
   const shellRouteIndex = await loadShellRouteIndex();
   const hasWebshopShell = shellRouteIndex.contents.some(
     (item) => item.contentType === "webshop",
   );
+  const hasLicenseServerShell =
+    await resolveHasLicenseServerShellForMenu(isAdmin);
   const requestHeaders = await headers();
   const currentPathname = requestHeaders.get("x-nr-pathname") ?? "/";
+  const frontendLanguage = settings.languages.frontendLanguage;
+  const frontendDirection = getCmsLanguageDirection(frontendLanguage);
+  const frontendMessages = await loadMessages(frontendLanguage);
+  const frontendTranslator = createTranslator(
+    frontendMessages,
+    en,
+    frontendLanguage,
+  );
   const shellTarget = resolveShellRenderTargetForPathname(
     currentPathname,
     shellRouteIndex,
@@ -134,7 +151,8 @@ export default async function RootLayout({
   } as React.CSSProperties;
   return (
     <html
-      lang={settings.regional.defaultLanguage}
+      lang={cmsLanguageToLocale(frontendLanguage)}
+      dir={frontendDirection}
       className={cn(
         appearance.htmlClass,
         geistSans.variable,
@@ -160,44 +178,53 @@ export default async function RootLayout({
       <body className="min-h-full min-h-dvh flex flex-col overflow-x-hidden">
         <ClerkProvider appearance={{ theme: shadcn }}>
           <RegionalSettingsProvider value={settings.regional}>
-            <SessionSecurityProvider
-              maxSessionDurationMinutes={
-                sessionSecurity.maxSessionDurationMinutes
-              }
-              idleLogoutMinutes={sessionSecurity.idleLogoutMinutes}
+            <I18nProvider
+              language={frontendLanguage}
+              direction={frontendDirection}
+              messages={frontendMessages}
             >
-              <ShellVisibilityController
-                routeIndex={shellRouteIndex}
-                headerVisibility={settings.headerSettings.visibility}
-                footerVisibility={settings.footerSettings.visibility}
-                headerConfigHidden={headerHiddenByConfiguration}
-                footerConfigHidden={footerHiddenByConfiguration}
-                headerHeight={resolvedHeaderHeight}
-                footerMinHeight={resolvedFooterMinHeight}
-                headerSticky={headerRegion.sticky}
-                footerSticky={footerRegion.sticky}
-              />
-              <SiteHeader
-                region={headerRegionForRender}
-                siteName={siteName}
-                siteLogo={settings.siteLogo}
-                logoUrl={logoUrl}
-                headerSettings={settings.headerSettings}
-                isBackendUser={isBackendUser}
-                isAdmin={isAdmin}
-                isLoggedIn={!!user}
-                hasWebshopShell={hasWebshopShell}
-              />
-              <SiteMain region={mainRegion}>{children}</SiteMain>
-              <div className="contents" data-shell-footer-content>
-                <SiteFooter
-                  region={footerRegionForRender}
+              <SessionSecurityProvider
+                maxSessionDurationMinutes={
+                  settings.sessionSecurity.maxSessionDurationMinutes
+                }
+                idleLogoutMinutes={settings.sessionSecurity.idleLogoutMinutes}
+              >
+                <ShellVisibilityController
+                  routeIndex={shellRouteIndex}
+                  headerVisibility={settings.headerSettings.visibility}
+                  footerVisibility={settings.footerSettings.visibility}
+                  headerConfigHidden={headerHiddenByConfiguration}
+                  footerConfigHidden={footerHiddenByConfiguration}
+                  headerHeight={resolvedHeaderHeight}
+                  footerMinHeight={resolvedFooterMinHeight}
+                  headerSticky={headerRegion.sticky}
+                  footerSticky={footerRegion.sticky}
+                />
+                <SiteHeader
+                  region={headerRegionForRender}
+                  siteName={siteName}
+                  siteLogo={settings.siteLogo}
+                  logoUrl={logoUrl}
+                  headerSettings={settings.headerSettings}
                   isBackendUser={isBackendUser}
                   isAdmin={isAdmin}
                   isLoggedIn={!!user}
+                  hasLicenseServerShell={hasLicenseServerShell}
+                  hasWebshopShell={hasWebshopShell}
+                  t={frontendTranslator}
                 />
-              </div>
-            </SessionSecurityProvider>
+                <SiteMain region={mainRegion}>{children}</SiteMain>
+                <div className="contents" data-shell-footer-content>
+                  <SiteFooter
+                    region={footerRegionForRender}
+                    isBackendUser={isBackendUser}
+                    isAdmin={isAdmin}
+                    isLoggedIn={!!user}
+                    t={frontendTranslator}
+                  />
+                </div>
+              </SessionSecurityProvider>
+            </I18nProvider>
           </RegionalSettingsProvider>
         </ClerkProvider>
       </body>

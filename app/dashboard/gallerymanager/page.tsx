@@ -4,6 +4,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { listGalleries, getDistinctCreatorIds } from "@/data/galleries";
+import { getTranslations } from "@/lib/i18n/server";
 import { GalleryList } from "./gallery-list";
 import { CreateGalleryDialog } from "./create-gallery-dialog";
 
@@ -13,6 +14,7 @@ const ALLOWED_ROLES = ["admin", "publisher", "author"] as const;
 const PAGE_SIZE = 24;
 
 export default async function GalleryManagerPage() {
+  const t = await getTranslations("backend");
   const { userId } = await auth();
   if (!userId) redirect("/");
 
@@ -52,9 +54,11 @@ export default async function GalleryManagerPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Gallery Manager</h1>
+          <h1 className="text-2xl font-semibold">
+            {t("dashboard.galleries.title")}
+          </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Organize images from the File Manager into named galleries.
+            {t("dashboard.galleries.description")}
           </p>
         </div>
         <CreateGalleryDialog />

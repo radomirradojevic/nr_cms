@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Plus, Search } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,6 +35,7 @@ export function ImagePicker({
   pageSize,
   onAddSelected,
 }: Props) {
+  const t = useTranslations();
   const [files, setFiles] = useState<FileRow[]>(initialFiles);
   const [total, setTotal] = useState(initialTotal);
   const [offset, setOffset] = useState(initialFiles.length);
@@ -101,9 +103,12 @@ export function ImagePicker({
   return (
     <Card className="p-4 space-y-3 h-fit">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">File Manager — Images</h2>
+        <h2 className="text-sm font-semibold">
+          {t("dashboard.galleries.detail.fileManagerImages")}
+        </h2>
         <Button size="sm" onClick={handleAdd} disabled={selectedCount === 0}>
-          <Plus className="mr-2 h-4 w-4" /> Add selected
+          <Plus className="mr-2 h-4 w-4" />
+          {t("dashboard.galleries.detail.addSelected")}
           {selectedCount > 0 && ` (${selectedCount})`}
         </Button>
       </div>
@@ -114,7 +119,7 @@ export function ImagePicker({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search images…"
+            placeholder={t("dashboard.galleries.detail.searchImages")}
             className="pl-9"
           />
         </div>
@@ -126,8 +131,12 @@ export function ImagePicker({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="newest">Newest first</SelectItem>
-            <SelectItem value="oldest">Oldest first</SelectItem>
+            <SelectItem value="newest">
+              {t("dashboard.galleries.detail.newestFirst")}
+            </SelectItem>
+            <SelectItem value="oldest">
+              {t("dashboard.galleries.detail.oldestFirst")}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -140,7 +149,7 @@ export function ImagePicker({
         </div>
       ) : sorted.length === 0 ? (
         <p className="text-center py-8 text-sm text-muted-foreground">
-          No images.
+          {t("dashboard.galleries.detail.noImages")}
         </p>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[600px] overflow-y-auto">
@@ -157,7 +166,10 @@ export function ImagePicker({
 
       <div className="flex items-center justify-between pt-1">
         <p className="text-xs text-muted-foreground">
-          Showing {files.length} of {total}
+          {t("dashboard.pagination.showingOfTotal", {
+            count: files.length,
+            total,
+          })}
         </p>
         {hasMore && (
           <Button
@@ -166,7 +178,9 @@ export function ImagePicker({
             onClick={() => runFetch(offset, false)}
             disabled={pending}
           >
-            {pending ? "Loading…" : "Load more"}
+            {pending
+              ? t("dashboard.common.actions.loading")
+              : t("dashboard.common.actions.loadMore")}
           </Button>
         )}
       </div>

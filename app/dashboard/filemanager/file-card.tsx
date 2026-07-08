@@ -13,6 +13,7 @@ import {
   FolderInput,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "@/components/i18n-provider";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ export function FileCard({
   onMoveRequested,
   onReassigned,
 }: Props) {
+  const t = useTranslations();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
@@ -64,8 +66,8 @@ export function FileCard({
   function copyUrl() {
     navigator.clipboard
       .writeText(window.location.origin + url)
-      .then(() => toast.success("URL copied to clipboard."))
-      .catch(() => toast.error("Could not copy URL."));
+      .then(() => toast.success(t("dashboard.toasts.copiedUrl")))
+      .catch(() => toast.error(t("dashboard.toasts.copyUrlFailed")));
   }
 
   return (
@@ -91,26 +93,31 @@ export function FileCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-                <Pencil className="mr-2 h-4 w-4" /> Edit
+                <Pencil className="mr-2 h-4 w-4" />
+                {t("dashboard.common.actions.edit")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={copyUrl}>
-                <Copy className="mr-2 h-4 w-4" /> Copy URL
+                <Copy className="mr-2 h-4 w-4" />
+                {t("dashboard.common.actions.copyUrl")}
               </DropdownMenuItem>
               {onMoveRequested && (
                 <DropdownMenuItem onSelect={() => onMoveRequested([file.id])}>
-                  <FolderInput className="mr-2 h-4 w-4" /> Move
+                  <FolderInput className="mr-2 h-4 w-4" />
+                  {t("dashboard.common.actions.move")}
                 </DropdownMenuItem>
               )}
               {isAdmin && (
                 <DropdownMenuItem onSelect={() => setReassignOpen(true)}>
-                  <UserRoundCog className="mr-2 h-4 w-4" /> Reassign owner
+                  <UserRoundCog className="mr-2 h-4 w-4" />
+                  {t("dashboard.common.actions.reassignOwner")}
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
                 onSelect={() => setDeleteOpen(true)}
                 className="text-destructive focus:text-destructive"
               >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t("dashboard.common.actions.delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

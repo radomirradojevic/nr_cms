@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import { deleteUser } from "@/app/dashboard/users/[userId]/actions";
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export function DeleteUserButton({ userId }: Props) {
+  const t = useTranslations();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -42,25 +44,28 @@ export function DeleteUserButton({ userId }: Props) {
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button variant="destructive" size="sm" disabled={isPending}>
-            Delete User
+            {t("dashboard.users.deleteUser")}
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this user?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("dashboard.users.deleteTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This action is permanent and cannot be undone. The user&apos;s
-              account will be permanently removed from the system.
+              {t("dashboard.users.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("dashboard.common.actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirm}
               disabled={isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t("dashboard.common.actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

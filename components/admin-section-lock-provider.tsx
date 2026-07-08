@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { useRegionalSettings } from "@/components/regional-settings-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   HEARTBEAT_INTERVAL_SECONDS,
   LEASE_TTL_SECONDS,
@@ -385,6 +386,7 @@ function AdminSectionLockNoticeContent({
   state: LockState;
 }) {
   const { formatTime } = useRegionalSettings();
+  const st = useSourceTranslations();
 
   if (state.kind === "owner") {
     return (
@@ -394,7 +396,7 @@ function AdminSectionLockNoticeContent({
           className,
         )}
       >
-        Editing — your changes are protected by an edit lock.
+        {st("Editing — your changes are protected by an edit lock.")}
       </div>
     );
   }
@@ -406,7 +408,7 @@ function AdminSectionLockNoticeContent({
           className,
         )}
       >
-        Acquiring edit lock…
+        {st("Acquiring edit lock...")}
       </div>
     );
   }

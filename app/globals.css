@@ -4,6 +4,7 @@
 @import "../node_modules/@clerk/themes/dist/themes/shadcn.css";
 
 @source "../.private/webshop/src";
+@source "../.private/license-server-addon/src";
 
 @plugin "@tailwindcss/typography";
 
@@ -171,6 +172,19 @@
 
 html:has(.dashboard-content-root) {
   --content-max-width: var(--backend-content-max-width);
+}
+
+.origin-top-end {
+  transform-origin: top right;
+}
+
+:where([dir="rtl"]) .origin-top-end {
+  transform-origin: top left;
+}
+
+:where([dir="rtl"]) [data-icon="inline-start"],
+:where([dir="rtl"]) [data-icon="inline-end"] {
+  transform: scaleX(-1);
 }
 
 /*

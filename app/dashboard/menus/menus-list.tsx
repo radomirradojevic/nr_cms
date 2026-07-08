@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   Select,
   SelectContent,
@@ -42,6 +43,7 @@ export function MenusList({
   creators,
   selectedNavigationMenuId,
 }: Props) {
+  const t = useTranslations();
   const { formatDate, formatDateTime } = useRegionalSettings();
   const [rows, setRows] = useState<MenuListItem[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
@@ -88,7 +90,7 @@ export function MenusList({
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search menus..."
+            placeholder={t("dashboard.menus.searchPlaceholder")}
             className="pl-9"
           />
         </div>
@@ -98,7 +100,9 @@ export function MenusList({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All creators</SelectItem>
+              <SelectItem value="all">
+                {t("dashboard.filters.allCreators")}
+              </SelectItem>
               {creators.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
                   {option.name}
@@ -112,12 +116,22 @@ export function MenusList({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead className="w-56">Creator</TableHead>
-            <TableHead className="w-32">Items</TableHead>
-            <TableHead className="w-32">Nested</TableHead>
-            <TableHead className="w-56">Updated</TableHead>
-            <TableHead className="w-72 text-right">Actions</TableHead>
+            <TableHead>{t("dashboard.common.table.name")}</TableHead>
+            <TableHead className="w-56">
+              {t("dashboard.common.table.creator")}
+            </TableHead>
+            <TableHead className="w-32">
+              {t("dashboard.common.table.items")}
+            </TableHead>
+            <TableHead className="w-32">
+              {t("dashboard.common.table.nested")}
+            </TableHead>
+            <TableHead className="w-56">
+              {t("dashboard.common.table.updated")}
+            </TableHead>
+            <TableHead className="w-72 text-right">
+              {t("dashboard.common.table.actions")}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -135,7 +149,7 @@ export function MenusList({
                 colSpan={6}
                 className="py-10 text-center text-muted-foreground"
               >
-                No menus found.
+                {t("dashboard.menus.noMenus")}
               </TableCell>
             </TableRow>
           ) : (
@@ -150,7 +164,7 @@ export function MenusList({
                   </Link>
                   {selectedNavigationMenuId === menu.id && (
                     <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      Header
+                      {t("dashboard.menus.headerBadge")}
                     </span>
                   )}
                 </TableCell>
@@ -163,7 +177,11 @@ export function MenusList({
                 <TableCell className="text-xs text-muted-foreground">
                   <div>{formatDateTime(menu.updatedAt)}</div>
                   <div className="mt-0.5">
-                    by {menu.updatedByName ?? "Unknown"}
+                    {t("dashboard.common.meta.by", {
+                      name:
+                        menu.updatedByName ??
+                        t("dashboard.common.meta.unknown"),
+                    })}
                   </div>
                 </TableCell>
                 <TableCell className="text-right">

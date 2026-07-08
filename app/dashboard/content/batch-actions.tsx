@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,7 @@ export function BatchActions({
   canChangeWorkflowStatus,
   onCleared,
 }: Props) {
+  const t = useTranslations();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -40,7 +42,12 @@ export function BatchActions({
       else {
         const failed = r.results.filter((x) => !x.ok);
         if (failed.length > 0) {
-          setError(`${failed.length} item(s) could not be ${failureLabel}.`);
+          setError(
+            t("dashboard.content.errors.batchWorkflowFailed", {
+              count: failed.length,
+              action: failureLabel,
+            }),
+          );
         }
         onCleared();
       }
@@ -56,7 +63,11 @@ export function BatchActions({
       }
       const failed = r.results.filter((x) => !x.ok);
       if (failed.length > 0) {
-        setError(`${failed.length} item(s) could not be deleted.`);
+        setError(
+          t("dashboard.content.errors.batchDeleteFailed", {
+            count: failed.length,
+          }),
+        );
       }
       setOpen(false);
       onCleared();
@@ -65,7 +76,9 @@ export function BatchActions({
 
   return (
     <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
-      <span className="text-sm">{ids.length} selected</span>
+      <span className="text-sm">
+        {t("dashboard.common.selection.selectedCount", { count: ids.length })}
+      </span>
       <div className="flex-1" />
       {canChangeWorkflowStatus && (
         <>
@@ -73,41 +86,66 @@ export function BatchActions({
             variant="outline"
             size="sm"
             disabled={pending}
-            onClick={() => setWorkflowStatus("in_review", "submitted")}
+            onClick={() =>
+              setWorkflowStatus(
+                "in_review",
+                t("dashboard.content.workflowFailureAction.submitted"),
+              )
+            }
           >
-            Submit for review
+            {t("dashboard.content.actions.submitForReview")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             disabled={pending}
-            onClick={() => setWorkflowStatus("approved", "approved")}
+            onClick={() =>
+              setWorkflowStatus(
+                "approved",
+                t("dashboard.content.workflowFailureAction.approved"),
+              )
+            }
           >
-            Approve
+            {t("dashboard.content.actions.approve")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             disabled={pending}
-            onClick={() => setWorkflowStatus("published", "published")}
+            onClick={() =>
+              setWorkflowStatus(
+                "published",
+                t("dashboard.content.workflowFailureAction.published"),
+              )
+            }
           >
-            Publish now
+            {t("dashboard.content.actions.publishNow")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             disabled={pending}
-            onClick={() => setWorkflowStatus("draft", "moved to draft")}
+            onClick={() =>
+              setWorkflowStatus(
+                "draft",
+                t("dashboard.content.workflowFailureAction.movedToDraft"),
+              )
+            }
           >
-            Move to draft
+            {t("dashboard.content.actions.moveToDraft")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             disabled={pending}
-            onClick={() => setWorkflowStatus("archived", "archived")}
+            onClick={() =>
+              setWorkflowStatus(
+                "archived",
+                t("dashboard.content.workflowFailureAction.archived"),
+              )
+            }
           >
-            Archive
+            {t("dashboard.content.actions.archive")}
           </Button>
         </>
       )}
@@ -120,21 +158,25 @@ export function BatchActions({
       >
         <AlertDialogTrigger asChild>
           <Button variant="destructive" size="sm" disabled={pending}>
-            Move to Deleted content
+            {t("dashboard.content.actions.moveToDeleted")}
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete selected content?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("dashboard.content.dialogs.deleteSelectedTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {ids.length} item(s) will be moved to Deleted content. Items you
-              do not have permission to delete or that are the homepage will be
-              skipped.
+              {t("dashboard.content.dialogs.deleteSelectedDescription", {
+                count: ids.length,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {error && <p className="text-sm text-destructive px-1">{error}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>
+              {t("dashboard.common.actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={pending}
               onClick={(e) => {
@@ -144,7 +186,7 @@ export function BatchActions({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Delete
+              {t("dashboard.common.actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

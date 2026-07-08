@@ -13,6 +13,7 @@ import {
 } from "@/lib/appearance-recipe";
 import { cssVarsToInlineStyle, resolveAppearance } from "@/lib/appearance";
 import { cn } from "@/lib/utils";
+import { useSourceTranslations } from "@/components/source-translations";
 
 function findRecipeSlot<T extends AppearanceSlotV1["type"]>(
   slots: AppearanceSlotV1[],
@@ -71,6 +72,8 @@ function PresetPreviewBlock({
   label: string;
   tone?: "muted" | "primary" | "border" | "brand" | "surface";
 }) {
+  const st = useSourceTranslations();
+
   return (
     <span
       className={cn(
@@ -86,9 +89,9 @@ function PresetPreviewBlock({
                 : "bg-muted-foreground/20 text-muted-foreground",
         className,
       )}
-      title={label}
+      title={st(label)}
     >
-      {label}
+      {st(label)}
     </span>
   );
 }
@@ -100,10 +103,12 @@ function PresetRegionLabel({
   region: string;
   variant: string;
 }) {
+  const st = useSourceTranslations();
+
   return (
     <div className="flex items-center justify-between gap-2 text-[0.6rem] font-medium uppercase tracking-normal text-muted-foreground">
-      <span>{region}</span>
-      <span className="truncate text-foreground/80">{variant}</span>
+      <span>{st(region)}</span>
+      <span className="truncate text-foreground/80">{st(variant)}</span>
     </div>
   );
 }
@@ -359,6 +364,8 @@ export function PresetCards({
   selectedId: AppearancePresetId | null;
   onApply: (preset: AppearanceShellPreset) => void;
 }) {
+  const st = useSourceTranslations();
+
   return (
     <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
       {APPEARANCE_SHELL_PRESETS.map((preset) => {
@@ -376,16 +383,18 @@ export function PresetCards({
             <PresetThumbnail preset={preset} />
             <div className="mt-3 space-y-2">
               <div className="flex min-w-0 items-center justify-between gap-2">
-                <h3 className="truncate text-sm font-medium">{preset.name}</h3>
-                {selected && <Badge variant="secondary">Draft</Badge>}
+                <h3 className="truncate text-sm font-medium">
+                  {st(preset.name)}
+                </h3>
+                {selected && <Badge variant="secondary">{st("Draft")}</Badge>}
               </div>
               <p className="line-clamp-2 text-xs text-muted-foreground">
-                {preset.description}
+                {st(preset.description)}
               </p>
               <div className="flex flex-wrap gap-1">
                 {preset.tags.map((tag) => (
                   <Badge key={tag} variant="outline">
-                    {tag}
+                    {st(tag)}
                   </Badge>
                 ))}
               </div>
@@ -444,6 +453,8 @@ export function ShellPreview({
   logoBorderColor: string | undefined;
   logoBorderShape: "circle" | "square";
 }) {
+  const st = useSourceTranslations();
+
   return (
     <Tabs defaultValue="desktop" className="gap-3">
       <TabsList>
@@ -452,7 +463,7 @@ export function ShellPreview({
           return (
             <TabsTrigger key={viewport.id} value={viewport.id}>
               <Icon className="size-4" aria-hidden />
-              {viewport.label}
+              {st(viewport.label)}
             </TabsTrigger>
           );
         })}
@@ -578,6 +589,7 @@ function PreviewHeader({
   logoBorderRadius: string;
   showCompact: boolean;
 }) {
+  const st = useSourceTranslations();
   const header = recipe.shell.header;
   const brandSlot = getSlot(recipe, "header", "Brand", "brand");
   const customHtmlSlot = getSlot(
@@ -608,13 +620,15 @@ function PreviewHeader({
   );
   const customHtml = customHtmlSlot?.enabled ? (
     <PreviewChip className="min-w-0 flex-1" tone="muted">
-      CustomHtml
+      {st("CustomHtml")}
     </PreviewChip>
   ) : null;
-  const menu = siteMenuSlot?.enabled ? <PreviewChip>Menu</PreviewChip> : null;
+  const menu = siteMenuSlot?.enabled ? (
+    <PreviewChip>{st("Menu")}</PreviewChip>
+  ) : null;
   const admin =
     adminMenuSlot?.enabled && !showCompact ? (
-      <PreviewChip>Admin</PreviewChip>
+      <PreviewChip>{st("Admin")}</PreviewChip>
     ) : null;
   const search =
     searchSlot?.enabled && !showCompact ? (
@@ -627,17 +641,17 @@ function PreviewHeader({
       <PreviewChip tone="primary">{ctaSlot.label}</PreviewChip>
     ) : null;
   const auth = !showCompact ? (
-    <PreviewChip tone="secondary">Auth</PreviewChip>
+    <PreviewChip tone="secondary">{st("Auth")}</PreviewChip>
   ) : null;
   const mobileMenu = showCompact ? (
-    <PreviewChip tone="border">Menu</PreviewChip>
+    <PreviewChip tone="border">{st("Menu")}</PreviewChip>
   ) : null;
 
   if (header.hidden) {
     return (
       <div className="flex min-h-12 items-center justify-end border-b px-3 py-2 text-xs">
         <PreviewChip className="h-7 w-14 rounded-full px-1" tone="border">
-          Menu
+          {st("Menu")}
         </PreviewChip>
       </div>
     );
@@ -738,6 +752,7 @@ function PreviewFooter({
   recipe: AppearanceRecipe;
   showCompact: boolean;
 }) {
+  const st = useSourceTranslations();
   const footer = recipe.shell.footer;
   const customHtmlSlot = getSlot(
     recipe,
@@ -761,19 +776,19 @@ function PreviewFooter({
   );
   const footerCtaSlot = getSlot(recipe, "footer", "CTA", "footer-cta");
   const customHtml = customHtmlSlot?.enabled ? (
-    <PreviewChip>CustomHtml</PreviewChip>
+    <PreviewChip>{st("CustomHtml")}</PreviewChip>
   ) : null;
   const copyright = copyrightSlot?.enabled ? (
-    <PreviewChip>Copyright</PreviewChip>
+    <PreviewChip>{st("Copyright")}</PreviewChip>
   ) : null;
   const footerLinks = footerLinksSlot?.enabled ? (
-    <PreviewChip>Footer links</PreviewChip>
+    <PreviewChip>{st("Footer links")}</PreviewChip>
   ) : null;
   const legalLinks = legalLinksSlot?.enabled ? (
-    <PreviewChip>Legal</PreviewChip>
+    <PreviewChip>{st("Legal")}</PreviewChip>
   ) : null;
   const socialLinks = socialLinksSlot?.enabled ? (
-    <PreviewChip>Social</PreviewChip>
+    <PreviewChip>{st("Social")}</PreviewChip>
   ) : null;
   const cta =
     footerCtaSlot?.enabled && footerCtaSlot.label ? (

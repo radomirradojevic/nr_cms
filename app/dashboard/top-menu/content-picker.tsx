@@ -4,10 +4,14 @@ import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { FileText, GripVertical, Images, Newspaper, Store } from "lucide-react";
+import { useTranslations } from "@/components/i18n-provider";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { ContentPickerItem } from "@/data/top-menu";
-import { getContentStatusLabel } from "@/lib/content-status";
+import {
+  getContentStatusLabelKey,
+  isContentStatus,
+} from "@/lib/content-status";
 import { getContentScheduleState } from "@/lib/content-schedule";
 
 type Props = {
@@ -15,6 +19,7 @@ type Props = {
 };
 
 export function ContentPicker({ items }: Props) {
+  const t = useTranslations();
   const [query, setQuery] = useState("");
   const filtered = items.filter(
     (i) =>
@@ -25,14 +30,14 @@ export function ContentPicker({ items }: Props) {
   return (
     <div className="space-y-3">
       <Input
-        placeholder="Search content…"
+        placeholder={t("dashboard.menus.contentPicker.searchPlaceholder")}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
       <ul className="space-y-1 max-h-[60vh] overflow-y-auto">
         {filtered.length === 0 && (
           <li className="text-sm text-muted-foreground py-2 text-center">
-            No content items found.
+            {t("dashboard.menus.contentPicker.empty")}
           </li>
         )}
         {filtered.map((item) => (
@@ -44,6 +49,7 @@ export function ContentPicker({ items }: Props) {
 }
 
 function PickerRow({ item }: { item: ContentPickerItem }) {
+  const t = useTranslations();
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: `picker-${item.id}`,
@@ -77,7 +83,9 @@ function PickerRow({ item }: { item: ContentPickerItem }) {
       <span className="text-sm truncate flex-1">{item.title}</span>
       {item.status !== "published" && (
         <Badge variant="outline" className="text-[10px]">
-          {getContentStatusLabel(item.status)}
+          {isContentStatus(item.status)
+            ? t(getContentStatusLabelKey(item.status))
+            : item.status}
         </Badge>
       )}
       {scheduleState && (
@@ -86,10 +94,10 @@ function PickerRow({ item }: { item: ContentPickerItem }) {
           className="text-[10px]"
         >
           {scheduleState === "scheduled"
-            ? "Scheduled"
+            ? t("dashboard.content.schedule.scheduled")
             : scheduleState === "live_until"
-              ? "Live until"
-              : "Expired"}
+              ? t("dashboard.content.schedule.liveUntil")
+              : t("dashboard.content.schedule.expired")}
         </Badge>
       )}
     </li>

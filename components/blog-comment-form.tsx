@@ -3,11 +3,17 @@
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Script from "next/script";
 import { SignInButton, useUser } from "@clerk/nextjs";
+import { useTranslations } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { submitComment } from "@/app/dashboard/content/comment-actions";
+import { getPublicMessageText } from "@/lib/i18n/public-message";
+import {
+  PUBLIC_COMMENT_MAX_LENGTH,
+  validatePublicCommentInput,
+} from "@/lib/public-comment-validation";
 
 type Props = {
   contentId: string;
@@ -37,8 +43,6 @@ declare global {
   }
 }
 
-const MAX_LEN = 5000;
-
 export function BlogCommentForm({
   contentId,
   postSlug,
@@ -47,6 +51,7 @@ export function BlogCommentForm({
   onCancel,
   onSubmitted,
 }: Props) {
+  const t = useTranslations();
   const { isLoaded, isSignedIn } = useUser();
   const [pending, startTransition] = useTransition();
   const [body, setBody] = useState("");
@@ -108,7 +113,7 @@ export function BlogCommentForm({
   if (!isLoaded) {
     return (
       <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-        Loading…
+        {t("public.comments.loading")}
       </div>
     );
   }
@@ -116,9 +121,9 @@ export function BlogCommentForm({
   if (!isSignedIn && !allowAnonymous) {
     return (
       <div className="rounded-lg border p-4 text-sm">
-        <p className="mb-2">You must be signed in to comment.</p>
+        <p className="mb-2">{t("public.comments.errors.signInRequired")}</p>
         <SignInButton mode="modal">
-          <Button size="sm">Sign in to comment</Button>
+          <Button size="sm">{t("public.comments.signInToComment")}</Button>
         </SignInButton>
       </div>
     );
@@ -141,13 +146,16 @@ export function BlogCommentForm({
     setError(null);
     setOkMsg(null);
     const trimmed = body.trim();
-    if (trimmed.length === 0) return setError("Comment cannot be empty.");
-    if (trimmed.length > MAX_LEN)
-      return setError(`Comment too long (max ${MAX_LEN} characters).`);
-    if (!isSignedIn) {
-      if (!guestName.trim()) return setError("Name is required.");
+    const validation = validatePublicCommentInput({
+      body: trimmed,
+      guestName,
+      isSignedIn: !!isSignedIn,
+      maxLength: PUBLIC_COMMENT_MAX_LENGTH,
+    });
+    if (validation) {
+      return setError(getPublicMessageText(validation, t));
     }
-    if (!token) return setError("Please complete the captcha.");
+    if (!token) return setError(t("public.comments.errors.captchaRequired"));
 
     startTransition(async () => {
       const r = await submitComment({
@@ -159,7 +167,7 @@ export function BlogCommentForm({
         turnstileToken: token,
       });
       if ("error" in r) {
-        setError(r.error);
+        setError(getPublicMessageText(r.error, t));
         resetWidget();
         return;
       }
@@ -168,8 +176,8 @@ export function BlogCommentForm({
       setGuestEmail("");
       const successMsg =
         r.status === "published"
-          ? "Your comment has been posted."
-          : "Your comment has been submitted and is awaiting moderation.";
+          ? t("public.comments.posted")
+          : t("public.comments.awaitingModeration");
       resetWidget();
       if (onSubmitted) {
         onSubmitted(successMsg);
@@ -194,13 +202,17 @@ export function BlogCommentForm({
         />
       )}
       <h3 id={containerId + "-title"} className="text-sm font-semibold">
-        {parentId ? "Reply" : "Leave a comment"}
+        {parentId
+          ? t("public.comments.reply")
+          : t("public.comments.leaveComment")}
       </h3>
 
       {!isSignedIn && allowAnonymous && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label htmlFor={`${containerId}-name`}>Name *</Label>
+            <Label htmlFor={`${containerId}-name`}>
+              {t("public.comments.nameLabel")} *
+            </Label>
             <Input
               id={`${containerId}-name`}
               value={guestName}
@@ -211,7 +223,9 @@ export function BlogCommentForm({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor={`${containerId}-email`}>Email (optional)</Label>
+            <Label htmlFor={`${containerId}-email`}>
+              {t("public.comments.emailLabel")}
+            </Label>
             <Input
               id={`${containerId}-email`}
               type="email"
@@ -220,24 +234,28 @@ export function BlogCommentForm({
               maxLength={254}
               autoComplete="email"
             />
-            <p className="text-xs text-muted-foreground">Not shown publicly.</p>
+            <p className="text-xs text-muted-foreground">
+              {t("public.comments.emailHelp")}
+            </p>
           </div>
         </div>
       )}
 
       <div className="space-y-1">
-        <Label htmlFor={`${containerId}-body`}>Comment *</Label>
+        <Label htmlFor={`${containerId}-body`}>
+          {t("public.comments.commentLabel")} *
+        </Label>
         <Textarea
           id={`${containerId}-body`}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={4}
-          maxLength={MAX_LEN}
+          maxLength={PUBLIC_COMMENT_MAX_LENGTH}
           required
-          placeholder="Share your thoughts…"
+          placeholder={t("public.comments.commentPlaceholder")}
         />
         <p className="text-xs text-muted-foreground">
-          {body.length}/{MAX_LEN}
+          {body.length}/{PUBLIC_COMMENT_MAX_LENGTH}
         </p>
       </div>
 
@@ -245,7 +263,9 @@ export function BlogCommentForm({
         <div ref={containerRef} className={armed ? undefined : "hidden"} />
       ) : (
         <p className="text-xs text-destructive">
-          Captcha is not configured. Set NEXT_PUBLIC_TURNSTILE_SITE_KEY.
+          {t("public.comments.errors.captchaNotConfigured", {
+            env: "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+          })}
         </p>
       )}
 
@@ -262,7 +282,11 @@ export function BlogCommentForm({
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={pending || !token || !siteKey}>
-          {pending ? "Submitting…" : parentId ? "Post reply" : "Post comment"}
+          {pending
+            ? t("public.comments.submitting")
+            : parentId
+              ? t("public.comments.submitReply")
+              : t("public.comments.submit")}
         </Button>
         {onCancel && (
           <Button
@@ -271,7 +295,7 @@ export function BlogCommentForm({
             onClick={onCancel}
             disabled={pending}
           >
-            Cancel
+            {t("public.comments.cancelReply")}
           </Button>
         )}
       </div>

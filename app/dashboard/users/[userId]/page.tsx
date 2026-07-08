@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
-import { hasRole, getRoles, type Role } from "@/lib/roles";
+import { getRoleLabelKey, hasRole, getRoles, type Role } from "@/lib/roles";
+import { getTranslations } from "@/lib/i18n/server";
 import { EditUserDialog } from "@/app/dashboard/users/[userId]/edit-user-dialog";
 import { LockUserButton } from "@/app/dashboard/users/[userId]/lock-user-button";
 import { ForceSignOutButton } from "@/app/dashboard/users/[userId]/force-signout-button";
@@ -27,6 +28,7 @@ type Props = {
 };
 
 export default async function UserDetailPage({ params }: Props) {
+  const t = await getTranslations("backend");
   const { userId: targetUserId } = await params;
   const caller = await getOptionalCurrentUser();
 
@@ -70,9 +72,13 @@ export default async function UserDetailPage({ params }: Props) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <Button variant="ghost" size="sm" asChild className="mb-2 -ml-2">
-            <Link href="/dashboard/users">← Back to Users</Link>
+            <Link href="/dashboard/users">
+              {t("dashboard.users.backToUsers")}
+            </Link>
           </Button>
-          <h1 className="text-2xl font-semibold">User Details</h1>
+          <h1 className="text-2xl font-semibold">
+            {t("dashboard.users.detailsTitle")}
+          </h1>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end [&_button]:w-full sm:[&_button]:w-auto">
           <ForceSignOutButton
@@ -86,19 +92,24 @@ export default async function UserDetailPage({ params }: Props) {
       </div>
 
       <div className="border rounded-lg divide-y">
-        <Row label="Username" value={displayName} />
-        <Row label="Email" value={email} />
-        <Row label="Member since" value={createdAt} />
+        <Row label={t("dashboard.users.labels.username")} value={displayName} />
+        <Row label={t("dashboard.users.labels.email")} value={email} />
         <Row
-          label="Status"
+          label={t("dashboard.users.labels.memberSince")}
+          value={createdAt}
+        />
+        <Row
+          label={t("dashboard.users.labels.status")}
           value={
             <Badge variant={user.locked ? "destructive" : "secondary"}>
-              {user.locked ? "Locked" : "Active"}
+              {user.locked
+                ? t("dashboard.users.status.locked")
+                : t("dashboard.users.status.active")}
             </Badge>
           }
         />
         <Row
-          label="Presence"
+          label={t("dashboard.users.labels.presence")}
           value={
             <span className="flex items-center gap-1.5">
               <span
@@ -106,17 +117,21 @@ export default async function UserDetailPage({ params }: Props) {
                   isOnline ? "bg-green-500" : "bg-muted-foreground/40"
                 }`}
               />
-              <span className="text-sm">{isOnline ? "Online" : "Offline"}</span>
+              <span className="text-sm">
+                {isOnline
+                  ? t("dashboard.users.presence.online")
+                  : t("dashboard.users.presence.offline")}
+              </span>
             </span>
           }
         />
         <Row
-          label="Roles"
+          label={t("dashboard.users.labels.roles")}
           value={
             <div className="flex flex-wrap gap-1">
               {roles.map((role) => (
                 <Badge key={role} variant={roleBadgeVariant[role]}>
-                  {role}
+                  {t(getRoleLabelKey(role))}
                 </Badge>
               ))}
             </div>

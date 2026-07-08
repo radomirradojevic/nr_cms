@@ -14,11 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { useTranslations } from "@/components/i18n-provider";
 import { TablePagination } from "@/app/dashboard/table-pagination";
 import { type Role, hasRole } from "@/lib/roles";
 import type { LockHolder } from "@/lib/content-locks";
 import {
-  getContentStatusLabel,
+  getContentStatusLabelKey,
   type ContentStatus,
 } from "@/lib/content-status";
 import { getContentScheduleState } from "@/lib/content-schedule";
@@ -26,7 +27,7 @@ import { ContentRowActions } from "./content-row-actions";
 import { BatchActions } from "./batch-actions";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
 import { DeletedContentRowActions } from "./deleted-content-row-actions";
-import { getContentTypeLabel, type ContentType } from "@/lib/content-types";
+import { getContentTypeLabelKey, type ContentType } from "@/lib/content-types";
 
 type AllowedPageSize = 10 | 20 | 30 | 50 | 100;
 
@@ -93,6 +94,7 @@ export function ContentTable({
   onMutated,
   deletedView = false,
 }: Props) {
+  const t = useTranslations();
   const { formatDate, formatDateTime, formatTime } = useRegionalSettings();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -161,7 +163,9 @@ export function ContentTable({
         </div>
       ) : total === 0 ? (
         <p className="text-muted-foreground text-sm py-12 text-center">
-          {deletedView ? "No deleted content found." : "No content found."}
+          {deletedView
+            ? t("dashboard.content.deletedEmpty")
+            : t("dashboard.content.empty")}
         </p>
       ) : (
         <>
@@ -180,17 +184,23 @@ export function ContentTable({
                       }
                       disabled={selectableRows.length === 0}
                       onCheckedChange={(c) => toggleAll(!!c)}
-                      aria-label="Select all"
+                      aria-label={t("dashboard.content.table.selectAll")}
                     />
                   </TableHead>
                 )}
-                <TableHead>Title</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Author</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>{deletedView ? "Deleted" : "Updated"}</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("dashboard.common.table.title")}</TableHead>
+                <TableHead>{t("dashboard.common.table.type")}</TableHead>
+                <TableHead>{t("dashboard.common.table.category")}</TableHead>
+                <TableHead>{t("dashboard.common.table.author")}</TableHead>
+                <TableHead>{t("dashboard.common.table.status")}</TableHead>
+                <TableHead>
+                  {deletedView
+                    ? t("dashboard.content.table.deleted")
+                    : t("dashboard.content.table.updated")}
+                </TableHead>
+                <TableHead className="text-right">
+                  {t("dashboard.common.table.actions")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -217,8 +227,12 @@ export function ContentTable({
                           onCheckedChange={(c) => toggleOne(row.id, !!c)}
                           aria-label={
                             locked
-                              ? `${row.title} is locked for editing`
-                              : `Select ${row.title}`
+                              ? t("dashboard.content.table.rowLocked", {
+                                  title: row.title,
+                                })
+                              : t("dashboard.content.table.selectRow", {
+                                  title: row.title,
+                                })
                           }
                         />
                       </TableCell>
@@ -239,18 +253,23 @@ export function ContentTable({
                           <Badge
                             variant="outline"
                             className="max-w-[280px] gap-1 text-xs"
-                            title={`Currently being edited by ${row.editLock.userDisplayName}. Last activity ${formatTime(row.editLock.lastHeartbeatAt)}.`}
+                            title={t("dashboard.content.table.lockTitle", {
+                              name: row.editLock.userDisplayName,
+                              time: formatTime(row.editLock.lastHeartbeatAt),
+                            })}
                           >
                             <Lock className="h-3 w-3 shrink-0" />
                             <span className="truncate">
-                              Currently edited by {row.editLock.userDisplayName}
+                              {t("dashboard.content.table.lockBadge", {
+                                name: row.editLock.userDisplayName,
+                              })}
                             </span>
                           </Badge>
                         )}
                         {row.homepage && (
                           <Badge variant="outline" className="gap-1">
                             <Star className="h-3 w-3 fill-current" />
-                            Homepage
+                            {t("dashboard.content.homepage")}
                           </Badge>
                         )}
                       </div>
@@ -271,7 +290,7 @@ export function ContentTable({
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {getContentTypeLabel(row.contentType)}
+                        {t(getContentTypeLabelKey(row.contentType))}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
@@ -284,7 +303,7 @@ export function ContentTable({
                     <TableCell>
                       <div className="space-y-1">
                         <Badge variant={statusVariant[row.status]}>
-                          {getContentStatusLabel(row.status)}
+                          {t(getContentStatusLabelKey(row.status))}
                         </Badge>
                         {scheduleState && (
                           <div>
@@ -297,18 +316,28 @@ export function ContentTable({
                               className="text-[10px]"
                             >
                               {scheduleState === "scheduled"
-                                ? "Scheduled"
+                                ? t("dashboard.content.schedule.scheduled")
                                 : scheduleState === "live_until"
-                                  ? "Live until"
-                                  : "Expired"}
+                                  ? t("dashboard.content.schedule.liveUntil")
+                                  : t("dashboard.content.schedule.expired")}
                             </Badge>
                           </div>
                         )}
                         {(publishLabel || unpublishLabel) && (
                           <div className="space-y-0.5 text-xs text-muted-foreground">
-                            {publishLabel && <div>Publish {publishLabel}</div>}
+                            {publishLabel && (
+                              <div>
+                                {t("dashboard.content.schedule.publish", {
+                                  date: publishLabel,
+                                })}
+                              </div>
+                            )}
                             {unpublishLabel && (
-                              <div>Unpublish {unpublishLabel}</div>
+                              <div>
+                                {t("dashboard.content.schedule.unpublish", {
+                                  date: unpublishLabel,
+                                })}
+                              </div>
                             )}
                           </div>
                         )}
@@ -320,17 +349,25 @@ export function ContentTable({
                           <div>
                             {row.deletedAt
                               ? formatDateTime(row.deletedAt)
-                              : "Unknown"}
+                              : t("dashboard.common.meta.unknown")}
                           </div>
                           <div className="mt-0.5">
-                            by {row.deletedByName ?? "Unknown"}
+                            {t("dashboard.common.meta.by", {
+                              name:
+                                row.deletedByName ??
+                                t("dashboard.common.meta.unknown"),
+                            })}
                           </div>
                         </>
                       ) : (
                         <>
                           <div>{formatDateTime(row.updatedAt)}</div>
                           <div className="mt-0.5">
-                            by {row.updatedByName ?? "Unknown"}
+                            {t("dashboard.common.meta.by", {
+                              name:
+                                row.updatedByName ??
+                                t("dashboard.common.meta.unknown"),
+                            })}
                           </div>
                         </>
                       )}
@@ -348,7 +385,9 @@ export function ContentTable({
                             <Button variant="outline" size="sm" asChild>
                               <Link href={`/dashboard/content/${row.id}/edit`}>
                                 <Pencil className="h-4 w-4" />
-                                <span className="sr-only">Edit</span>
+                                <span className="sr-only">
+                                  {t("dashboard.common.actions.edit")}
+                                </span>
                               </Link>
                             </Button>
                             <ContentRowActions

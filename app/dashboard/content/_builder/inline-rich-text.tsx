@@ -31,6 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTiptapToolbarState } from "@/app/dashboard/content/_editors/tiptap-toolbar-state";
+import { useSourceTranslations } from "@/components/source-translations";
 
 export const emptyInlineDoc: JSONContent = {
   type: "doc",
@@ -99,6 +100,7 @@ export function InlineRichText({
   blockTextAlign,
   onBlockTextAlignChange,
 }: Props) {
+  const t = useSourceTranslations();
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [focused, setFocused] = useState(false);
@@ -308,21 +310,21 @@ export function InlineRichText({
             <BtnInline
               active={inlineStyleActive("bold")}
               onClick={() => applyInlineStyle("bold")}
-              title="Bold"
+              title={t("Bold")}
             >
               <Bold className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
               active={inlineStyleActive("italic")}
               onClick={() => applyInlineStyle("italic")}
-              title="Italic"
+              title={t("Italic")}
             >
               <Italic className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
               active={inlineStyleActive("underline")}
               onClick={() => applyInlineStyle("underline")}
-              title="Underline"
+              title={t("Underline")}
             >
               <UnderlineIcon className="h-3.5 w-3.5" />
             </BtnInline>
@@ -330,21 +332,21 @@ export function InlineRichText({
             <BtnInline
               active={alignActive("left")}
               onClick={() => applyTextAlign("left")}
-              title="Align left"
+              title={t("Align left")}
             >
               <AlignLeft className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
               active={alignActive("center")}
               onClick={() => applyTextAlign("center")}
-              title="Align center"
+              title={t("Align center")}
             >
               <AlignCenter className="h-3.5 w-3.5" />
             </BtnInline>
             <BtnInline
               active={alignActive("right")}
               onClick={() => applyTextAlign("right")}
-              title="Align right"
+              title={t("Align right")}
             >
               <AlignRight className="h-3.5 w-3.5" />
             </BtnInline>
@@ -352,7 +354,7 @@ export function InlineRichText({
               <BtnInline
                 active={alignActive("justify")}
                 onClick={() => applyTextAlign("justify")}
-                title="Justify"
+                title={t("Justify")}
               >
                 <AlignJustify className="h-3.5 w-3.5" />
               </BtnInline>
@@ -365,7 +367,7 @@ export function InlineRichText({
                   onClick={() =>
                     editor.chain().focus().toggleBulletList().run()
                   }
-                  title="Bulleted list"
+                  title={t("Bulleted list")}
                 >
                   <List className="h-3.5 w-3.5" />
                 </BtnInline>
@@ -374,7 +376,7 @@ export function InlineRichText({
                   onClick={() =>
                     editor.chain().focus().toggleOrderedList().run()
                   }
-                  title="Numbered list"
+                  title={t("Numbered list")}
                 >
                   <ListOrdered className="h-3.5 w-3.5" />
                 </BtnInline>
@@ -384,7 +386,7 @@ export function InlineRichText({
             <BtnInline
               active={toolbarState.link}
               onClick={openLinkDialog}
-              title="Link"
+              title={t("Link")}
             >
               <LinkIcon className="h-3.5 w-3.5" />
             </BtnInline>
@@ -394,7 +396,7 @@ export function InlineRichText({
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent aria-describedby={undefined} className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Insert link</DialogTitle>
+            <DialogTitle>{t("Insert link")}</DialogTitle>
           </DialogHeader>
           <Input
             value={linkUrl}
@@ -410,9 +412,9 @@ export function InlineRichText({
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
-              Cancel
+              {t("Cancel")}
             </Button>
-            <Button onClick={applyLink}>Apply</Button>
+            <Button onClick={applyLink}>{t("Apply")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

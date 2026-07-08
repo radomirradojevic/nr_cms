@@ -4,16 +4,21 @@ import { ArrowRight, Lock, Store, Tags } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WebshopAddonRequired } from "@/components/webshop-addon-required";
+import { getAddonI18nContext } from "@/lib/i18n/addon-server";
+import { getTranslations } from "@/lib/i18n/server";
 import { resolveWebshopAddonState } from "@/lib/webshop-addon/license";
 
 export async function WebshopCategoriesBridge({ userId }: { userId: string }) {
   const addonState = await resolveWebshopAddonState();
+  const i18n = await getAddonI18nContext();
+  const t = await getTranslations("backend");
 
   if (
     addonState.status === "ready" &&
     addonState.addon.renderContentCategoriesBridge
   ) {
     return addonState.addon.renderContentCategoriesBridge({
+      i18n,
       licenseMode: "ready",
       userId,
     });
@@ -24,6 +29,7 @@ export async function WebshopCategoriesBridge({ userId }: { userId: string }) {
     addonState.addon.renderContentCategoriesBridge
   ) {
     return addonState.addon.renderContentCategoriesBridge({
+      i18n,
       licenseMode: "edit_existing_only",
       userId,
     });
@@ -44,21 +50,21 @@ export async function WebshopCategoriesBridge({ userId }: { userId: string }) {
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-base font-semibold">
-                    Webshop categories
+                    {t("addons.webshop.categoryBridge.title")}
                   </h2>
-                  <Badge variant="outline">Read-only bridge</Badge>
+                  <Badge variant="outline">
+                    {t("addons.webshop.categoryBridge.readOnlyBadge")}
+                  </Badge>
                 </div>
                 <p className="max-w-3xl text-sm text-muted-foreground">
-                  Webshop category management lives in the paid Webshop
-                  dashboard. This CMS tab becomes a read-only category tree when
-                  the add-on is installed and licensed.
+                  {t("addons.webshop.categoryBridge.description")}
                 </p>
               </div>
             </div>
             <Button asChild variant="outline">
               <Link href="/dashboard/webshop">
                 <Store className="h-4 w-4" />
-                Webshop dashboard
+                {t("addons.webshop.categoryBridge.dashboardLink")}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -78,24 +84,24 @@ export async function WebshopCategoriesBridge({ userId }: { userId: string }) {
           </div>
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold">Webshop categories</h2>
+              <h2 className="text-base font-semibold">
+                {t("addons.webshop.categoryBridge.title")}
+              </h2>
               <Badge variant="outline">
                 {addonState.status === "license_expired"
-                  ? "Edit existing only"
-                  : "Bridge unavailable"}
+                  ? t("addons.webshop.categoryBridge.editExistingOnlyBadge")
+                  : t("addons.webshop.categoryBridge.unavailableBadge")}
               </Badge>
             </div>
             <p className="max-w-3xl text-sm text-muted-foreground">
-              The installed Webshop add-on does not expose the read-only CMS
-              bridge for categories. Manage categories from the Webshop
-              dashboard.
+              {t("addons.webshop.categoryBridge.unavailableDescription")}
             </p>
           </div>
         </div>
         <Button asChild variant="outline">
           <Link href="/dashboard/webshop/categories">
             <Store className="h-4 w-4" />
-            Open management
+            {t("addons.webshop.categoryBridge.openManagement")}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "@/components/i18n-provider";
 import {
   Select,
   SelectContent,
@@ -20,9 +21,13 @@ export function PageSizeSelector({
   pageSize: number;
   onChange: (size: number) => void;
 }) {
+  const t = useTranslations();
+
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-muted-foreground">Rows per page</span>
+      <span className="text-sm text-muted-foreground">
+        {t("dashboard.pagination.rowsPerPage")}
+      </span>
       <Select
         disabled={disabled}
         value={String(pageSize)}

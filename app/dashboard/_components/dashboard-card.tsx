@@ -22,6 +22,7 @@ interface DashboardCardProps {
   href: string;
   stats: StatItem[];
   actionLabel: string;
+  emptyLabel: string;
   showAction?: boolean;
 }
 
@@ -32,6 +33,7 @@ export function DashboardCard({
   href,
   stats,
   actionLabel,
+  emptyLabel,
   showAction = true,
 }: DashboardCardProps) {
   const allEmpty = stats.every((s) => s.value === 0);
@@ -48,7 +50,7 @@ export function DashboardCard({
         </CardHeader>
         <CardContent>
           {allEmpty ? (
-            <p className="text-sm text-muted-foreground">No data yet.</p>
+            <p className="text-sm text-muted-foreground">{emptyLabel}</p>
           ) : (
             <ul className="space-y-1">
               {stats.map((stat) => (

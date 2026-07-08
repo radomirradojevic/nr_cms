@@ -6,6 +6,7 @@ import {
   type ContentCategoryAuthorInfo,
 } from "@/data/content-categories";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { hasRole, getRoles } from "@/lib/roles";
 import { CategoryTableContainer } from "./category-table-container";
 import { WebshopCategoriesBridge } from "./webshop-categories-bridge";
@@ -18,9 +19,10 @@ export default async function ContentCategoriesPage() {
     redirect("/dashboard");
   }
 
-  const [pageAuthorIds, blogAuthorIds] = await Promise.all([
+  const [pageAuthorIds, blogAuthorIds, t] = await Promise.all([
     getDistinctCategoryAuthorIds("page"),
     getDistinctCategoryAuthorIds("blog_post"),
+    getTranslations("backend"),
   ]);
   const authorIds = [...new Set([...pageAuthorIds, ...blogAuthorIds])];
   const authorNameMap = new Map<string, string>();
@@ -50,17 +52,25 @@ export default async function ContentCategoriesPage() {
   return (
     <div className="p-6 space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold">Content Categories</h1>
+        <h1 className="text-2xl font-semibold">
+          {t("dashboard.contentCategories.title")}
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage categories for pages and blog posts. Admin access only.
+          {t("dashboard.contentCategories.description")}
         </p>
       </div>
 
       <Tabs defaultValue="page" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="page">Page categories</TabsTrigger>
-          <TabsTrigger value="blog_post">Blog post categories</TabsTrigger>
-          <TabsTrigger value="webshop">Webshop categories</TabsTrigger>
+          <TabsTrigger value="page">
+            {t("dashboard.contentCategories.tabs.page")}
+          </TabsTrigger>
+          <TabsTrigger value="blog_post">
+            {t("dashboard.contentCategories.tabs.blogPost")}
+          </TabsTrigger>
+          <TabsTrigger value="webshop">
+            {t("dashboard.contentCategories.tabs.webshop")}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="page">

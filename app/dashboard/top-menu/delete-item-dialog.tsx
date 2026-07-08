@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useSourceTranslations } from "@/components/source-translations";
 import { deleteMenuItem } from "./actions";
 
 type Props = {
@@ -33,6 +34,7 @@ export function DeleteItemDialog({
   disabled,
   clientId,
 }: Props) {
+  const st = useSourceTranslations();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -61,29 +63,31 @@ export function DeleteItemDialog({
       <AlertDialogTrigger asChild>
         <Button variant="ghost" size="sm" disabled={disabled}>
           <Trash2 className="h-4 w-4 text-destructive" />
-          <span className="sr-only">Delete</span>
+          <span className="sr-only">{st("Delete")}</span>
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete menu item?</AlertDialogTitle>
+          <AlertDialogTitle>{st("Delete menu item?")}</AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete{" "}
-            <span className="font-medium">{item.label}</span>
-            {childCount > 0 && (
-              <>
-                {" "}
-                and all {childCount} nested item{childCount === 1 ? "" : "s"}
-              </>
-            )}
-            . This action cannot be undone.
+            {childCount > 0
+              ? st(
+                  "This will permanently delete {label} and all {count} nested items. This action cannot be undone.",
+                  { count: childCount, label: item.label },
+                )
+              : st(
+                  "This will permanently delete {label}. This action cannot be undone.",
+                  { label: item.label },
+                )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {serverError && (
-          <p className="text-sm text-destructive px-1">{serverError}</p>
+          <p className="text-sm text-destructive px-1">{st(serverError)}</p>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>
+            {st("Cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -93,7 +97,7 @@ export function DeleteItemDialog({
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Delete
+            {st("Delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

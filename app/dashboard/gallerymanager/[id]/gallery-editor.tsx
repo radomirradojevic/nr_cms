@@ -15,6 +15,7 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import { toast } from "sonner";
 
+import { useTranslations } from "@/components/i18n-provider";
 import type { GalleryDetail, FileRow } from "@/data/galleries";
 import { ImagePicker } from "./image-picker";
 import { GalleryPanel, GALLERY_DROP_ID } from "./gallery-panel";
@@ -44,6 +45,7 @@ export function GalleryEditor({
   pickerPageSize,
   isAdmin,
 }: Props) {
+  const t = useTranslations();
   void isAdmin;
 
   const [images, setImages] = useState<GalleryImageView[]>(
@@ -78,7 +80,7 @@ export function GalleryEditor({
     // Optimistic insert
     const exists = images.some((i) => i.fileId === file.id);
     if (exists) {
-      toast.error("This image is already in the gallery.");
+      toast.error(t("dashboard.galleries.detail.duplicateOne"));
       return;
     }
     setImages((prev) => [...prev, { fileId: file.id, file }]);
@@ -96,7 +98,7 @@ export function GalleryEditor({
     if (duplicates.length > 0) {
       // rollback the optimistic insert (server reports duplicate)
       setImages((prev) => prev.filter((i) => i.fileId !== file.id));
-      toast.error("This image is already in the gallery.");
+      toast.error(t("dashboard.galleries.detail.duplicateOne"));
     }
   }
 
@@ -104,7 +106,7 @@ export function GalleryEditor({
     if (files.length === 0) return;
     const newOnes = files.filter((f) => !images.some((i) => i.fileId === f.id));
     if (newOnes.length === 0) {
-      toast.error("All selected images are already in the gallery.");
+      toast.error(t("dashboard.galleries.detail.duplicateAll"));
       return;
     }
     setImages((prev) => [
@@ -126,11 +128,17 @@ export function GalleryEditor({
     if (duplicates.length > 0) {
       const dupSet = new Set(duplicates);
       setImages((prev) => prev.filter((i) => !dupSet.has(i.fileId)));
-      toast.error(`${duplicates.length} image(s) are already in this gallery.`);
+      toast.error(
+        t("dashboard.galleries.detail.duplicateCount", {
+          count: duplicates.length,
+        }),
+      );
     }
     const added = "added" in res ? (res.added ?? []) : [];
     if (added.length > 0) {
-      toast.success(`Added ${added.length} image(s).`);
+      toast.success(
+        t("dashboard.galleries.detail.addedCount", { count: added.length }),
+      );
     }
   }
 
@@ -156,7 +164,7 @@ export function GalleryEditor({
       toast.error(res.error);
       return;
     }
-    toast.success("Image removed from gallery.");
+    toast.success(t("dashboard.galleries.detail.removed"));
   }
 
   async function handleDragEnd(e: DragEndEvent) {

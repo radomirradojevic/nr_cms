@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslations } from "@/components/i18n-provider";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,11 +15,15 @@ import { ContentTable, type ContentRow } from "./content-table";
 import type { ContentAuthorInfo } from "@/data/content";
 import {
   CONTENT_STATUSES,
-  getContentStatusLabel,
+  getContentStatusLabelKey,
   type ContentStatus,
 } from "@/lib/content-status";
 import type { Role } from "@/lib/roles";
-import type { ContentType } from "@/lib/content-types";
+import {
+  CMS_CONTENT_TYPES,
+  getContentTypeLabelKey,
+  type ContentType,
+} from "@/lib/content-types";
 
 type AllowedPageSize = 10 | 20 | 30 | 50 | 100;
 
@@ -41,6 +46,7 @@ export function ContentTableContainer({
   webshopCategories,
   authors,
 }: Props) {
+  const t = useTranslations();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [type, setType] = useState<"all" | ContentType>("all");
@@ -164,27 +170,34 @@ export function ContentTableContainer({
         onValueChange={(value) => setView(value as typeof view)}
       >
         <TabsList>
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="deleted">Deleted content</TabsTrigger>
+          <TabsTrigger value="content">
+            {t("dashboard.content.tabs.content")}
+          </TabsTrigger>
+          <TabsTrigger value="deleted">
+            {t("dashboard.content.tabs.deleted")}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search title, slug, meta…"
+          placeholder={t("dashboard.content.searchPlaceholder")}
           className="max-w-xs"
         />
         <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Type" />
+            <SelectValue placeholder={t("dashboard.filters.type")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            <SelectItem value="page">Page</SelectItem>
-            <SelectItem value="blog_post">Blog post</SelectItem>
-            <SelectItem value="hero_slider">Hero Slider</SelectItem>
-            <SelectItem value="webshop">Webshop</SelectItem>
+            <SelectItem value="all">
+              {t("dashboard.filters.allTypes")}
+            </SelectItem>
+            {CMS_CONTENT_TYPES.map((option) => (
+              <SelectItem key={option} value={option}>
+                {t(getContentTypeLabelKey(option))}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         {view === "content" && (
@@ -196,13 +209,15 @@ export function ContentTableContainer({
             }}
           >
             <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder={t("dashboard.filters.status")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="all">
+                {t("dashboard.filters.allStatuses")}
+              </SelectItem>
               {CONTENT_STATUSES.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {getContentStatusLabel(option)}
+                  {t(getContentStatusLabelKey(option))}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -216,10 +231,12 @@ export function ContentTableContainer({
           }}
         >
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder={t("dashboard.filters.category")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
+            <SelectItem value="all">
+              {t("dashboard.filters.allCategories")}
+            </SelectItem>
             {availableCategories.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
@@ -236,10 +253,12 @@ export function ContentTableContainer({
             }}
           >
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Author" />
+              <SelectValue placeholder={t("dashboard.filters.author")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All authors</SelectItem>
+              <SelectItem value="all">
+                {t("dashboard.filters.allAuthors")}
+              </SelectItem>
               {authors.map((author) => (
                 <SelectItem key={author.id} value={author.id}>
                   {author.name}

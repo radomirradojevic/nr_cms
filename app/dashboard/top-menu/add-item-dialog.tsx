@@ -7,6 +7,7 @@ import { z } from "zod";
 import { Loader2, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   Dialog,
   DialogContent,
@@ -31,23 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  isValidMenuUrl,
-  MENU_URL_VALIDATION_MESSAGE,
-} from "@/lib/menu-url";
+import { isValidMenuUrl } from "@/lib/menu-url";
 import { createMenuItem } from "./actions";
-
-const formSchema = z.object({
-  label: z.string().min(1, "Label is required.").max(200),
-  url: z
-    .string()
-    .min(1, "URL is required.")
-    .max(2000)
-    .refine(isValidMenuUrl, MENU_URL_VALIDATION_MESSAGE),
-  target: z.enum(["_self", "_blank"]),
-});
-
-type FormValues = z.infer<typeof formSchema>;
 
 type Props = {
   menuId: string;
@@ -64,8 +50,22 @@ export function AddItemDialog({
   disabled,
   clientId,
 }: Props) {
+  const t = useTranslations();
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const formSchema = z.object({
+    label: z
+      .string()
+      .min(1, t("dashboard.menus.customLink.labelRequired"))
+      .max(200),
+    url: z
+      .string()
+      .min(1, t("dashboard.menus.customLink.urlRequired"))
+      .max(2000)
+      .refine(isValidMenuUrl, t("dashboard.menus.customLink.invalidUrl")),
+    target: z.enum(["_self", "_blank"]),
+  });
+  type FormValues = z.infer<typeof formSchema>;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -108,14 +108,14 @@ export function AddItemDialog({
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" disabled={disabled}>
           <Plus className="mr-2 h-4 w-4" />
-          Add custom link
+          {t("dashboard.menus.customLink.add")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add custom link</DialogTitle>
+          <DialogTitle>{t("dashboard.menus.customLink.add")}</DialogTitle>
           <DialogDescription>
-            Add a menu item with a custom URL (external or internal path).
+            {t("dashboard.menus.customLink.addDescription")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -125,9 +125,14 @@ export function AddItemDialog({
               name="label"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Label</FormLabel>
+                  <FormLabel>{t("dashboard.menus.customLink.label")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Documentation" {...field} />
+                    <Input
+                      placeholder={t(
+                        "dashboard.menus.customLink.labelPlaceholder",
+                      )}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -138,10 +143,12 @@ export function AddItemDialog({
               name="url"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL</FormLabel>
+                  <FormLabel>{t("dashboard.menus.customLink.url")}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="https://example.com, /path, or #"
+                      placeholder={t(
+                        "dashboard.menus.customLink.urlPlaceholder",
+                      )}
                       {...field}
                     />
                   </FormControl>
@@ -154,7 +161,9 @@ export function AddItemDialog({
               name="target"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Open in</FormLabel>
+                  <FormLabel>
+                    {t("dashboard.menus.customLink.openIn")}
+                  </FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
@@ -162,8 +171,12 @@ export function AddItemDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="_self">Same tab</SelectItem>
-                      <SelectItem value="_blank">New tab</SelectItem>
+                      <SelectItem value="_self">
+                        {t("dashboard.menus.target.sameTab")}
+                      </SelectItem>
+                      <SelectItem value="_blank">
+                        {t("dashboard.menus.target.newTab")}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -179,13 +192,13 @@ export function AddItemDialog({
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t("dashboard.common.actions.cancel")}
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Create
+                {t("dashboard.common.actions.create")}
               </Button>
             </div>
           </form>

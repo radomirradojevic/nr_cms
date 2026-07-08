@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   Select,
   SelectContent,
@@ -59,6 +60,7 @@ export function AddCategoryDialog({
   disabled,
   clientId,
 }: Props) {
+  const st = useSourceTranslations();
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -103,15 +105,16 @@ export function AddCategoryDialog({
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" disabled={disabled}>
           <FolderTree className="mr-2 h-4 w-4" />
-          Add blog category
+          {st("Add blog category")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add blog category</DialogTitle>
+          <DialogTitle>{st("Add blog category")}</DialogTitle>
           <DialogDescription>
-            Pick a blog category. The menu item will link to a page that lists
-            all published blog posts in that category.
+            {st(
+              "Pick a blog category. The menu item will link to a page that lists all published blog posts in that category.",
+            )}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -121,17 +124,17 @@ export function AddCategoryDialog({
               name="categoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Blog category</FormLabel>
+                  <FormLabel>{st("Blog category")}</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
+                        <SelectValue placeholder={st("Select a category")} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {categories.length === 0 ? (
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                          No blog categories available.
+                          {st("No blog categories available.")}
                         </div>
                       ) : (
                         categories.map((c) => (
@@ -151,10 +154,10 @@ export function AddCategoryDialog({
               name="label"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Label (optional)</FormLabel>
+                  <FormLabel>{st("Label (optional)")}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Defaults to the category name"
+                      placeholder={st("Defaults to the category name")}
                       {...field}
                     />
                   </FormControl>
@@ -167,7 +170,7 @@ export function AddCategoryDialog({
               name="target"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Open in</FormLabel>
+                  <FormLabel>{st("Open in")}</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
@@ -175,8 +178,8 @@ export function AddCategoryDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="_self">Same tab</SelectItem>
-                      <SelectItem value="_blank">New tab</SelectItem>
+                      <SelectItem value="_self">{st("Same tab")}</SelectItem>
+                      <SelectItem value="_blank">{st("New tab")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -184,7 +187,7 @@ export function AddCategoryDialog({
               )}
             />
             {serverError && (
-              <p className="text-sm text-destructive">{serverError}</p>
+              <p className="text-sm text-destructive">{st(serverError)}</p>
             )}
             <div className="flex justify-end gap-2">
               <Button
@@ -192,7 +195,7 @@ export function AddCategoryDialog({
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {st("Cancel")}
               </Button>
               <Button
                 type="submit"
@@ -203,7 +206,7 @@ export function AddCategoryDialog({
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Save
+                {st("Save")}
               </Button>
             </div>
           </form>

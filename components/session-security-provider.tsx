@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useSourceTranslations } from "@/components/source-translations";
 
 interface SessionSecurityProviderProps {
   maxSessionDurationMinutes: number;
@@ -139,6 +140,7 @@ function SessionSecurityTimers({
   signInAtMs,
   onSignOut,
 }: TimersProps) {
+  const st = useSourceTranslations();
   const idleMs = idleLogoutMinutes * 60_000;
   const maxMs = maxSessionDurationMinutes * 60_000;
   const warningLeadMs = Math.min(60_000, Math.floor(idleMs / 4));
@@ -169,10 +171,7 @@ function SessionSecurityTimers({
     const abs = safeGetNumber(absoluteKey);
     const idle = safeGetNumber(idleKey);
 
-    if (
-      (abs !== null && nowMs >= abs) ||
-      (idle !== null && nowMs >= idle)
-    ) {
+    if ((abs !== null && nowMs >= abs) || (idle !== null && nowMs >= idle)) {
       performSignOut();
       return;
     }
@@ -262,10 +261,7 @@ function SessionSecurityTimers({
       const abs = safeGetNumber(absoluteKey);
       const idle = safeGetNumber(idleKey);
 
-      if (
-        (abs !== null && nowMs >= abs) ||
-        (idle !== null && nowMs >= idle)
-      ) {
+      if ((abs !== null && nowMs >= abs) || (idle !== null && nowMs >= idle)) {
         performSignOut();
         return;
       }
@@ -334,12 +330,12 @@ function SessionSecurityTimers({
     <AlertDialog open={warningOpen}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>You will be signed out</AlertDialogTitle>
+          <AlertDialogTitle>{st("You will be signed out")}</AlertDialogTitle>
           <AlertDialogDescription>
             {isAbsolute
-              ? "Your session has reached its maximum duration."
-              : "You have been inactive."}{" "}
-            You will be signed out in{" "}
+              ? st("Your session has reached its maximum duration.")
+              : st("You have been inactive.")}{" "}
+            {st("You will be signed out in")}{" "}
             <span className="font-mono font-medium">
               {formatMmSs(remainingSec)}
             </span>
@@ -349,11 +345,11 @@ function SessionSecurityTimers({
         <AlertDialogFooter>
           {!isAbsolute && (
             <AlertDialogAction onClick={resetIdle}>
-              Stay signed in
+              {st("Stay signed in")}
             </AlertDialogAction>
           )}
           <AlertDialogCancel onClick={performSignOut}>
-            Sign out now
+            {st("Sign out now")}
           </AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>

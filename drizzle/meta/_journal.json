@@ -519,6 +519,48 @@
       "when": 1781654400046,
       "tag": "0073_webshop_fulfillment_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1781654400047,
+      "tag": "0074_webshop_license_servers",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1781654400048,
+      "tag": "0075_webshop_license_server_issues",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1781654400049,
+      "tag": "0076_license_server_addon",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1781654400050,
+      "tag": "0077_license_server_addon_phase3",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1781654400051,
+      "tag": "0078_webshop_license_server_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1781654400052,
+      "tag": "0079_global_settings_cms_languages",
+      "breakpoints": true
     }
   ]
 }

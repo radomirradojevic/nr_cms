@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import { updateFile } from "./actions";
 import type { FileRow } from "@/data/files";
 
@@ -25,6 +26,7 @@ type Props = {
 };
 
 export function EditFileDialog({ file, open, onOpenChange, onUpdated }: Props) {
+  const t = useTranslations();
   const [filename, setFilename] = useState(file.filename);
   const [title, setTitle] = useState(file.title ?? "");
   const [alt, setAlt] = useState(file.alt ?? "");
@@ -68,16 +70,17 @@ export function EditFileDialog({ file, open, onOpenChange, onUpdated }: Props) {
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Edit file</DialogTitle>
+            <DialogTitle>{t("dashboard.files.edit.title")}</DialogTitle>
             <DialogDescription>
-              Update the file&apos;s display metadata. The physical file is not
-              changed.
+              {t("dashboard.files.edit.description")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="filename">Filename</Label>
+              <Label htmlFor="filename">
+                {t("dashboard.files.edit.filename")}
+              </Label>
               <Input
                 id="filename"
                 value={filename}
@@ -87,7 +90,9 @@ export function EditFileDialog({ file, open, onOpenChange, onUpdated }: Props) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">
+                {t("dashboard.files.edit.displayTitle")}
+              </Label>
               <Input
                 id="title"
                 value={title}
@@ -96,7 +101,7 @@ export function EditFileDialog({ file, open, onOpenChange, onUpdated }: Props) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="alt">Alt text</Label>
+              <Label htmlFor="alt">{t("dashboard.files.edit.altText")}</Label>
               <Textarea
                 id="alt"
                 value={alt}
@@ -115,11 +120,11 @@ export function EditFileDialog({ file, open, onOpenChange, onUpdated }: Props) {
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
+              {t("dashboard.common.actions.save")}
             </Button>
           </DialogFooter>
         </form>

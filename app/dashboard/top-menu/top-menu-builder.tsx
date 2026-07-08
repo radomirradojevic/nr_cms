@@ -40,6 +40,7 @@ import { AddItemDialog } from "./add-item-dialog";
 import { AddCategoryDialog } from "./add-category-dialog";
 import { createMenuItem, reorderMenu } from "./actions";
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
+import { useTranslations } from "@/components/i18n-provider";
 
 const INDENT = 24;
 
@@ -56,6 +57,7 @@ export function TopMenuBuilder({
   pickable,
   categories,
 }: Props) {
+  const t = useTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const canEdit = lock.isEditor;
@@ -210,13 +212,17 @@ export function TopMenuBuilder({
     >
       <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6">
         <aside className="border rounded-md p-4 bg-card h-fit">
-          <h2 className="text-sm font-semibold mb-3">Content</h2>
+          <h2 className="text-sm font-semibold mb-3">
+            {t("dashboard.menus.builder.content")}
+          </h2>
           <ContentPicker items={pickable} />
         </aside>
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold">Menu structure</h2>
+            <h2 className="text-sm font-semibold">
+              {t("dashboard.menus.builder.menuStructure")}
+            </h2>
             <div className="flex items-center gap-2">
               <AddCategoryDialog
                 menuId={menuId}
@@ -252,8 +258,7 @@ export function TopMenuBuilder({
             >
               {visibleFlat.length === 0 && (
                 <li className="p-6 text-sm text-muted-foreground text-center">
-                  No menu items yet. Drag a content item from the left, or click
-                  &quot;Add custom link&quot;.
+                  {t("dashboard.menus.builder.empty")}
                 </li>
               )}
               {visibleFlat.map((item) => {
@@ -277,9 +282,7 @@ export function TopMenuBuilder({
           </SortableContext>
 
           <p className="text-xs text-muted-foreground">
-            Drag horizontally while moving an item to nest it under the row
-            above. Drag a content item from the left panel onto the menu to
-            create a new linked item.
+            {t("dashboard.menus.builder.help")}
           </p>
         </section>
       </div>
@@ -287,7 +290,8 @@ export function TopMenuBuilder({
       <DragOverlay>
         {activeId ? (
           <div className="bg-popover text-popover-foreground shadow-lg rounded border px-3 py-2 text-sm">
-            {flat.find((f) => f.id === activeId)?.label ?? "Menu item"}
+            {flat.find((f) => f.id === activeId)?.label ??
+              t("dashboard.menus.builder.menuItem")}
           </div>
         ) : null}
       </DragOverlay>

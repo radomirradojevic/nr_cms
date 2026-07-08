@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { TablePagination } from "@/app/dashboard/table-pagination";
+import { useTranslations } from "@/components/i18n-provider";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
 import { CreateCategoryDialog } from "./create-category-dialog";
 import { EditCategoryDialog } from "./edit-category-dialog";
@@ -76,6 +77,7 @@ export function CategoryTable({
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const t = useTranslations();
   const { formatDate, formatDateTime } = useRegionalSettings();
 
   const allSelected =
@@ -114,13 +116,20 @@ export function CategoryTable({
     onMutated();
   }
 
-  const label = contentType === "page" ? "Page" : "Blog Post";
+  const label =
+    contentType === "page"
+      ? t("dashboard.contentCategories.types.page")
+      : t("dashboard.contentCategories.types.blogPost");
+  const lowercaseLabel =
+    contentType === "page"
+      ? t("dashboard.contentCategories.types.pageLower")
+      : t("dashboard.contentCategories.types.blogPostLower");
 
   return (
     <>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium">
-          {label} Categories{" "}
+          {t("dashboard.contentCategories.table.title", { type: label })}{" "}
           <span className="text-muted-foreground text-base font-normal">
             ({total})
           </span>
@@ -136,18 +145,24 @@ export function CategoryTable({
             >
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm">
-                  Delete selected ({selectedIds.size})
+                  {t("dashboard.contentCategories.dialogs.deleteSelected", {
+                    count: selectedIds.size,
+                  })}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>
-                    Delete selected categories?
+                    {t(
+                      "dashboard.contentCategories.dialogs.deleteSelectedTitle",
+                    )}
                   </AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete {selectedIds.size} selected{" "}
-                    {selectedIds.size === 1 ? "category" : "categories"}. This
-                    action cannot be undone.
+                    {t.plural(
+                      "dashboard.contentCategories.dialogs.deleteSelectedDescription",
+                      selectedIds.size,
+                      { count: selectedIds.size },
+                    )}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 {bulkError && (
@@ -155,7 +170,7 @@ export function CategoryTable({
                 )}
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={bulkDeleting}>
-                    Cancel
+                    {t("dashboard.contentCategories.actions.cancel")}
                   </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={(e) => {
@@ -168,7 +183,7 @@ export function CategoryTable({
                     {bulkDeleting && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
-                    Delete
+                    {t("dashboard.contentCategories.actions.delete")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -188,8 +203,12 @@ export function CategoryTable({
       ) : total === 0 ? (
         <p className="text-muted-foreground text-sm">
           {query
-            ? `No ${label.toLowerCase()} categories match your search.`
-            : `No ${label.toLowerCase()} categories yet.`}
+            ? t("dashboard.contentCategories.table.emptySearch", {
+                type: lowercaseLabel,
+              })
+            : t("dashboard.contentCategories.table.empty", {
+                type: lowercaseLabel,
+              })}
         </p>
       ) : (
         <>
@@ -200,14 +219,26 @@ export function CategoryTable({
                   <Checkbox
                     checked={allSelected}
                     onCheckedChange={(checked) => toggleAll(!!checked)}
-                    aria-label="Select all"
+                    aria-label={t(
+                      "dashboard.contentCategories.table.selectAll",
+                    )}
                   />
                 </TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Author</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>
+                  {t("dashboard.contentCategories.table.name")}
+                </TableHead>
+                <TableHead>
+                  {t("dashboard.contentCategories.table.items")}
+                </TableHead>
+                <TableHead>
+                  {t("dashboard.contentCategories.table.author")}
+                </TableHead>
+                <TableHead>
+                  {t("dashboard.contentCategories.table.updated")}
+                </TableHead>
+                <TableHead className="text-right">
+                  {t("dashboard.contentCategories.table.actions")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -224,7 +255,10 @@ export function CategoryTable({
                       onCheckedChange={(checked) =>
                         toggleOne(category.id, !!checked)
                       }
-                      aria-label={`Select ${category.name}`}
+                      aria-label={t(
+                        "dashboard.contentCategories.table.selectCategory",
+                        { name: category.name },
+                      )}
                     />
                   </TableCell>
                   <TableCell className="font-medium">{category.name}</TableCell>
@@ -240,7 +274,11 @@ export function CategoryTable({
                   <TableCell className="text-xs text-muted-foreground">
                     <div>{formatDateTime(category.updated)}</div>
                     <div className="mt-0.5">
-                      by {category.updatedByName ?? "Unknown"}
+                      {t("dashboard.contentCategories.table.updatedBy", {
+                        name:
+                          category.updatedByName ??
+                          t("dashboard.common.meta.unknown"),
+                      })}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">

@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslations } from "@/components/i18n-provider";
 import { CategoryTable } from "./category-table";
 import type { ContentCategoryAuthorInfo } from "@/data/content-categories";
 
@@ -33,6 +34,7 @@ type Props = {
 };
 
 export function CategoryTableContainer({ contentType, authors }: Props) {
+  const t = useTranslations();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [authorId, setAuthorId] = useState("all");
@@ -97,7 +99,9 @@ export function CategoryTableContainer({ contentType, authors }: Props) {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name…"
+          placeholder={t(
+            "dashboard.contentCategories.filters.searchPlaceholder",
+          )}
           className="max-w-xs"
         />
         {authors.length > 0 && (
@@ -109,10 +113,16 @@ export function CategoryTableContainer({ contentType, authors }: Props) {
             }}
           >
             <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Author" />
+              <SelectValue
+                placeholder={t(
+                  "dashboard.contentCategories.filters.authorPlaceholder",
+                )}
+              />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All authors</SelectItem>
+              <SelectItem value="all">
+                {t("dashboard.contentCategories.filters.allAuthors")}
+              </SelectItem>
               {authors.map((author) => (
                 <SelectItem key={author.id} value={author.id}>
                   {author.name}

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   Select,
   SelectContent,
@@ -37,15 +38,20 @@ function LabelWithHelp({
   children: ReactNode;
   label: string;
 }) {
+  const st = useSourceTranslations();
+
   return (
     <div className="flex items-center gap-1.5">
-      <Label className="text-sm font-medium">{label}</Label>
-      <HelpInfo title={label}>{children}</HelpInfo>
+      <Label className="text-sm font-medium">{st(label)}</Label>
+      <HelpInfo title={st(label)}>
+        {typeof children === "string" ? st(children) : children}
+      </HelpInfo>
     </div>
   );
 }
 
 export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useFormEditLock();
   const [busy, startSave] = useTransition();
@@ -75,7 +81,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
     const v = newRecipient.trim().toLowerCase();
     if (!v) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
-      toast.error("Invalid email.");
+      toast.error(st("Invalid email."));
       return;
     }
     if (recipients.includes(v)) {
@@ -83,7 +89,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
       return;
     }
     if (recipients.length >= 10) {
-      toast.error("Maximum 10 recipients.");
+      toast.error(st("Maximum 10 recipients."));
       return;
     }
     setRecipients([...recipients, v]);
@@ -92,7 +98,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
 
   function save() {
     if (enableEmail && recipients.length === 0) {
-      toast.error("Add at least one recipient or disable notifications.");
+      toast.error(st("Add at least one recipient or disable notifications."));
       return;
     }
     startSave(async () => {
@@ -111,7 +117,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
         toast.error(res.error);
         return;
       }
-      toast.success("Settings saved.");
+      toast.success(st("Settings saved."));
       router.refresh();
     });
   }
@@ -150,30 +156,37 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
         {enableEmail && (
           <>
             <div className="rounded-md border border-amber-500/40 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/40 dark:text-amber-100">
-              <p className="font-medium">Sender configuration required</p>
+              <p className="font-medium">
+                {st("Sender configuration required")}
+              </p>
               <p className="mt-1">
-                Emails are sent using credentials from environment variables
-                (set in <code>.env</code> and restart the dev server). Provider
-                is selected by <code>EMAIL_PROVIDER</code>.
+                {st(
+                  "Emails are sent using credentials from environment variables",
+                )}{" "}
+                ({st("set in")} <code>.env</code>{" "}
+                {st("and restart the dev server")}).{" "}
+                {st("Provider is selected by")} <code>EMAIL_PROVIDER</code>.
               </p>
               <ul className="mt-2 list-disc space-y-1 pl-4">
                 <li>
-                  <strong>Resend</strong> (default): set{" "}
+                  <strong>Resend</strong> ({st("default")}): {st("set")}{" "}
                   <code>EMAIL_PROVIDER=resend</code>,{" "}
-                  <code>RESEND_API_KEY</code>, and <code>EMAIL_FROM</code> (must
-                  be a verified sender/domain in Resend).
+                  <code>RESEND_API_KEY</code>, {st("and")}{" "}
+                  <code>EMAIL_FROM</code> (
+                  {st("must be a verified sender/domain in Resend")}).
                 </li>
                 <li>
-                  <strong>SMTP</strong>: set <code>EMAIL_PROVIDER=smtp</code>,{" "}
-                  <code>SMTP_HOST</code>, <code>SMTP_PORT</code>,{" "}
-                  <code>SMTP_USER</code>, <code>SMTP_PASS</code>,{" "}
-                  <code>SMTP_SECURE</code>, and <code>EMAIL_FROM</code>.
-                  Requires <code>npm i nodemailer</code>.
+                  <strong>SMTP</strong>: {st("set")}{" "}
+                  <code>EMAIL_PROVIDER=smtp</code>, <code>SMTP_HOST</code>,{" "}
+                  <code>SMTP_PORT</code>, <code>SMTP_USER</code>,{" "}
+                  <code>SMTP_PASS</code>, <code>SMTP_SECURE</code>, {st("and")}{" "}
+                  <code>EMAIL_FROM</code>. {st("Requires")}{" "}
+                  <code>npm i nodemailer</code>.
                 </li>
               </ul>
               <div className="mt-3 space-y-2">
                 <p className="font-medium">
-                  Example <code>.env</code> entries:
+                  {st("Example")} <code>.env</code> {st("entries")}:
                 </p>
                 <div>
                   <p className="mb-1 text-amber-700 dark:text-amber-300">
@@ -189,12 +202,14 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
                 </div>
               </div>
               <p className="mt-2">
-                Submissions are always saved. If sending fails, the reason is
-                shown on the submission detail under <em>Email error</em>.
+                {st(
+                  "Submissions are always saved. If sending fails, the reason is shown on the submission detail under",
+                )}{" "}
+                <em>{st("Email error")}</em>.
               </p>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Recipients</Label>
+              <Label className="text-xs">{st("Recipients")}</Label>
               <div className="flex flex-wrap gap-2">
                 {recipients.map((r) => (
                   <span
@@ -208,7 +223,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
                         setRecipients(recipients.filter((x) => x !== r))
                       }
                       className="text-muted-foreground hover:text-destructive"
-                      aria-label={`Remove ${r}`}
+                      aria-label={st("Remove {name}", { name: r })}
                       disabled={!lock.isEditor}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -242,7 +257,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Subject</Label>
+              <Label className="text-xs">{st("Subject")}</Label>
               <Input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
@@ -253,14 +268,14 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
 
             <div className="space-y-1">
               <Label className="text-xs">
-                Reply-to (use submitter&apos;s email field)
+                {st("Reply-to (use submitter's email field)")}
               </Label>
               <Select value={replyToField} onValueChange={setReplyToField}>
                 <SelectTrigger disabled={!lock.isEditor}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>None</SelectItem>
+                  <SelectItem value={NONE}>{st("None")}</SelectItem>
                   {emailFields.map((f) => (
                     <SelectItem key={f.fieldKey} value={f.fieldKey}>
                       {f.label} ({f.fieldKey})
@@ -271,7 +286,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Email template</Label>
+              <Label className="text-xs">{st("Email template")}</Label>
               <Textarea
                 rows={8}
                 value={template}
@@ -281,8 +296,9 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
                 disabled={!lock.isEditor}
               />
               <p className="text-[10px] text-muted-foreground">
-                Use <code>{`{{field_key}}`}</code> tokens (interpolated as plain
-                text only — no HTML). Available keys:{" "}
+                {st("Use")} <code>{`{{field_key}}`}</code>{" "}
+                {st("tokens (interpolated as plain text only — no HTML).")}{" "}
+                {st("Available keys")}:{" "}
                 {fields.map((f) => f.fieldKey).join(", ") || "—"}
               </p>
             </div>
@@ -292,8 +308,8 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
 
       <div className="space-y-1 rounded-md border p-4">
         <LabelWithHelp label="Redirect after submit">
-          Optional. Same-origin path only (e.g. <code>/thanks</code>). If empty,
-          the success message is shown in place.
+          {st("Optional. Same-origin path only")} (e.g. <code>/thanks</code>).{" "}
+          {st("If empty, the success message is shown in place.")}
         </LabelWithHelp>
         <Input
           value={redirectUrl}
@@ -306,7 +322,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
       <div>
         <Button onClick={save} disabled={busy || !lock.isEditor}>
           {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          <Save className="mr-2 h-4 w-4" /> Save settings
+          <Save className="mr-2 h-4 w-4" /> {st("Save settings")}
         </Button>
       </div>
     </div>

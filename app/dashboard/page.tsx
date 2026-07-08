@@ -16,6 +16,7 @@ import { Card } from "@/components/ui/card";
 import { getDashboardStats } from "@/data/dashboard";
 import { getGlobalSettings } from "@/data/global-settings";
 import { DashboardCard } from "@/app/dashboard/_components/dashboard-card";
+import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, getRoles } from "@/lib/roles";
 
@@ -30,6 +31,7 @@ function DashboardSkeleton() {
 }
 
 async function DashboardCards({ roles }: { roles: string[] }) {
+  const t = await getTranslations("backend");
   const [stats, settings] = await Promise.all([
     getDashboardStats(),
     getGlobalSettings(),
@@ -44,121 +46,195 @@ async function DashboardCards({ roles }: { roles: string[] }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <DashboardCard
-        title="Global Settings"
-        description="Site-wide configuration"
+        title={t("dashboard.nav.globalSettings")}
+        description={t("dashboard.landing.cards.globalSettings.description")}
         icon={Settings}
         href="/dashboard/global-settings"
-        actionLabel="Manage Settings"
+        actionLabel={t("dashboard.landing.cards.globalSettings.action")}
+        emptyLabel={t("dashboard.landing.noDataYet")}
         showAction={isAdmin}
         stats={[
           {
-            label: "Max Upload (MB)",
+            label: t("dashboard.landing.stats.maxUploadMb"),
             value: bytesToMb(settings.maxUploadSizeBytes),
           },
           {
-            label: "Batch Upload (MB)",
+            label: t("dashboard.landing.stats.batchUploadMb"),
             value: bytesToMb(settings.maxBatchUploadSizeBytes),
           },
           {
-            label: "Idle Logout (min)",
+            label: t("dashboard.landing.stats.idleLogoutMin"),
             value: settings.sessionSecurity.idleLogoutMinutes,
           },
           {
-            label: "Session Limit (min)",
+            label: t("dashboard.landing.stats.sessionLimitMin"),
             value: settings.sessionSecurity.maxSessionDurationMinutes,
           },
         ]}
       />
       <DashboardCard
-        title="Content"
-        description="Pages, blog posts, hero sliders, and webshops"
+        title={t("dashboard.nav.content")}
+        description={t("dashboard.landing.cards.content.description")}
         icon={FileText}
         href="/dashboard/content"
-        actionLabel="Manage Content"
+        actionLabel={t("dashboard.landing.cards.content.action")}
+        emptyLabel={t("dashboard.landing.noDataYet")}
         showAction={canAccessContent}
         stats={[
-          { label: "Total Pages", value: stats.content.totalPages },
-          { label: "Total Blog Posts", value: stats.content.totalBlogPosts },
-          { label: "Hero Sliders", value: stats.content.totalHeroSliders },
-          { label: "Webshops", value: stats.content.totalWebshops },
+          {
+            label: t("dashboard.landing.stats.totalPages"),
+            value: stats.content.totalPages,
+          },
+          {
+            label: t("dashboard.landing.stats.totalBlogPosts"),
+            value: stats.content.totalBlogPosts,
+          },
+          {
+            label: t("dashboard.landing.stats.heroSliders"),
+            value: stats.content.totalHeroSliders,
+          },
+          {
+            label: t("dashboard.landing.stats.webshops"),
+            value: stats.content.totalWebshops,
+          },
         ]}
       />
       <DashboardCard
-        title="File Manager"
-        description="Uploaded files and media"
+        title={t("dashboard.nav.fileManager")}
+        description={t("dashboard.landing.cards.files.description")}
         icon={FolderOpen}
         href="/dashboard/filemanager"
-        actionLabel="Manage Files"
+        actionLabel={t("dashboard.landing.cards.files.action")}
+        emptyLabel={t("dashboard.landing.noDataYet")}
         showAction={canAccessContent}
         stats={[
-          { label: "Total Files", value: stats.files.total },
-          { label: "Images", value: stats.files.images },
-          { label: "Videos", value: stats.files.videos },
-          { label: "Documents", value: stats.files.documents },
+          {
+            label: t("dashboard.landing.stats.totalFiles"),
+            value: stats.files.total,
+          },
+          {
+            label: t("dashboard.landing.stats.images"),
+            value: stats.files.images,
+          },
+          {
+            label: t("dashboard.landing.stats.videos"),
+            value: stats.files.videos,
+          },
+          {
+            label: t("dashboard.landing.stats.documents"),
+            value: stats.files.documents,
+          },
         ]}
       />
       <DashboardCard
-        title="Gallery Manager"
-        description="Image galleries"
+        title={t("dashboard.nav.galleryManager")}
+        description={t("dashboard.landing.cards.galleries.description")}
         icon={Images}
         href="/dashboard/gallerymanager"
-        actionLabel="Manage Galleries"
+        actionLabel={t("dashboard.landing.cards.galleries.action")}
+        emptyLabel={t("dashboard.landing.noDataYet")}
         showAction={canAccessContent}
         stats={[
-          { label: "Total Galleries", value: stats.galleries.totalGalleries },
-          { label: "Total Images", value: stats.galleries.totalImages },
+          {
+            label: t("dashboard.landing.stats.totalGalleries"),
+            value: stats.galleries.totalGalleries,
+          },
+          {
+            label: t("dashboard.landing.stats.totalImages"),
+            value: stats.galleries.totalImages,
+          },
         ]}
       />
       <DashboardCard
-        title="Users"
-        description="Registered CMS users"
+        title={t("dashboard.nav.users")}
+        description={t("dashboard.landing.cards.users.description")}
         icon={Users}
         href="/dashboard/users"
-        actionLabel="Manage Users"
+        actionLabel={t("dashboard.landing.cards.users.action")}
+        emptyLabel={t("dashboard.landing.noDataYet")}
         showAction={isAdmin}
         stats={[
-          { label: "Total Users", value: stats.users.total },
-          { label: "Admins", value: stats.users.admins },
-          { label: "Publishers", value: stats.users.publishers },
-          { label: "Authors", value: stats.users.authors },
+          {
+            label: t("dashboard.landing.stats.totalUsers"),
+            value: stats.users.total,
+          },
+          {
+            label: t("dashboard.landing.stats.admins"),
+            value: stats.users.admins,
+          },
+          {
+            label: t("dashboard.landing.stats.publishers"),
+            value: stats.users.publishers,
+          },
+          {
+            label: t("dashboard.landing.stats.authors"),
+            value: stats.users.authors,
+          },
         ]}
       />
       <DashboardCard
-        title="Content Categories"
-        description="Page and blog categories"
+        title={t("dashboard.landing.cards.categories.title")}
+        description={t("dashboard.landing.cards.categories.description")}
         icon={Tag}
         href="/dashboard/content-categories"
-        actionLabel="Manage Categories"
+        actionLabel={t("dashboard.landing.cards.categories.action")}
+        emptyLabel={t("dashboard.landing.noDataYet")}
         showAction={isAdmin}
         stats={[
-          { label: "Total Categories", value: stats.categories.total },
-          { label: "Page Categories", value: stats.categories.pageCategories },
-          { label: "Blog Categories", value: stats.categories.blogCategories },
+          {
+            label: t("dashboard.landing.stats.totalCategories"),
+            value: stats.categories.total,
+          },
+          {
+            label: t("dashboard.landing.stats.pageCategories"),
+            value: stats.categories.pageCategories,
+          },
+          {
+            label: t("dashboard.landing.stats.blogCategories"),
+            value: stats.categories.blogCategories,
+          },
         ]}
       />
       <DashboardCard
-        title="Menus"
-        description="Reusable navigation menus"
+        title={t("dashboard.nav.menus")}
+        description={t("dashboard.landing.cards.menus.description")}
         icon={Menu}
         href="/dashboard/menus"
-        actionLabel="Manage Menus"
+        actionLabel={t("dashboard.landing.cards.menus.action")}
+        emptyLabel={t("dashboard.landing.noDataYet")}
         showAction={isAdmin}
         stats={[
-          { label: "Total Menus", value: stats.menus.totalMenus },
-          { label: "Total Items", value: stats.menus.totalItems },
-          { label: "Nested Items", value: stats.menus.nestedItems },
+          {
+            label: t("dashboard.landing.stats.totalMenus"),
+            value: stats.menus.totalMenus,
+          },
+          {
+            label: t("dashboard.landing.stats.totalItems"),
+            value: stats.menus.totalItems,
+          },
+          {
+            label: t("dashboard.landing.stats.nestedItems"),
+            value: stats.menus.nestedItems,
+          },
         ]}
       />
       <DashboardCard
-        title="Form Builder"
-        description="Custom forms and submissions"
+        title={t("dashboard.nav.formBuilder")}
+        description={t("dashboard.landing.cards.forms.description")}
         icon={ClipboardList}
         href="/dashboard/form-builder"
-        actionLabel="Manage Forms"
+        actionLabel={t("dashboard.landing.cards.forms.action")}
+        emptyLabel={t("dashboard.landing.noDataYet")}
         showAction={isAdmin}
         stats={[
-          { label: "Total Forms", value: stats.forms.totalForms },
-          { label: "Total Submissions", value: stats.forms.totalSubmissions },
+          {
+            label: t("dashboard.landing.stats.totalForms"),
+            value: stats.forms.totalForms,
+          },
+          {
+            label: t("dashboard.landing.stats.totalSubmissions"),
+            value: stats.forms.totalSubmissions,
+          },
         ]}
       />
     </div>
@@ -179,15 +255,16 @@ export default async function DashboardPage() {
     !hasRole(roles, "publisher") &&
     !hasRole(roles, "author")
   ) {
+    const t = await getTranslations("backend");
+
     return (
       <div className="flex min-h-[40vh] items-center justify-center p-6">
         <div className="max-w-md rounded-lg border bg-card p-6 text-center">
           <h1 className="text-lg font-semibold">
-            Dashboard access unavailable
+            {t("dashboard.accessUnavailable.title")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your session is signed in, but role information is still syncing.
-            Refresh the page in a moment.
+            {t("dashboard.accessUnavailable.description")}
           </p>
         </div>
       </div>

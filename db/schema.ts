@@ -466,6 +466,659 @@ export const webshopAddonEntitlements = pgTable(
   ],
 );
 
+export const licenseServerAddonEntitlements = pgTable(
+  "license_server_addon_entitlements",
+  {
+    id: integer("id").primaryKey().default(1),
+    status: text("status").notNull().default("license_required"),
+    licenseKeyRef: text("license_key_ref"),
+    entitlementToken: text("entitlement_token"),
+    provider: text("provider"),
+    providerMode: text("provider_mode"),
+    providerOwnerId: text("provider_owner_id"),
+    providerProjectId: text("provider_project_id"),
+    deploymentEnvironment: text("deployment_environment"),
+    packageName: text("package_name"),
+    packageVersion: text("package_version"),
+    packageInstalledAt: timestamp("package_installed_at", {
+      withTimezone: true,
+    }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    features: jsonb("features")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    metadata: jsonb("metadata")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    updatedBy: text("updated_by"),
+  },
+  (table) => [
+    check(
+      "license_server_addon_entitlements_singleton_check",
+      sql`${table.id} = 1`,
+    ),
+    check(
+      "license_server_addon_entitlements_status_check",
+      sql`${table.status} IN ('license_required','ready','expired','invalid','install_pending')`,
+    ),
+    check(
+      "license_server_addon_entitlements_provider_check",
+      sql`${table.provider} IS NULL OR ${table.provider} IN ('vercel','self_hosted')`,
+    ),
+    check(
+      "license_server_addon_entitlements_environment_check",
+      sql`${table.deploymentEnvironment} IS NULL OR ${table.deploymentEnvironment} IN ('production','self_hosted')`,
+    ),
+  ],
+);
+
+export const licenseServerApiClients = pgTable(
+  "license_server_api_clients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    clientId: text("client_id").notNull(),
+    secretEncrypted: text("secret_encrypted").notNull(),
+    secretFingerprint: text("secret_fingerprint").notNull(),
+    allowedDomains: jsonb("allowed_domains")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    status: text("status").notNull().default("active"),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    rotatedAt: timestamp("rotated_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("license_server_api_clients_client_id_unique").on(table.clientId),
+    check(
+      "license_server_api_clients_status_check",
+      sql`${table.status} IN ('active','inactive','revoked')`,
+    ),
+    check(
+      "license_server_api_clients_title_length_check",
+      sql`char_length(${table.title}) BETWEEN 1 AND 160`,
+    ),
+    check(
+      "license_server_api_clients_client_id_length_check",
+      sql`char_length(${table.clientId}) BETWEEN 1 AND 160`,
+    ),
+    check(
+      "license_server_api_clients_fingerprint_length_check",
+      sql`char_length(${table.secretFingerprint}) = 64`,
+    ),
+    index("license_server_api_clients_status_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+    index("license_server_api_clients_fingerprint_idx").on(
+      table.secretFingerprint,
+    ),
+  ],
+);
+
+export const licenseServerApiClientNonces = pgTable(
+  "license_server_api_client_nonces",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    apiClientId: uuid("api_client_id")
+      .notNull()
+      .references(() => licenseServerApiClients.id, { onDelete: "cascade" }),
+    nonce: text("nonce").notNull(),
+    timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("license_server_api_client_nonces_client_nonce_unique").on(
+      table.apiClientId,
+      table.nonce,
+    ),
+    index("license_server_api_client_nonces_created_idx").on(table.createdAt),
+  ],
+);
+
+export const licenseServerProductTypes = pgTable(
+  "license_server_product_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    externalRef: text("external_ref"),
+    publicKey: text("public_key"),
+    metadata: jsonb("metadata")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: text("status").notNull().default("active"),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("license_server_product_types_external_ref_unique").on(
+      table.externalRef,
+    ),
+    check(
+      "license_server_product_types_status_check",
+      sql`${table.status} IN ('active','inactive','archived')`,
+    ),
+    check(
+      "license_server_product_types_title_length_check",
+      sql`char_length(${table.title}) BETWEEN 1 AND 160`,
+    ),
+    check(
+      "license_server_product_types_external_ref_length_check",
+      sql`${table.externalRef} IS NULL OR char_length(${table.externalRef}) <= 160`,
+    ),
+    index("license_server_product_types_status_idx").on(
+      table.status,
+      table.title,
+    ),
+  ],
+);
+
+export const licenseServerProductTypeSkus = pgTable(
+  "license_server_product_type_skus",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productTypeId: uuid("product_type_id")
+      .notNull()
+      .references(() => licenseServerProductTypes.id, { onDelete: "cascade" }),
+    sku: text("sku").notNull(),
+    durationDays: integer("duration_days").notNull().default(0),
+    licenseType: text("license_type").notNull().default("perpetual"),
+    policyTemplate: text("policy_template")
+      .notNull()
+      .default("perpetual_single_device"),
+    maxDevices: integer("max_devices"),
+    maxDomains: integer("max_domains"),
+    maxSeats: integer("max_seats"),
+    activationResetLimit: integer("activation_reset_limit"),
+    activationResetWindowDays: integer("activation_reset_window_days"),
+    validationIntervalSeconds: integer("validation_interval_seconds"),
+    offlineGraceSeconds: integer("offline_grace_seconds"),
+    features: jsonb("features")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    policy: jsonb("policy")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: text("status").notNull().default("active"),
+    keyNamespace: text("key_namespace").notNull(),
+    adminNote: text("admin_note"),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("license_server_product_type_skus_type_sku_unique").on(
+      table.productTypeId,
+      table.sku,
+    ),
+    unique("license_server_product_type_skus_namespace_unique").on(
+      table.keyNamespace,
+    ),
+    check(
+      "license_server_product_type_skus_status_check",
+      sql`${table.status} IN ('active','inactive','archived')`,
+    ),
+    check(
+      "license_server_product_type_skus_duration_check",
+      sql`${table.durationDays} >= 0`,
+    ),
+    check(
+      "license_server_product_type_skus_license_type_check",
+      sql`${table.licenseType} IN ('perpetual','subscription','trial','maintenance')`,
+    ),
+    check(
+      "license_server_product_type_skus_policy_template_check",
+      sql`${table.policyTemplate} IN ('perpetual_single_device','perpetual_multi_device','domain_license','subscription_device','subscription_domain','trial','seat_based','floating_seat','file_license','maintenance')`,
+    ),
+    check(
+      "license_server_product_type_skus_limits_check",
+      sql`(${table.maxDevices} IS NULL OR ${table.maxDevices} >= 0) AND (${table.maxDomains} IS NULL OR ${table.maxDomains} >= 0) AND (${table.maxSeats} IS NULL OR ${table.maxSeats} >= 0)`,
+    ),
+    check(
+      "license_server_product_type_skus_timing_check",
+      sql`(${table.activationResetLimit} IS NULL OR ${table.activationResetLimit} >= 0) AND (${table.activationResetWindowDays} IS NULL OR ${table.activationResetWindowDays} >= 0) AND (${table.validationIntervalSeconds} IS NULL OR ${table.validationIntervalSeconds} > 0) AND (${table.offlineGraceSeconds} IS NULL OR ${table.offlineGraceSeconds} >= 0)`,
+    ),
+    check(
+      "license_server_product_type_skus_sku_length_check",
+      sql`char_length(${table.sku}) BETWEEN 1 AND 160`,
+    ),
+    index("license_server_product_type_skus_product_idx").on(
+      table.productTypeId,
+      table.status,
+    ),
+  ],
+);
+
+export const licenseServerLicenses = pgTable(
+  "license_server_licenses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    apiClientId: uuid("api_client_id")
+      .notNull()
+      .references(() => licenseServerApiClients.id, { onDelete: "restrict" }),
+    productTypeId: uuid("product_type_id")
+      .notNull()
+      .references(() => licenseServerProductTypes.id, {
+        onDelete: "restrict",
+      }),
+    skuId: uuid("sku_id")
+      .notNull()
+      .references(() => licenseServerProductTypeSkus.id, {
+        onDelete: "restrict",
+      }),
+    skuSnapshot: text("sku_snapshot").notNull(),
+    domain: text("domain"),
+    customerEmail: text("customer_email"),
+    customerName: text("customer_name"),
+    source: text("source"),
+    sourceOrderRef: text("source_order_ref"),
+    sourceOrderItemRef: text("source_order_item_ref"),
+    licenseType: text("license_type").notNull().default("perpetual"),
+    maxDevices: integer("max_devices"),
+    maxDomains: integer("max_domains"),
+    maxSeats: integer("max_seats"),
+    features: jsonb("features")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    durationDays: integer("duration_days").notNull().default(0),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    licenseKeyHash: text("license_key_hash").notNull(),
+    encryptedLicenseKey: text("encrypted_license_key"),
+    licensePayload: jsonb("license_payload")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: text("status").notNull().default("active"),
+    orderRef: text("order_ref"),
+    orderItemRef: text("order_item_ref"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    suspendedReason: text("suspended_reason"),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+    graceEndsAt: timestamp("grace_ends_at", { withTimezone: true }),
+    lastValidatedAt: timestamp("last_validated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("license_server_licenses_client_idempotency_unique").on(
+      table.apiClientId,
+      table.idempotencyKey,
+    ),
+    uniqueIndex("license_server_licenses_key_hash_unique").on(
+      table.licenseKeyHash,
+    ),
+    check(
+      "license_server_licenses_status_check",
+      sql`${table.status} IN ('active','suspended','revoked','expired','refunded','chargeback')`,
+    ),
+    check(
+      "license_server_licenses_license_type_check",
+      sql`${table.licenseType} IN ('perpetual','subscription','trial','maintenance')`,
+    ),
+    check(
+      "license_server_licenses_limits_check",
+      sql`(${table.maxDevices} IS NULL OR ${table.maxDevices} >= 0) AND (${table.maxDomains} IS NULL OR ${table.maxDomains} >= 0) AND (${table.maxSeats} IS NULL OR ${table.maxSeats} >= 0)`,
+    ),
+    check(
+      "license_server_licenses_key_hash_length_check",
+      sql`char_length(${table.licenseKeyHash}) = 64`,
+    ),
+    check(
+      "license_server_licenses_domain_length_check",
+      sql`${table.domain} IS NULL OR char_length(${table.domain}) <= 255`,
+    ),
+    index("license_server_licenses_sku_idx").on(
+      table.skuId,
+      table.status,
+      table.createdAt,
+    ),
+    index("license_server_licenses_order_ref_idx").on(
+      table.orderRef,
+      table.orderItemRef,
+    ),
+    index("license_server_licenses_customer_email_idx").on(table.customerEmail),
+    index("license_server_licenses_source_idx").on(
+      table.source,
+      table.sourceOrderRef,
+      table.sourceOrderItemRef,
+    ),
+  ],
+);
+
+export const licenseServerLicenseActivations = pgTable(
+  "license_server_license_activations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    licenseId: uuid("license_id")
+      .notNull()
+      .references(() => licenseServerLicenses.id, { onDelete: "cascade" }),
+    apiClientId: uuid("api_client_id").references(
+      () => licenseServerApiClients.id,
+      { onDelete: "set null" },
+    ),
+    activationType: text("activation_type").notNull(),
+    activationFingerprintHash: text("activation_fingerprint_hash").notNull(),
+    activationLabel: text("activation_label"),
+    domain: text("domain"),
+    deviceIdHash: text("device_id_hash"),
+    machineFingerprintHash: text("machine_fingerprint_hash"),
+    appId: text("app_id"),
+    appVersion: text("app_version"),
+    platform: text("platform"),
+    activationTokenHash: text("activation_token_hash").notNull(),
+    status: text("status").notNull().default("active"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    metadata: jsonb("metadata")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("license_server_license_activations_license_fingerprint_unique").on(
+      table.licenseId,
+      table.activationFingerprintHash,
+    ),
+    check(
+      "license_server_license_activations_status_check",
+      sql`${table.status} IN ('active','deactivated','revoked','expired')`,
+    ),
+    check(
+      "license_server_license_activations_type_check",
+      sql`${table.activationType} IN ('domain','device','server','seat')`,
+    ),
+    check(
+      "license_server_license_activations_token_hash_length_check",
+      sql`char_length(${table.activationTokenHash}) = 64`,
+    ),
+    check(
+      "license_server_license_activations_fingerprint_length_check",
+      sql`char_length(${table.activationFingerprintHash}) = 64`,
+    ),
+    index("license_server_license_activations_license_status_idx").on(
+      table.licenseId,
+      table.status,
+    ),
+    index("license_server_license_activations_token_idx").on(
+      table.activationTokenHash,
+    ),
+    index("license_server_license_activations_domain_idx").on(table.domain),
+    index("license_server_license_activations_device_idx").on(
+      table.deviceIdHash,
+    ),
+    index("license_server_license_activations_last_seen_idx").on(
+      table.lastSeenAt,
+    ),
+  ],
+);
+
+export const licenseServerAuditEvents = pgTable(
+  "license_server_audit_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorUserId: text("actor_user_id"),
+    apiClientId: uuid("api_client_id").references(
+      () => licenseServerApiClients.id,
+      { onDelete: "set null" },
+    ),
+    licenseId: uuid("license_id").references(() => licenseServerLicenses.id, {
+      onDelete: "set null",
+    }),
+    activationId: uuid("activation_id").references(
+      () => licenseServerLicenseActivations.id,
+      { onDelete: "set null" },
+    ),
+    action: text("action").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id"),
+    metadata: jsonb("metadata")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("license_server_audit_events_license_idx").on(
+      table.licenseId,
+      table.createdAt,
+    ),
+    index("license_server_audit_events_activation_idx").on(
+      table.activationId,
+      table.createdAt,
+    ),
+    index("license_server_audit_events_api_client_idx").on(
+      table.apiClientId,
+      table.createdAt,
+    ),
+    index("license_server_audit_events_action_idx").on(
+      table.action,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const licenseServerValidationEvents = pgTable(
+  "license_server_validation_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    apiClientId: uuid("api_client_id").references(
+      () => licenseServerApiClients.id,
+      { onDelete: "set null" },
+    ),
+    licenseId: uuid("license_id").references(() => licenseServerLicenses.id, {
+      onDelete: "set null",
+    }),
+    licenseKeyHash: text("license_key_hash"),
+    domain: text("domain"),
+    result: text("result").notNull(),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "license_server_validation_events_result_check",
+      sql`${table.result} IN ('valid','invalid')`,
+    ),
+    index("license_server_validation_events_license_idx").on(
+      table.licenseId,
+      table.createdAt,
+    ),
+    index("license_server_validation_events_created_idx").on(table.createdAt),
+    index("license_server_validation_events_api_client_idx").on(
+      table.apiClientId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const webshopLicenseServers = pgTable(
+  "webshop_license_servers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    baseApiUrl: text("base_api_url").notNull(),
+    authType: text("auth_type").notNull().default("hmac_shared_secret"),
+    authClientId: text("auth_client_id"),
+    authSecretEncrypted: text("auth_secret_encrypted"),
+    authSecretFingerprint: text("auth_secret_fingerprint"),
+    showInPolicyMenu: boolean("show_in_policy_menu").notNull().default(true),
+    status: text("status").notNull().default("active"),
+    lastHealthCheckAt: timestamp("last_health_check_at", {
+      withTimezone: true,
+    }),
+    lastHealthStatus: text("last_health_status"),
+    lastHealthMessage: text("last_health_message"),
+    lastCatalogSyncAt: timestamp("last_catalog_sync_at", {
+      withTimezone: true,
+    }),
+    lastCatalogStatus: text("last_catalog_status"),
+    lastCatalogMessage: text("last_catalog_message"),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("webshop_license_servers_title_unique").on(table.title),
+    check(
+      "webshop_license_servers_auth_type_check",
+      sql`${table.authType} IN ('hmac_shared_secret')`,
+    ),
+    check(
+      "webshop_license_servers_status_check",
+      sql`${table.status} IN ('active','inactive','archived')`,
+    ),
+    check(
+      "webshop_license_servers_title_length_check",
+      sql`char_length(${table.title}) BETWEEN 1 AND 160`,
+    ),
+    check(
+      "webshop_license_servers_base_api_url_length_check",
+      sql`char_length(${table.baseApiUrl}) BETWEEN 1 AND 2000`,
+    ),
+    check(
+      "webshop_license_servers_auth_client_id_length_check",
+      sql`${table.authClientId} IS NULL OR char_length(${table.authClientId}) <= 160`,
+    ),
+    check(
+      "webshop_license_servers_secret_fingerprint_length_check",
+      sql`${table.authSecretFingerprint} IS NULL OR char_length(${table.authSecretFingerprint}) = 64`,
+    ),
+    index("webshop_license_servers_policy_menu_idx").on(
+      table.status,
+      table.showInPolicyMenu,
+      table.title,
+    ),
+    index("webshop_license_servers_created_idx").on(table.createdAt),
+    index("webshop_license_servers_secret_fingerprint_idx").on(
+      table.authSecretFingerprint,
+    ),
+  ],
+);
+
+export const webshopLicenseServerCatalogItems = pgTable(
+  "webshop_license_server_catalog_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    licenseServerId: uuid("license_server_id")
+      .notNull()
+      .references(() => webshopLicenseServers.id, { onDelete: "cascade" }),
+    productTypeId: text("product_type_id").notNull(),
+    productExternalRef: text("product_external_ref"),
+    productTitle: text("product_title").notNull(),
+    productStatus: text("product_status").notNull(),
+    skuId: text("sku_id").notNull(),
+    sku: text("sku").notNull(),
+    skuStatus: text("sku_status").notNull(),
+    durationDays: integer("duration_days").notNull().default(0),
+    licenseType: text("license_type").notNull().default("perpetual"),
+    policyTemplate: text("policy_template").notNull(),
+    maxDevices: integer("max_devices"),
+    maxDomains: integer("max_domains"),
+    maxSeats: integer("max_seats"),
+    features: jsonb("features")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    raw: jsonb("raw")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    syncedAt: timestamp("synced_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("webshop_license_server_catalog_item_unique").on(
+      table.licenseServerId,
+      table.productTypeId,
+      table.sku,
+    ),
+    index("webshop_license_server_catalog_server_idx").on(
+      table.licenseServerId,
+      table.productTitle,
+      table.sku,
+    ),
+    index("webshop_license_server_catalog_status_idx").on(
+      table.licenseServerId,
+      table.productStatus,
+      table.skuStatus,
+    ),
+    check(
+      "webshop_license_server_catalog_product_type_id_length_check",
+      sql`char_length(${table.productTypeId}) BETWEEN 1 AND 160`,
+    ),
+    check(
+      "webshop_license_server_catalog_sku_length_check",
+      sql`char_length(${table.sku}) BETWEEN 1 AND 160`,
+    ),
+    check(
+      "webshop_license_server_catalog_duration_days_check",
+      sql`${table.durationDays} >= 0`,
+    ),
+  ],
+);
+
 export const webshopCategories = pgTable(
   "webshop_categories",
   {
@@ -1441,6 +2094,104 @@ export const webshopOrderItems = pgTable(
   ],
 );
 
+export const webshopLicenseServerIssues = pgTable(
+  "webshop_license_server_issues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    licenseServerId: uuid("license_server_id")
+      .notNull()
+      .references(() => webshopLicenseServers.id, { onDelete: "restrict" }),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => webshopOrders.id, { onDelete: "cascade" }),
+    orderItemId: uuid("order_item_id")
+      .notNull()
+      .references(() => webshopOrderItems.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => webshopProducts.id, {
+      onDelete: "set null",
+    }),
+    variantId: uuid("variant_id").references(() => webshopProductVariants.id, {
+      onDelete: "set null",
+    }),
+    sku: text("sku").notNull(),
+    externalProductTypeId: text("external_product_type_id").notNull(),
+    domain: text("domain"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    status: text("status").notNull().default("pending"),
+    licenseKey: text("license_key"),
+    licenseKeyFingerprint: text("license_key_fingerprint"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    issuedAt: timestamp("issued_at", { withTimezone: true }),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    requestSnapshot: jsonb("request_snapshot")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    responseSnapshot: jsonb("response_snapshot")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("webshop_license_server_issues_order_item_unique").on(
+      table.orderItemId,
+    ),
+    unique("webshop_license_server_issues_idempotency_unique").on(
+      table.idempotencyKey,
+    ),
+    uniqueIndex("webshop_license_server_issues_key_fingerprint_unique")
+      .on(table.licenseKeyFingerprint)
+      .where(sql`${table.licenseKeyFingerprint} IS NOT NULL`),
+    index("webshop_license_server_issues_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+    index("webshop_license_server_issues_server_status_idx").on(
+      table.licenseServerId,
+      table.status,
+    ),
+    index("webshop_license_server_issues_order_idx").on(
+      table.orderId,
+      table.orderItemId,
+    ),
+    check(
+      "webshop_license_server_issues_status_check",
+      sql`${table.status} IN ('pending','issuing','issued','failed','canceled','revoked')`,
+    ),
+    check(
+      "webshop_license_server_issues_attempt_count_check",
+      sql`${table.attemptCount} >= 0`,
+    ),
+    check(
+      "webshop_license_server_issues_sku_length_check",
+      sql`char_length(${table.sku}) BETWEEN 1 AND 160`,
+    ),
+    check(
+      "webshop_license_server_issues_product_type_length_check",
+      sql`char_length(${table.externalProductTypeId}) BETWEEN 1 AND 160`,
+    ),
+    check(
+      "webshop_license_server_issues_domain_length_check",
+      sql`${table.domain} IS NULL OR char_length(${table.domain}) <= 255`,
+    ),
+    check(
+      "webshop_license_server_issues_idempotency_length_check",
+      sql`char_length(${table.idempotencyKey}) BETWEEN 1 AND 255`,
+    ),
+    check(
+      "webshop_license_server_issues_key_fingerprint_length_check",
+      sql`${table.licenseKeyFingerprint} IS NULL OR char_length(${table.licenseKeyFingerprint}) = 64`,
+    ),
+  ],
+);
+
 export const webshopLicenseKeys = pgTable(
   "webshop_license_keys",
   {
@@ -1708,7 +2459,9 @@ export const webshopFulfillmentDocuments = pgTable(
     referenceNumber: text("reference_number"),
     url: text("url"),
     note: text("note"),
-    fileId: uuid("file_id").references(() => files.id, { onDelete: "set null" }),
+    fileId: uuid("file_id").references(() => files.id, {
+      onDelete: "set null",
+    }),
     visibleToCustomer: boolean("visible_to_customer").notNull().default(true),
     position: integer("position").notNull().default(0),
     createdBy: text("created_by").notNull(),
@@ -2380,6 +3133,8 @@ export const globalSettings = pgTable(
     siteName: text("site_name").notNull().default("Night Raven CMS"),
     publicSiteUrl: text("public_site_url"),
     defaultLanguage: text("default_language").notNull().default("en-US"),
+    frontendLanguage: text("frontend_language").notNull().default("en"),
+    backendLanguage: text("backend_language").notNull().default("en"),
     timezone: text("timezone").notNull().default("UTC"),
     siteLogoFileId: uuid("site_logo_file_id").references(() => files.id, {
       onDelete: "set null",
@@ -2476,6 +3231,14 @@ export const globalSettings = pgTable(
     check(
       "global_settings_default_language_check",
       sql`${table.defaultLanguage} IN ('en-US','en-GB','en-CA','en-AU','en-IN','sr-RS','sr-Cyrl-RS','sr-Latn-RS','de-DE','de-AT','de-CH','fr-FR','fr-CA','fr-CH','es-ES','es-MX','es-AR','es-CO','es-CL','it-IT','pt-BR','pt-PT','nl-NL','nl-BE','sv-SE','da-DK','nb-NO','fi-FI','pl-PL','cs-CZ','sk-SK','hu-HU','ro-RO','bg-BG','el-GR','hr-HR','bs-BA','sl-SI','mk-MK','sq-AL','tr-TR','ru-RU','uk-UA','ar-SA','he-IL','hi-IN','bn-BD','ur-PK','fa-IR','zh-CN','zh-TW','ja-JP','ko-KR','th-TH','vi-VN','id-ID','ms-MY')`,
+    ),
+    check(
+      "global_settings_frontend_language_check",
+      sql`${table.frontendLanguage} IN ('en','sr-Latn','sr-Cyrl','hr','de','fr','es','it','pt','pt-BR','nl','pl','tr','mk','bs','sl','ru','hu','bg','ja','zh-Hans','zh-Hant','ar','id','cs','ro','el','da','sv','nb','nn','fi','is')`,
+    ),
+    check(
+      "global_settings_backend_language_check",
+      sql`${table.backendLanguage} IN ('en','sr-Latn','sr-Cyrl','hr','de','fr','es','it','pt','pt-BR','nl','pl','tr','mk','bs','sl','ru','hu','bg','ja','zh-Hans','zh-Hant','ar','id','cs','ro','el','da','sv','nb','nn','fi','is')`,
     ),
     check(
       "global_settings_timezone_check",
