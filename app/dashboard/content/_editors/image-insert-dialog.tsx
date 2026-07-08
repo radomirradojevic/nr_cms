@@ -24,6 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchFiles } from "@/app/dashboard/filemanager/actions";
 import type { FileRow } from "@/data/files";
+import { useSourceTranslations } from "@/components/source-translations";
 
 export type ImageAlignment = "left" | "center" | "right";
 
@@ -102,6 +103,7 @@ function ImageInsertDialogInner({
   );
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const t = useSourceTranslations();
 
   // Fetch the initial File Manager page whenever a fresh dialog instance opens.
   useEffect(() => {
@@ -167,18 +169,20 @@ function ImageInsertDialogInner({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            {mode === "edit" ? "Edit image" : "Insert image"}
+            {mode === "edit" ? t("Edit image") : t("Insert image")}
           </DialogTitle>
           <DialogDescription>
             {mode === "edit"
-              ? "Update the image URL, alt text, dimensions, or alignment."
-              : "Paste a direct image URL or pick an image from the File Manager."}
+              ? t("Update the image URL, alt text, dimensions, or alignment.")
+              : t(
+                  "Paste a direct image URL or pick an image from the File Manager.",
+                )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="image-url">Image URL</Label>
+            <Label htmlFor="image-url">{t("Image URL")}</Label>
             <Input
               id="image-url"
               value={url}
@@ -191,38 +195,38 @@ function ImageInsertDialogInner({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="image-alt">Alt text (optional)</Label>
+            <Label htmlFor="image-alt">{t("Alt text (optional)")}</Label>
             <Input
               id="image-alt"
               value={alt}
               onChange={(e) => setAlt(e.target.value)}
-              placeholder="Describe the image"
+              placeholder={t("Describe the image")}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="image-width">Width (optional)</Label>
+              <Label htmlFor="image-width">{t("Width (optional)")}</Label>
               <Input
                 id="image-width"
                 value={width}
                 onChange={(e) => setWidth(e.target.value)}
-                placeholder="e.g. 600 or 50%"
+                placeholder={t("e.g. 600 or 50%")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="image-height">Height (optional)</Label>
+              <Label htmlFor="image-height">{t("Height (optional)")}</Label>
               <Input
                 id="image-height"
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
-                placeholder="e.g. 400 or auto"
+                placeholder={t("e.g. 400 or auto")}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="image-alignment">Alignment</Label>
+            <Label htmlFor="image-alignment">{t("Alignment")}</Label>
             <Select
               value={alignment}
               onValueChange={(value) => {
@@ -232,21 +236,24 @@ function ImageInsertDialogInner({
               }}
             >
               <SelectTrigger id="image-alignment" className="w-full">
-                <SelectValue placeholder="Select alignment" />
+                <SelectValue placeholder={t("Select alignment")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="left">Left</SelectItem>
-                <SelectItem value="center">Center</SelectItem>
-                <SelectItem value="right">Right</SelectItem>
+                <SelectItem value="left">{t("Left")}</SelectItem>
+                <SelectItem value="center">{t("Center")}</SelectItem>
+                <SelectItem value="right">{t("Right")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Or pick from File Manager</Label>
+              <Label>{t("Or pick from File Manager")}</Label>
               <p className="text-xs text-muted-foreground">
-                Showing {files.length} of {total}
+                {t("Showing {count} of {total}", {
+                  count: files.length,
+                  total,
+                })}
               </p>
             </div>
 
@@ -255,7 +262,7 @@ function ImageInsertDialogInner({
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search images…"
+                placeholder={t("Search images…")}
                 className="pl-9"
               />
             </div>
@@ -268,7 +275,7 @@ function ImageInsertDialogInner({
               </div>
             ) : files.length === 0 ? (
               <p className="text-center py-8 text-sm text-muted-foreground">
-                No images found.
+                {t("No images found.")}
               </p>
             ) : (
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-[320px] overflow-y-auto p-1">
@@ -308,7 +315,7 @@ function ImageInsertDialogInner({
                   onClick={() => runFetch(offset, false, search)}
                   disabled={pending}
                 >
-                  {pending ? "Loading…" : "Load more"}
+                  {pending ? t("Loading...") : t("Load more")}
                 </Button>
               </div>
             )}
@@ -321,10 +328,10 @@ function ImageInsertDialogInner({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button type="button" onClick={handleInsert} disabled={!canInsert}>
-            {mode === "edit" ? "Save changes" : "Insert"}
+            {mode === "edit" ? t("Save changes") : t("Insert")}
           </Button>
         </DialogFooter>
       </DialogContent>

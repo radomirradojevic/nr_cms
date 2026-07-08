@@ -7,6 +7,7 @@ import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-co
 import type { BackendUserOption } from "@/lib/backend-user-types";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ export function ContentReassignDialog({
   onMutated,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
     null,
   );
@@ -91,7 +93,7 @@ export function ContentReassignDialog({
             onValueChange={setSelectedUser}
           />
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive">{st(error)}</p>}
         </div>
 
         <DialogFooter>

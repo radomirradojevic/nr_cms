@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import type { TranslateFn } from "@/lib/i18n/translate";
 import {
   Card,
@@ -208,6 +209,7 @@ function GlowFields({
   onChange,
 }: GlowFieldsProps) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const enabledId = `${idPrefix}-glow-enabled`;
   const colorId = `${idPrefix}-glow-color`;
   const intensityId = `${idPrefix}-glow-intensity`;
@@ -253,7 +255,7 @@ function GlowFields({
           </div>
           {!colorValid && (
             <p className="text-xs text-destructive">
-              Enter a valid hex color like #349aee or leave it blank.
+              {st("Enter a valid hex color like #349aee or leave it blank.")}
             </p>
           )}
         </div>
@@ -456,6 +458,9 @@ function HeaderPreviewBlock({
   label: string;
   tone?: "muted" | "primary" | "border" | "brand";
 }) {
+  const st = useSourceTranslations();
+  const translatedLabel = st(label);
+
   return (
     <span
       className={cn(
@@ -469,9 +474,9 @@ function HeaderPreviewBlock({
               : "bg-muted-foreground/20 text-muted-foreground",
         className,
       )}
-      title={label}
+      title={translatedLabel}
     >
-      {label}
+      {translatedLabel}
     </span>
   );
 }
@@ -485,6 +490,8 @@ function HeaderVariantPreview({
   hidden?: boolean;
   t: TranslateFn;
 }) {
+  const st = useSourceTranslations();
+
   if (hidden) {
     return (
       <div className="overflow-hidden rounded-md border bg-muted/20">
@@ -701,14 +708,14 @@ function HeaderVariantPreview({
         <div className="min-w-0 space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">
-              {HEADER_VARIANT_LABELS[variant]}
+              {st(HEADER_VARIANT_LABELS[variant])}
             </span>
             <Badge variant="outline">
               {t("globalSettings.layoutDesign.preview.headerPreview")}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {HEADER_VARIANT_SUMMARIES[variant]}
+            {st(HEADER_VARIANT_SUMMARIES[variant])}
           </p>
         </div>
       </div>
@@ -749,6 +756,9 @@ function FooterPreviewBlock({
   label?: string;
   tone?: "muted" | "primary" | "border";
 }) {
+  const st = useSourceTranslations();
+  const translatedLabel = label ? st(label) : undefined;
+
   return (
     <span
       className={cn(
@@ -760,9 +770,9 @@ function FooterPreviewBlock({
             : "bg-muted-foreground/20 text-muted-foreground",
         className,
       )}
-      title={label}
+      title={translatedLabel}
     >
-      {label}
+      {translatedLabel}
     </span>
   );
 }
@@ -774,6 +784,7 @@ function FooterVariantPreview({
   variant: FooterVariant;
   t: TranslateFn;
 }) {
+  const st = useSourceTranslations();
   const isHidden = variant === "hidden";
 
   return (
@@ -928,14 +939,14 @@ function FooterVariantPreview({
             <span className="text-sm font-medium">
               {isHidden
                 ? t("globalSettings.layoutDesign.preview.hidden")
-                : FOOTER_VARIANT_LABELS[variant]}
+                : st(FOOTER_VARIANT_LABELS[variant])}
             </span>
             <Badge variant="outline">
               {t("globalSettings.layoutDesign.preview.footerPreview")}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {FOOTER_VARIANT_SUMMARIES[variant]}
+            {st(FOOTER_VARIANT_SUMMARIES[variant])}
           </p>
         </div>
       </div>
@@ -949,6 +960,65 @@ const MAIN_VARIANT_LABELS: Record<MainSurfaceVariant, string> = {
   "full-bleed-builder": "Full-bleed Builder",
   "editorial-article": "Editorial Article",
   "category-grid": "Category Grid",
+};
+
+const THEME_LABELS: Record<Theme, string> = {
+  default: "Default",
+  dark: "Dark",
+  minimal: "Minimal",
+  corporate: "Corporate",
+  cyberpunk: "Cyberpunk",
+  elegant: "Elegant",
+  forest: "Forest",
+  ocean: "Ocean",
+  sunset: "Sunset",
+  pastel: "Pastel",
+  luxury: "Luxury",
+  obsidian: "Obsidian",
+  midnight: "Midnight",
+  aurora: "Aurora",
+  nordic: "Nordic",
+  graphite: "Graphite",
+  paper: "Paper",
+  sage: "Sage",
+  terracotta: "Terracotta",
+  lavender: "Lavender",
+  monochrome: "Monochrome",
+  terminal: "Terminal",
+  rose: "Rose",
+  "high-contrast": "High Contrast",
+};
+
+const CONTENT_WIDTH_LABELS: Record<ContentWidthPreset, string> = {
+  "full-width": "Full Width",
+  contained: "Contained",
+  narrow: "Narrow",
+  wide: "Wide",
+  "ultra-wide": "Ultra Wide",
+};
+
+const FONT_PRESET_LABELS: Record<FontPreset, string> = {
+  system: "System",
+  sans: "Sans",
+  serif: "Serif",
+  mono: "Mono",
+  display: "Display",
+  humanist: "Humanist",
+};
+
+const RADIUS_PRESET_LABELS: Record<RadiusPreset, string> = {
+  none: "None",
+  small: "Small",
+  medium: "Medium",
+  large: "Large",
+  rounded: "Rounded",
+};
+
+const SHADOW_PRESET_LABELS: Record<ShadowPreset, string> = {
+  none: "None",
+  soft: "Soft",
+  medium: "Medium",
+  strong: "Strong",
 };
 
 const BLOG_POST_METADATA_LABELS: Record<BlogPostMetadataTreatment, string> = {
@@ -1116,6 +1186,7 @@ function ContentWidthField({
   value,
   onChange,
 }: ContentWidthFieldProps) {
+  const st = useSourceTranslations();
   const valueIsPreset = isContentWidthPreset(value);
   // Track the user's selection in local state so switching to "custom" with
   // an empty/invalid input still reveals the number field (the committed
@@ -1159,10 +1230,12 @@ function ContentWidthField({
         <SelectContent>
           {CONTENT_WIDTHS.map((w) => (
             <SelectItem key={w} value={w}>
-              {w}
+              {st(CONTENT_WIDTH_LABELS[w])}
             </SelectItem>
           ))}
-          <SelectItem value={CUSTOM_WIDTH_OPTION}>custom (px)</SelectItem>
+          <SelectItem value={CUSTOM_WIDTH_OPTION}>
+            {st("custom (px)")}
+          </SelectItem>
         </SelectContent>
       </Select>
       {isCustom && (
@@ -1174,7 +1247,7 @@ function ContentWidthField({
             min={MIN_CUSTOM_CONTENT_WIDTH_PX}
             max={MAX_CUSTOM_CONTENT_WIDTH_PX}
             step={1}
-            placeholder="e.g. 1200"
+            placeholder={st("e.g. 1200")}
             value={customDraft}
             onChange={(e) => {
               const next = e.target.value;
@@ -1204,8 +1277,13 @@ function ContentWidthField({
             }
           >
             {showError
-              ? `Enter a whole number between ${MIN_CUSTOM_CONTENT_WIDTH_PX} and ${MAX_CUSTOM_CONTENT_WIDTH_PX}.`
-              : `Max-width in pixels. Layout stays responsive and centered (width: 100%, mx-auto).`}
+              ? st("Enter a whole number between {min} and {max}.", {
+                  min: MIN_CUSTOM_CONTENT_WIDTH_PX,
+                  max: MAX_CUSTOM_CONTENT_WIDTH_PX,
+                })
+              : st(
+                  "Max-width in pixels. Layout stays responsive and centered (width: 100%, mx-auto).",
+                )}
           </p>
         </div>
       )}
@@ -1237,6 +1315,7 @@ function SearchableSelect({
   searchPlaceholder,
   onChange,
 }: SearchableSelectProps) {
+  const st = useSourceTranslations();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const selected = options.find((option) => option.value === value);
@@ -1287,7 +1366,7 @@ function SearchableSelect({
           <div className="max-h-72 overflow-y-auto">
             {filteredOptions.length === 0 ? (
               <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-                No matches found.
+                {st("No matches found.")}
               </p>
             ) : (
               filteredOptions.map((option) => (
@@ -1436,6 +1515,7 @@ function ShellVisibilitySection({
   onModeChange: (mode: ShellVisibilityMode) => void;
   onTargetsChange: (targets: ShellVisibilityTargets) => void;
 }) {
+  const st = useSourceTranslations();
   const selectedCount = countVisibilityTargets(targets);
 
   function setTarget(
@@ -1481,7 +1561,7 @@ function ShellVisibilitySection({
             className="justify-center"
             onClick={() => onModeChange("everywhere")}
           >
-            Show everywhere
+            {st("Show everywhere")}
           </Button>
           <Button
             type="button"
@@ -1490,7 +1570,7 @@ function ShellVisibilitySection({
             className="justify-center"
             onClick={() => onModeChange("selected")}
           >
-            Show only on selected locations
+            {st("Show only on selected locations")}
           </Button>
         </div>
       </div>
@@ -1526,12 +1606,12 @@ function ShellVisibilitySection({
                     ) ? (
                       <>
                         <X className="size-3" aria-hidden />
-                        Deselect all
+                        {st("Deselect all")}
                       </>
                     ) : (
                       <>
                         <Check className="size-3" aria-hidden />
-                        Select all
+                        {st("Select all")}
                       </>
                     )}
                   </Button>
@@ -1540,7 +1620,7 @@ function ShellVisibilitySection({
               <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
                 {group.options.length === 0 ? (
                   <p className="px-2 py-4 text-sm text-muted-foreground">
-                    No options available.
+                    {st("No options available.")}
                   </p>
                 ) : (
                   group.options.map((option) => (
@@ -1658,9 +1738,7 @@ function SessionSecurityCard({
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
-          Note: for hard server-side enforcement, also configure Clerk&apos;s
-          session token lifetime in the Clerk dashboard to match the max session
-          duration.
+          {t("globalSettings.system.serverEnforcementNote")}
         </p>
       </CardContent>
     </Card>
@@ -1676,6 +1754,7 @@ export function SettingsForm({
 }: SettingsFormProps) {
   const router = useRouter();
   const t = useTranslations();
+  const st = useSourceTranslations();
   const searchParams = useSearchParams();
   const urlSettingsTab = parseSettingsTab(
     searchParams.get(SETTINGS_TAB_PARAM),
@@ -1793,7 +1872,7 @@ export function SettingsForm({
   const visibilityTargetGroups: VisibilityTargetGroup[] = [
     {
       key: "systemPageIds",
-      label: "System Pages",
+      label: st("System Pages"),
       options: SYSTEM_PAGE_TARGETS.map((target) => ({
         id: target.id,
         label: target.label,
@@ -1802,7 +1881,7 @@ export function SettingsForm({
     },
     {
       key: "pageIds",
-      label: "Pages",
+      label: st("Pages"),
       options: visibilityContentTargets
         .filter((item) => item.contentType === "page")
         .map((item) => ({
@@ -1813,7 +1892,7 @@ export function SettingsForm({
     },
     {
       key: "blogPostIds",
-      label: "Blog Posts",
+      label: st("Blog Posts"),
       options: visibilityContentTargets
         .filter((item) => item.contentType === "blog_post")
         .map((item) => ({
@@ -1824,7 +1903,7 @@ export function SettingsForm({
     },
     {
       key: "heroSliderIds",
-      label: "Hero Sliders",
+      label: st("Hero Sliders"),
       options: visibilityContentTargets
         .filter((item) => item.contentType === "hero_slider")
         .map((item) => ({
@@ -1835,7 +1914,7 @@ export function SettingsForm({
     },
     {
       key: "webshopIds",
-      label: "Webshops",
+      label: st("Webshops"),
       options: visibilityContentTargets
         .filter((item) => item.contentType === "webshop")
         .map((item) => ({
@@ -1846,16 +1925,16 @@ export function SettingsForm({
     },
     {
       key: "blogCategoryIds",
-      label: "Blog Categories",
+      label: st("Blog Categories"),
       options: visibilityBlogCategories.map((category) => ({
         id: category.id,
         label: category.name,
-        meta: "Blog category",
+        meta: st("Blog category"),
       })),
     },
     {
       key: "adminPageIds",
-      label: "Admin/backend Pages",
+      label: st("Admin/backend Pages"),
       options: ADMIN_PAGE_TARGETS.map((target) => ({
         id: target.id,
         label: target.label,
@@ -3144,7 +3223,7 @@ export function SettingsForm({
                       <SelectContent>
                         {HEADER_VARIANTS.map((variant) => (
                           <SelectItem key={variant} value={variant}>
-                            {HEADER_VARIANT_LABELS[variant]}
+                            {st(HEADER_VARIANT_LABELS[variant])}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -3193,7 +3272,7 @@ export function SettingsForm({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={WITHOUT_MENU_VALUE}>
-                          Without menu
+                          {st("Without menu")}
                         </SelectItem>
                         {navigationMenus.map((menu) => (
                           <SelectItem key={menu.id} value={menu.id}>
@@ -3306,7 +3385,7 @@ export function SettingsForm({
                           <SelectContent>
                             {LOGO_BORDER_SHAPES.map((shape) => (
                               <SelectItem key={shape} value={shape}>
-                                {LOGO_BORDER_SHAPE_LABELS[shape]}
+                                {st(LOGO_BORDER_SHAPE_LABELS[shape])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3339,7 +3418,7 @@ export function SettingsForm({
                           <SelectContent>
                             {LOGO_BORDER_COLOR_MODES.map((mode) => (
                               <SelectItem key={mode} value={mode}>
-                                {LOGO_BORDER_COLOR_MODE_LABELS[mode]}
+                                {st(LOGO_BORDER_COLOR_MODE_LABELS[mode])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3377,7 +3456,9 @@ export function SettingsForm({
                         </div>
                         {!logoBorderColorValid && (
                           <p className="text-xs text-destructive">
-                            Enter a valid hex color like #fff or #ffffff.
+                            {st(
+                              "Enter a valid hex color like #fff or #ffffff.",
+                            )}
                           </p>
                         )}
                       </div>
@@ -3442,8 +3523,9 @@ export function SettingsForm({
                     </div>
                     {!headerBackgroundValid && (
                       <p className="text-xs text-destructive">
-                        Enter a valid hex color like #fff or #ffffff, or leave
-                        it blank.
+                        {st(
+                          "Enter a valid hex color like #fff or #ffffff, or leave it blank.",
+                        )}
                       </p>
                     )}
                   </div>
@@ -3645,7 +3727,7 @@ export function SettingsForm({
                       <SelectContent>
                         {FOOTER_LAYOUT_VARIANTS.map((variant) => (
                           <SelectItem key={variant} value={variant}>
-                            {FOOTER_VARIANT_LABELS[variant]}
+                            {st(FOOTER_VARIANT_LABELS[variant])}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -3725,8 +3807,9 @@ export function SettingsForm({
                     </div>
                     {!footerBackgroundValid && (
                       <p className="text-xs text-destructive">
-                        Enter a valid hex color like #fff or #ffffff, or leave
-                        it blank.
+                        {st(
+                          "Enter a valid hex color like #fff or #ffffff, or leave it blank.",
+                        )}
                       </p>
                     )}
                   </div>
@@ -3949,10 +4032,9 @@ export function SettingsForm({
                             aria-hidden
                           />
                           <p>
-                            Presets are starting points. Mix Theme, content
-                            widths, font, radius, shadow, main surface, and
-                            content templates to shape the public pages and blog
-                            posts exactly how you want.
+                            {st(
+                              "Presets are starting points. Mix Theme, content widths, font, radius, shadow, main surface, and content templates to shape the public pages and blog posts exactly how you want.",
+                            )}
                           </p>
                         </div>
                       </div>
@@ -3987,7 +4069,7 @@ export function SettingsForm({
                         <SelectContent>
                           {THEMES.map((t) => (
                             <SelectItem key={t} value={t}>
-                              {t}
+                              {st(THEME_LABELS[t])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -4012,7 +4094,7 @@ export function SettingsForm({
                         <SelectContent>
                           {MAIN_SURFACE_VARIANTS.map((variant) => (
                             <SelectItem key={variant} value={variant}>
-                              {MAIN_VARIANT_LABELS[variant]}
+                              {st(MAIN_VARIANT_LABELS[variant])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -4051,7 +4133,7 @@ export function SettingsForm({
                         <SelectContent>
                           {FONT_PRESETS.map((f) => (
                             <SelectItem key={f} value={f}>
-                              {f}
+                              {st(FONT_PRESET_LABELS[f])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -4076,7 +4158,7 @@ export function SettingsForm({
                         <SelectContent>
                           {RADIUS_PRESETS.map((r) => (
                             <SelectItem key={r} value={r}>
-                              {r}
+                              {st(RADIUS_PRESET_LABELS[r])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -4101,7 +4183,7 @@ export function SettingsForm({
                         <SelectContent>
                           {SHADOW_PRESETS.map((s) => (
                             <SelectItem key={s} value={s}>
-                              {s}
+                              {st(SHADOW_PRESET_LABELS[s])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -4140,7 +4222,7 @@ export function SettingsForm({
                           <SelectContent>
                             {PAGE_TEMPLATE_VARIANTS.map((variant) => (
                               <SelectItem key={variant} value={variant}>
-                                {PAGE_TEMPLATE_LABELS[variant]}
+                                {st(PAGE_TEMPLATE_LABELS[variant])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4167,7 +4249,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_CATEGORY_TEMPLATE_VARIANTS.map((variant) => (
                               <SelectItem key={variant} value={variant}>
-                                {BLOG_CATEGORY_TEMPLATE_LABELS[variant]}
+                                {st(BLOG_CATEGORY_TEMPLATE_LABELS[variant])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4194,7 +4276,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_POST_METADATA_TREATMENTS.map((treatment) => (
                               <SelectItem key={treatment} value={treatment}>
-                                {BLOG_POST_METADATA_LABELS[treatment]}
+                                {st(BLOG_POST_METADATA_LABELS[treatment])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4221,7 +4303,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_POST_COVER_PLACEMENTS.map((placement) => (
                               <SelectItem key={placement} value={placement}>
-                                {BLOG_POST_COVER_LABELS[placement]}
+                                {st(BLOG_POST_COVER_LABELS[placement])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4248,7 +4330,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_POST_EXCERPT_TREATMENTS.map((treatment) => (
                               <SelectItem key={treatment} value={treatment}>
-                                {BLOG_POST_EXCERPT_LABELS[treatment]}
+                                {st(BLOG_POST_EXCERPT_LABELS[treatment])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4275,7 +4357,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_POST_COMMENTS_PLACEMENTS.map((placement) => (
                               <SelectItem key={placement} value={placement}>
-                                {BLOG_POST_COMMENTS_LABELS[placement]}
+                                {st(BLOG_POST_COMMENTS_LABELS[placement])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4303,7 +4385,7 @@ export function SettingsForm({
                             {BLOG_POST_EDIT_AFFORDANCE_PLACEMENTS.map(
                               (placement) => (
                                 <SelectItem key={placement} value={placement}>
-                                  {BLOG_POST_EDIT_LABELS[placement]}
+                                  {st(BLOG_POST_EDIT_LABELS[placement])}
                                 </SelectItem>
                               ),
                             )}
@@ -4344,7 +4426,7 @@ export function SettingsForm({
                           <SelectContent>
                             {APPEARANCE_MOTION_PREFERENCES.map((preference) => (
                               <SelectItem key={preference} value={preference}>
-                                {MOTION_PREFERENCE_LABELS[preference]}
+                                {st(MOTION_PREFERENCE_LABELS[preference])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4371,7 +4453,7 @@ export function SettingsForm({
                           <SelectContent>
                             {APPEARANCE_BACKGROUND_EFFECTS.map((effect) => (
                               <SelectItem key={effect} value={effect}>
-                                {BACKGROUND_EFFECTS_LABELS[effect]}
+                                {st(BACKGROUND_EFFECTS_LABELS[effect])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4400,10 +4482,14 @@ export function SettingsForm({
                           }
                         >
                           <ShieldCheck aria-hidden />
-                          {qualityErrorCount} errors
+                          {st("{count} errors", {
+                            count: qualityErrorCount,
+                          })}
                         </Badge>
                         <Badge variant="outline">
-                          {qualityWarningCount} warnings
+                          {st("{count} warnings", {
+                            count: qualityWarningCount,
+                          })}
                         </Badge>
                       </div>
                     </div>
@@ -4429,7 +4515,7 @@ export function SettingsForm({
                       </ul>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        No quality gate issues detected.
+                        {st("No quality gate issues detected.")}
                       </p>
                     )}
                   </div>
@@ -4786,7 +4872,7 @@ export function SettingsForm({
                                           aria-hidden
                                           className="mt-0.5 h-3.5 w-3.5 shrink-0"
                                         />
-                                        <span>{costWarning.text}</span>
+                                        <span>{st(costWarning.text)}</span>
                                       </span>
                                     )}
                                   </span>
@@ -4986,7 +5072,9 @@ export function SettingsForm({
                   onChange={(e) => setMaxUploadMB(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {(parseInt(maxUploadMB, 10) || 0) * MB} bytes
+                  {st("{bytes} bytes", {
+                    bytes: (parseInt(maxUploadMB, 10) || 0) * MB,
+                  })}
                 </p>
               </div>
               <div className="space-y-1.5">
@@ -5001,7 +5089,9 @@ export function SettingsForm({
                   onChange={(e) => setMaxBatchUploadMB(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {(parseInt(maxBatchUploadMB, 10) || 0) * MB} bytes
+                  {st("{bytes} bytes", {
+                    bytes: (parseInt(maxBatchUploadMB, 10) || 0) * MB,
+                  })}
                 </p>
               </div>
             </CardContent>

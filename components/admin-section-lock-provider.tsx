@@ -420,11 +420,14 @@ function AdminSectionLockNoticeContent({
           className,
         )}
       >
-        Currently being edited by{" "}
-        <strong>{state.holder.userDisplayName}</strong> ({state.holder.userRole}
-        ). Last activity {formatTime(state.holder.lastHeartbeatAt)}. You can
-        view but not save changes. Another admin is editing — contact them to
-        release the lock, or wait until they close the page.
+        {st(
+          "Currently being edited by {name} ({role}). Last activity {time}. You can view but not save changes. Another admin is editing - contact them to release the lock, or wait until they close the page.",
+          {
+            name: state.holder.userDisplayName,
+            role: state.holder.userRole,
+            time: formatTime(state.holder.lastHeartbeatAt),
+          },
+        )}
       </div>
     );
   }

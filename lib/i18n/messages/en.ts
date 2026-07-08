@@ -359,7 +359,7 @@ export const en = {
         webshopTitle: "Webshop",
         webshopDescription:
           "Set up the paid commerce add-on and CMS shell. Sell physical, digital, and service products in an easy way.",
-        licenseServerTitle: "License Server",
+        licenseServerTitle: "License server",
         licenseServerDescription:
           "Activate the paid licensing add-on for digital products. Automatically generate and validate license keys for customer purchases.",
       },
@@ -574,7 +574,7 @@ export const en = {
         today: "Today",
         yesterday: "Yesterday",
         meta: {
-          actor: "Actor",
+          actor: "Changed by",
           created: "Created",
           author: "Author",
           homepage: "Homepage",
@@ -586,11 +586,19 @@ export const en = {
         changeType: {
           created: "Created",
           updated: "Updated",
+          saved: "Saved",
+          submitted_for_review: "Submitted for review",
+          approved: "Approved",
+          published: "Published",
+          unpublished: "Unpublished",
+          archived: "Archived",
+          scheduled: "Scheduled",
           status_changed: "Status changed",
           schedule_changed: "Schedule changed",
           homepage_changed: "Homepage changed",
           restored: "Restored",
           deleted: "Deleted",
+          deleted_snapshot: "Deleted snapshot",
           restored_deleted: "Restored deleted",
           reassigned_author: "Reassigned author",
         },
@@ -1332,6 +1340,8 @@ export const en = {
         "{minutes} minutes = {human}. Sliding window - reset by user activity; a warning appears before sign-out.",
       idleRange: "Enter a whole number of at least {min}.",
       idleExceedsMax: "Idle logout cannot exceed max session duration.",
+      serverEnforcementNote:
+        "Note: for hard server-side enforcement, also configure Clerk's session token lifetime in the Clerk dashboard to match the max session duration.",
     },
     validation: {
       editLockMissing:

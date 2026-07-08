@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { HelpInfo } from "@/components/ui/help-info";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -209,6 +210,7 @@ export function ContentForm({
   initial,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const { timezone } = useRegionalSettings();
   const [pending, startTransition] = useTransition();
@@ -368,7 +370,7 @@ export function ContentForm({
       : contentType === "page"
         ? emptyBuilderData
         : contentType === "hero_slider"
-          ? createDefaultHeroSlider()
+          ? createDefaultHeroSlider(st)
           : contentType === "webshop"
             ? emptyWebshopContent
             : emptyTiptapJson,
