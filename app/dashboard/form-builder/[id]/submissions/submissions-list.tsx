@@ -43,6 +43,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { TablePagination } from "@/app/dashboard/table-pagination";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
+import {
+  useSourceTranslations,
+  type SourceTranslateFn,
+} from "@/components/source-translations";
 
 import {
   bulkSubmissionAction,
@@ -70,10 +74,10 @@ type Props = {
   pageSize: number;
 };
 
-function statusBadge(s: string) {
-  if (s === "new") return <Badge>new</Badge>;
-  if (s === "read") return <Badge variant="secondary">read</Badge>;
-  return <Badge variant="destructive">spam</Badge>;
+function statusBadge(s: string, st: SourceTranslateFn) {
+  if (s === "new") return <Badge>{st("new")}</Badge>;
+  if (s === "read") return <Badge variant="secondary">{st("read")}</Badge>;
+  return <Badge variant="destructive">{st("spam")}</Badge>;
 }
 
 export function SubmissionsList({
@@ -83,6 +87,7 @@ export function SubmissionsList({
   initialTotal,
   pageSize: initialPageSize,
 }: Props) {
+  const st = useSourceTranslations();
   const { formatDateTime } = useRegionalSettings();
   const [rows, setRows] = useState<FormSubmissionRow[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
@@ -168,7 +173,7 @@ export function SubmissionsList({
         toast.error(r.error);
         return;
       }
-      toast.success(`${r.count} updated.`);
+      toast.success(st("{count} updated.", { count: r.count }));
       reload(1);
     });
   }
@@ -186,7 +191,7 @@ export function SubmissionsList({
       setRows((prev) => prev.filter((x) => x.id !== id));
       setTotal((t) => t - 1);
       setDeleteId(null);
-      toast.success("Deleted.");
+      toast.success(st("Deleted."));
     });
   }
 
@@ -222,17 +227,17 @@ export function SubmissionsList({
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <Label className="text-xs">Search</Label>
+          <Label className="text-xs">{st("Search")}</Label>
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search values…"
+            placeholder={st("Search values…")}
             className="w-56"
             onKeyDown={(e) => e.key === "Enter" && reload(1)}
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Status</Label>
+          <Label className="text-xs">{st("Status")}</Label>
           <Select
             value={status}
             onValueChange={(v) => setStatus(v as StatusFilter)}
@@ -243,14 +248,14 @@ export function SubmissionsList({
             <SelectContent>
               {STATUS_FILTER.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {s}
+                  {st(s)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">From</Label>
+          <Label className="text-xs">{st("From")}</Label>
           <Input
             type="date"
             value={fromDate}
@@ -258,7 +263,7 @@ export function SubmissionsList({
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">To</Label>
+          <Label className="text-xs">{st("To")}</Label>
           <Input
             type="date"
             value={toDate}
@@ -267,7 +272,7 @@ export function SubmissionsList({
         </div>
         <Button onClick={() => reload(1)} disabled={pending}>
           {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          <RefreshCw className="mr-2 h-4 w-4" /> Apply
+          <RefreshCw className="mr-2 h-4 w-4" /> {st("Apply")}
         </Button>
         <Button variant="outline" onClick={exportCsv} disabled={exporting}>
           {exporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -278,23 +283,23 @@ export function SubmissionsList({
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
           <span className="text-muted-foreground">
-            {selected.size} selected
+            {st("{count} selected", { count: selected.size })}
           </span>
           <Button size="sm" variant="outline" onClick={() => bulk("mark_read")}>
-            Mark read
+            {st("Mark read")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => bulk("mark_new")}>
-            Mark new
+            {st("Mark new")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => bulk("mark_spam")}>
-            Mark spam
+            {st("Mark spam")}
           </Button>
           <Button
             size="sm"
             variant="destructive"
             onClick={() => bulk("delete")}
           >
-            <Trash2 className="mr-1 h-3 w-3" /> Delete
+            <Trash2 className="mr-1 h-3 w-3" /> {st("Delete")}
           </Button>
         </div>
       )}
@@ -306,13 +311,13 @@ export function SubmissionsList({
               <Checkbox
                 checked={allChecked}
                 onCheckedChange={(c) => toggleAll(c === true)}
-                aria-label="Select all"
+                aria-label={st("Select all")}
               />
             </TableHead>
-            <TableHead>Submitted</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Preview</TableHead>
+            <TableHead>{st("Submitted")}</TableHead>
+            <TableHead>{st("Status")}</TableHead>
+            <TableHead>{st("Email")}</TableHead>
+            <TableHead>{st("Preview")}</TableHead>
             <TableHead className="w-[1%]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -323,7 +328,7 @@ export function SubmissionsList({
                 colSpan={6}
                 className="text-center text-muted-foreground"
               >
-                No submissions.
+                {st("No submissions.")}
               </TableCell>
             </TableRow>
           ) : (
@@ -347,20 +352,22 @@ export function SubmissionsList({
                     <Checkbox
                       checked={selected.has(r.id)}
                       onCheckedChange={(c) => toggleOne(r.id, c === true)}
-                      aria-label="Select row"
+                      aria-label={st("Select row")}
                     />
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-xs">
                     {formatDateTime(r.createdAt)}
                   </TableCell>
-                  <TableCell>{statusBadge(r.status)}</TableCell>
+                  <TableCell>{statusBadge(r.status, st)}</TableCell>
                   <TableCell className="text-xs">{r.emailStatus}</TableCell>
                   <TableCell
                     className="max-w-md truncate text-xs"
                     title={preview}
                   >
                     {preview || (
-                      <span className="text-muted-foreground">(empty)</span>
+                      <span className="text-muted-foreground">
+                        {st("(empty)")}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -375,7 +382,7 @@ export function SubmissionsList({
                           }
                         }}
                       >
-                        View
+                        {st("View")}
                       </Button>
                       <Select
                         value={r.status}
@@ -387,9 +394,9 @@ export function SubmissionsList({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent position="popper" align="end">
-                          <SelectItem value="new">new</SelectItem>
-                          <SelectItem value="read">read</SelectItem>
-                          <SelectItem value="spam">spam</SelectItem>
+                          <SelectItem value="new">{st("new")}</SelectItem>
+                          <SelectItem value="read">{st("read")}</SelectItem>
+                          <SelectItem value="spam">{st("spam")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Button
@@ -416,7 +423,7 @@ export function SubmissionsList({
             {total === 0
               ? "0"
               : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)}`}{" "}
-            of {total}
+            {st("of")} {total}
           </>
         }
         page={page}
@@ -430,7 +437,7 @@ export function SubmissionsList({
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Submission detail</DialogTitle>
+            <DialogTitle>{st("Submission detail")}</DialogTitle>
             <DialogDescription>
               {detail && formatDateTime(detail.createdAt)}
             </DialogDescription>
@@ -438,29 +445,35 @@ export function SubmissionsList({
           {detail && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-[120px_1fr] gap-2 text-xs">
-                <span className="text-muted-foreground">Status</span>
-                <span>{detail.status}</span>
-                <span className="text-muted-foreground">Email status</span>
-                <span>{detail.emailStatus}</span>
+                <span className="text-muted-foreground">{st("Status")}</span>
+                <span>{st(detail.status)}</span>
+                <span className="text-muted-foreground">
+                  {st("Email status")}
+                </span>
+                <span>{st(detail.emailStatus)}</span>
                 {detail.emailStatus === "failed" && detail.emailError && (
                   <>
-                    <span className="text-muted-foreground">Email error</span>
+                    <span className="text-muted-foreground">
+                      {st("Email error")}
+                    </span>
                     <span className="break-all text-destructive">
                       {detail.emailError}
                     </span>
                   </>
                 )}
-                <span className="text-muted-foreground">IP hash</span>
+                <span className="text-muted-foreground">{st("IP hash")}</span>
                 <span className="font-mono text-[10px] break-all">
-                  {detail.ipHash ?? "(none)"}
+                  {detail.ipHash ?? st("(none)")}
                 </span>
-                <span className="text-muted-foreground">User agent</span>
-                <span className="text-[10px] break-all">
-                  {detail.userAgent ?? "(none)"}
+                <span className="text-muted-foreground">
+                  {st("User agent")}
                 </span>
-                <span className="text-muted-foreground">Referer</span>
                 <span className="text-[10px] break-all">
-                  {detail.referer ?? "(none)"}
+                  {detail.userAgent ?? st("(none)")}
+                </span>
+                <span className="text-muted-foreground">{st("Referer")}</span>
+                <span className="text-[10px] break-all">
+                  {detail.referer ?? st("(none)")}
                 </span>
               </div>
               <div className="rounded-md border">
@@ -518,14 +531,16 @@ export function SubmissionsList({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete submission?</AlertDialogTitle>
+            <AlertDialogTitle>{st("Delete submission?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone.
+              {st("This action cannot be undone.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={deleteOne}>Delete</AlertDialogAction>
+            <AlertDialogCancel>{st("Cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteOne}>
+              {st("Delete")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

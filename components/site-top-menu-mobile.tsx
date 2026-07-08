@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { Show, SignInButton, SignUpButton, useUser } from "@clerk/nextjs";
+import { useTranslations } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { UserButtonClient } from "@/components/user-button-client";
 import { getBackendMenuLinks } from "@/lib/backend-menu";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 import { getRoles, hasRole } from "@/lib/roles";
 import { shouldRenderMobileHeaderMenu } from "@/lib/site-mobile-menu";
@@ -52,10 +54,12 @@ function NavLink({
 function MobileMenuItem({
   item,
   onClose,
+  t,
   depth = 0,
 }: {
   item: TopMenuTreeNode;
   onClose: () => void;
+  t: TranslateFn;
   depth?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -86,8 +90,8 @@ function MobileMenuItem({
             aria-expanded={expanded}
             aria-label={
               expanded
-                ? `Collapse ${item.label} submenu`
-                : `Expand ${item.label} submenu`
+                ? t("shell.collapseSubmenu", { label: item.label })
+                : t("shell.expandSubmenu", { label: item.label })
             }
             className="h-10 w-10 shrink-0 rounded-md p-0"
             onClick={() => setExpanded((v) => !v)}
@@ -113,7 +117,7 @@ function MobileMenuItem({
           <div
             className={cn(
               "space-y-0.5 py-1",
-              depth === 0 ? "ml-4 border-l border-border pl-3" : "ml-2 pl-2",
+              depth === 0 ? "ms-4 border-s border-border ps-3" : "ms-2 ps-2",
             )}
           >
             {item.children.map((child) => (
@@ -121,6 +125,7 @@ function MobileMenuItem({
                 key={child.id}
                 item={child}
                 onClose={onClose}
+                t={t}
                 depth={depth + 1}
               />
             ))}
@@ -153,10 +158,15 @@ function AdminNavLink({
           "hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]",
           "focus-visible:bg-[var(--nav-hover-bg)] focus-visible:text-[var(--nav-hover-foreground)]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          isChild && "ml-4 text-muted-foreground",
+          isChild && "ms-4 text-muted-foreground",
         )}
       >
-        {isChild && <span className="mr-2 text-muted-foreground">↳</span>}
+        {isChild && (
+          <span
+            aria-hidden
+            className="me-2 size-1.5 shrink-0 rounded-full bg-current text-muted-foreground"
+          />
+        )}
         {label}
       </Link>
     </li>
@@ -169,6 +179,7 @@ export function SiteTopMenuMobile({
   isAdmin = false,
   showAuthControls = true,
   showBackendMenu = true,
+  hasLicenseServerShell = false,
   hasWebshopShell = false,
 }: {
   tree: TopMenuTreeNode[];
@@ -177,8 +188,10 @@ export function SiteTopMenuMobile({
   isLoggedIn?: boolean;
   showAuthControls?: boolean;
   showBackendMenu?: boolean;
+  hasLicenseServerShell?: boolean;
   hasWebshopShell?: boolean;
 }) {
+  const t = useTranslations();
   const { isLoaded, isSignedIn, user } = useUser();
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -240,7 +253,9 @@ export function SiteTopMenuMobile({
   const backendLinks = getBackendMenuLinks({
     isBackendUser: hasBackendNav,
     isAdmin: effectiveIsAdmin,
+    hasLicenseServerShell,
     hasWebshopShell,
+    t,
   });
 
   return (
@@ -252,7 +267,11 @@ export function SiteTopMenuMobile({
         size="sm"
         className="relative h-10 w-10 shrink-0 rounded-md p-0"
         onClick={() => setIsOpen((v) => !v)}
-        aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
+        aria-label={
+          isOpen
+            ? t("shell.closeNavigationMenu")
+            : t("shell.openNavigationMenu")
+        }
         aria-expanded={isOpen}
         aria-haspopup="dialog"
         aria-controls="mobile-nav-panel"
@@ -295,21 +314,21 @@ export function SiteTopMenuMobile({
         id="mobile-nav-panel"
         role="dialog"
         aria-modal="false"
-        aria-label="Site navigation"
+        aria-label={t("shell.siteNavigation")}
         className={cn(
-          "fixed right-3 top-[calc(var(--header-h)+0.5rem)] z-[70]",
+          "fixed end-3 top-[calc(var(--header-h)+0.5rem)] z-[70]",
           "bottom-[calc(var(--sticky-footer-h,0px)+0.75rem+env(safe-area-inset-bottom,0px))]",
           "w-72 max-w-[calc(100vw-1.5rem)]",
           "flex min-h-0 flex-col overflow-hidden",
           "rounded-lg border border-border bg-background shadow-xl",
-          "origin-top-right transition-all duration-200 ease-out",
+          "origin-top-end transition-all duration-200 ease-out",
           isOpen
             ? "scale-100 opacity-100 translate-y-0 pointer-events-auto"
             : "scale-95 opacity-0 -translate-y-1 pointer-events-none",
         )}
       >
         <nav
-          aria-label="Site navigation"
+          aria-label={t("shell.siteNavigation")}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]"
         >
           {/* Site nav section */}
@@ -320,6 +339,7 @@ export function SiteTopMenuMobile({
                   key={item.id}
                   item={item}
                   onClose={() => setIsOpen(false)}
+                  t={t}
                 />
               ))}
             </ul>
@@ -331,7 +351,7 @@ export function SiteTopMenuMobile({
               {hasSiteNav && <div className="mx-2 border-t border-border" />}
               <div className="px-3 py-2">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Admin
+                  {t("dashboard.sections.admin")}
                 </p>
               </div>
               <ul className="px-2 pb-2 space-y-0.5">
@@ -358,7 +378,9 @@ export function SiteTopMenuMobile({
                 <Show when="signed-in">
                   <div className="flex items-center gap-3 px-3 py-2">
                     <UserButtonClient />
-                    <span className="text-sm font-medium">Account</span>
+                    <span className="text-sm font-medium">
+                      {t("common.auth.account")}
+                    </span>
                   </div>
                 </Show>
                 <Show when="signed-out">
@@ -374,7 +396,7 @@ export function SiteTopMenuMobile({
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         )}
                       >
-                        Sign in
+                        {t("common.auth.signIn")}
                       </button>
                     </SignInButton>
                     <SignUpButton mode="modal">
@@ -388,7 +410,7 @@ export function SiteTopMenuMobile({
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         )}
                       >
-                        Sign up
+                        {t("common.auth.signUp")}
                       </button>
                     </SignUpButton>
                   </div>

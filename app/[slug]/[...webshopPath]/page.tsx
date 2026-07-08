@@ -6,6 +6,8 @@ import { ContentUnauthorized } from "@/components/content-unauthorized";
 import { getContentBySlug } from "@/data/content";
 import { canViewContent } from "@/lib/content-visibility";
 import { isContentLive } from "@/lib/content-schedule";
+import { getAddonI18nContext } from "@/lib/i18n/addon-server";
+import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 import { getWebshopRuntimeConfig } from "@/lib/webshop-addon/config";
@@ -42,7 +44,8 @@ export async function generateMetadata({
   if (!result) return {};
 
   if (!canViewContent(result.row.visibility, result.viewerRoles)) {
-    return { title: "Restricted" };
+    const t = await getTranslations("frontend");
+    return { title: t("public.errors.accessRestricted.metadataTitle") };
   }
 
   const addonState = await resolveWebshopAddonState();
@@ -51,8 +54,11 @@ export async function generateMetadata({
       addonState.status === "license_expired") &&
     addonState.addon.generateStorefrontMetadata
   ) {
+    const i18n = await getAddonI18nContext();
+
     return addonState.addon.generateStorefrontMetadata({
       contentId: result.row.id,
+      i18n,
       licenseMode:
         addonState.status === "ready" ? "ready" : "edit_existing_only",
       path: webshopPath,

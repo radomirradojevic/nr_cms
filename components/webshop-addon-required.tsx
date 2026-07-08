@@ -7,9 +7,11 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { getTranslations } from "@/lib/i18n/server";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import type { WebshopAddonState } from "@/lib/webshop-addon/contract";
 
-export function WebshopAddonRequired({
+export async function WebshopAddonRequired({
   state,
 }: {
   state: Exclude<
@@ -17,7 +19,8 @@ export function WebshopAddonRequired({
     { status: "ready" } | { status: "license_expired" }
   >;
 }) {
-  const content = getStateContent(state);
+  const t = await getTranslations("backend");
+  const content = getStateContent(state, t);
   const Icon = content.tone === "success" ? CheckCircle2 : content.icon;
 
   return (
@@ -42,11 +45,9 @@ export function WebshopAddonRequired({
           </div>
           {state.status === "platform_not_supported" ? (
             <p className="text-sm text-muted-foreground">
-              Supported install targets:{" "}
-              <span className="font-medium text-foreground">
-                {state.supportedProviders.join(", ")}
-              </span>
-              .
+              {t("addons.common.supportedInstallTargets", {
+                providers: state.supportedProviders.join(", "),
+              })}
             </p>
           ) : null}
         </div>
@@ -60,65 +61,63 @@ function getStateContent(
     WebshopAddonState,
     { status: "ready" } | { status: "license_expired" }
   >,
+  t: TranslateFn,
 ) {
   switch (state.status) {
     case "disabled":
       return {
-        badge: "Disabled",
+        badge: t("addons.common.disabled"),
         description: state.message,
         icon: PowerOff,
-        title: "Webshop is disabled",
+        title: t("addons.webshop.disabledTitle"),
         tone: "warning" as const,
       };
     case "platform_not_supported":
       return {
-        badge: "Install unavailable",
+        badge: t("addons.common.installUnavailable"),
         description: state.message,
         icon: AlertTriangle,
-        title: "Webshop cannot be installed",
+        title: t("addons.webshop.cannotInstall"),
         tone: "warning" as const,
       };
     case "install_pending":
       return {
-        badge: "Install pending",
-        description:
-          "The license was accepted. Install the private Webshop package, set WEBSHOP_ADDON_MODULE, and rebuild or restart the CMS to finish setup.",
+        badge: t("addons.common.installPending"),
+        description: t("addons.webshop.installPendingDescription"),
         icon: Store,
-        title: "Waiting for add-on install",
+        title: t("addons.webshop.installPendingTitle"),
         tone: "success" as const,
       };
     case "install_disabled":
       return {
-        badge: "Install disabled",
+        badge: t("addons.common.installDisabled"),
         description: state.message,
         icon: Lock,
-        title: "Webshop install flow is locked",
+        title: t("addons.webshop.installLocked"),
         tone: "warning" as const,
       };
     case "license_invalid":
       return {
-        badge: "License invalid",
+        badge: t("addons.common.licenseInvalid"),
         description: state.reason,
         icon: AlertTriangle,
-        title: "License needs attention",
+        title: t("addons.common.licenseNeedsAttention"),
         tone: "warning" as const,
       };
     case "license_required":
       return {
-        badge: "License required",
-        description:
-          "Enter a valid Webshop license and package token to activate this paid add-on for this CMS deployment.",
+        badge: t("addons.common.licenseRequired"),
+        description: t("addons.webshop.licenseRequiredDescription"),
         icon: Lock,
-        title: "Activate Webshop",
+        title: t("addons.webshop.activate"),
         tone: "default" as const,
       };
     case "not_installed":
       return {
-        badge: "Add-on required",
-        description:
-          "The public CMS shell is ready. Activate the license, install the private Webshop add-on package, and configure WEBSHOP_ADDON_MODULE before commerce features are available.",
+        badge: t("addons.common.addOnRequired"),
+        description: t("addons.webshop.notInstalledDescription"),
         icon: Store,
-        title: "Webshop add-on is not installed",
+        title: t("addons.webshop.notInstalledTitle"),
         tone: "default" as const,
       };
   }

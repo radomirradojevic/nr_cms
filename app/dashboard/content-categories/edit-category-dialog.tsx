@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,16 +29,25 @@ import {
   updateCategory,
   reassignCategoryOwner,
 } from "@/app/dashboard/content-categories/actions";
+import { useTranslations } from "@/components/i18n-provider";
+import type { TranslateFn } from "@/lib/i18n/translate";
 
-const formSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Name is required.")
-    .max(100, "Name must be 100 characters or fewer."),
-  ownerId: z.string().min(1, "Author is required."),
-});
+function getFormSchema(t: TranslateFn) {
+  return z.object({
+    name: z
+      .string()
+      .min(1, t("dashboard.contentCategories.validation.nameRequired"))
+      .max(100, t("dashboard.contentCategories.validation.nameMax")),
+    ownerId: z
+      .string()
+      .min(1, t("dashboard.contentCategories.validation.authorRequired")),
+  });
+}
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = {
+  name: string;
+  ownerId: string;
+};
 
 type Props = {
   category: {
@@ -54,6 +63,8 @@ type Props = {
 export function EditCategoryDialog({ category, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const t = useTranslations();
+  const formSchema = useMemo(() => getFormSchema(t), [t]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -93,7 +104,10 @@ export function EditCategoryDialog({ category, onSuccess }: Props) {
     onSuccess?.();
   }
 
-  const typeLabel = category.contentType === "page" ? "Page" : "Blog Post";
+  const typeLabel =
+    category.contentType === "page"
+      ? t("dashboard.contentCategories.types.page")
+      : t("dashboard.contentCategories.types.blogPost");
 
   return (
     <Dialog
@@ -112,15 +126,21 @@ export function EditCategoryDialog({ category, onSuccess }: Props) {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Pencil className="h-4 w-4" />
-          <span className="sr-only">Edit</span>
+          <span className="sr-only">
+            {t("dashboard.contentCategories.actions.edit")}
+          </span>
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit {typeLabel} Category</DialogTitle>
+          <DialogTitle>
+            {t("dashboard.contentCategories.dialogs.editTitle", {
+              type: typeLabel,
+            })}
+          </DialogTitle>
           <DialogDescription>
-            Update the name or reassign the author of this category.
+            {t("dashboard.contentCategories.dialogs.editDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -131,7 +151,9 @@ export function EditCategoryDialog({ category, onSuccess }: Props) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category Name</FormLabel>
+                  <FormLabel>
+                    {t("dashboard.contentCategories.form.categoryName")}
+                  </FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -145,7 +167,9 @@ export function EditCategoryDialog({ category, onSuccess }: Props) {
               name="ownerId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Author</FormLabel>
+                  <FormLabel>
+                    {t("dashboard.contentCategories.form.author")}
+                  </FormLabel>
                   <FormControl>
                     <BackendUserCombobox
                       value={field.value}
@@ -159,7 +183,9 @@ export function EditCategoryDialog({ category, onSuccess }: Props) {
                           : null
                       }
                       currentUserId={category.createdBy}
-                      placeholder="Select a user..."
+                      placeholder={t(
+                        "dashboard.contentCategories.form.selectUserPlaceholder",
+                      )}
                       onValueChange={(user) => field.onChange(user.id)}
                     />
                   </FormControl>
@@ -178,13 +204,13 @@ export function EditCategoryDialog({ category, onSuccess }: Props) {
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t("dashboard.contentCategories.actions.cancel")}
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Save
+                {t("dashboard.contentCategories.actions.save")}
               </Button>
             </div>
           </form>

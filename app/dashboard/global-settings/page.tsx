@@ -7,6 +7,7 @@ import { listMenuOptions } from "@/data/top-menu";
 import { listContentTargetOptions } from "@/data/content";
 import { getCategoriesByType } from "@/data/content-categories";
 import { AdminSectionLockProvider } from "@/components/admin-section-lock-provider";
+import { getTranslations } from "@/lib/i18n/server";
 import { SettingsForm } from "./settings-form";
 
 export default async function GlobalSettingsPage() {
@@ -17,13 +18,19 @@ export default async function GlobalSettingsPage() {
     redirect("/dashboard");
   }
 
-  const [settings, navigationMenus, visibilityContentTargets, blogCategories] =
-    await Promise.all([
-      getAdminGlobalSettings(),
-      listMenuOptions(),
-      listContentTargetOptions(),
-      getCategoriesByType("blog_post"),
-    ]);
+  const [
+    t,
+    settings,
+    navigationMenus,
+    visibilityContentTargets,
+    blogCategories,
+  ] = await Promise.all([
+    getTranslations("backend"),
+    getAdminGlobalSettings(),
+    listMenuOptions(),
+    listContentTargetOptions(),
+    getCategoriesByType("blog_post"),
+  ]);
   const initialLogoFile = settings?.siteLogoFileId
     ? await getFileByIdUnchecked(settings.siteLogoFileId)
     : null;
@@ -31,9 +38,9 @@ export default async function GlobalSettingsPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Global Settings</h1>
+        <h1 className="text-2xl font-semibold">{t("globalSettings.title")}</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage site-wide configuration. Admin access only.
+          {t("globalSettings.description")}
         </p>
       </div>
       <AdminSectionLockProvider

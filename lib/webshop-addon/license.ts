@@ -21,6 +21,8 @@ const ActivationResponseSchema = z.object({
   expiresAt: z.string().datetime(),
   features: z.array(z.string()).default([]),
   licenseKeyRef: z.string().min(1),
+  packageInstallToken: z.string().optional(),
+  packageInstallTokenExpiresAt: z.string().datetime().optional(),
   packageName: z.string().optional(),
   packageVersion: z.string().optional(),
 });
@@ -206,7 +208,6 @@ export async function resolveInstalledWebshopLicenseMode(): Promise<InstalledWeb
 export async function requestWebshopLicenseActivation({
   deploymentPlatform,
   licenseKey,
-  packageToken,
   siteDomain,
   siteId,
 }: {
@@ -215,7 +216,6 @@ export async function requestWebshopLicenseActivation({
     { status: "supported" }
   >;
   licenseKey: string;
-  packageToken: string;
   siteDomain: string;
   siteId: string;
 }): Promise<
@@ -233,7 +233,6 @@ export async function requestWebshopLicenseActivation({
       body: JSON.stringify({
         deploymentPlatform,
         licenseKey,
-        packageToken,
         siteDomain,
         siteId,
       }),

@@ -26,6 +26,7 @@ import { TablePagination } from "@/app/dashboard/table-pagination";
 import type { CommentRow } from "@/data/comments";
 import { CommentRowActions } from "./comment-row-actions";
 import { bulkModerate } from "@/app/dashboard/content/comment-actions";
+import { useTranslations } from "@/components/i18n-provider";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
 
 type Props = {
@@ -60,6 +61,7 @@ export function CommentsTable({
   const [pending, startTransition] = useTransition();
   const [searchInput, setSearchInput] = useState(search);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const t = useTranslations();
   const { formatDateTime } = useRegionalSettings();
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -87,7 +89,11 @@ export function CommentsTable({
       } else {
         const failed = r.results.filter((x) => !x.ok);
         if (failed.length > 0) {
-          setBulkError(`${failed.length} item(s) failed.`);
+          setBulkError(
+            t("dashboard.content.commentsModeration.bulk.failed", {
+              count: failed.length,
+            }),
+          );
         }
         refresh();
       }
@@ -100,7 +106,9 @@ export function CommentsTable({
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <label className="text-xs font-medium">Status</label>
+          <label className="text-xs font-medium">
+            {t("dashboard.content.commentsModeration.filters.status")}
+          </label>
           <Select
             value={status}
             onValueChange={(v) => setParam("status", v === "all" ? null : v)}
@@ -109,9 +117,15 @@ export function CommentsTable({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
+              <SelectItem value="all">
+                {t("dashboard.content.commentsModeration.filters.all")}
+              </SelectItem>
+              <SelectItem value="pending">
+                {t("dashboard.content.commentsModeration.filters.pending")}
+              </SelectItem>
+              <SelectItem value="published">
+                {t("dashboard.content.commentsModeration.filters.published")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -123,30 +137,38 @@ export function CommentsTable({
           }}
         >
           <div className="space-y-1">
-            <label className="text-xs font-medium">Search</label>
+            <label className="text-xs font-medium">
+              {t("dashboard.content.commentsModeration.filters.search")}
+            </label>
             <Input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="body or author"
+              placeholder={t(
+                "dashboard.content.commentsModeration.filters.searchPlaceholder",
+              )}
               className="w-[240px]"
             />
           </div>
           <Button type="submit" variant="outline">
-            Filter
+            {t("dashboard.content.commentsModeration.filters.filter")}
           </Button>
         </form>
       </div>
 
       {selected.size > 0 && (
         <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
-          <span className="text-sm">{selected.size} selected</span>
+          <span className="text-sm">
+            {t("dashboard.common.selection.selectedCount", {
+              count: selected.size,
+            })}
+          </span>
           <Button
             size="sm"
             variant="outline"
             disabled={pending}
             onClick={() => runBulk("publish")}
           >
-            Publish
+            {t("dashboard.content.commentsModeration.actions.publish")}
           </Button>
           <Button
             size="sm"
@@ -154,7 +176,7 @@ export function CommentsTable({
             disabled={pending}
             onClick={() => runBulk("unpublish")}
           >
-            Unpublish
+            {t("dashboard.content.commentsModeration.actions.unpublish")}
           </Button>
           <Button
             size="sm"
@@ -162,7 +184,7 @@ export function CommentsTable({
             disabled={pending}
             onClick={() => runBulk("delete")}
           >
-            Delete
+            {t("dashboard.content.commentsModeration.actions.delete")}
           </Button>
           {pending && <Loader2 className="h-4 w-4 animate-spin" />}
           {bulkError && (
@@ -183,12 +205,24 @@ export function CommentsTable({
                 }}
               />
             </TableHead>
-            <TableHead>Author</TableHead>
-            <TableHead>Body</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>
+              {t("dashboard.content.commentsModeration.table.author")}
+            </TableHead>
+            <TableHead>
+              {t("dashboard.content.commentsModeration.table.body")}
+            </TableHead>
+            <TableHead>
+              {t("dashboard.content.commentsModeration.table.status")}
+            </TableHead>
+            <TableHead>
+              {t("dashboard.content.commentsModeration.table.type")}
+            </TableHead>
+            <TableHead>
+              {t("dashboard.content.commentsModeration.table.created")}
+            </TableHead>
+            <TableHead className="text-right">
+              {t("dashboard.content.commentsModeration.table.actions")}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -198,7 +232,7 @@ export function CommentsTable({
                 colSpan={7}
                 className="text-center text-muted-foreground py-8"
               >
-                No comments found.
+                {t("dashboard.content.commentsModeration.table.empty")}
               </TableCell>
             </TableRow>
           ) : (
@@ -219,10 +253,12 @@ export function CommentsTable({
                   <div className="text-sm font-medium">{r.authorName}</div>
                   {r.authorId ? (
                     <div className="text-xs text-muted-foreground">
-                      signed-in
+                      {t("dashboard.content.commentsModeration.table.signedIn")}
                     </div>
                   ) : (
-                    <div className="text-xs text-muted-foreground">guest</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t("dashboard.content.commentsModeration.table.guest")}
+                    </div>
                   )}
                 </TableCell>
                 <TableCell className="max-w-md">
@@ -234,20 +270,30 @@ export function CommentsTable({
                   <Badge
                     variant={r.status === "published" ? "default" : "secondary"}
                   >
-                    {r.status}
+                    {r.status === "published"
+                      ? t(
+                          "dashboard.content.commentsModeration.filters.published",
+                        )
+                      : t(
+                          "dashboard.content.commentsModeration.filters.pending",
+                        )}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   {r.parentId ? (
                     <span className="text-xs">
-                      Reply to{" "}
                       <span className="font-medium">
-                        {parentLookup[r.parentId] ?? "—"}
+                        {t(
+                          "dashboard.content.commentsModeration.table.replyTo",
+                          {
+                            author: parentLookup[r.parentId] ?? "-",
+                          },
+                        )}
                       </span>
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">
-                      Top-level
+                      {t("dashboard.content.commentsModeration.table.topLevel")}
                     </span>
                   )}
                 </TableCell>
@@ -268,12 +314,15 @@ export function CommentsTable({
       </Table>
 
       <TablePagination
-        label={
-          <>
-            {total} comment{total === 1 ? "" : "s"} &mdash; page {page} of{" "}
-            {totalPages}
-          </>
-        }
+        label={t.plural(
+          "dashboard.content.commentsModeration.pagination.label",
+          total,
+          {
+            count: total,
+            page,
+            totalPages,
+          },
+        )}
         page={page}
         pageSize={pageSize}
         total={total}

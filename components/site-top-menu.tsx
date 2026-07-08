@@ -12,6 +12,7 @@ import {
 import { headerNavTriggerClassName } from "@/components/site-header-nav-styles";
 import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
 import { SiteTopMenuMobile } from "@/components/site-top-menu-mobile";
+import { getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 
 const submenuLinkClassName =
@@ -28,6 +29,7 @@ export async function SiteTopMenu({
   isLoggedIn = false,
   showMobileAuthControls = true,
   showMobileBackendMenu = true,
+  hasLicenseServerShell = false,
   hasWebshopShell = false,
 }: {
   menuId: string | null;
@@ -36,18 +38,23 @@ export async function SiteTopMenu({
   isLoggedIn?: boolean;
   showMobileAuthControls?: boolean;
   showMobileBackendMenu?: boolean;
+  hasLicenseServerShell?: boolean;
   hasWebshopShell?: boolean;
 }) {
   const me = menuId ? await getOptionalCurrentUser(true) : null;
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
   const tree = menuId ? await getTopMenuTreeForViewer(menuId, viewerRoles) : [];
+  const t = await getTranslations("frontend");
 
   return (
     <>
       {/* Desktop navigation — visible on lg and above */}
       {tree.length > 0 && (
         <div className="hidden lg:block">
-          <NavigationMenu viewport={false} aria-label="Site navigation">
+          <NavigationMenu
+            viewport={false}
+            aria-label={t("shell.siteNavigation")}
+          >
             <NavigationMenuList>
               {tree.map((item) => (
                 <RootItem key={item.id} item={item} />
@@ -64,6 +71,7 @@ export async function SiteTopMenu({
         isLoggedIn={isLoggedIn}
         showAuthControls={showMobileAuthControls}
         showBackendMenu={showMobileBackendMenu}
+        hasLicenseServerShell={hasLicenseServerShell}
         hasWebshopShell={hasWebshopShell}
       />
     </>
@@ -129,7 +137,7 @@ function SubmenuItem({ item }: { item: TopMenuTreeNode }) {
         {item.label}
       </NavigationMenuLink>
       {item.children.length > 0 && (
-        <ul className="mt-1 ml-3 space-y-1 border-l border-border pl-2">
+        <ul className="mt-1 ms-3 space-y-1 border-s border-border ps-2">
           {item.children.map((c) => (
             <SubmenuItem key={c.id} item={c} />
           ))}

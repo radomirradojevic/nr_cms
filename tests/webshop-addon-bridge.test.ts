@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildAddonI18nContext,
+  type AddonI18nContext,
+} from "@/lib/i18n/addon-contract";
+import {
   isWebshopAddon,
   type WebshopAddon,
 } from "@/lib/webshop-addon/contract";
@@ -44,6 +48,18 @@ const fakeAddon: WebshopAddon = {
     return null;
   },
 };
+
+function createTestAddonI18nContext() {
+  return buildAddonI18nContext({
+    languages: {
+      frontendLanguage: "sr-Latn",
+      backendLanguage: "de",
+    },
+    regional: {
+      timezone: "Europe/Belgrade",
+    },
+  });
+}
 
 test("optional webshop add-on loader returns not_installed without module config", async () => {
   const result = await loadWebshopAddon("");
@@ -201,6 +217,123 @@ test("in-memory rate limiter blocks fixed-window overflow", () => {
 
 test("webshop add-on contract guard rejects incomplete modules", () => {
   assert.equal(isWebshopAddon({ version: "0.0.1" }), false);
+});
+
+test("webshop add-on contract carries i18n to dashboard hooks", async () => {
+  const i18n = createTestAddonI18nContext();
+  const received: Array<AddonI18nContext | undefined> = [];
+  const addon: WebshopAddon = {
+    ...fakeAddon,
+    async renderDashboard(input) {
+      received.push(input.i18n);
+      return null;
+    },
+    async renderDashboardPath(input) {
+      received.push(input.i18n);
+      return null;
+    },
+  };
+
+  await addon.renderDashboard({
+    i18n,
+    licenseMode: "ready",
+    path: [],
+    userId: "user_1",
+  });
+  await addon.renderDashboardPath({
+    i18n,
+    licenseMode: "edit_existing_only",
+    path: ["products"],
+    searchParams: { q: "boots" },
+    userId: "user_1",
+  });
+
+  assert.equal(received[0], i18n);
+  assert.equal(received[1], i18n);
+  assert.equal(received[0]?.backendLanguage, "de");
+});
+
+test("webshop add-on contract carries i18n to storefront, API, and bridge hooks", async () => {
+  const i18n = createTestAddonI18nContext();
+  const received: Array<[string, AddonI18nContext | undefined]> = [];
+  const addon: WebshopAddon = {
+    ...fakeAddon,
+    async renderStorefrontRoot(input) {
+      received.push(["storefrontRoot", input.i18n]);
+      return null;
+    },
+    async renderStorefrontPath(input) {
+      received.push(["storefrontPath", input.i18n]);
+      return null;
+    },
+    async generateStorefrontMetadata(input) {
+      received.push(["storefrontMetadata", input.i18n]);
+      return { title: "Shop" };
+    },
+    async handleApiRoute(input) {
+      received.push(["api", input.i18n]);
+      return Response.json({ ok: true });
+    },
+    async renderContentCategoriesBridge(input) {
+      received.push(["categoryBridge", input.i18n]);
+      return null;
+    },
+  };
+
+  await addon.renderStorefrontRoot({
+    contentId: "content_1",
+    i18n,
+    licenseMode: "ready",
+    path: [],
+    searchParams: { view: "grid" },
+    slug: "shop",
+  });
+  await addon.renderStorefrontPath({
+    contentId: "content_1",
+    i18n,
+    licenseMode: "ready",
+    path: ["products", "boots"],
+    searchParams: { color: "black" },
+    slug: "shop",
+  });
+  await addon.generateStorefrontMetadata?.({
+    contentId: "content_1",
+    i18n,
+    licenseMode: "ready",
+    path: [],
+    searchParams: { view: "grid" },
+    slug: "shop",
+  });
+  const response = await addon.handleApiRoute?.({
+    i18n,
+    licenseMode: "ready",
+    method: "GET",
+    path: ["cart"],
+    request: new Request("https://cms.example.test/api/webshop/cart"),
+    userId: null,
+  });
+  await addon.renderContentCategoriesBridge?.({
+    i18n,
+    licenseMode: "edit_existing_only",
+    userId: "user_1",
+  });
+
+  assert.equal(response?.status, 200);
+  assert.deepEqual(
+    received.map(([hook]) => hook),
+    [
+      "storefrontRoot",
+      "storefrontPath",
+      "storefrontMetadata",
+      "api",
+      "categoryBridge",
+    ],
+  );
+  for (const [, context] of received) {
+    assert.equal(context, i18n);
+  }
+  assert.equal(i18n.frontendLanguage, "sr-Latn");
+  assert.equal(i18n.backendLanguage, "de");
 });
 
 test("platform hint treats vercel env without OIDC as self-hosted capable", () => {

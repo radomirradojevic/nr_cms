@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getCategoriesByType } from "@/data/content-categories";
+import { getTranslations } from "@/lib/i18n/server";
 import {
   getDistinctContentAuthorIds,
   type ContentAuthorInfo,
@@ -20,6 +21,7 @@ export default async function ContentPage() {
     hasRole(roles, "publisher") ||
     hasRole(roles, "author");
   if (!allowed) redirect("/dashboard");
+  const t = await getTranslations("backend");
 
   const [pageCats, blogCats, webshopCats, authorIds] = await Promise.all([
     getCategoriesByType("page"),
@@ -53,15 +55,17 @@ export default async function ContentPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Content</h1>
+          <h1 className="text-2xl font-semibold">
+            {t("dashboard.content.title")}
+          </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Manage pages, blog posts, hero sliders, and webshops.
+            {t("dashboard.content.description")}
           </p>
         </div>
         <Button asChild>
           <Link href="/dashboard/content/new">
             <Plus className="mr-2 h-4 w-4" />
-            Create content
+            {t("dashboard.content.newContent")}
           </Link>
         </Button>
       </div>

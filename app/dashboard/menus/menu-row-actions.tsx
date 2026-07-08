@@ -6,6 +6,7 @@ import { Loader2, Pencil, Trash2, UserCog } from "lucide-react";
 
 import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +70,7 @@ function RenameMenuDialog({
   menu: MenuActionTarget;
   onChanged?: () => void;
 }) {
+  const t = useTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const [open, setOpen] = useState(false);
@@ -113,19 +115,21 @@ function RenameMenuDialog({
           disabled={!lock.isEditor}
         >
           <Pencil className="h-4 w-4" />
-          Rename
+          {t("dashboard.menus.rename")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Rename Menu</DialogTitle>
+          <DialogTitle>{t("dashboard.menus.renameTitle")}</DialogTitle>
           <DialogDescription>
-            Menu names must be unique across the system.
+            {t("dashboard.menus.createDescription")}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor={`rename-menu-${menu.id}`}>Menu Name</Label>
+            <Label htmlFor={`rename-menu-${menu.id}`}>
+              {t("dashboard.menus.menuName")}
+            </Label>
             <Input
               id={`rename-menu-${menu.id}`}
               value={name}
@@ -144,11 +148,11 @@ function RenameMenuDialog({
               variant="outline"
               onClick={() => setOpen(false)}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={isPending || !lock.isEditor}>
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save
+              {t("dashboard.common.actions.save")}
             </Button>
           </div>
         </form>
@@ -164,6 +168,7 @@ function ReassignMenuDialog({
   menu: MenuActionTarget;
   onChanged?: () => void;
 }) {
+  const t = useTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const [open, setOpen] = useState(false);
@@ -181,7 +186,7 @@ function ReassignMenuDialog({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!selectedUser) {
-      setServerError("Owner is required.");
+      setServerError(t("dashboard.validation.ownerRequired"));
       return;
     }
 
@@ -217,19 +222,21 @@ function ReassignMenuDialog({
           disabled={!lock.isEditor}
         >
           <UserCog className="h-4 w-4" />
-          Reassign
+          {t("dashboard.common.actions.reassign")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Reassign Menu</DialogTitle>
+          <DialogTitle>{t("dashboard.menus.reassignTitle")}</DialogTitle>
           <DialogDescription>
-            Change the owner of &quot;{menu.name}&quot;.
+            {t("dashboard.menus.reassignDescription", { name: menu.name })}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor={`reassign-menu-owner-${menu.id}`}>New Owner</Label>
+            <Label htmlFor={`reassign-menu-owner-${menu.id}`}>
+              {t("dashboard.menus.newOwner")}
+            </Label>
             <BackendUserCombobox
               id={`reassign-menu-owner-${menu.id}`}
               value={selectedUser?.id ?? ""}
@@ -251,7 +258,7 @@ function ReassignMenuDialog({
               }}
               disabled={isPending}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button
               type="submit"
@@ -262,7 +269,7 @@ function ReassignMenuDialog({
               ) : (
                 <UserCog className="h-4 w-4" />
               )}
-              Reassign
+              {t("dashboard.common.actions.reassign")}
             </Button>
           </div>
         </form>
@@ -287,6 +294,7 @@ function DeleteMenuDialog({
   isHeaderMenu: boolean;
   onChanged?: () => void;
 }) {
+  const t = useTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const [open, setOpen] = useState(false);
@@ -325,34 +333,35 @@ function DeleteMenuDialog({
           disabled={disabled}
           title={
             isHeaderMenu
-              ? 'Select another menu or "Without menu" in Header Settings before deleting.'
+              ? t("dashboard.menus.deleteHeaderMenuTitle")
               : undefined
           }
         >
           <Trash2 className="h-4 w-4 text-destructive" />
-          Delete
+          {t("dashboard.common.actions.delete")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete menu?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {t("dashboard.menus.deleteTitle")}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete{" "}
-            <span className="font-medium">{menu.name}</span> and all of its menu
-            items. This action cannot be undone.
+            {t("dashboard.menus.deleteDescription", { name: menu.name })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {isHeaderMenu && (
           <p className="text-sm text-muted-foreground">
-            This menu is assigned to the Header. Select another menu or
-            &quot;Without menu&quot; in Header Settings before deleting it.
+            {t("dashboard.menus.deleteHeaderMenuDescription")}
           </p>
         )}
         {serverError && (
           <p className="text-sm text-destructive">{serverError}</p>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>
+            {t("dashboard.common.actions.cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -362,7 +371,7 @@ function DeleteMenuDialog({
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Delete
+            {t("dashboard.common.actions.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

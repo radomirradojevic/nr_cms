@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   Popover,
   PopoverContent,
@@ -87,6 +88,7 @@ export function FileManager({
   maxBatchSize,
   storageProvider,
 }: Props) {
+  const t = useTranslations();
   const { formatDate } = useRegionalSettings();
   const [files, setFiles] = useState<FileRow[]>(initialFiles);
   const [folders, setFolders] = useState<FileFolderRow[]>(
@@ -304,7 +306,7 @@ export function FileManager({
   const hasSelection = selectedIds.length > 0;
   const hasMore = files.length < total;
   const currentFolderName =
-    breadcrumb[breadcrumb.length - 1]?.name ?? "File Manager";
+    breadcrumb[breadcrumb.length - 1]?.name ?? t("dashboard.files.title");
 
   return (
     <div className="space-y-6">
@@ -319,7 +321,7 @@ export function FileManager({
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <nav
           className="flex min-w-0 flex-wrap items-center gap-1 text-sm"
-          aria-label="File manager folders"
+          aria-label={t("dashboard.files.foldersAria")}
         >
           <Button
             type="button"
@@ -329,7 +331,7 @@ export function FileManager({
             className="px-2"
           >
             <Home className="mr-1 h-4 w-4" />
-            Files
+            {t("dashboard.files.root")}
           </Button>
           {breadcrumb.map((folder) => (
             <span key={folder.id} className="flex min-w-0 items-center gap-1">
@@ -360,7 +362,7 @@ export function FileManager({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search filenames, titles, or alt text…"
+            placeholder={t("dashboard.files.searchPlaceholder")}
             className="pl-9"
           />
         </div>
@@ -370,23 +372,33 @@ export function FileManager({
           onValueChange={(v) => setKind(v as FileKind | "all")}
         >
           <SelectTrigger className="w-full md:w-[160px]">
-            <SelectValue placeholder="Type" />
+            <SelectValue placeholder={t("dashboard.filters.type")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            <SelectItem value="image">Images</SelectItem>
-            <SelectItem value="video">Video</SelectItem>
-            <SelectItem value="document">Documents</SelectItem>
+            <SelectItem value="all">
+              {t("dashboard.filters.allTypes")}
+            </SelectItem>
+            <SelectItem value="image">
+              {t("dashboard.files.fileKinds.images")}
+            </SelectItem>
+            <SelectItem value="video">
+              {t("dashboard.files.fileKinds.video")}
+            </SelectItem>
+            <SelectItem value="document">
+              {t("dashboard.files.fileKinds.documents")}
+            </SelectItem>
           </SelectContent>
         </Select>
 
         {isAdmin && uploaders.length > 0 && (
           <Select value={uploadedBy} onValueChange={setUploadedBy}>
             <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="Uploaded by" />
+              <SelectValue placeholder={t("dashboard.filters.uploadedBy")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All users</SelectItem>
+              <SelectItem value="all">
+                {t("dashboard.filters.allUsers")}
+              </SelectItem>
               {uploaders.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.name}
@@ -407,7 +419,7 @@ export function FileManager({
                 ? range.to
                   ? `${formatDate(range.from)} - ${formatDate(range.to)}`
                   : formatDate(range.from)
-                : "Date range"}
+                : t("dashboard.files.dateRange")}
               {(range.from || range.to) && (
                 <X
                   className="ml-auto h-4 w-4 opacity-60 hover:opacity-100"
@@ -435,14 +447,16 @@ export function FileManager({
       {hasSelection && (
         <div className="sticky top-16 z-10 flex items-center justify-between rounded-md border bg-background/90 backdrop-blur p-3 shadow-sm">
           <p className="text-sm">
-            {selectedIds.length} selected
+            {t("dashboard.common.selection.selectedCount", {
+              count: selectedIds.length,
+            })}
             <Button
               variant="ghost"
               size="sm"
               onClick={clearSelection}
               className="ml-2"
             >
-              Clear
+              {t("dashboard.common.actions.clear")}
             </Button>
           </p>
           <div className="flex items-center gap-2">
@@ -451,14 +465,16 @@ export function FileManager({
               size="sm"
               onClick={() => requestMove(selectedIds)}
             >
-              <FolderInput className="mr-2 h-4 w-4" /> Move selected
+              <FolderInput className="mr-2 h-4 w-4" />
+              {t("dashboard.common.actions.moveSelected")}
             </Button>
             <Button
               variant="destructive"
               size="sm"
               onClick={() => setBulkDeleteOpen(true)}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete selected
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("dashboard.common.actions.deleteSelected")}
             </Button>
           </div>
         </div>
@@ -472,7 +488,7 @@ export function FileManager({
         </div>
       ) : files.length === 0 && folders.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          No files found in {currentFolderName}.
+          {t("dashboard.files.noFilesInFolder", { folder: currentFolderName })}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -505,12 +521,18 @@ export function FileManager({
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Showing {files.length} of {total} files
-          {folders.length > 0 && ` - ${folders.length} folders`}
+          {t("dashboard.files.showingSummary", {
+            count: files.length,
+            total,
+          })}
+          {folders.length > 0 &&
+            ` - ${t.plural("dashboard.files.folderCount", folders.length)}`}
         </p>
         {hasMore && (
           <Button variant="outline" onClick={loadMore} disabled={pending}>
-            {pending ? "Loading…" : "Load more"}
+            {pending
+              ? t("dashboard.common.actions.loading")
+              : t("dashboard.common.actions.loadMore")}
           </Button>
         )}
       </div>

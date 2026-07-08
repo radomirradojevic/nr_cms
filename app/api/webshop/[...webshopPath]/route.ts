@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 
+import { getAddonI18nContext } from "@/lib/i18n/addon-server";
 import { resolveWebshopAddonState } from "@/lib/webshop-addon/license";
 
 type RouteContext = {
@@ -16,7 +17,10 @@ async function handleWebshopApi(request: Request, context: RouteContext) {
       addonState.status === "license_expired") &&
     addonState.addon.handleApiRoute
   ) {
+    const i18n = await getAddonI18nContext();
+
     return addonState.addon.handleApiRoute({
+      i18n,
       licenseMode:
         addonState.status === "ready" ? "ready" : "edit_existing_only",
       method: request.method,

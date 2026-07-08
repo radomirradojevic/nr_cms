@@ -13,6 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import { forceSignOutUser } from "@/app/dashboard/users/[userId]/actions";
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export function ForceSignOutButton({ userId, disabled }: Props) {
+  const t = useTranslations();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -39,22 +41,24 @@ export function ForceSignOutButton({ userId, disabled }: Props) {
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button variant="outline" size="sm" disabled={isPending || disabled}>
-            Force Logout
+            {t("dashboard.users.forceLogout")}
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Force sign out this user?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("dashboard.users.forceLogoutTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will immediately revoke all active sessions for the user.
-              They will be signed out on every device and will have to sign in
-              again to continue. This does not lock the account.
+              {t("dashboard.users.forceLogoutDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("dashboard.common.actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirm} disabled={isPending}>
-              Force Logout
+              {t("dashboard.users.forceLogout")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -37,6 +37,8 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { useFormEditLock } from "@/components/form-edit-lock-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +53,7 @@ import {
   type FieldValidation,
   type FormFieldRow,
 } from "@/lib/form-types";
+import type { TranslationKey } from "@/lib/i18n/keys";
 import { saveFormFields } from "../actions";
 
 type EditableField = {
@@ -90,6 +93,10 @@ const FIELD_LABELS: Record<FieldType, string> = {
   date: "Date",
   file: "File upload",
 };
+
+function getFieldTypeLabelKey(type: FieldType): TranslationKey {
+  return `dashboard.forms.fieldBuilder.fieldType.${type}` as TranslationKey;
+}
 
 const KEY_RE = /^[a-z][a-z0-9_]*$/;
 
@@ -135,6 +142,7 @@ type Props = {
 };
 
 export function FieldBuilder({ formId, initialFields }: Props) {
+  const t = useTranslations();
   const router = useRouter();
   const lock = useFormEditLock();
   const [fields, setFields] = useState<EditableField[]>(
@@ -196,16 +204,28 @@ export function FieldBuilder({ formId, initialFields }: Props) {
     const seen = new Set<string>();
     for (const f of fields) {
       if (!KEY_RE.test(f.fieldKey)) {
-        toast.error(`Field key "${f.fieldKey}" is invalid.`);
+        toast.error(
+          t("dashboard.forms.fieldBuilder.invalidFieldKey", {
+            key: f.fieldKey,
+          }),
+        );
         return;
       }
       if (seen.has(f.fieldKey)) {
-        toast.error(`Duplicate field key "${f.fieldKey}".`);
+        toast.error(
+          t("dashboard.forms.fieldBuilder.duplicateFieldKey", {
+            key: f.fieldKey,
+          }),
+        );
         return;
       }
       seen.add(f.fieldKey);
       if (!f.label.trim()) {
-        toast.error(`Field "${f.fieldKey}" needs a label.`);
+        toast.error(
+          t("dashboard.forms.fieldBuilder.fieldNeedsLabel", {
+            key: f.fieldKey,
+          }),
+        );
         return;
       }
       if (
@@ -215,7 +235,11 @@ export function FieldBuilder({ formId, initialFields }: Props) {
         (f.options.choices?.length ?? 0) === 0
       ) {
         if (f.fieldType !== "checkbox") {
-          toast.error(`Field "${f.fieldKey}" needs at least one choice.`);
+          toast.error(
+            t("dashboard.forms.fieldBuilder.fieldNeedsChoice", {
+              key: f.fieldKey,
+            }),
+          );
           return;
         }
       }
@@ -241,7 +265,7 @@ export function FieldBuilder({ formId, initialFields }: Props) {
         toast.error(res.error);
         return;
       }
-      toast.success("Fields saved.");
+      toast.success(t("dashboard.forms.fieldBuilder.fieldsSaved"));
       router.refresh();
     });
   }
@@ -253,18 +277,20 @@ export function FieldBuilder({ formId, initialFields }: Props) {
       {/* Palette */}
       <div className="space-y-1 rounded-md border p-2">
         <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Add field
+          {t("dashboard.forms.fieldBuilder.addField")}
         </p>
-        {FIELD_TYPES.map((t) => (
+        {FIELD_TYPES.map((fieldType) => (
           <button
-            key={t}
+            key={fieldType}
             type="button"
-            onClick={() => addField(t)}
+            onClick={() => addField(fieldType)}
             disabled={!lock.isEditor}
             className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
           >
-            <span className="text-muted-foreground">{FIELD_ICONS[t]}</span>
-            <span>{FIELD_LABELS[t]}</span>
+            <span className="text-muted-foreground">
+              {FIELD_ICONS[fieldType]}
+            </span>
+            <span>{t(getFieldTypeLabelKey(fieldType))}</span>
           </button>
         ))}
       </div>
@@ -272,15 +298,20 @@ export function FieldBuilder({ formId, initialFields }: Props) {
       {/* Canvas */}
       <div className="rounded-md border">
         <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2">
-          <p className="text-sm font-medium">Fields ({fields.length})</p>
+          <p className="text-sm font-medium">
+            {t("dashboard.forms.fieldBuilder.fieldsCount", {
+              count: fields.length,
+            })}
+          </p>
           <Button onClick={save} size="sm" disabled={pending || !lock.isEditor}>
             {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Save className="mr-2 h-4 w-4" /> Save fields
+            <Save className="mr-2 h-4 w-4" />{" "}
+            {t("dashboard.forms.fieldBuilder.saveFields")}
           </Button>
         </div>
         {fields.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">
-            No fields yet. Pick a type from the left to add one.
+            {t("dashboard.forms.fieldBuilder.empty")}
           </p>
         ) : (
           <DndContext
@@ -315,7 +346,7 @@ export function FieldBuilder({ formId, initialFields }: Props) {
       <div className="rounded-md border p-3">
         {selected === null || selectedIdx === null ? (
           <p className="text-xs text-muted-foreground">
-            Select a field to configure it.
+            {t("dashboard.forms.fieldBuilder.selectField")}
           </p>
         ) : (
           <FieldConfig
@@ -344,6 +375,7 @@ function FieldRow({
   onRemove: () => void;
   disabled: boolean;
 }) {
+  const st = useSourceTranslations();
   const {
     attributes,
     listeners,
@@ -371,7 +403,7 @@ function FieldRow({
         {...attributes}
         {...listeners}
         className="cursor-grab text-muted-foreground active:cursor-grabbing"
-        title="Drag to reorder"
+        title={st("Drag to reorder")}
       >
         ⋮⋮
       </button>
@@ -410,6 +442,8 @@ function FieldConfig({
   onChange: (patch: Partial<EditableField>) => void;
   disabled: boolean;
 }) {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const isChoice =
     field.fieldType === "select" ||
     field.fieldType === "radio" ||
@@ -430,11 +464,13 @@ function FieldConfig({
   return (
     <div className="space-y-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {FIELD_LABELS[field.fieldType]}
+        {t(getFieldTypeLabelKey(field.fieldType))}
       </p>
 
       <div className="space-y-1">
-        <Label className="text-xs">Label</Label>
+        <Label className="text-xs">
+          {t("dashboard.forms.fieldBuilder.label")}
+        </Label>
         <Input
           value={field.label}
           onChange={(e) => onChange({ label: e.target.value })}
@@ -444,7 +480,9 @@ function FieldConfig({
       </div>
 
       <div className="space-y-1">
-        <Label className="text-xs">Field key</Label>
+        <Label className="text-xs">
+          {t("dashboard.forms.fieldBuilder.fieldKey")}
+        </Label>
         <Input
           value={field.fieldKey}
           onChange={(e) =>
@@ -459,13 +497,17 @@ function FieldConfig({
           disabled={disabled}
         />
         <p className="text-[10px] text-muted-foreground">
-          Lowercase letters, digits, underscores. Used in submissions and emails
-          as <code>{`{{${field.fieldKey || "field_key"}}}`}</code>.
+          {st(
+            "Lowercase letters, digits, underscores. Used in submissions and emails as",
+          )}{" "}
+          <code>{`{{${field.fieldKey || "field_key"}}}`}</code>.
         </p>
       </div>
 
       <div className="space-y-1">
-        <Label className="text-xs">Placeholder</Label>
+        <Label className="text-xs">
+          {t("dashboard.forms.fieldBuilder.placeholder")}
+        </Label>
         <Input
           value={field.placeholder}
           onChange={(e) => onChange({ placeholder: e.target.value })}
@@ -475,7 +517,9 @@ function FieldConfig({
       </div>
 
       <div className="space-y-1">
-        <Label className="text-xs">Help text</Label>
+        <Label className="text-xs">
+          {t("dashboard.forms.fieldBuilder.helpText")}
+        </Label>
         <Textarea
           rows={2}
           value={field.helpText}
@@ -486,7 +530,9 @@ function FieldConfig({
       </div>
 
       <div className="flex items-center justify-between">
-        <Label className="text-xs">Required</Label>
+        <Label className="text-xs">
+          {t("dashboard.forms.fieldBuilder.required")}
+        </Label>
         <Switch
           checked={field.required}
           onCheckedChange={(c) => onChange({ required: c })}
@@ -497,7 +543,9 @@ function FieldConfig({
       {isText && (
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label className="text-xs">Min length</Label>
+            <Label className="text-xs">
+              {t("dashboard.forms.fieldBuilder.minLength")}
+            </Label>
             <Input
               type="number"
               min={0}
@@ -512,7 +560,9 @@ function FieldConfig({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Max length</Label>
+            <Label className="text-xs">
+              {t("dashboard.forms.fieldBuilder.maxLength")}
+            </Label>
             <Input
               type="number"
               min={1}
@@ -532,7 +582,9 @@ function FieldConfig({
       {isNumber && (
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label className="text-xs">Min</Label>
+            <Label className="text-xs">
+              {t("dashboard.forms.fieldBuilder.min")}
+            </Label>
             <Input
               type="number"
               value={v.min ?? ""}
@@ -546,7 +598,9 @@ function FieldConfig({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Max</Label>
+            <Label className="text-xs">
+              {t("dashboard.forms.fieldBuilder.max")}
+            </Label>
             <Input
               type="number"
               value={v.max ?? ""}
@@ -566,7 +620,7 @@ function FieldConfig({
         <>
           <div className="space-y-1">
             <Label className="text-xs">
-              Allowed MIME types (comma-separated)
+              {t("dashboard.forms.fieldBuilder.allowedMimeTypes")}
             </Label>
             <Input
               placeholder="image/jpeg, image/png, application/pdf"
@@ -583,7 +637,9 @@ function FieldConfig({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Max file size (KB)</Label>
+            <Label className="text-xs">
+              {t("dashboard.forms.fieldBuilder.maxFileSizeKb")}
+            </Label>
             <Input
               type="number"
               min={1}
@@ -602,11 +658,13 @@ function FieldConfig({
 
       {isChoice && (
         <div className="space-y-2">
-          <Label className="text-xs">Choices</Label>
+          <Label className="text-xs">
+            {t("dashboard.forms.fieldBuilder.choices")}
+          </Label>
           {(field.options.choices ?? []).map((c, i, arr) => (
             <div key={i} className="flex items-center gap-2">
               <Input
-                placeholder="value"
+                placeholder={t("dashboard.forms.fieldBuilder.valuePlaceholder")}
                 value={c.value}
                 onChange={(e) => {
                   const next = arr.slice();
@@ -617,7 +675,7 @@ function FieldConfig({
                 disabled={disabled}
               />
               <Input
-                placeholder="label"
+                placeholder={t("dashboard.forms.fieldBuilder.labelPlaceholder")}
                 value={c.label}
                 onChange={(e) => {
                   const next = arr.slice();
@@ -654,12 +712,12 @@ function FieldConfig({
               ]);
             }}
           >
-            <Plus className="mr-1 h-3 w-3" /> Add choice
+            <Plus className="mr-1 h-3 w-3" />{" "}
+            {t("dashboard.forms.fieldBuilder.addChoice")}
           </Button>
           {field.fieldType === "checkbox" && (
             <p className="text-[10px] text-muted-foreground">
-              Leave choices empty to render a single boolean checkbox (e.g.
-              &ldquo;I agree to the terms&rdquo;).
+              {t("dashboard.forms.fieldBuilder.checkboxChoiceHelp")}
             </p>
           )}
         </div>

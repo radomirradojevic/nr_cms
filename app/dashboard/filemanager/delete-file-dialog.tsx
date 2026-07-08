@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ export function DeleteFileDialog({
   onOpenChange,
   onDeleted,
 }: Props) {
+  const t = useTranslations();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +48,14 @@ export function DeleteFileDialog({
   }
 
   const count = ids.length;
-  const target = count === 1 ? (label ?? "this file") : `${count} files`;
+  const target =
+    count === 1
+      ? (label ?? t("dashboard.files.delete.thisFile"))
+      : t("dashboard.files.delete.filesTarget", { count });
+  const reference =
+    count === 1
+      ? t("dashboard.files.delete.thisFile")
+      : t("dashboard.files.delete.theseFiles");
 
   return (
     <AlertDialog
@@ -59,20 +68,21 @@ export function DeleteFileDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            Delete {count === 1 ? "file" : `${count} files`}?
+            {count === 1
+              ? t("dashboard.files.delete.fileTitle")
+              : t("dashboard.files.delete.filesTitle", { count })}
           </AlertDialogTitle>
           <AlertDialogDescription className="max-w-full">
-            You are about to permanently delete{" "}
-            <span className="font-medium">{target}</span>. References to{" "}
-            {count === 1 ? "this file" : "these files"} inside content items
-            will also be removed. This action cannot be undone.
+            {t("dashboard.files.delete.description", { target, reference })}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         {error && <p className="text-sm text-destructive px-1">{error}</p>}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>
+            {t("dashboard.common.actions.cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -82,7 +92,7 @@ export function DeleteFileDialog({
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Delete
+            {t("dashboard.common.actions.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

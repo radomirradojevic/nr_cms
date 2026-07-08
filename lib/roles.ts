@@ -1,3 +1,5 @@
+import type { TranslationKey } from "@/lib/i18n/keys";
+
 export const ROLES = ["viewer", "author", "publisher", "admin"] as const;
 export type Role = (typeof ROLES)[number];
 export const BACKEND_ACCESS_ROLES = ["admin", "publisher", "author"] as const;
@@ -24,4 +26,12 @@ export function hasBackendAccess(publicMetadata: unknown): boolean {
   return roles.some((role) =>
     (BACKEND_ACCESS_ROLES as readonly Role[]).includes(role),
   );
+}
+
+export function getRoleLabelKey(role: Role): TranslationKey {
+  return `dashboard.users.roles.${role}` as TranslationKey;
+}
+
+export function getRoleDescriptionKey(role: Role): TranslationKey {
+  return `dashboard.users.roles.${role}Description` as TranslationKey;
 }

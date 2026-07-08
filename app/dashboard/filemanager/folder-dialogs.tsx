@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export function CreateFolderDialog({
   parentId,
   onCreated,
 }: CreateFolderDialogProps) {
+  const t = useTranslations();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -74,21 +76,23 @@ export function CreateFolderDialog({
     >
       <Button type="button" size="sm" onClick={() => setOpen(true)}>
         <Plus className="mr-2 h-4 w-4" />
-        New folder
+        {t("dashboard.files.folder.new")}
       </Button>
 
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>New folder</DialogTitle>
+            <DialogTitle>{t("dashboard.files.folder.createTitle")}</DialogTitle>
             <DialogDescription>
-              Create a folder in the current location.
+              {t("dashboard.files.folder.createDescription")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="folder-name">Folder name</Label>
+              <Label htmlFor="folder-name">
+                {t("dashboard.files.folder.name")}
+              </Label>
               <Input
                 id="folder-name"
                 value={name}
@@ -107,11 +111,11 @@ export function CreateFolderDialog({
               onClick={() => setOpen(false)}
               disabled={loading}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create
+              {t("dashboard.common.actions.create")}
             </Button>
           </DialogFooter>
         </form>
@@ -133,6 +137,7 @@ export function RenameFolderDialog({
   onOpenChange,
   onRenamed,
 }: RenameFolderDialogProps) {
+  const t = useTranslations();
   const [name, setName] = useState(folder?.name ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,15 +171,17 @@ export function RenameFolderDialog({
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Rename folder</DialogTitle>
+            <DialogTitle>{t("dashboard.files.folder.rename")}</DialogTitle>
             <DialogDescription>
-              Update this folder&apos;s name.
+              {t("dashboard.files.folder.renameDescription")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="rename-folder-name">Folder name</Label>
+              <Label htmlFor="rename-folder-name">
+                {t("dashboard.files.folder.name")}
+              </Label>
               <Input
                 id="rename-folder-name"
                 value={name}
@@ -193,11 +200,11 @@ export function RenameFolderDialog({
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
+              {t("dashboard.common.actions.save")}
             </Button>
           </DialogFooter>
         </form>
@@ -219,6 +226,7 @@ export function DeleteFolderDialog({
   onOpenChange,
   onDeleted,
 }: DeleteFolderDialogProps) {
+  const t = useTranslations();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -246,22 +254,25 @@ export function DeleteFolderDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete folder?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {t("dashboard.files.folder.deleteTitle")}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            You can only delete an empty folder. The physical files are not
-            changed.
+            {t("dashboard.files.folder.deleteDescription")}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         {folder && (
           <p className="text-sm">
-            Folder: <span className="font-medium">{folder.name}</span>
+            {t("dashboard.files.folder.folderValue", { name: folder.name })}
           </p>
         )}
         {error && <p className="text-sm text-destructive px-1">{error}</p>}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>
+            {t("dashboard.common.actions.cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -271,7 +282,7 @@ export function DeleteFolderDialog({
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Delete
+            {t("dashboard.common.actions.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -332,6 +343,7 @@ export function MoveFilesDialog({
   onOpenChange,
   onMoved,
 }: MoveFilesDialogProps) {
+  const t = useTranslations();
   const [folders, setFolders] = useState<FileFolderRow[]>([]);
   const [selected, setSelected] = useState<string>("root");
   const [loading, setLoading] = useState(false);
@@ -390,10 +402,11 @@ export function MoveFilesDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Move files</DialogTitle>
+          <DialogTitle>{t("dashboard.files.move.title")}</DialogTitle>
           <DialogDescription>
-            Choose where to place{" "}
-            {ids.length === 1 ? "this file" : "these files"}.
+            {ids.length === 1
+              ? t("dashboard.files.move.descriptionSingle")
+              : t("dashboard.files.move.descriptionMultiple")}
           </DialogDescription>
         </DialogHeader>
 
@@ -407,13 +420,13 @@ export function MoveFilesDialog({
               }`}
             >
               <Folder className="h-4 w-4" />
-              Root
+              {t("dashboard.files.move.root")}
             </button>
 
             {loadingFolders ? (
               <div className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading folders...
+                {t("dashboard.files.move.loadingFolders")}
               </div>
             ) : (
               options.map((folder) => (
@@ -444,7 +457,7 @@ export function MoveFilesDialog({
             onClick={() => onOpenChange(false)}
             disabled={loading}
           >
-            Cancel
+            {t("dashboard.common.actions.cancel")}
           </Button>
           <Button type="button" onClick={handleMove} disabled={loading}>
             {loading ? (
@@ -452,7 +465,7 @@ export function MoveFilesDialog({
             ) : (
               <FolderInput className="mr-2 h-4 w-4" />
             )}
-            Move
+            {t("dashboard.common.actions.move")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -2,6 +2,7 @@ import {
   getPublishedCommentsForPost,
   type PublicComment,
 } from "@/data/comments";
+import { getTranslations } from "@/lib/i18n/server";
 import { BlogCommentForm } from "./blog-comment-form";
 import { BlogCommentThread } from "./blog-comment-thread";
 
@@ -37,18 +38,19 @@ export async function BlogComments({
   postSlug,
   allowAnonymous,
 }: Props) {
+  const t = await getTranslations("frontend");
   const rows = await getPublishedCommentsForPost(contentId);
   const thread = buildThread(rows);
 
   return (
     <section className="mt-12 space-y-6 border-t pt-8" id="comments">
       <h2 className="text-2xl font-semibold">
-        Comments {rows.length > 0 && `(${rows.length})`}
+        {t("public.comments.title")} {rows.length > 0 && `(${rows.length})`}
       </h2>
 
       {thread.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No comments yet. Be the first to comment.
+          {t("public.comments.empty")}
         </p>
       ) : (
         <ol className="space-y-4">

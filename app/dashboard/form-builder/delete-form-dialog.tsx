@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useTranslations } from "@/components/i18n-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,7 @@ export function DeleteFormDialog({
   onOpenChange,
   onDeleted,
 }: Props) {
+  const t = useTranslations();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirm, setConfirm] = useState("");
@@ -48,7 +50,7 @@ export function DeleteFormDialog({
       setError(res.error);
       return;
     }
-    toast.success("Form deleted.");
+    toast.success(t("dashboard.toasts.formDeleted"));
     onOpenChange(false);
     onDeleted?.(id);
     router.refresh();
@@ -69,17 +71,17 @@ export function DeleteFormDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete form?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {t("dashboard.forms.deleteTitle")}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently deletes the form{" "}
-            <span className="font-medium">{name}</span> and all of its
-            submissions. This cannot be undone.
+            {t("dashboard.forms.deleteDescription", { name })}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="space-y-2 px-1">
           <Label htmlFor="confirm-form-name">
-            Type the form name to confirm:
+            {t("dashboard.forms.confirmName")}
           </Label>
           <Input
             id="confirm-form-name"
@@ -91,7 +93,9 @@ export function DeleteFormDialog({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>
+            {t("dashboard.common.actions.cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -101,7 +105,7 @@ export function DeleteFormDialog({
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Delete
+            {t("dashboard.common.actions.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

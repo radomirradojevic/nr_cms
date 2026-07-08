@@ -25,6 +25,7 @@ import {
   type ReactNode,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import { UserButtonClient } from "@/components/user-button-client";
 import {
   collectHeroSliderMenuIds,
@@ -42,6 +43,7 @@ import { SiteSearch, type SearchContentType } from "@/components/site-search";
 import type { TopMenuTreeNode } from "@/data/top-menu";
 import { getBackendMenuTree } from "@/lib/backend-menu";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { getRoles, hasRole } from "@/lib/roles";
 import {
   isSafeCssValue,
@@ -58,6 +60,7 @@ type Props = {
   initialMenuTrees?: HeroSliderMenuTrees;
   fallbackIsBackendUser?: boolean;
   fallbackIsAdmin?: boolean;
+  hasLicenseServerShell?: boolean;
   hasWebshopShell?: boolean;
 };
 
@@ -65,6 +68,7 @@ type HeroSliderMenuTrees = Record<string, TopMenuTreeNode[]>;
 type HeroMenuRuntimeAuth = {
   fallbackIsBackendUser: boolean;
   fallbackIsAdmin: boolean;
+  hasLicenseServerShell: boolean;
   hasWebshopShell: boolean;
 };
 
@@ -91,8 +95,10 @@ export function HeroSliderRenderer({
   initialMenuTrees,
   fallbackIsBackendUser = false,
   fallbackIsAdmin = false,
+  hasLicenseServerShell = false,
   hasWebshopShell = false,
 }: Props) {
+  const t = useTranslations();
   const slider = useMemo(() => normalizeHeroSliderContent(data), [data]);
   const settings = slider.settings;
   const slides = slider.slides;
@@ -111,6 +117,7 @@ export function HeroSliderRenderer({
   const runtimeAuth: HeroMenuRuntimeAuth = {
     fallbackIsBackendUser,
     fallbackIsAdmin,
+    hasLicenseServerShell,
     hasWebshopShell,
   };
   const slideCount = slides.length;
@@ -290,7 +297,10 @@ export function HeroSliderRenderer({
     >
       <style dangerouslySetInnerHTML={{ __html: blockVisibilityCss }} />
       <p id={describedBy} className="sr-only" aria-live="polite">
-        Slide {safeActiveIndex + 1} of {slideCount}
+        {t("public.heroSlider.status", {
+          current: safeActiveIndex + 1,
+          total: slideCount,
+        })}
       </p>
 
       {settings.transitionType === "slide" ? (
@@ -308,6 +318,7 @@ export function HeroSliderRenderer({
               active={index === safeActiveIndex}
               index={index}
               total={slideCount}
+              t={t}
             />
           ))}
         </div>
@@ -332,6 +343,7 @@ export function HeroSliderRenderer({
               active={index === safeActiveIndex}
               index={index}
               total={slideCount}
+              t={t}
             />
           </div>
         ))
@@ -346,7 +358,7 @@ export function HeroSliderRenderer({
             disabled={!canGoPrev}
             className="pointer-events-auto rounded-full bg-background/80 text-foreground shadow-sm backdrop-blur hover:bg-background"
             onClick={goPrev}
-            aria-label="Previous slide"
+            aria-label={t("public.heroSlider.previousSlide")}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -357,7 +369,7 @@ export function HeroSliderRenderer({
             disabled={!canGoNext}
             className="pointer-events-auto rounded-full bg-background/80 text-foreground shadow-sm backdrop-blur hover:bg-background"
             onClick={goNext}
-            aria-label="Next slide"
+            aria-label={t("public.heroSlider.nextSlide")}
           >
             <ArrowRight className="h-4 w-4" />
           </Button>
@@ -368,7 +380,7 @@ export function HeroSliderRenderer({
         <div
           className="absolute inset-x-0 bottom-4 z-30 flex justify-center gap-2 px-4"
           role="tablist"
-          aria-label="Hero slider slides"
+          aria-label={t("public.heroSlider.slides")}
         >
           {slides.map((slide, index) => (
             <button
@@ -376,7 +388,13 @@ export function HeroSliderRenderer({
               type="button"
               role="tab"
               aria-selected={index === safeActiveIndex}
-              aria-label={`Show ${slide.name || `slide ${index + 1}`}`}
+              aria-label={t("public.heroSlider.showSlide", {
+                name:
+                  slide.name ||
+                  t("public.heroSlider.slideFallback", {
+                    index: index + 1,
+                  }),
+              })}
               className={cn(
                 "h-2.5 rounded-full border border-white/70 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
                 index === safeActiveIndex
@@ -400,6 +418,7 @@ function SlideView({
   active,
   index,
   total,
+  t,
 }: {
   slide: HeroSlide;
   settings: HeroSliderContent["settings"];
@@ -408,6 +427,7 @@ function SlideView({
   active: boolean;
   index: number;
   total: number;
+  t: TranslateFn;
 }) {
   const contentStyle = slideContentStyle(slide);
   const contentClass = contentAlignmentClass(slide);
@@ -417,7 +437,11 @@ function SlideView({
     <article
       role="group"
       aria-roledescription="slide"
-      aria-label={`${index + 1} of ${total}: ${slide.name || "Slide"}`}
+      aria-label={t("public.heroSlider.slideLabel", {
+        index: index + 1,
+        total,
+        name: slide.name || t("public.heroSlider.fallbackSlideName"),
+      })}
       aria-hidden={!active}
       className={cn(
         "relative h-full w-full shrink-0 overflow-hidden",
@@ -1040,8 +1064,9 @@ function HeroBackendDesktopItems({
   onNavigate: () => void;
   runtimeAuth: HeroMenuRuntimeAuth;
 }) {
+  const t = useTranslations();
   const access = useEffectiveHeroBackendAccess(runtimeAuth);
-  const tree = getBackendMenuTree(access);
+  const tree = getBackendMenuTree({ ...access, t });
   return (
     <>
       {tree.map((item) => (
@@ -1070,8 +1095,9 @@ function HeroBackendMobileItems({
   onNavigate: () => void;
   runtimeAuth: HeroMenuRuntimeAuth;
 }) {
+  const t = useTranslations();
   const access = useEffectiveHeroBackendAccess(runtimeAuth);
-  const tree = getBackendMenuTree(access);
+  const tree = getBackendMenuTree({ ...access, t });
   return (
     <>
       {tree.map((item) => (
@@ -1089,6 +1115,8 @@ function HeroBackendMobileItems({
 }
 
 function HeroAuthDesktopItems({ onNavigate }: { onNavigate: () => void }) {
+  const t = useTranslations();
+
   return (
     <>
       <Show when="signed-in">
@@ -1106,7 +1134,7 @@ function HeroAuthDesktopItems({ onNavigate }: { onNavigate: () => void }) {
               className="hero-menu-link hero-menu-auth-button"
               onClick={onNavigate}
             >
-              <span>Sign in</span>
+              <span>{t("common.auth.signIn")}</span>
             </button>
           </SignInButton>
         </li>
@@ -1117,7 +1145,7 @@ function HeroAuthDesktopItems({ onNavigate }: { onNavigate: () => void }) {
               className="hero-menu-link hero-menu-auth-button"
               onClick={onNavigate}
             >
-              <span>Sign up</span>
+              <span>{t("common.auth.signUp")}</span>
             </button>
           </SignUpButton>
         </li>
@@ -1127,13 +1155,15 @@ function HeroAuthDesktopItems({ onNavigate }: { onNavigate: () => void }) {
 }
 
 function HeroAuthMobileItems({ onNavigate }: { onNavigate: () => void }) {
+  const t = useTranslations();
+
   return (
     <>
       <Show when="signed-in">
         <li className="hero-menu-mobile-item hero-menu-mobile-auth-item">
           <div className="hero-menu-mobile-link hero-menu-mobile-auth-user">
             <UserButtonClient />
-            <span>Account</span>
+            <span>{t("common.auth.account")}</span>
           </div>
         </li>
       </Show>
@@ -1145,7 +1175,7 @@ function HeroAuthMobileItems({ onNavigate }: { onNavigate: () => void }) {
               className="hero-menu-mobile-link hero-menu-auth-button"
               onClick={onNavigate}
             >
-              <span>Sign in</span>
+              <span>{t("common.auth.signIn")}</span>
             </button>
           </SignInButton>
         </li>
@@ -1156,7 +1186,7 @@ function HeroAuthMobileItems({ onNavigate }: { onNavigate: () => void }) {
               className="hero-menu-mobile-link hero-menu-auth-button"
               onClick={onNavigate}
             >
-              <span>Sign up</span>
+              <span>{t("common.auth.signUp")}</span>
             </button>
           </SignUpButton>
         </li>
@@ -1168,6 +1198,7 @@ function HeroAuthMobileItems({ onNavigate }: { onNavigate: () => void }) {
 function useEffectiveHeroBackendAccess({
   fallbackIsBackendUser,
   fallbackIsAdmin,
+  hasLicenseServerShell,
   hasWebshopShell,
 }: HeroMenuRuntimeAuth) {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -1179,7 +1210,7 @@ function useEffectiveHeroBackendAccess({
       hasRole(roles, "author")
     : fallbackIsBackendUser;
 
-  return { hasWebshopShell, isBackendUser, isAdmin };
+  return { hasLicenseServerShell, hasWebshopShell, isBackendUser, isAdmin };
 }
 
 function DesktopMenuItem({

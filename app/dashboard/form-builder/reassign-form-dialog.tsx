@@ -6,6 +6,7 @@ import { Loader2, UserCog } from "lucide-react";
 import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
 import type { BackendUserOption } from "@/lib/backend-user-types";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ export function ReassignFormDialog({
   onOpenChange,
   onReassigned,
 }: Props) {
+  const t = useTranslations();
   const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
     currentOwnerId
       ? { id: currentOwnerId, name: currentOwnerName ?? currentOwnerId }
@@ -58,7 +60,7 @@ export function ReassignFormDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedUser) {
-      setServerError("Owner is required.");
+      setServerError(t("dashboard.validation.ownerRequired"));
       return;
     }
 
@@ -83,15 +85,15 @@ export function ReassignFormDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Reassign Form</DialogTitle>
+          <DialogTitle>{t("dashboard.forms.reassignTitle")}</DialogTitle>
           <DialogDescription>
-            Change the owner of &quot;{formName}&quot;.
+            {t("dashboard.forms.reassignDescription", { name: formName })}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>New Owner</Label>
+            <Label>{t("dashboard.forms.newOwner")}</Label>
             <BackendUserCombobox
               value={selectedUser?.id ?? ""}
               selectedUser={selectedUser}
@@ -111,12 +113,12 @@ export function ReassignFormDialog({
               onClick={() => handleOpenChange(false)}
               disabled={saving}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={saving || !selectedUser}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <UserCog className="mr-2 h-4 w-4" />
-              Reassign
+              {t("dashboard.common.actions.reassign")}
             </Button>
           </div>
         </form>

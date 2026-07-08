@@ -95,6 +95,7 @@ import { TableMenu } from "@/app/dashboard/content/_editors/table-menu";
 import { useTiptapToolbarState } from "@/app/dashboard/content/_editors/tiptap-toolbar-state";
 import { tiptapClientExtensions } from "@/app/dashboard/content/_editors/tiptap-client-extensions";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useSourceTranslations } from "@/components/source-translations";
 
 const tableBlockExtensions = tiptapClientExtensions.map((extension) =>
   extension.name === "placeholder"
@@ -342,6 +343,7 @@ ColumnSlot.craft = {
 };
 
 function ColumnsSettings() {
+  const t = useSourceTranslations();
   const {
     actions: { setProp },
     gap,
@@ -361,9 +363,9 @@ function ColumnsSettings() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="sm">Small</SelectItem>
-            <SelectItem value="md">Medium</SelectItem>
-            <SelectItem value="lg">Large</SelectItem>
+            <SelectItem value="sm">{t("Small")}</SelectItem>
+            <SelectItem value="md">{t("Medium")}</SelectItem>
+            <SelectItem value="lg">{t("Large")}</SelectItem>
           </SelectContent>
         </Select>
       </Field>
@@ -643,6 +645,7 @@ function TextSettings() {
 /* ===================== Table ===================== */
 
 export function TableBlock({ content, style }: TableProps) {
+  const t = useSourceTranslations();
   const {
     actions: { setProp },
     selected,
@@ -705,7 +708,7 @@ export function TableBlock({ content, style }: TableProps) {
         ) : (
           <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
             <TableIcon className="mx-auto mb-2 h-6 w-6" />
-            Loading table...
+            {t("Loading table...")}
           </div>
         )}
       </div>
@@ -754,6 +757,7 @@ ImageBlock.craft = {
 };
 
 function ImageSettings() {
+  const t = useSourceTranslations();
   const {
     actions: { setProp },
     src,
@@ -782,11 +786,11 @@ function ImageSettings() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={src}
-                alt={alt || "Selected image"}
+                alt={alt || t("Selected image")}
                 className="h-14 w-14 shrink-0 rounded border bg-muted object-cover"
               />
               <div className="min-w-0">
-                <p className="font-medium">Image selected</p>
+                <p className="font-medium">{t("Image selected")}</p>
                 <p className="truncate text-xs text-muted-foreground">{src}</p>
                 {alt ? (
                   <p className="truncate text-xs text-muted-foreground">
@@ -794,12 +798,12 @@ function ImageSettings() {
                   </p>
                 ) : null}
                 <p className="truncate text-xs text-muted-foreground">
-                  {alignment} aligned
+                  {t("{alignment} aligned", { alignment: t(alignment) })}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-muted-foreground">No image selected.</p>
+            <p className="text-muted-foreground">{t("No image selected.")}</p>
           )}
         </div>
         <Button
@@ -810,7 +814,7 @@ function ImageSettings() {
           onClick={() => setDialogOpen(true)}
         >
           <ImageIcon className="h-4 w-4" />
-          {src ? "Change Image" : "Choose Image"}
+          {src ? t("Change Image") : t("Choose Image")}
         </Button>
         {src ? (
           <Button
@@ -829,7 +833,7 @@ function ImageSettings() {
               })
             }
           >
-            Clear selection
+            {t("Clear selection")}
           </Button>
         ) : null}
       </Field>
@@ -1027,6 +1031,7 @@ export function HeroSliderBlock({
   heroSliderName,
   style,
 }: HeroSliderBlockProps) {
+  const t = useSourceTranslations();
   const [preview, setPreview] = useState<{
     sourceId: string;
     item: HeroSliderPickerItem & { contentJson: unknown };
@@ -1058,7 +1063,7 @@ export function HeroSliderBlock({
       {!heroSliderId ? (
         <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
           <Images className="mx-auto mb-2 h-6 w-6" />
-          Hero Slider placeholder - pick a slider in the block settings.
+          {t("Hero Slider placeholder - pick a slider in the block settings.")}
         </div>
       ) : preview?.sourceId === heroSliderId ? (
         <div className="pointer-events-none my-4 overflow-hidden rounded-md border">
@@ -1070,7 +1075,11 @@ export function HeroSliderBlock({
         </div>
       ) : (
         <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Loading hero slider{heroSliderName ? ` "${heroSliderName}"` : ""}...
+          {heroSliderName
+            ? t("Loading hero slider {name}...", {
+                name: `"${heroSliderName}"`,
+              })
+            : t("Loading hero slider...")}
         </div>
       )}
     </NodeWrap>
@@ -1083,6 +1092,7 @@ HeroSliderBlock.craft = {
 };
 
 function HeroSliderSettings() {
+  const t = useSourceTranslations();
   const {
     actions: { setProp },
     heroSliderId,
@@ -1104,7 +1114,9 @@ function HeroSliderSettings() {
               </p>
             </>
           ) : (
-            <p className="text-muted-foreground">No hero slider selected.</p>
+            <p className="text-muted-foreground">
+              {t("No hero slider selected.")}
+            </p>
           )}
         </div>
         <Button
@@ -1115,7 +1127,7 @@ function HeroSliderSettings() {
           onClick={() => setPickerOpen(true)}
         >
           <Images className="h-4 w-4" />
-          {heroSliderId ? "Change hero slider" : "Choose hero slider"}
+          {heroSliderId ? t("Change hero slider") : t("Choose hero slider")}
         </Button>
         {heroSliderId ? (
           <Button
@@ -1130,7 +1142,7 @@ function HeroSliderSettings() {
               })
             }
           >
-            Clear selection
+            {t("Clear selection")}
           </Button>
         ) : null}
       </Field>
@@ -1191,6 +1203,7 @@ function RawHtmlSettings() {
 /* ===================== Gallery ===================== */
 
 export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
+  const t = useSourceTranslations();
   const [preview, setPreview] = useState<{
     sourceId: string;
     name: string;
@@ -1229,7 +1242,7 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
           )}
         >
           <Images className="mx-auto mb-2 h-6 w-6" />
-          Gallery placeholder — pick a gallery in the block settings.
+          {t("Gallery placeholder — pick a gallery in the block settings.")}
         </div>
       ) : preview?.sourceId === galleryId ? (
         <div
@@ -1239,11 +1252,13 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
           <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
             <Images className="h-3.5 w-3.5" />
             <span className="font-medium">{preview.name}</span>
-            <span>· {preview.images.length} images</span>
+            <span>
+              · {t("{count} images", { count: preview.images.length })}
+            </span>
           </div>
           {preview.images.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground">
-              Gallery is empty.
+              {t("Gallery is empty.")}
             </p>
           ) : (
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
@@ -1267,7 +1282,9 @@ export function Gallery({ galleryId, galleryName, style }: GalleryProps) {
             bbClass,
           )}
         >
-          Loading gallery{galleryName ? ` "${galleryName}"` : ""}…
+          {galleryName
+            ? t("Loading gallery {name}...", { name: `"${galleryName}"` })
+            : t("Loading gallery...")}
         </div>
       )}
     </NodeWrap>
@@ -1280,6 +1297,7 @@ Gallery.craft = {
 };
 
 function GallerySettings() {
+  const t = useSourceTranslations();
   const {
     actions: { setProp },
     galleryId,
@@ -1301,7 +1319,7 @@ function GallerySettings() {
               </p>
             </>
           ) : (
-            <p className="text-muted-foreground">No gallery selected.</p>
+            <p className="text-muted-foreground">{t("No gallery selected.")}</p>
           )}
         </div>
         <Button
@@ -1312,7 +1330,7 @@ function GallerySettings() {
           onClick={() => setPickerOpen(true)}
         >
           <Images className="h-4 w-4" />
-          {galleryId ? "Change gallery" : "Choose gallery"}
+          {galleryId ? t("Change gallery") : t("Choose gallery")}
         </Button>
         {galleryId ? (
           <Button
@@ -1327,7 +1345,7 @@ function GallerySettings() {
               })
             }
           >
-            Clear selection
+            {t("Clear selection")}
           </Button>
         ) : null}
       </Field>
@@ -1378,6 +1396,7 @@ Video.craft = {
 };
 
 function VideoSettings() {
+  const t = useSourceTranslations();
   const {
     actions: { setProp },
     src,
@@ -1403,7 +1422,7 @@ function VideoSettings() {
               <p className="truncate text-xs text-muted-foreground">{src}</p>
             </>
           ) : (
-            <p className="text-muted-foreground">No video selected.</p>
+            <p className="text-muted-foreground">{t("No video selected.")}</p>
           )}
         </div>
         <Button
@@ -1414,7 +1433,7 @@ function VideoSettings() {
           onClick={() => setDialogOpen(true)}
         >
           <Film className="h-4 w-4" />
-          {src ? "Change video" : "Choose video"}
+          {src ? t("Change video") : t("Choose video")}
         </Button>
         {src ? (
           <Button
@@ -1432,7 +1451,7 @@ function VideoSettings() {
               })
             }
           >
-            Clear selection
+            {t("Clear selection")}
           </Button>
         ) : null}
       </Field>
@@ -1474,9 +1493,11 @@ function VideoSettings() {
 /* ===================== Helpers ===================== */
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
+  const t = useSourceTranslations();
+
   return (
     <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-xs">{t(label)}</Label>
       {children}
     </div>
   );
@@ -1485,14 +1506,17 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 /* ===================== Form ===================== */
 
 export function Form({ formId, formName, style }: FormProps) {
+  const t = useSourceTranslations();
+
   return (
     <NodeWrap style={style}>
       {!formId ? (
         <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
           <FormInput className="mx-auto mb-2 h-6 w-6" />
-          <p>Form placeholder — pick a form in the block settings.</p>
+          <p>{t("Form placeholder — pick a form in the block settings.")}</p>
           <p className="mt-1 text-xs">
-            Only <strong>published</strong> forms appear in the picker.
+            {t("Only")} <strong>{t("published")}</strong>{" "}
+            {t("forms appear in the picker.")}
           </p>
         </div>
       ) : (
@@ -1510,6 +1534,7 @@ Form.craft = {
 };
 
 function FormSettings() {
+  const t = useSourceTranslations();
   const {
     actions: { setProp },
     formId,
@@ -1529,7 +1554,7 @@ function FormSettings() {
               <p className="truncate text-xs text-muted-foreground">{formId}</p>
             </>
           ) : (
-            <p className="text-muted-foreground">No form selected.</p>
+            <p className="text-muted-foreground">{t("No form selected.")}</p>
           )}
         </div>
         <Button
@@ -1540,7 +1565,7 @@ function FormSettings() {
           onClick={() => setPickerOpen(true)}
         >
           <FormInput className="h-4 w-4" />
-          {formId ? "Change form" : "Choose form"}
+          {formId ? t("Change form") : t("Choose form")}
         </Button>
         {formId ? (
           <Button
@@ -1555,7 +1580,7 @@ function FormSettings() {
               })
             }
           >
-            Clear selection
+            {t("Clear selection")}
           </Button>
         ) : null}
       </Field>
@@ -1585,12 +1610,16 @@ export function FormSubmissions({
   hideSubmitted = false,
   style,
 }: FormSubmissionsProps) {
+  const t = useSourceTranslations();
+
   return (
     <NodeWrap style={style}>
       {!formId ? (
         <div className="my-4 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
           <FormInput className="mx-auto mb-2 h-6 w-6" />
-          Form Submissions placeholder — pick a form in the block settings.
+          {t(
+            "Form Submissions placeholder — pick a form in the block settings.",
+          )}
         </div>
       ) : (
         <div className="pointer-events-none">
@@ -1614,6 +1643,7 @@ FormSubmissions.craft = {
 };
 
 function FormSubmissionsSettings() {
+  const t = useSourceTranslations();
   const {
     actions: { setProp },
     formId,
@@ -1643,7 +1673,7 @@ function FormSubmissionsSettings() {
               <p className="truncate text-xs text-muted-foreground">{formId}</p>
             </>
           ) : (
-            <p className="text-muted-foreground">No form selected.</p>
+            <p className="text-muted-foreground">{t("No form selected.")}</p>
           )}
         </div>
         <Button
@@ -1654,7 +1684,7 @@ function FormSubmissionsSettings() {
           onClick={() => setPickerOpen(true)}
         >
           <FormInput className="h-4 w-4" />
-          {formId ? "Change form" : "Choose form"}
+          {formId ? t("Change form") : t("Choose form")}
         </Button>
         {formId ? (
           <Button
@@ -1669,7 +1699,7 @@ function FormSubmissionsSettings() {
               })
             }
           >
-            Clear selection
+            {t("Clear selection")}
           </Button>
         ) : null}
       </Field>
@@ -1687,8 +1717,8 @@ function FormSubmissionsSettings() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="table">Table</SelectItem>
-            <SelectItem value="card">Card</SelectItem>
+            <SelectItem value="table">{t("Table")}</SelectItem>
+            <SelectItem value="card">{t("Card")}</SelectItem>
           </SelectContent>
         </Select>
       </Field>

@@ -10,6 +10,7 @@ import {
   getCommentsByIds,
   listCommentsForPost,
 } from "@/data/comments";
+import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
 import { CommentsTable } from "./comments-table";
@@ -72,6 +73,8 @@ export default async function PostCommentsModerationPage({
   }
   if (!canModerate) redirect("/dashboard/content");
 
+  const t = await getTranslations("backend");
+
   const page = Math.max(1, Number(sp.page) || 1);
   const rawPageSize = Number(sp.pageSize);
   const pageSize = (VALID_PAGE_SIZES as readonly number[]).includes(rawPageSize)
@@ -110,37 +113,47 @@ export default async function PostCommentsModerationPage({
           <Button asChild variant="ghost" size="sm" className="-ml-2">
             <Link href={`/dashboard/content/${post.id}/edit`}>
               <ArrowLeft className="mr-1 h-4 w-4" />
-              Back to post
+              {t("dashboard.content.commentsModeration.backToPost")}
             </Link>
           </Button>
-          <h1 className="mt-2 text-2xl font-semibold">Comments</h1>
+          <h1 className="mt-2 text-2xl font-semibold">
+            {t("dashboard.content.commentsModeration.title")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Moderating comments for{" "}
+            {t("dashboard.content.commentsModeration.descriptionPrefix")}{" "}
             <span className="font-medium">{post.title}</span>
             {pendingCount > 0 && (
               <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600">
-                {pendingCount} pending
+                {t("dashboard.content.commentsModeration.pendingCount", {
+                  count: pendingCount,
+                })}
               </span>
             )}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
           <div>
-            Comments enabled:{" "}
+            {t("dashboard.content.commentsModeration.commentsEnabled")}{" "}
             <span className="font-medium">
-              {post.enableComments ? "yes" : "no"}
+              {post.enableComments
+                ? t("common.states.yes")
+                : t("common.states.no")}
             </span>
           </div>
           <div>
-            Auto-publish:{" "}
+            {t("dashboard.content.commentsModeration.autoPublish")}{" "}
             <span className="font-medium">
-              {post.autoPublishComments ? "yes" : "no"}
+              {post.autoPublishComments
+                ? t("common.states.yes")
+                : t("common.states.no")}
             </span>
           </div>
           <div>
-            Anonymous allowed:{" "}
+            {t("dashboard.content.commentsModeration.anonymousAllowed")}{" "}
             <span className="font-medium">
-              {post.allowAnonymousComments ? "yes" : "no"}
+              {post.allowAnonymousComments
+                ? t("common.states.yes")
+                : t("common.states.no")}
             </span>
           </div>
         </div>

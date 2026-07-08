@@ -20,10 +20,13 @@ import {
 import { getRoles, hasRole } from "@/lib/roles";
 import {
   canAuthorEditOwnContentStatus,
-  getContentStatusLabel,
+  getContentStatusLabelKey,
   isAuthorOnlyContentWorkflowRole,
   type ContentStatus,
 } from "@/lib/content-status";
+import { getTranslations } from "@/lib/i18n/server";
+import type { TranslationKey } from "@/lib/i18n/keys";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { RevisionPreviewRestoreButton } from "../../../revision-preview-restore-button";
 
 type Props = {
@@ -58,7 +61,8 @@ export default async function ContentRevisionPage({ params }: Props) {
 
   const revision = await getContentRevision(id, revisionNumericId);
   if (!revision) notFound();
-  const [userNameMap, revisionNavigation] = await Promise.all([
+  const [t, userNameMap, revisionNavigation] = await Promise.all([
+    getTranslations("backend"),
     getUserDisplayNameMap([revision.createdBy, revision.authorId]),
     getContentRevisionNavigation(id, revision.revisionNumber),
   ]);
@@ -104,17 +108,22 @@ export default async function ContentRevisionPage({ params }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <Button asChild variant="outline" size="sm">
-            <Link href={`/dashboard/content/${id}/edit`}>Back to editor</Link>
+            <Link href={`/dashboard/content/${id}/edit`}>
+              {t("dashboard.content.history.backToEditor")}
+            </Link>
           </Button>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold">
-                Revision #{revision.revisionNumber}
+                {t("dashboard.content.history.revisionTitle", {
+                  revision: revision.revisionNumber,
+                })}
               </h1>
               <RevisionNavigation
                 contentId={id}
                 previous={revisionNavigation.previous}
                 next={revisionNavigation.next}
+                t={t}
               />
             </div>
             <p className="text-sm text-muted-foreground">
@@ -130,32 +139,53 @@ export default async function ContentRevisionPage({ params }: Props) {
             expectedVersion={row.version}
           />
           <Badge variant="secondary">
-            {formatChangeType(revision.changeType)}
+            {formatChangeType(revision.changeType, t)}
           </Badge>
           <Badge variant="outline">
-            {getContentStatusLabel(revision.status)}
+            {t(getContentStatusLabelKey(revision.status as ContentStatus))}
           </Badge>
           <Badge variant="outline">v{revision.contentVersion}</Badge>
         </div>
       </div>
 
       <div className="grid gap-3 rounded-md border bg-background p-4 text-sm md:grid-cols-2 lg:grid-cols-4">
-        <Meta label="Actor" value={actorName} />
-        <Meta label="Created" value={revision.createdAt.toLocaleString()} />
-        <Meta label="Author" value={authorName} />
-        <Meta label="Homepage" value={revision.homepage ? "Yes" : "No"} />
         <Meta
-          label="Publish at"
-          value={revision.publishAt?.toLocaleString() ?? "None"}
+          label={t("dashboard.content.history.meta.actor")}
+          value={actorName}
         />
         <Meta
-          label="Unpublish at"
-          value={revision.unpublishAt?.toLocaleString() ?? "None"}
+          label={t("dashboard.content.history.meta.created")}
+          value={revision.createdAt.toLocaleString()}
         />
-        <Meta label="Meta title" value={revision.metaTitle ?? "None"} />
         <Meta
-          label="Meta description"
-          value={revision.metaDescription ?? "None"}
+          label={t("dashboard.content.history.meta.author")}
+          value={authorName}
+        />
+        <Meta
+          label={t("dashboard.content.history.meta.homepage")}
+          value={
+            revision.homepage ? t("common.states.yes") : t("common.states.no")
+          }
+        />
+        <Meta
+          label={t("dashboard.content.history.meta.publishAt")}
+          value={
+            revision.publishAt?.toLocaleString() ?? t("common.states.none")
+          }
+        />
+        <Meta
+          label={t("dashboard.content.history.meta.unpublishAt")}
+          value={
+            revision.unpublishAt?.toLocaleString() ?? t("common.states.none")
+          }
+        />
+        <Meta
+          label={t("dashboard.content.history.meta.metaTitle")}
+          value={revision.metaTitle ?? t("common.states.none")}
+        />
+        <Meta
+          label={t("dashboard.content.history.meta.metaDescription")}
+          value={revision.metaDescription ?? t("common.states.none")}
         />
       </div>
 
@@ -170,14 +200,16 @@ function RevisionNavigation({
   contentId,
   previous,
   next,
+  t,
 }: {
   contentId: string;
   previous: ContentRevisionNavigationItem | null;
   next: ContentRevisionNavigationItem | null;
+  t: TranslateFn;
 }) {
   return (
     <nav
-      aria-label="Revision navigation"
+      aria-label={t("dashboard.content.history.revisionNavigation")}
       className="inline-flex overflow-hidden rounded-md border bg-background shadow-sm"
     >
       {previous ? (
@@ -189,10 +221,12 @@ function RevisionNavigation({
         >
           <Link
             href={revisionPreviewHref(contentId, previous)}
-            aria-label={`Open previous revision #${previous.revisionNumber}`}
+            aria-label={t("dashboard.content.history.openPreviousRevision", {
+              revision: previous.revisionNumber,
+            })}
           >
             <ChevronLeft aria-hidden className="size-4" />
-            <span>Previous</span>
+            <span>{t("dashboard.content.history.previous")}</span>
             <span className="text-muted-foreground">
               #{previous.revisionNumber}
             </span>
@@ -206,7 +240,7 @@ function RevisionNavigation({
           disabled
         >
           <ChevronLeft aria-hidden className="size-4" />
-          <span>Previous</span>
+          <span>{t("dashboard.content.history.previous")}</span>
         </Button>
       )}
       {next ? (
@@ -218,9 +252,11 @@ function RevisionNavigation({
         >
           <Link
             href={revisionPreviewHref(contentId, next)}
-            aria-label={`Open next revision #${next.revisionNumber}`}
+            aria-label={t("dashboard.content.history.openNextRevision", {
+              revision: next.revisionNumber,
+            })}
           >
-            <span>Next</span>
+            <span>{t("dashboard.content.history.next")}</span>
             <span className="text-muted-foreground">
               #{next.revisionNumber}
             </span>
@@ -234,7 +270,7 @@ function RevisionNavigation({
           className="h-8 rounded-none px-2.5"
           disabled
         >
-          <span>Next</span>
+          <span>{t("dashboard.content.history.next")}</span>
           <ChevronRight aria-hidden className="size-4" />
         </Button>
       )}
@@ -260,7 +296,11 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatChangeType(value: string): string {
+function formatChangeType(value: string, t: TranslateFn): string {
+  const key = `dashboard.content.history.changeType.${value}` as TranslationKey;
+  const translated = t(key);
+  if (translated !== key) return translated;
+
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { BlogCommentForm } from "./blog-comment-form";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
@@ -52,6 +53,7 @@ export function BlogCommentThread({
   postSlug,
   allowAnonymous,
 }: Props) {
+  const t = useTranslations();
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyMsg, setReplyMsg] = useState<string | null>(null);
 
@@ -89,7 +91,7 @@ export function BlogCommentThread({
               setReplyMsg(null);
             }}
           >
-            Reply
+            {t("public.comments.reply")}
           </Button>
         </div>
       )}

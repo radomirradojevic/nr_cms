@@ -16,6 +16,8 @@ import {
 import { TOP_MENU_TAG } from "@/data/top-menu";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getBackendUserOptionById } from "@/lib/backend-users";
+import { getTranslations } from "@/lib/i18n/server";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { hasRole, getRoles } from "@/lib/roles";
 
 async function markMenuItemsBroken(categoryIds: string[]) {
@@ -55,13 +57,15 @@ async function getAdminSession() {
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
-const createCategorySchema = z.object({
-  name: z
-    .string()
-    .min(1, "Name is required.")
-    .max(100, "Name must be 100 characters or fewer."),
-  contentType: z.enum(["page", "blog_post"]),
-});
+function createCategorySchema(t: TranslateFn) {
+  return z.object({
+    name: z
+      .string()
+      .min(1, t("dashboard.contentCategories.validation.nameRequired"))
+      .max(100, t("dashboard.contentCategories.validation.nameMax")),
+    contentType: z.enum(["page", "blog_post"]),
+  });
+}
 
 export type CreateCategoryInput = {
   name: string;
@@ -69,10 +73,11 @@ export type CreateCategoryInput = {
 };
 
 export async function createCategory(input: CreateCategoryInput) {
+  const t = await getTranslations("backend");
   const session = await getAdminSession();
-  if (!session) return { error: "Forbidden." };
+  if (!session) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = createCategorySchema.safeParse(input);
+  const parsed = createCategorySchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
@@ -87,24 +92,27 @@ export async function createCategory(input: CreateCategoryInput) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("unique") || message.includes("duplicate")) {
       return {
-        error:
-          "A category with that name already exists for this content type.",
+        error: t("dashboard.contentCategories.validation.duplicateName"),
       };
     }
     console.error("[createCategory] Unexpected error:", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.contentCategories.validation.generic") };
   }
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────
 
-const updateCategorySchema = z.object({
-  id: z.string().uuid("Invalid category ID."),
-  name: z
-    .string()
-    .min(1, "Name is required.")
-    .max(100, "Name must be 100 characters or fewer."),
-});
+function updateCategorySchema(t: TranslateFn) {
+  return z.object({
+    id: z
+      .string()
+      .uuid(t("dashboard.contentCategories.validation.invalidCategoryId")),
+    name: z
+      .string()
+      .min(1, t("dashboard.contentCategories.validation.nameRequired"))
+      .max(100, t("dashboard.contentCategories.validation.nameMax")),
+  });
+}
 
 export type UpdateCategoryInput = {
   id: string;
@@ -112,10 +120,11 @@ export type UpdateCategoryInput = {
 };
 
 export async function updateCategory(input: UpdateCategoryInput) {
+  const t = await getTranslations("backend");
   const session = await getAdminSession();
-  if (!session) return { error: "Forbidden." };
+  if (!session) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = updateCategorySchema.safeParse(input);
+  const parsed = updateCategorySchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
@@ -126,21 +135,26 @@ export async function updateCategory(input: UpdateCategoryInput) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("unique") || message.includes("duplicate")) {
       return {
-        error:
-          "A category with that name already exists for this content type.",
+        error: t("dashboard.contentCategories.validation.duplicateName"),
       };
     }
     console.error("[updateCategory] Unexpected error:", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.contentCategories.validation.generic") };
   }
 }
 
 // ─── Reassign Owner ───────────────────────────────────────────────────────────
 
-const reassignOwnerSchema = z.object({
-  id: z.string().uuid("Invalid category ID."),
-  ownerId: z.string().min(1, "Owner is required."),
-});
+function reassignOwnerSchema(t: TranslateFn) {
+  return z.object({
+    id: z
+      .string()
+      .uuid(t("dashboard.contentCategories.validation.invalidCategoryId")),
+    ownerId: z
+      .string()
+      .min(1, t("dashboard.contentCategories.validation.ownerRequired")),
+  });
+}
 
 export type ReassignCategoryOwnerInput = {
   id: string;
@@ -148,52 +162,57 @@ export type ReassignCategoryOwnerInput = {
 };
 
 export async function reassignCategoryOwner(input: ReassignCategoryOwnerInput) {
+  const t = await getTranslations("backend");
   const session = await getAdminSession();
-  if (!session) return { error: "Forbidden." };
+  if (!session) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = reassignOwnerSchema.safeParse(input);
+  const parsed = reassignOwnerSchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
     const owner = await getBackendUserOptionById(parsed.data.ownerId);
-    if (!owner) return { error: "Target user must be a backend user." };
+    if (!owner) {
+      return {
+        error: t("dashboard.contentCategories.validation.targetUserBackend"),
+      };
+    }
 
-    await updateCategoryOwner(
-      parsed.data.id,
-      parsed.data.ownerId,
-      session.id,
-    );
+    await updateCategoryOwner(parsed.data.id, parsed.data.ownerId, session.id);
     revalidatePath("/dashboard/content-categories");
     return { success: true };
   } catch (err) {
     console.error("[reassignCategoryOwner] Unexpected error:", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.contentCategories.validation.generic") };
   }
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
-const deleteCategorySchema = z.object({
-  id: z.string().uuid("Invalid category ID."),
-});
+function deleteCategorySchema(t: TranslateFn) {
+  return z.object({
+    id: z
+      .string()
+      .uuid(t("dashboard.contentCategories.validation.invalidCategoryId")),
+  });
+}
 
 export type DeleteCategoryInput = {
   id: string;
 };
 
 export async function deleteCategory(input: DeleteCategoryInput) {
+  const t = await getTranslations("backend");
   const session = await getAdminSession();
-  if (!session) return { error: "Forbidden." };
+  if (!session) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = deleteCategorySchema.safeParse(input);
+  const parsed = deleteCategorySchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
     const inUse = await isCategoryInUse(parsed.data.id);
     if (inUse) {
       return {
-        error:
-          "This category is assigned to content items and cannot be deleted.",
+        error: t("dashboard.contentCategories.validation.categoryInUse"),
       };
     }
 
@@ -203,25 +222,34 @@ export async function deleteCategory(input: DeleteCategoryInput) {
     return { success: true };
   } catch (err) {
     console.error("[deleteCategory] Unexpected error:", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.contentCategories.validation.generic") };
   }
 }
 
 // ─── Batch Delete ─────────────────────────────────────────────────────────────
 
-const deleteCategoriesSchema = z.object({
-  ids: z.array(z.string().uuid("Invalid category ID.")).min(1),
-});
+function deleteCategoriesSchema(t: TranslateFn) {
+  return z.object({
+    ids: z
+      .array(
+        z
+          .string()
+          .uuid(t("dashboard.contentCategories.validation.invalidCategoryId")),
+      )
+      .min(1),
+  });
+}
 
 export type DeleteCategoriesInput = {
   ids: string[];
 };
 
 export async function deleteCategories(input: DeleteCategoriesInput) {
+  const t = await getTranslations("backend");
   const session = await getAdminSession();
-  if (!session) return { error: "Forbidden." };
+  if (!session) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = deleteCategoriesSchema.safeParse(input);
+  const parsed = deleteCategoriesSchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
@@ -231,8 +259,9 @@ export async function deleteCategories(input: DeleteCategoriesInput) {
     const anyInUse = inUseChecks.some(Boolean);
     if (anyInUse) {
       return {
-        error:
-          "One or more selected categories are assigned to content items and cannot be deleted.",
+        error: t(
+          "dashboard.contentCategories.validation.selectedCategoriesInUse",
+        ),
       };
     }
 
@@ -242,6 +271,6 @@ export async function deleteCategories(input: DeleteCategoriesInput) {
     return { success: true };
   } catch (err) {
     console.error("[deleteCategories] Unexpected error:", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.contentCategories.validation.generic") };
   }
 }

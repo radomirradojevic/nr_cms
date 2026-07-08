@@ -25,6 +25,12 @@ import {
   SUPPORTED_TIMEZONES,
   type RegionalSettings,
 } from "@/lib/regional-settings";
+import {
+  DEFAULT_CMS_LANGUAGE_SETTINGS,
+  SUPPORTED_CMS_LANGUAGES,
+  type CmsLanguage,
+  type CmsLanguageSettings,
+} from "@/lib/i18n/languages";
 
 // ─── Cache tags ───────────────────────────────────────────────────────────────
 
@@ -628,6 +634,18 @@ export const RegionalSettingsSchema = z.object({
   timezone: z.enum(SUPPORTED_TIMEZONES),
 });
 
+const CmsLanguageSchema = z.enum(
+  SUPPORTED_CMS_LANGUAGES.map((language) => language.code) as [
+    CmsLanguage,
+    ...CmsLanguage[],
+  ],
+);
+
+export const CmsLanguageSettingsSchema = z.object({
+  frontendLanguage: CmsLanguageSchema,
+  backendLanguage: CmsLanguageSchema,
+});
+
 // ─── JSON shapes ──────────────────────────────────────────────────────────────
 
 const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -803,6 +821,8 @@ export const UpdateGlobalSettingsSchema = z
   .object({
     siteName: z.string().trim().min(1).max(120),
     publicSiteUrl: PublicSiteUrlSchema,
+    frontendLanguage: CmsLanguageSettingsSchema.shape.frontendLanguage,
+    backendLanguage: CmsLanguageSettingsSchema.shape.backendLanguage,
     defaultLanguage: RegionalSettingsSchema.shape.defaultLanguage,
     timezone: RegionalSettingsSchema.shape.timezone,
     siteLogoFileId: z.string().uuid().nullable(),
@@ -971,6 +991,7 @@ export type ResolvedGlobalSettings = {
   stickyFooterHeight: number;
   maxUploadSizeBytes: number;
   maxBatchUploadSizeBytes: number;
+  languages: CmsLanguageSettings;
   regional: RegionalSettings;
   appearance: AppearanceSettings;
   resolvedAppearanceRecipe: AppearanceRecipe;
@@ -991,6 +1012,7 @@ export const DEFAULT_RESOLVED_GLOBAL_SETTINGS: ResolvedGlobalSettings = {
   stickyFooterHeight: 110,
   maxUploadSizeBytes: DEFAULT_MAX_UPLOAD_SIZE_BYTES,
   maxBatchUploadSizeBytes: DEFAULT_MAX_BATCH_UPLOAD_SIZE_BYTES,
+  languages: DEFAULT_CMS_LANGUAGE_SETTINGS,
   regional: DEFAULT_REGIONAL_SETTINGS,
   appearance: DEFAULT_APPEARANCE,
   resolvedAppearanceRecipe: buildDefaultClassicAppearanceRecipe({

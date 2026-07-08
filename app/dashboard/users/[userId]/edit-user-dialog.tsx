@@ -13,7 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ROLES, type Role } from "@/lib/roles";
+import {
+  getRoleDescriptionKey,
+  getRoleLabelKey,
+  ROLES,
+  type Role,
+} from "@/lib/roles";
+import { useTranslations } from "@/components/i18n-provider";
 import { updateUserRoles } from "@/app/dashboard/users/[userId]/actions";
 
 type Props = {
@@ -21,14 +27,8 @@ type Props = {
   currentRoles: Role[];
 };
 
-const ROLE_LABELS: Record<Role, string> = {
-  viewer: "Viewer — frontend read-only access (always assigned)",
-  author: "Author — create & manage own content",
-  publisher: "Publisher — manage & publish content",
-  admin: "Admin — full backend access",
-};
-
 export function EditUserDialog({ userId, currentRoles }: Props) {
+  const t = useTranslations();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Role[]>(currentRoles);
   const [error, setError] = useState<string | null>(null);
@@ -60,14 +60,14 @@ export function EditUserDialog({ userId, currentRoles }: Props) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          Edit Roles
+          {t("dashboard.users.editRoles")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit User Roles</DialogTitle>
+          <DialogTitle>{t("dashboard.users.editRolesTitle")}</DialogTitle>
           <DialogDescription>
-            Select the roles to assign to this user.
+            {t("dashboard.users.editRolesDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -84,10 +84,10 @@ export function EditUserDialog({ userId, currentRoles }: Props) {
                 htmlFor={`role-${role}`}
                 className="leading-snug cursor-pointer"
               >
-                <span className="font-medium capitalize">{role}</span>
+                <span className="font-medium">{t(getRoleLabelKey(role))}</span>
                 <br />
                 <span className="text-muted-foreground text-xs">
-                  {ROLE_LABELS[role]}
+                  {t(getRoleDescriptionKey(role))}
                 </span>
               </Label>
             </div>
@@ -98,10 +98,12 @@ export function EditUserDialog({ userId, currentRoles }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
+            {t("dashboard.common.actions.cancel")}
           </Button>
           <Button onClick={handleSave} disabled={isPending}>
-            {isPending ? "Saving…" : "Save"}
+            {isPending
+              ? t("dashboard.common.actions.saving")
+              : t("dashboard.common.actions.save")}
           </Button>
         </DialogFooter>
       </DialogContent>

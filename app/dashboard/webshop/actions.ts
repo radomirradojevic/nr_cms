@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { saveWebshopAddonEntitlement } from "@/data/webshop-addon-entitlement";
 import { getGlobalSettings } from "@/data/global-settings";
+import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import {
@@ -17,8 +18,7 @@ import { loadWebshopAddon } from "@/lib/webshop-addon/loader";
 import { verifyWebshopDeploymentPlatform } from "@/lib/webshop-addon/platform";
 
 const ActivationSchema = z.object({
-  licenseKey: z.string().trim().min(12, "License key is required."),
-  packageToken: z.string().trim().min(12, "Package token is required."),
+  licenseKey: z.string().trim().min(12),
 });
 
 export type WebshopActivationFormState = {
@@ -31,12 +31,15 @@ export async function activateWebshopAddonAction(
   formData: FormData,
 ): Promise<WebshopActivationFormState> {
   const { userId } = await auth();
-  if (!userId) return { status: "error", message: "Forbidden." };
+  const t = await getTranslations("backend");
+  if (!userId) {
+    return { status: "error", message: t("common.states.forbidden") };
+  }
 
   const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) {
-    return { status: "error", message: "Forbidden." };
+    return { status: "error", message: t("common.states.forbidden") };
   }
 
   const runtimeConfig = getWebshopRuntimeConfig();
@@ -47,12 +50,14 @@ export async function activateWebshopAddonAction(
 
   const parsed = ActivationSchema.safeParse({
     licenseKey: formData.get("licenseKey"),
-    packageToken: formData.get("packageToken"),
   });
   if (!parsed.success) {
     return {
       status: "error",
-      message: parsed.error.issues[0]?.message ?? "Invalid activation input.",
+      message:
+        parsed.error.issues[0]?.code === "too_small"
+          ? t("addons.common.licenseKeyRequired")
+          : t("addons.common.invalidActivationInput"),
     };
   }
 
@@ -71,7 +76,6 @@ export async function activateWebshopAddonAction(
   const activation = await requestWebshopLicenseActivation({
     deploymentPlatform,
     licenseKey: parsed.data.licenseKey,
-    packageToken: parsed.data.packageToken,
     siteDomain,
     siteId: deploymentPlatform.projectId,
   });
@@ -81,6 +85,22 @@ export async function activateWebshopAddonAction(
   }
 
   const loadResult = await loadWebshopAddon(runtimeConfig.addonModule);
+  if (
+    runtimeConfig.redeployWebhookUrl &&
+    activation.entitlement.packageInstallToken
+  ) {
+    await fetch(runtimeConfig.redeployWebhookUrl, {
+      body: JSON.stringify({
+        packageInstallToken: activation.entitlement.packageInstallToken,
+        packageInstallTokenExpiresAt:
+          activation.entitlement.packageInstallTokenExpiresAt ?? null,
+        packageName: activation.entitlement.packageName ?? null,
+        packageVersion: activation.entitlement.packageVersion ?? null,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    }).catch(() => null);
+  }
   const entitlementStatus =
     loadResult.status === "loaded" ? "ready" : "install_pending";
 
@@ -105,9 +125,9 @@ export async function activateWebshopAddonAction(
     status: "success",
     message:
       entitlementStatus === "ready"
-        ? "License accepted. Webshop add-on is ready."
+        ? t("addons.webshop.activationSuccessReady")
         : deploymentPlatform.provider === "self_hosted"
-          ? "License accepted. Install the private Webshop package, set WEBSHOP_ADDON_MODULE, and restart the CMS to finish setup."
-          : "License accepted. Webshop add-on install is pending the deployment pipeline.",
+          ? t("addons.webshop.activationSuccessSelfHosted")
+          : t("addons.webshop.activationSuccessPending"),
   };
 }

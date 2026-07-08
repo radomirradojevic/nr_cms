@@ -1,3 +1,7 @@
+"use client";
+
+import { useTranslations } from "@/components/i18n-provider";
+
 export function WebshopPublicPlaceholder({
   description,
   title,
@@ -5,11 +9,13 @@ export function WebshopPublicPlaceholder({
   description?: string | null;
   title: string;
 }) {
+  const t = useTranslations();
+
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-16">
       <div className="space-y-4">
         <p className="text-sm font-medium uppercase tracking-normal text-muted-foreground">
-          Webshop
+          {t("public.webshop.label")}
         </p>
         <h1 className="text-4xl font-semibold tracking-normal">{title}</h1>
         {description ? (
@@ -18,7 +24,7 @@ export function WebshopPublicPlaceholder({
           </p>
         ) : (
           <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-            Storefront is not available yet.
+            {t("public.webshop.storefrontUnavailable")}
           </p>
         )}
       </div>
