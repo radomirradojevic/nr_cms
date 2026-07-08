@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { fetchGalleries } from "@/app/dashboard/gallerymanager/actions";
 import type { GalleryListItem } from "@/data/galleries";
+import { useSourceTranslations } from "@/components/source-translations";
 
 type Props = {
   open: boolean;
@@ -50,6 +51,7 @@ export function GallerySelectDialog({
   );
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const t = useSourceTranslations();
 
   const runFetch = useCallback(
     (nextOffset: number, replace: boolean, q: string) => {
@@ -106,20 +108,25 @@ export function GallerySelectDialog({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            {mode === "edit" ? "Edit gallery" : "Insert gallery"}
+            {mode === "edit" ? t("Edit gallery") : t("Insert gallery")}
           </DialogTitle>
           <DialogDescription>
             {mode === "edit"
-              ? "Choose which gallery this embedded block should render."
-              : "Pick an existing gallery from the Gallery Manager. Its images will render as a responsive thumbnail grid in the post."}
+              ? t("Choose which gallery this embedded block should render.")
+              : t(
+                  "Pick an existing gallery from the Gallery Manager. Its images will render as a responsive thumbnail grid in the post.",
+                )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label>Galleries</Label>
+            <Label>{t("Galleries")}</Label>
             <p className="text-xs text-muted-foreground">
-              Showing {rows.length} of {total}
+              {t("Showing {count} of {total}", {
+                count: rows.length,
+                total,
+              })}
             </p>
           </div>
 
@@ -128,7 +135,7 @@ export function GallerySelectDialog({
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search galleries…"
+              placeholder={t("Search galleries…")}
               className="pl-9"
             />
           </div>
@@ -141,7 +148,7 @@ export function GallerySelectDialog({
             </div>
           ) : rows.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No galleries found.
+              {t("No galleries found.")}
             </p>
           ) : (
             <div className="grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto p-1 sm:grid-cols-3 lg:grid-cols-4">
@@ -196,7 +203,7 @@ export function GallerySelectDialog({
                 onClick={() => runFetch(offset, false, search)}
                 disabled={pending}
               >
-                {pending ? "Loading…" : "Load more"}
+                {pending ? t("Loading...") : t("Load more")}
               </Button>
             </div>
           )}
@@ -208,10 +215,10 @@ export function GallerySelectDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button type="button" onClick={handleInsert} disabled={!selectedId}>
-            {mode === "edit" ? "Save changes" : "Insert"}
+            {mode === "edit" ? t("Save changes") : t("Insert")}
           </Button>
         </DialogFooter>
       </DialogContent>

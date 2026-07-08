@@ -1,5 +1,5 @@
 import { clerkClient } from "@clerk/nextjs/server";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getContentById } from "@/data/content";
 import { getCategoriesByType } from "@/data/content-categories";
 import { listContentRevisions } from "@/data/content-revisions";
@@ -29,6 +29,9 @@ type Props = {
   searchParams: Promise<{ inspector?: string | string[] }>;
 };
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export default async function EditContentPage({ params, searchParams }: Props) {
   const { id } = await params;
   const search = await searchParams;
@@ -44,8 +47,10 @@ export default async function EditContentPage({ params, searchParams }: Props) {
     hasRole(roles, "author");
   if (!allowed) redirect("/dashboard");
 
+  if (!UUID_RE.test(id)) redirect("/dashboard/content");
+
   const row = await getContentById(id);
-  if (!row) notFound();
+  if (!row) redirect("/dashboard/content");
 
   // Permission check (mirrors server actions canEdit)
   const isOwn = row.authorId === user.id;

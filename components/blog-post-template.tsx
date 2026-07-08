@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 
 import type { BlogPostTemplateV1 } from "@/lib/appearance-recipe";
-import { getTranslations } from "@/lib/i18n/server";
 import type { TranslateFn } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 import { sanitizeMediaSrc } from "@/lib/url-safety";
@@ -19,6 +18,10 @@ type BlogPostTemplateProps = {
   editHref: string;
   children?: React.ReactNode;
   comments?: React.ReactNode;
+};
+
+type BlogPostTemplateViewProps = BlogPostTemplateProps & {
+  t: TranslateFn;
 };
 
 function EditPostLink({
@@ -172,7 +175,7 @@ function Excerpt({
   );
 }
 
-export async function BlogPostTemplate({
+export function BlogPostTemplateView({
   template,
   title,
   coverImage,
@@ -184,8 +187,8 @@ export async function BlogPostTemplate({
   editHref,
   children,
   comments,
-}: BlogPostTemplateProps) {
-  const t = await getTranslations("frontend");
+  t,
+}: BlogPostTemplateViewProps) {
   const editPlacement = template.editAffordancePlacement;
   const showHeaderEdit = canEdit && editPlacement === "header-actions";
   const showFooterEdit = canEdit && editPlacement === "footer-actions";
@@ -291,4 +294,11 @@ export async function BlogPostTemplate({
       </div>
     </article>
   );
+}
+
+export async function BlogPostTemplate(props: BlogPostTemplateProps) {
+  const { getTranslations } = await import("@/lib/i18n/server");
+  const t = await getTranslations("frontend");
+
+  return <BlogPostTemplateView {...props} t={t} />;
 }

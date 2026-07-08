@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,7 @@ export function BatchActions({
   onCleared,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -172,7 +174,9 @@ export function BatchActions({
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {error && <p className="text-sm text-destructive px-1">{error}</p>}
+          {error && (
+            <p className="text-sm text-destructive px-1">{st(error)}</p>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>
               {t("dashboard.common.actions.cancel")}
@@ -192,7 +196,7 @@ export function BatchActions({
         </AlertDialogContent>
       </AlertDialog>
       {error && !open && (
-        <span className="text-xs text-destructive ml-2">{error}</span>
+        <span className="text-xs text-destructive ml-2">{st(error)}</span>
       )}
     </div>
   );

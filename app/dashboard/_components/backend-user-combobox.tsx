@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useSourceTranslations } from "@/components/source-translations";
 import { cn } from "@/lib/utils";
 import type { BackendUserOption } from "@/lib/backend-user-types";
 
@@ -46,6 +47,7 @@ export const BackendUserCombobox = forwardRef<HTMLButtonElement, Props>(
     },
     ref,
   ) {
+    const st = useSourceTranslations();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [users, setUsers] = useState<BackendUserOption[]>([]);
@@ -173,7 +175,7 @@ export const BackendUserCombobox = forwardRef<HTMLButtonElement, Props>(
                 !selected && "text-muted-foreground",
               )}
             >
-              {selected ? selected.name : placeholder}
+              {selected ? selected.name : st(placeholder)}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -186,7 +188,7 @@ export const BackendUserCombobox = forwardRef<HTMLButtonElement, Props>(
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
             <input
               ref={searchRef}
-              placeholder={searchPlaceholder}
+              placeholder={st(searchPlaceholder)}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
@@ -200,16 +202,16 @@ export const BackendUserCombobox = forwardRef<HTMLButtonElement, Props>(
           <div className="max-h-56 overflow-y-auto py-1">
             {error ? (
               <p className="px-3 py-4 text-center text-sm text-destructive">
-                {error}
+                {st(error)}
               </p>
             ) : loading && users.length === 0 ? (
               <div className="flex items-center justify-center gap-2 px-3 py-4 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading users...
+                {st("Loading users...")}
               </div>
             ) : users.length === 0 ? (
               <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-                No backend users found.
+                {st("No backend users found.")}
               </p>
             ) : (
               users.map((user) => (
@@ -230,7 +232,7 @@ export const BackendUserCombobox = forwardRef<HTMLButtonElement, Props>(
                   />
                   <span className="min-w-0 flex-1 truncate">
                     {user.name}
-                    {currentUserId === user.id ? " (current)" : ""}
+                    {currentUserId === user.id ? ` (${st("current")})` : ""}
                   </span>
                 </button>
               ))
@@ -244,7 +246,7 @@ export const BackendUserCombobox = forwardRef<HTMLButtonElement, Props>(
                 className="flex w-full items-center justify-center gap-2 border-t px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
               >
                 {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
-                {loadingMore ? "Loading..." : "Load more"}
+                {loadingMore ? st("Loading...") : st("Load more")}
               </button>
             )}
           </div>

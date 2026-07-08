@@ -80,6 +80,10 @@ const statusVariant: Record<
   archived: "outline",
 };
 
+function contentEditHref(id: string) {
+  return `/dashboard/content/${encodeURIComponent(id)}/edit`;
+}
+
 export function ContentTable({
   rows,
   total,
@@ -243,7 +247,7 @@ export function ContentTable({
                           <span>{row.title}</span>
                         ) : (
                           <Link
-                            href={`/dashboard/content/${row.id}/edit`}
+                            href={contentEditHref(row.id)}
                             className="hover:underline"
                           >
                             {row.title}
@@ -383,7 +387,7 @@ export function ContentTable({
                         ) : (
                           <>
                             <Button variant="outline" size="sm" asChild>
-                              <Link href={`/dashboard/content/${row.id}/edit`}>
+                              <Link href={contentEditHref(row.id)}>
                                 <Pencil className="h-4 w-4" />
                                 <span className="sr-only">
                                   {t("dashboard.common.actions.edit")}

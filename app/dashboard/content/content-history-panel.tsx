@@ -20,6 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   Popover,
   PopoverContent,
@@ -36,6 +37,7 @@ import {
   getContentStatusLabelKey,
   type ContentStatus,
 } from "@/lib/content-status";
+import type { TranslationKey } from "@/lib/i18n/keys";
 import type { TranslateFn } from "@/lib/i18n/translate";
 import { listContentRevisionHistory, restoreContentRevision } from "./actions";
 
@@ -100,6 +102,7 @@ export function ContentHistoryPanel({
   onStaleVersion,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const historyRequestIdRef = useRef(0);
   const [items, setItems] = useState(revisions);
@@ -207,7 +210,7 @@ export function ContentHistoryPanel({
           }),
         );
         for (const warning of result.warnings ?? []) {
-          toast.warning(warning);
+          toast.warning(st(warning));
         }
         preserveHistoryInspectorTab();
         router.refresh();
@@ -363,7 +366,7 @@ export function ContentHistoryPanel({
                           #{revision.revisionNumber}
                         </Badge>
                         <Badge variant="secondary" className="h-5 px-1.5">
-                          {formatChangeType(revision.changeType)}
+                          {formatChangeType(revision.changeType, t)}
                         </Badge>
                         <Badge variant="outline" className="h-5 px-1.5">
                           {t(getContentStatusLabelKey(revision.status))}
@@ -610,7 +613,11 @@ function formatDateGroup(value: string, t: TranslateFn): string {
   return date.toLocaleDateString();
 }
 
-function formatChangeType(value: string): string {
+function formatChangeType(value: string, t: TranslateFn): string {
+  const key = `dashboard.content.history.changeType.${value}` as TranslationKey;
+  const translated = t(key);
+  if (translated !== key) return translated;
+
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

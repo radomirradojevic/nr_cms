@@ -43,6 +43,7 @@ import { ImageInsertDialog } from "@/app/dashboard/content/_editors/image-insert
 import { VideoInsertDialog } from "@/app/dashboard/content/_editors/video-insert-dialog";
 import { SidesInput } from "@/app/dashboard/content/_builder/blocks/panel/controls";
 import { HeroSliderRenderer } from "@/components/hero-slider-renderer";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   HERO_SLIDE_BLOCK_OPTIONS,
   HERO_SLIDE_MENU_PRESET_OPTIONS,
@@ -229,8 +230,9 @@ export function HeroSliderEditor({
   registerGetValue,
   onChange,
 }: Props) {
+  const st = useSourceTranslations();
   const [data, setData] = useState<HeroSliderContent>(() =>
-    normalizeHeroSliderContent(defaultValue ?? createDefaultHeroSlider()),
+    normalizeHeroSliderContent(defaultValue ?? createDefaultHeroSlider(st)),
   );
   const dataRef = useRef(data);
   const [activeSlideId, setActiveSlideId] = useState(
@@ -285,7 +287,11 @@ export function HeroSliderEditor({
   }
 
   function addSlide() {
-    const slide = createHeroSlide(`Slide ${data.slides.length + 1}`);
+    const slide = createHeroSlide(
+      st("Slide {number}", { number: data.slides.length + 1 }),
+      undefined,
+      st,
+    );
     updateData((draft) => {
       draft.slides.push(slide);
     });
@@ -296,7 +302,7 @@ export function HeroSliderEditor({
     const source = data.slides.find((slide) => slide.id === slideId);
     if (!source) return;
     const copySlide = remapSlideIds(clone(source));
-    copySlide.name = `${source.name || "Slide"} copy`;
+    copySlide.name = `${source.name || st("Slide")} ${st("copy")}`;
     updateData((draft) => {
       const index = draft.slides.findIndex((slide) => slide.id === slideId);
       draft.slides.splice(index + 1, 0, copySlide);
@@ -317,7 +323,7 @@ export function HeroSliderEditor({
 
   function deleteSlide(slideId: string) {
     if (data.slides.length <= 1) {
-      toast.error("A hero slider needs at least one slide.");
+      toast.error(st("A hero slider needs at least one slide."));
       return;
     }
     const nextSlides = data.slides.filter((slide) => slide.id !== slideId);
@@ -329,7 +335,7 @@ export function HeroSliderEditor({
 
   function addBlock(slideId: string) {
     updateSlide(slideId, (slide) => {
-      slide.blocks.push(createHeroSlideBlock(newBlockType));
+      slide.blocks.push(createHeroSlideBlock(newBlockType, st));
     });
   }
 
@@ -341,7 +347,7 @@ export function HeroSliderEditor({
 
   function addMenu(slideId: string) {
     updateSlide(slideId, (slide) => {
-      slide.menus.push(createHeroSlideMenu());
+      slide.menus.push(createHeroSlideMenu(st));
     });
   }
 
@@ -353,7 +359,7 @@ export function HeroSliderEditor({
 
   function addSearchInput(slideId: string) {
     updateSlide(slideId, (slide) => {
-      slide.searchInputs.push(createHeroSlideSearchInput());
+      slide.searchInputs.push(createHeroSlideSearchInput(st));
     });
   }
 
@@ -367,7 +373,7 @@ export function HeroSliderEditor({
   }
 
   function applyTemplate() {
-    const next = createHeroSliderTemplate(template);
+    const next = createHeroSliderTemplate(template, st);
     setData(next);
     setActiveSlideId(next.slides[0]?.id ?? "");
   }
@@ -376,9 +382,9 @@ export function HeroSliderEditor({
     startUpload(async () => {
       try {
         onUploaded(await uploadMediaFile(file));
-        toast.success("Media uploaded.");
+        toast.success(st("Media uploaded."));
       } catch (error) {
-        toast.error(getUploadErrorMessage(error));
+        toast.error(st(getUploadErrorMessage(error)));
       }
     });
   }
@@ -450,7 +456,7 @@ export function HeroSliderEditor({
   if (!activeSlide) {
     return (
       <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-        No slides available.
+        {st("No slides available.")}
       </div>
     );
   }
@@ -461,15 +467,15 @@ export function HeroSliderEditor({
         <TabsList className="flex-wrap overflow-x-visible">
           <TabsTrigger value="slides">
             <Layers3 className="h-4 w-4" />
-            Slides
+            {st("Slides")}
           </TabsTrigger>
           <TabsTrigger value="settings">
             <SlidersHorizontal className="h-4 w-4" />
-            Slider Settings
+            {st("Slider Settings")}
           </TabsTrigger>
           <TabsTrigger value="templates">
             <Plus className="h-4 w-4" />
-            Templates
+            {st("Templates")}
           </TabsTrigger>
         </TabsList>
 
@@ -478,7 +484,7 @@ export function HeroSliderEditor({
             <aside className="space-y-3">
               <Button type="button" onClick={addSlide} className="w-full">
                 <Plus className="h-4 w-4" />
-                Add slide
+                {st("Add slide")}
               </Button>
               <div className="space-y-2">
                 {data.slides.map((slide, index) => (
@@ -493,7 +499,7 @@ export function HeroSliderEditor({
                   >
                     <Badge variant="outline">{index + 1}</Badge>
                     <span className="min-w-0 flex-1 truncate">
-                      {slide.name || "Slide"}
+                      {slide.name || st("Slide")}
                     </span>
                   </button>
                 ))}
@@ -509,7 +515,7 @@ export function HeroSliderEditor({
                   onClick={() => moveSlide(activeSlide.id, -1)}
                 >
                   <ArrowUp className="h-4 w-4" />
-                  Move up
+                  {st("Move up")}
                 </Button>
                 <Button
                   type="button"
@@ -518,7 +524,7 @@ export function HeroSliderEditor({
                   onClick={() => moveSlide(activeSlide.id, 1)}
                 >
                   <ArrowDown className="h-4 w-4" />
-                  Move down
+                  {st("Move down")}
                 </Button>
                 <Button
                   type="button"
@@ -527,7 +533,7 @@ export function HeroSliderEditor({
                   onClick={() => duplicateSlide(activeSlide.id)}
                 >
                   <Copy className="h-4 w-4" />
-                  Duplicate
+                  {st("Duplicate")}
                 </Button>
                 <Button
                   type="button"
@@ -536,7 +542,7 @@ export function HeroSliderEditor({
                   onClick={() => deleteSlide(activeSlide.id)}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete
+                  {st("Delete")}
                 </Button>
               </div>
 
@@ -563,26 +569,28 @@ export function HeroSliderEditor({
                     value="blocks"
                     className="min-w-0 px-2 text-xs sm:text-sm"
                   >
-                    Content blocks
+                    {st("Content blocks")}
                   </TabsTrigger>
                   <TabsTrigger
                     value="menus"
                     className="min-w-0 px-2 text-xs sm:text-sm"
                   >
-                    Slide menus
+                    {st("Slide menus")}
                   </TabsTrigger>
                   <TabsTrigger
                     value="search"
                     className="min-w-0 px-2 text-xs sm:text-sm"
                   >
-                    Search input
+                    {st("Search input")}
                   </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="blocks" className="m-0 space-y-3">
                   <div className="flex flex-wrap items-end gap-2">
                     <div className="min-w-[220px] flex-1 space-y-1">
-                      <Label className="text-xs">Add content block</Label>
+                      <Label className="text-xs">
+                        {st("Add content block")}
+                      </Label>
                       <Select
                         value={newBlockType}
                         onValueChange={(value) =>
@@ -595,7 +603,7 @@ export function HeroSliderEditor({
                         <SelectContent>
                           {HERO_SLIDE_BLOCK_OPTIONS.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
-                              {option.label}
+                              {st(option.label)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -606,7 +614,7 @@ export function HeroSliderEditor({
                       onClick={() => addBlock(activeSlide.id)}
                     >
                       <Plus className="h-4 w-4" />
-                      Add block
+                      {st("Add block")}
                     </Button>
                   </div>
                   <BlockEditorList
@@ -620,13 +628,13 @@ export function HeroSliderEditor({
 
                 <TabsContent value="menus" className="m-0 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Label className="text-xs">Slide menus</Label>
+                    <Label className="text-xs">{st("Slide menus")}</Label>
                     <Button
                       type="button"
                       onClick={() => addMenu(activeSlide.id)}
                     >
                       <Plus className="h-4 w-4" />
-                      Add menu
+                      {st("Add menu")}
                     </Button>
                   </div>
                   <MenuEditorList
@@ -637,13 +645,13 @@ export function HeroSliderEditor({
 
                 <TabsContent value="search" className="m-0 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Label className="text-xs">Search input</Label>
+                    <Label className="text-xs">{st("Search input")}</Label>
                     <Button
                       type="button"
                       onClick={() => addSearchInput(activeSlide.id)}
                     >
                       <Plus className="h-4 w-4" />
-                      Add search input
+                      {st("Add search input")}
                     </Button>
                   </div>
                   <SearchInputEditorList
@@ -672,7 +680,7 @@ export function HeroSliderEditor({
         <TabsContent value="templates" className="m-0">
           <div className="max-w-xl space-y-3 rounded-md border p-4">
             <div className="space-y-2">
-              <Label>Starter preset</Label>
+              <Label>{st("Starter preset")}</Label>
               <Select
                 value={template}
                 onValueChange={(value) =>
@@ -685,14 +693,14 @@ export function HeroSliderEditor({
                 <SelectContent>
                   {HERO_SLIDER_TEMPLATE_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {st(option.label)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <Button type="button" onClick={applyTemplate}>
-              Apply preset
+              {st("Apply preset")}
             </Button>
           </div>
         </TabsContent>
@@ -717,7 +725,7 @@ export function HeroSliderEditor({
         onInsert={(video) => {
           if (!videoTargetSlideId) return;
           if (video.provider !== "file") {
-            toast.error("Background videos must be uploaded video files.");
+            toast.error(st("Background videos must be uploaded video files."));
             return;
           }
           updateSlide(videoTargetSlideId, (slide) => {
@@ -740,6 +748,7 @@ function SliderSettingsPanel({
     value: HeroSliderContent["settings"][K],
   ) => void;
 }) {
+  const st = useSourceTranslations();
   const settings = data.settings;
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -786,8 +795,8 @@ function SliderSettingsPanel({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="slide">Slide</SelectItem>
-              <SelectItem value="fade">Fade</SelectItem>
+              <SelectItem value="slide">{st("Slide")}</SelectItem>
+              <SelectItem value="fade">{st("Fade")}</SelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -888,6 +897,7 @@ function SlidePanel({
   onOpenImagePicker: (target: MediaTarget) => void;
   onOpenVideoPicker: () => void;
 }) {
+  const st = useSourceTranslations();
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Panel title="Slide">
@@ -931,7 +941,7 @@ function SlidePanel({
             }
           >
             <ImageIcon className="h-4 w-4" />
-            Media Library
+            {st("Media Library")}
           </Button>
           <UploadButton
             accept="image/*"
@@ -982,7 +992,7 @@ function SlidePanel({
             onClick={onOpenVideoPicker}
           >
             <Film className="h-4 w-4" />
-            Media Library
+            {st("Media Library")}
           </Button>
           <UploadButton
             accept="video/mp4,video/webm,video/quicktime"
@@ -1008,7 +1018,7 @@ function SlidePanel({
           }
         >
           <ImageIcon className="h-4 w-4" />
-          Choose poster
+          {st("Choose poster")}
         </Button>
         <div className="grid grid-cols-3 gap-2">
           <SwitchField
@@ -1056,8 +1066,8 @@ function SlidePanel({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="contained">Contained</SelectItem>
-                <SelectItem value="full">Full</SelectItem>
+                <SelectItem value="contained">{st("Contained")}</SelectItem>
+                <SelectItem value="full">{st("Full")}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -1095,9 +1105,9 @@ function SlidePanel({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="top">Top</SelectItem>
-                <SelectItem value="center">Center</SelectItem>
-                <SelectItem value="bottom">Bottom</SelectItem>
+                <SelectItem value="top">{st("Top")}</SelectItem>
+                <SelectItem value="center">{st("Center")}</SelectItem>
+                <SelectItem value="bottom">{st("Bottom")}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -1168,7 +1178,9 @@ function SlidePanel({
           {BREAKPOINTS.map((breakpoint) => (
             <div key={breakpoint} className="space-y-2 rounded-md border p-2">
               <SwitchField
-                label={`Hide ${breakpoint}`}
+                label={st("Hide {breakpoint}", {
+                  breakpoint: st(breakpoint),
+                })}
                 checked={!!slide.responsive[breakpoint].hidden}
                 onChange={(value) =>
                   onUpdate((draft) => {
@@ -1220,6 +1232,7 @@ function BlockEditorList({
   onChange: (blocks: HeroSlideBlock[]) => void;
   onOpenImagePicker: (blockId: string) => void;
 }) {
+  const st = useSourceTranslations();
   function updateBlock(blockId: string, next: HeroSlideBlock) {
     onChange(blocks.map((block) => (block.id === blockId ? next : block)));
   }
@@ -1243,7 +1256,7 @@ function BlockEditorList({
   if (blocks.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-        No slide content blocks.
+        {st("No slide content blocks.")}
       </p>
     );
   }
@@ -1273,6 +1286,7 @@ function MenuEditorList({
   menus: HeroSlideMenu[];
   onChange: (menus: HeroSlideMenu[]) => void;
 }) {
+  const st = useSourceTranslations();
   function updateMenu(menuId: string, next: HeroSlideMenu) {
     onChange(menus.map((menu) => (menu.id === menuId ? next : menu)));
   }
@@ -1296,7 +1310,7 @@ function MenuEditorList({
   if (menus.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-        No slide menus.
+        {st("No slide menus.")}
       </p>
     );
   }
@@ -1333,6 +1347,7 @@ function MenuEditor({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const st = useSourceTranslations();
   function setProp(key: string, value: unknown) {
     onChange({ ...menu, props: { ...menu.props, [key]: value } });
   }
@@ -1349,7 +1364,7 @@ function MenuEditor({
   return (
     <div className="space-y-3 rounded-md border bg-muted/20 p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">Menu</Badge>
+        <Badge variant="outline">{st("Menu")}</Badge>
         <div className="flex-1" />
         <IconButton label="Move up" onClick={onMoveUp}>
           <ArrowUp className="h-4 w-4" />
@@ -1372,7 +1387,7 @@ function MenuEditor({
               checked={menu.hiddenOn?.includes(breakpoint) ?? false}
               onCheckedChange={(value) => toggleHidden(breakpoint, !!value)}
             />
-            Hide {breakpoint}
+            {st("Hide {breakpoint}", { breakpoint: st(breakpoint) })}
           </label>
         ))}
       </div>
@@ -1389,6 +1404,7 @@ function SearchInputEditorList({
   searchInputs: HeroSlideSearchInput[];
   onChange: (searchInputs: HeroSlideSearchInput[]) => void;
 }) {
+  const st = useSourceTranslations();
   function updateSearchInput(
     searchInputId: string,
     next: HeroSlideSearchInput,
@@ -1424,7 +1440,7 @@ function SearchInputEditorList({
   if (searchInputs.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-        No search input.
+        {st("No search input.")}
       </p>
     );
   }
@@ -1461,6 +1477,7 @@ function SearchInputEditor({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const st = useSourceTranslations();
   function setProp(key: string, value: unknown) {
     onChange({
       ...searchInput,
@@ -1482,7 +1499,7 @@ function SearchInputEditor({
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className="gap-1">
           <Search className="h-3 w-3" />
-          Search input
+          {st("Search input")}
         </Badge>
         <div className="flex-1" />
         <IconButton label="Move up" onClick={onMoveUp}>
@@ -1506,7 +1523,7 @@ function SearchInputEditor({
               checked={searchInput.hiddenOn?.includes(breakpoint) ?? false}
               onCheckedChange={(value) => toggleHidden(breakpoint, !!value)}
             />
-            Hide {breakpoint}
+            {st("Hide {breakpoint}", { breakpoint: st(breakpoint) })}
           </label>
         ))}
       </div>
@@ -1529,6 +1546,7 @@ function SearchInputFields({
   setProp: (key: string, value: unknown) => void;
   onChange: (searchInput: HeroSlideSearchInput) => void;
 }) {
+  const st = useSourceTranslations();
   const props = searchInput.props;
 
   function setProps(patch: Record<string, unknown>) {
@@ -1541,7 +1559,7 @@ function SearchInputFields({
   ) {
     const current = searchContentTypesProp(props.contentTypes);
     if (!checked && current.length <= 1) {
-      toast.error("Select at least one content type.");
+      toast.error(st("Select at least one content type."));
       return;
     }
     const next = checked
@@ -1571,7 +1589,7 @@ function SearchInputFields({
           {SEARCH_CONTENT_TYPES.map((contentType) => (
             <SwitchField
               key={contentType.value}
-              label={contentType.label}
+              label={st(contentType.label)}
               checked={contentTypes.includes(contentType.value)}
               onChange={(value) => toggleContentType(contentType.value, value)}
             />
@@ -1593,7 +1611,7 @@ function SearchInputFields({
           >
             {HERO_SLIDE_SEARCH_INPUT_PRESET_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {st(option.label)}
               </SelectItem>
             ))}
           </MenuSelectField>
@@ -1602,8 +1620,8 @@ function SearchInputFields({
             value={stringProp(props.resultsAlign, "left")}
             onChange={(value) => setProp("resultsAlign", value)}
           >
-            <SelectItem value="left">Left</SelectItem>
-            <SelectItem value="right">Right</SelectItem>
+            <SelectItem value="left">{st("Left")}</SelectItem>
+            <SelectItem value="right">{st("Right")}</SelectItem>
           </MenuSelectField>
           <TextField
             label="Results width"
@@ -1628,15 +1646,15 @@ function SearchInputFields({
             value={stringProp(props.anchor, "bottom-center")}
             onChange={(value) => setProp("anchor", value)}
           >
-            <SelectItem value="top-left">Top left</SelectItem>
-            <SelectItem value="top-center">Top center</SelectItem>
-            <SelectItem value="top-right">Top right</SelectItem>
-            <SelectItem value="center-left">Center left</SelectItem>
-            <SelectItem value="center">Center</SelectItem>
-            <SelectItem value="center-right">Center right</SelectItem>
-            <SelectItem value="bottom-left">Bottom left</SelectItem>
-            <SelectItem value="bottom-center">Bottom center</SelectItem>
-            <SelectItem value="bottom-right">Bottom right</SelectItem>
+            <SelectItem value="top-left">{st("Top left")}</SelectItem>
+            <SelectItem value="top-center">{st("Top center")}</SelectItem>
+            <SelectItem value="top-right">{st("Top right")}</SelectItem>
+            <SelectItem value="center-left">{st("Center left")}</SelectItem>
+            <SelectItem value="center">{st("Center")}</SelectItem>
+            <SelectItem value="center-right">{st("Center right")}</SelectItem>
+            <SelectItem value="bottom-left">{st("Bottom left")}</SelectItem>
+            <SelectItem value="bottom-center">{st("Bottom center")}</SelectItem>
+            <SelectItem value="bottom-right">{st("Bottom right")}</SelectItem>
           </MenuSelectField>
           <TextField
             label="Z-index"
@@ -1705,10 +1723,10 @@ function SearchInputFields({
             value={stringProp(props.fontWeight, "500")}
             onChange={(value) => setProp("fontWeight", value)}
           >
-            <SelectItem value="400">Regular</SelectItem>
-            <SelectItem value="500">Medium</SelectItem>
-            <SelectItem value="600">Semibold</SelectItem>
-            <SelectItem value="700">Bold</SelectItem>
+            <SelectItem value="400">{st("Regular")}</SelectItem>
+            <SelectItem value="500">{st("Medium")}</SelectItem>
+            <SelectItem value="600">{st("Semibold")}</SelectItem>
+            <SelectItem value="700">{st("Bold")}</SelectItem>
           </MenuSelectField>
           <TextField
             label="Letter spacing"
@@ -1826,6 +1844,7 @@ function BlockEditor({
   onDelete: () => void;
   onOpenImagePicker: (blockId: string) => void;
 }) {
+  const st = useSourceTranslations();
   function setProp(key: string, value: unknown) {
     onChange({ ...block, props: { ...block.props, [key]: value } });
   }
@@ -1842,7 +1861,7 @@ function BlockEditor({
   return (
     <div className="space-y-3 rounded-md border bg-muted/20 p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">{blockLabel(block.type)}</Badge>
+        <Badge variant="outline">{st(blockLabel(block.type))}</Badge>
         <div className="flex-1" />
         <IconButton label="Move up" onClick={onMoveUp}>
           <ArrowUp className="h-4 w-4" />
@@ -1865,7 +1884,7 @@ function BlockEditor({
               checked={block.hiddenOn?.includes(breakpoint) ?? false}
               onCheckedChange={(value) => toggleHidden(breakpoint, !!value)}
             />
-            Hide {breakpoint}
+            {st("Hide {breakpoint}", { breakpoint: st(breakpoint) })}
           </label>
         ))}
       </div>
@@ -1891,6 +1910,7 @@ function BlockFields({
   onChange: (block: HeroSlideBlock) => void;
   onOpenImagePicker: (blockId: string) => void;
 }) {
+  const st = useSourceTranslations();
   const props = block.props;
 
   if (block.type === "heading") {
@@ -1971,7 +1991,7 @@ function BlockFields({
             onClick={() => onOpenImagePicker(block.id)}
           >
             <ImageIcon className="h-4 w-4" />
-            Choose image
+            {st("Choose image")}
           </Button>
         </div>
       </div>
@@ -2033,11 +2053,11 @@ function BlockFields({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="sparkles">Sparkles</SelectItem>
-              <SelectItem value="star">Star</SelectItem>
-              <SelectItem value="check">Check</SelectItem>
-              <SelectItem value="play">Play</SelectItem>
-              <SelectItem value="zap">Zap</SelectItem>
+              <SelectItem value="sparkles">{st("Sparkles")}</SelectItem>
+              <SelectItem value="star">{st("Star")}</SelectItem>
+              <SelectItem value="check">{st("Check")}</SelectItem>
+              <SelectItem value="play">{st("Play")}</SelectItem>
+              <SelectItem value="zap">{st("Zap")}</SelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -2071,7 +2091,7 @@ function BlockFields({
                     setProp,
                   )
                 }
-                placeholder="Label"
+                placeholder={st("Label")}
               />
               <Input
                 value={stringProp(value.href, "#")}
@@ -2083,7 +2103,7 @@ function BlockFields({
                     setProp,
                   )
                 }
-                placeholder="URL"
+                placeholder={st("URL")}
               />
               <Select
                 value={stringProp(value.variant, "primary")}
@@ -2095,8 +2115,8 @@ function BlockFields({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="primary">Primary</SelectItem>
-                  <SelectItem value="secondary">Secondary</SelectItem>
+                  <SelectItem value="primary">{st("Primary")}</SelectItem>
+                  <SelectItem value="secondary">{st("Secondary")}</SelectItem>
                 </SelectContent>
               </Select>
               <IconButton
@@ -2121,12 +2141,12 @@ function BlockFields({
           onClick={() =>
             setProp("items", [
               ...items,
-              { label: "New CTA", href: "#", variant: "secondary" },
+              { label: st("New CTA"), href: "#", variant: "secondary" },
             ])
           }
         >
           <Plus className="h-4 w-4" />
-          Add CTA
+          {st("Add CTA")}
         </Button>
       </div>
     );
@@ -2172,7 +2192,9 @@ function BlockFields({
         />
         {(block.columns ?? [[], []]).map((column, index) => (
           <div key={index} className="space-y-2 rounded-md border p-2">
-            <Label className="text-xs">Column {index + 1}</Label>
+            <Label className="text-xs">
+              {st("Column {number}", { number: index + 1 })}
+            </Label>
             <NestedBlocks
               blocks={column}
               onChange={(nextColumn) => {
@@ -2200,6 +2222,7 @@ function NestedBlocks({
   onChange: (blocks: HeroSlideBlock[]) => void;
   onOpenImagePicker: (blockId: string) => void;
 }) {
+  const st = useSourceTranslations();
   const [type, setType] = useState<HeroSlideBlockType>("text");
   return (
     <div className="space-y-2">
@@ -2219,7 +2242,7 @@ function NestedBlocks({
           <SelectContent>
             {HERO_SLIDE_BLOCK_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {st(option.label)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -2228,10 +2251,10 @@ function NestedBlocks({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => onChange([...blocks, createHeroSlideBlock(type)])}
+          onClick={() => onChange([...blocks, createHeroSlideBlock(type, st)])}
         >
           <Plus className="h-4 w-4" />
-          Add nested block
+          {st("Add nested block")}
         </Button>
       </div>
     </div>
@@ -2247,6 +2270,7 @@ function MenuFields({
   setProp: (key: string, value: unknown) => void;
   onChange: (menu: HeroSlideMenu) => void;
 }) {
+  const st = useSourceTranslations();
   const props = menu.props;
   const [menus, setMenus] = useState<HeroSliderMenuOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2264,7 +2288,7 @@ function MenuFields({
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error("Could not load menus.");
+        if (!cancelled) toast.error(st("Could not load menus."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -2272,7 +2296,7 @@ function MenuFields({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [st]);
 
   function setProps(patch: Record<string, unknown>) {
     onChange({ ...menu, props: { ...props, ...patch } });
@@ -2302,11 +2326,13 @@ function MenuFields({
           >
             <SelectTrigger>
               <SelectValue
-                placeholder={loading ? "Loading menus..." : "Select menu"}
+                placeholder={
+                  loading ? st("Loading menus...") : st("Select menu")
+                }
               />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No menu selected</SelectItem>
+              <SelectItem value="none">{st("No menu selected")}</SelectItem>
               {selectedMenuMissing ? (
                 <SelectItem value={selectedMenuId}>
                   {stringProp(props.menuName, selectedMenuId)}
@@ -2353,7 +2379,7 @@ function MenuFields({
           >
             {HERO_SLIDE_MENU_PRESET_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {st(option.label)}
               </SelectItem>
             ))}
           </MenuSelectField>
@@ -2362,28 +2388,28 @@ function MenuFields({
             value={stringProp(props.layout, "horizontal")}
             onChange={(value) => setProp("layout", value)}
           >
-            <SelectItem value="horizontal">Horizontal</SelectItem>
-            <SelectItem value="vertical">Vertical</SelectItem>
-            <SelectItem value="dropdown">Dropdown</SelectItem>
-            <SelectItem value="mega">Mega-menu ready</SelectItem>
+            <SelectItem value="horizontal">{st("Horizontal")}</SelectItem>
+            <SelectItem value="vertical">{st("Vertical")}</SelectItem>
+            <SelectItem value="dropdown">{st("Dropdown")}</SelectItem>
+            <SelectItem value="mega">{st("Mega-menu ready")}</SelectItem>
           </MenuSelectField>
           <MenuSelectField
             label="Mobile behavior"
             value={stringProp(props.mobileBehavior, "collapse")}
             onChange={(value) => setProp("mobileBehavior", value)}
           >
-            <SelectItem value="collapse">Collapse</SelectItem>
-            <SelectItem value="stack">Stacked</SelectItem>
-            <SelectItem value="hidden">Hidden</SelectItem>
+            <SelectItem value="collapse">{st("Collapse")}</SelectItem>
+            <SelectItem value="stack">{st("Stacked")}</SelectItem>
+            <SelectItem value="hidden">{st("Hidden")}</SelectItem>
           </MenuSelectField>
           <MenuSelectField
             label="Mobile breakpoint"
             value={stringProp(props.mobileBreakpoint, "lg")}
             onChange={(value) => setProp("mobileBreakpoint", value)}
           >
-            <SelectItem value="md">Tablet</SelectItem>
-            <SelectItem value="lg">Laptop</SelectItem>
-            <SelectItem value="xl">Wide desktop</SelectItem>
+            <SelectItem value="md">{st("Tablet")}</SelectItem>
+            <SelectItem value="lg">{st("Laptop")}</SelectItem>
+            <SelectItem value="xl">{st("Wide desktop")}</SelectItem>
           </MenuSelectField>
         </div>
       </MenuSettingsGroup>
@@ -2395,15 +2421,15 @@ function MenuFields({
             value={stringProp(props.anchor, "top-right")}
             onChange={(value) => setProp("anchor", value)}
           >
-            <SelectItem value="top-left">Top left</SelectItem>
-            <SelectItem value="top-center">Top center</SelectItem>
-            <SelectItem value="top-right">Top right</SelectItem>
-            <SelectItem value="center-left">Center left</SelectItem>
-            <SelectItem value="center">Center</SelectItem>
-            <SelectItem value="center-right">Center right</SelectItem>
-            <SelectItem value="bottom-left">Bottom left</SelectItem>
-            <SelectItem value="bottom-center">Bottom center</SelectItem>
-            <SelectItem value="bottom-right">Bottom right</SelectItem>
+            <SelectItem value="top-left">{st("Top left")}</SelectItem>
+            <SelectItem value="top-center">{st("Top center")}</SelectItem>
+            <SelectItem value="top-right">{st("Top right")}</SelectItem>
+            <SelectItem value="center-left">{st("Center left")}</SelectItem>
+            <SelectItem value="center">{st("Center")}</SelectItem>
+            <SelectItem value="center-right">{st("Center right")}</SelectItem>
+            <SelectItem value="bottom-left">{st("Bottom left")}</SelectItem>
+            <SelectItem value="bottom-center">{st("Bottom center")}</SelectItem>
+            <SelectItem value="bottom-right">{st("Bottom right")}</SelectItem>
           </MenuSelectField>
           <TextField
             label="Z-index"
@@ -2462,20 +2488,20 @@ function MenuFields({
             value={stringProp(props.fontWeight, "600")}
             onChange={(value) => setProp("fontWeight", value)}
           >
-            <SelectItem value="400">Regular</SelectItem>
-            <SelectItem value="500">Medium</SelectItem>
-            <SelectItem value="600">Semibold</SelectItem>
-            <SelectItem value="700">Bold</SelectItem>
+            <SelectItem value="400">{st("Regular")}</SelectItem>
+            <SelectItem value="500">{st("Medium")}</SelectItem>
+            <SelectItem value="600">{st("Semibold")}</SelectItem>
+            <SelectItem value="700">{st("Bold")}</SelectItem>
           </MenuSelectField>
           <MenuSelectField
             label="Transform"
             value={stringProp(props.textTransform, "none")}
             onChange={(value) => setProp("textTransform", value)}
           >
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="uppercase">Uppercase</SelectItem>
-            <SelectItem value="capitalize">Capitalize</SelectItem>
-            <SelectItem value="lowercase">Lowercase</SelectItem>
+            <SelectItem value="none">{st("None")}</SelectItem>
+            <SelectItem value="uppercase">{st("Uppercase")}</SelectItem>
+            <SelectItem value="capitalize">{st("Capitalize")}</SelectItem>
+            <SelectItem value="lowercase">{st("Lowercase")}</SelectItem>
           </MenuSelectField>
           <TextField
             label="Letter spacing"
@@ -2653,10 +2679,11 @@ function MenuSettingsGroup({
   title: string;
   children: ReactNode;
 }) {
+  const st = useSourceTranslations();
   return (
     <div className="space-y-3 border-t pt-3 first:border-t-0 first:pt-0">
       <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
+        {st(title)}
       </h4>
       {children}
     </div>
@@ -2727,6 +2754,7 @@ function ButtonFields({
   variant: string;
   onChange: (patch: Record<string, unknown>) => void;
 }) {
+  const st = useSourceTranslations();
   return (
     <div className="grid gap-2 sm:grid-cols-[1fr_1fr_140px]">
       <TextField
@@ -2748,8 +2776,8 @@ function ButtonFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="primary">Primary</SelectItem>
-            <SelectItem value="secondary">Secondary</SelectItem>
+            <SelectItem value="primary">{st("Primary")}</SelectItem>
+            <SelectItem value="secondary">{st("Secondary")}</SelectItem>
           </SelectContent>
         </Select>
       </Field>
@@ -2758,18 +2786,20 @@ function ButtonFields({
 }
 
 function Panel({ title, children }: { title: string; children: ReactNode }) {
+  const st = useSourceTranslations();
   return (
     <section className="space-y-3 rounded-md border p-3">
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <h3 className="text-sm font-semibold">{st(title)}</h3>
       {children}
     </section>
   );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
+  const st = useSourceTranslations();
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-xs">{st(label)}</Label>
       {children}
     </div>
   );
@@ -2808,8 +2838,12 @@ function NumberField({
   step?: number;
   suffix?: string;
 }) {
+  const st = useSourceTranslations();
+  const labelText = suffix ? `${st(label)} (${suffix})` : st(label);
+
   return (
-    <Field label={suffix ? `${label} (${suffix})` : label}>
+    <div className="space-y-1.5">
+      <Label className="text-xs">{labelText}</Label>
       <Input
         type="number"
         value={String(value)}
@@ -2821,7 +2855,7 @@ function NumberField({
           onChange(Number.isFinite(next) ? next : 0);
         }}
       />
-    </Field>
+    </div>
   );
 }
 
@@ -2834,9 +2868,10 @@ function SwitchField({
   checked: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const st = useSourceTranslations();
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-xs">{st(label)}</Label>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   );
@@ -2851,6 +2886,7 @@ function AlignSelect({
   value: "left" | "center" | "right";
   onChange: (value: "left" | "center" | "right") => void;
 }) {
+  const st = useSourceTranslations();
   return (
     <Field label={label}>
       <Select value={value} onValueChange={(next) => onChange(next as never)}>
@@ -2858,9 +2894,9 @@ function AlignSelect({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="left">Left</SelectItem>
-          <SelectItem value="center">Center</SelectItem>
-          <SelectItem value="right">Right</SelectItem>
+          <SelectItem value="left">{st("Left")}</SelectItem>
+          <SelectItem value="center">{st("Center")}</SelectItem>
+          <SelectItem value="right">{st("Right")}</SelectItem>
         </SelectContent>
       </Select>
     </Field>
@@ -2876,6 +2912,7 @@ function UploadButton({
   disabled: boolean;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const st = useSourceTranslations();
   const reactId = useId();
   const inputId = `upload-${reactId}`;
 
@@ -2896,7 +2933,7 @@ function UploadButton({
         )}
       >
         <Upload className="h-4 w-4" />
-        Upload
+        {st("Upload")}
       </span>
     </label>
   );
@@ -2913,14 +2950,15 @@ function IconButton({
   onClick: () => void;
   destructive?: boolean;
 }) {
+  const st = useSourceTranslations();
   return (
     <Button
       type="button"
       variant={destructive ? "destructive" : "outline"}
       size="icon-sm"
       onClick={onClick}
-      aria-label={label}
-      title={label}
+      aria-label={st(label)}
+      title={st(label)}
     >
       {children}
     </Button>

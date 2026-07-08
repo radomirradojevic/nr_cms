@@ -1,7 +1,27 @@
 import { en } from "@/lib/i18n/messages/en";
 import { ADDON_SHELL_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/addon-shell-translations";
+import { BACKEND_WEBSHOP_MENU_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/backend-menu-translations";
 import { CORE_UI_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/core-ui-translations";
+import { CONTENT_DASHBOARD_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/content-dashboard-translations";
+import { CONTENT_NEW_CHOICE_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/content-new-choice-translations";
+import {
+  CONTENT_EDITOR_ADDITIONAL_SOURCE_TRANSLATIONS,
+  CONTENT_EDITOR_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/content-editor-translations";
 import { DASHBOARD_ROOT_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/dashboard-root-translations";
+import { GLOBAL_SETTINGS_APPEARANCE_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/global-settings-appearance-translations";
+import {
+  GLOBAL_SETTINGS_SOURCE_TRANSLATIONS,
+  localizeGlobalSettingsFallback,
+} from "@/lib/i18n/messages/global-settings-translations";
+import { GLOBAL_SETTINGS_FORM_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/global-settings-form-translations";
+import { GLOBAL_SETTINGS_HELP_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/global-settings-help-translations";
+import { GLOBAL_SETTINGS_OPTION_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/global-settings-option-translations";
+import { GLOBAL_SETTINGS_PRESET_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/global-settings-preset-translations";
+import { GLOBAL_SETTINGS_SESSION_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/global-settings-session-translations";
+import { HERO_SLIDER_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/hero-slider-translations";
+import { PAGE_BUILDER_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/page-builder-translations";
+import { WEBSHOP_ADMIN_DASHBOARD_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-admin-dashboard-translations";
 import type { CmsLanguage } from "@/lib/i18n/languages";
 import { LOCK_UI_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/lock-ui-translations";
 import type {
@@ -3850,22 +3870,73 @@ function localizeString(
     CORE_UI_SOURCE_TRANSLATIONS[language];
   const addonShellTranslations: Record<string, string> =
     ADDON_SHELL_SOURCE_TRANSLATIONS[language];
+  const backendWebshopMenuTranslations: Record<string, string> =
+    BACKEND_WEBSHOP_MENU_SOURCE_TRANSLATIONS[language];
+  const webshopAdminDashboardTranslations: Record<string, string> =
+    WEBSHOP_ADMIN_DASHBOARD_SOURCE_TRANSLATIONS[language];
   const lockUiTranslations: Record<string, string> =
     LOCK_UI_SOURCE_TRANSLATIONS[language];
   const dashboardRootTranslations: Record<string, string> =
     DASHBOARD_ROOT_SOURCE_TRANSLATIONS[language];
+  const contentDashboardTranslations: Record<string, string> =
+    CONTENT_DASHBOARD_SOURCE_TRANSLATIONS[language];
+  const contentNewChoiceTranslations: Record<string, string> =
+    CONTENT_NEW_CHOICE_SOURCE_TRANSLATIONS[language];
+  const contentEditorTranslations: Record<string, string> =
+    CONTENT_EDITOR_SOURCE_TRANSLATIONS[language];
+  const contentEditorAdditionalTranslations: Record<string, string> =
+    CONTENT_EDITOR_ADDITIONAL_SOURCE_TRANSLATIONS[language] ?? {};
+  const pageBuilderTranslations: Record<string, string> =
+    PAGE_BUILDER_SOURCE_TRANSLATIONS[language];
+  const heroSliderTranslations: Record<string, string> =
+    HERO_SLIDER_SOURCE_TRANSLATIONS[language] ?? {};
+  const globalSettingsTranslations: Record<string, string> =
+    GLOBAL_SETTINGS_SOURCE_TRANSLATIONS[language];
+  const globalSettingsOptionTranslations: Record<string, string> =
+    GLOBAL_SETTINGS_OPTION_SOURCE_TRANSLATIONS[language];
+  const globalSettingsAppearanceTranslations: Record<string, string> =
+    GLOBAL_SETTINGS_APPEARANCE_SOURCE_TRANSLATIONS[language];
+  const globalSettingsSessionTranslations: Record<string, string> =
+    GLOBAL_SETTINGS_SESSION_SOURCE_TRANSLATIONS[language];
+  const globalSettingsFormTranslations: Record<string, string> =
+    GLOBAL_SETTINGS_FORM_SOURCE_TRANSLATIONS[language];
+  const globalSettingsHelpTranslations: Record<string, string> =
+    GLOBAL_SETTINGS_HELP_SOURCE_TRANSLATIONS[language];
+  const globalSettingsPresetTranslations: Record<string, string> =
+    GLOBAL_SETTINGS_PRESET_SOURCE_TRANSLATIONS[language];
   const commentsTranslations: Record<string, string> =
     DASHBOARD_COMMENTS_SOURCE_TRANSLATIONS[language];
   const translated =
     coreUiTranslations[source] ??
+    backendWebshopMenuTranslations[source] ??
+    webshopAdminDashboardTranslations[source] ??
     addonShellTranslations[source] ??
     lockUiTranslations[source] ??
     commentsTranslations[source] ??
+    contentDashboardTranslations[source] ??
+    contentNewChoiceTranslations[source] ??
+    pageBuilderTranslations[source] ??
+    heroSliderTranslations[source] ??
+    contentEditorTranslations[source] ??
+    contentEditorAdditionalTranslations[source] ??
+    globalSettingsTranslations[source] ??
+    globalSettingsOptionTranslations[source] ??
+    globalSettingsAppearanceTranslations[source] ??
+    globalSettingsSessionTranslations[source] ??
     dashboardRootTranslations[source] ??
+    globalSettingsFormTranslations[source] ??
+    globalSettingsHelpTranslations[source] ??
+    globalSettingsPresetTranslations[source] ??
     sourceTranslations[source] ??
     profile.translations[source];
   if (translated) return translated;
   if (shouldPreserveSource(source)) return source;
+
+  const globalSettingsFallback = localizeGlobalSettingsFallback(
+    source,
+    language,
+  );
+  if (globalSettingsFallback) return globalSettingsFallback;
 
   return source;
 }

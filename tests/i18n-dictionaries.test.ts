@@ -18,13 +18,75 @@ import {
   CORE_UI_SOURCE_STRINGS,
   CORE_UI_SOURCE_TRANSLATIONS,
 } from "@/lib/i18n/messages/core-ui-translations";
+import {
+  CONTENT_DASHBOARD_SOURCE_STRINGS,
+  CONTENT_DASHBOARD_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/content-dashboard-translations";
+import {
+  CONTENT_NEW_CHOICE_SOURCE_STRINGS,
+  CONTENT_NEW_CHOICE_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/content-new-choice-translations";
+import {
+  CONTENT_EDITOR_ADDITIONAL_SOURCE_TRANSLATIONS,
+  CONTENT_EDITOR_DIALOG_SOURCE_STRINGS,
+  CONTENT_EDITOR_SOURCE_STRINGS,
+  CONTENT_EDITOR_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/content-editor-translations";
 import { en } from "@/lib/i18n/messages/en";
+import {
+  BACKEND_WEBSHOP_MENU_SOURCE_STRINGS,
+  BACKEND_WEBSHOP_MENU_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/backend-menu-translations";
+import {
+  WEBSHOP_ADMIN_DASHBOARD_SOURCE_STRINGS,
+  WEBSHOP_ADMIN_DASHBOARD_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/webshop-admin-dashboard-translations";
+import {
+  GLOBAL_SETTINGS_CONTROL_SOURCE_STRINGS,
+  GLOBAL_SETTINGS_CONTROL_SOURCE_TRANSLATIONS,
+  GLOBAL_SETTINGS_SOURCE_STRINGS,
+  GLOBAL_SETTINGS_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/global-settings-translations";
+import {
+  GLOBAL_SETTINGS_APPEARANCE_SOURCE_STRINGS,
+  GLOBAL_SETTINGS_APPEARANCE_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/global-settings-appearance-translations";
+import {
+  GLOBAL_SETTINGS_FORM_SOURCE_STRINGS,
+  GLOBAL_SETTINGS_FORM_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/global-settings-form-translations";
+import {
+  GLOBAL_SETTINGS_HELP_SOURCE_STRINGS,
+  GLOBAL_SETTINGS_HELP_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/global-settings-help-translations";
+import {
+  GLOBAL_SETTINGS_OPTION_SOURCE_STRINGS,
+  GLOBAL_SETTINGS_OPTION_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/global-settings-option-translations";
+import {
+  GLOBAL_SETTINGS_PRESET_SOURCE_STRINGS,
+  GLOBAL_SETTINGS_PRESET_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/global-settings-preset-translations";
+import {
+  GLOBAL_SETTINGS_SESSION_SOURCE_STRINGS,
+  GLOBAL_SETTINGS_SESSION_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/global-settings-session-translations";
+import {
+  HERO_SLIDER_SOURCE_STRINGS,
+  HERO_SLIDER_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/hero-slider-translations";
 import {
   LOCK_UI_SOURCE_STRINGS,
   LOCK_UI_SOURCE_TRANSLATIONS,
 } from "@/lib/i18n/messages/lock-ui-translations";
+import {
+  PAGE_BUILDER_SOURCE_STRINGS,
+  PAGE_BUILDER_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/page-builder-translations";
+import { createDefaultHeroSlider } from "@/lib/hero-slider";
 import { localizeSourceString } from "@/lib/i18n/messages/localized";
 import { createTranslator } from "@/lib/i18n/translate";
+import { APPEARANCE_SHELL_PRESETS } from "@/lib/appearance-recipe";
 import type {
   Messages,
   PluralCategory,
@@ -120,6 +182,267 @@ const VISIBLE_DASHBOARD_ROOT_KEYS = [
   "dashboard.landing.stats.videos",
   "dashboard.landing.stats.webshops",
 ] as const;
+
+const GLOBAL_SETTINGS_ALLOWED_SAME_AS_ENGLISH = new Set([
+  "AI",
+  "CMS",
+  "CTA",
+  "CustomHtml",
+  "URL",
+  "API key",
+]);
+
+const BACKEND_WEBSHOP_NAV_KEYS = [
+  "dashboard.nav.webshop",
+  "dashboard.nav.webshopSettings",
+  "dashboard.nav.webshopStorefront",
+  "dashboard.nav.webshopCategories",
+  "dashboard.nav.webshopProducts",
+  "dashboard.nav.webshopOrders",
+  "dashboard.nav.webshopWishlist",
+  "dashboard.nav.webshopPromotions",
+] as const;
+
+const VISIBLE_CONTENT_DASHBOARD_KEYS = [
+  "dashboard.content.description",
+  "dashboard.content.newContent",
+  "dashboard.content.tabs.deleted",
+  "dashboard.content.searchPlaceholder",
+  "dashboard.filters.allTypes",
+  "dashboard.filters.allCategories",
+  "dashboard.filters.allStatuses",
+  "dashboard.filters.allAuthors",
+  "dashboard.pagination.pageOfTotal",
+  "dashboard.pagination.previous",
+  "dashboard.pagination.next",
+  "dashboard.pagination.rowsPerPage",
+  "dashboard.pagination.showingOfTotal",
+  "dashboard.pagination.showingFilesOfTotal",
+  "dashboard.content.table.updated",
+  "dashboard.content.empty",
+  "dashboard.content.deletedEmpty",
+  "dashboard.content.type.hero_slider",
+  "dashboard.content.status.draft",
+  "dashboard.content.status.in_review",
+  "dashboard.content.status.approved",
+  "dashboard.content.status.published",
+  "dashboard.content.status.archived",
+  "dashboard.content.actions.preview",
+  "dashboard.content.actions.unpublishToDraft",
+  "dashboard.content.actions.archive",
+  "dashboard.content.actions.reassignAuthor",
+  "dashboard.content.actions.moveToDeleted",
+  "dashboard.content.actions.approve",
+  "dashboard.content.actions.publishNow",
+  "dashboard.content.actions.moveToDraft",
+  "dashboard.content.actions.submitForReview",
+  "dashboard.content.actions.returnToDraft",
+  "dashboard.content.actions.restore",
+  "dashboard.content.actions.permanentlyDelete",
+  "dashboard.content.actions.setHomepage",
+  "dashboard.content.dialogs.deleteTitle",
+  "dashboard.content.dialogs.deleteDescription",
+  "dashboard.content.dialogs.deleteSelectedTitle",
+  "dashboard.content.dialogs.deleteSelectedDescription",
+  "dashboard.content.dialogs.restoreTitle",
+  "dashboard.content.dialogs.restoreDescription",
+  "dashboard.content.dialogs.permanentlyDeleteTitle",
+  "dashboard.content.dialogs.permanentlyDeleteDescription",
+  "dashboard.content.dialogs.reassignAuthorTitle",
+  "dashboard.content.dialogs.reassignAuthorDescription",
+  "dashboard.content.history.backToEditor",
+  "dashboard.content.history.revisionTitle",
+  "dashboard.content.history.revisionNavigation",
+  "dashboard.content.history.openPreviousRevision",
+  "dashboard.content.history.openNextRevision",
+  "dashboard.content.history.previous",
+  "dashboard.content.history.next",
+  "dashboard.content.history.restoredToast",
+  "dashboard.content.history.restoreFailed",
+  "dashboard.content.history.restoreTitle",
+  "dashboard.content.history.restoreDescription",
+  "dashboard.content.history.restoreImpact",
+  "dashboard.content.history.slugChanges",
+  "dashboard.content.history.statusChanges",
+  "dashboard.content.history.revisionWasHomepage",
+  "dashboard.content.history.revisionWasNotHomepage",
+  "dashboard.content.history.scheduleFieldsChange",
+  "dashboard.content.history.expiredScheduleCleared",
+  "dashboard.content.history.meta.actor",
+  "dashboard.content.history.meta.created",
+  "dashboard.content.history.meta.author",
+  "dashboard.content.history.meta.homepage",
+  "dashboard.content.history.meta.publishAt",
+  "dashboard.content.history.meta.unpublishAt",
+  "dashboard.content.history.meta.metaTitle",
+  "dashboard.content.history.meta.metaDescription",
+  "dashboard.content.history.changeType.saved",
+  "dashboard.content.history.changeType.submitted_for_review",
+  "dashboard.content.history.changeType.published",
+  "dashboard.content.history.changeType.unpublished",
+  "dashboard.content.history.changeType.restored",
+  "dashboard.content.history.changeType.deleted_snapshot",
+  "dashboard.content.history.changeType.reassigned_author",
+  "public.preview.notPublic",
+  "public.preview.expires",
+  "public.preview.editContent",
+  "dashboard.content.schedule.scheduled",
+  "dashboard.content.schedule.liveUntil",
+  "dashboard.content.schedule.expired",
+] as const;
+
+const CONTENT_REASSIGN_SOURCE_STRINGS = [
+  "Select a new author for {title}. Only admins can perform this action.",
+  "Select a user...",
+  "Search users...",
+  "Loading users...",
+  "No backend users found.",
+  "Load more",
+  "current",
+  "Target user must be a backend user.",
+  "This content changed before reassignment completed. Reload and try again.",
+  "Something went wrong.",
+  "Content not found.",
+  "Reassigned content author.",
+] as const;
+
+const CONTENT_DELETE_SOURCE_STRINGS = [
+  "Delete this content?",
+  "{title} will be moved to Deleted content with its revision history.",
+  "Delete selected content?",
+  "{count} item(s) will be moved to Deleted content. Items you do not have permission to delete or that are the homepage will be skipped.",
+  "Restore this deleted content?",
+  "{title} will be moved back to regular content with its revision history.",
+  "Permanently delete this content?",
+  "This will delete {title}, comments, and all revision history. This cannot be undone.",
+  "Cannot delete the homepage. Assign another page as homepage first.",
+  "Content is already deleted.",
+  "Content is not deleted.",
+  "Only deleted content can be permanently deleted.",
+  "Moved content to deleted items.",
+  "Restored deleted content.",
+  "Invalid id.",
+  "Invalid input.",
+] as const;
+
+const CONTENT_PAGINATION_SOURCE_STRINGS = [
+  "Page {page} of {totalPages} - {total} total",
+  "Previous",
+  "Next",
+  "Rows per page",
+  "Showing {count} of {total}",
+  "Showing {count} of {total} files",
+] as const;
+
+const CONTENT_HISTORY_SOURCE_STRINGS = [
+  "Back to editor",
+  "Revision #{revision}",
+  "Revision navigation",
+  "Open previous revision #{revision}",
+  "Open next revision #{revision}",
+  "Changed by",
+  "Created",
+  "Author",
+  "Homepage",
+  "Publish at",
+  "Unpublish at",
+  "Meta title",
+  "Meta description",
+  "Preview - not public",
+  "Preview link expires {date}",
+  "Edit content",
+  "Saved",
+  "Submitted for review",
+  "Published",
+  "Unpublished",
+  "Restored",
+  "Deleted snapshot",
+  "Reassigned author",
+  "Revision #{revisionNumber} restored.",
+  "Restore revision #{revisionNumber}?",
+  "This replaces the saved content with this revision snapshot and then returns you to the editor.",
+  "Revision #{revision} restored.",
+  "Restore revision #{revision}?",
+  "This replaces the saved content with the revision snapshot and creates a new revision of the current state first.",
+  "Restore failed. Please try again.",
+  "Restore impact",
+  "Slug changes to /{slug}.",
+  "Status changes to {status}.",
+  "Revision was marked as homepage.",
+  "Revision was not marked as homepage.",
+  "Schedule fields change.",
+  "Expired schedule dates will be cleared.",
+  "Homepage flag was not restored.",
+  "Past or invalid schedule dates from the revision were not restored. Set a new schedule if needed.",
+  "Revision not found.",
+  "Status was adjusted during restore.",
+] as const;
+
+const VISIBLE_CONTENT_EDITOR_KEYS = [
+  "dashboard.content.createPage",
+  "dashboard.content.createBlogPost",
+  "dashboard.content.createHeroSlider",
+  "dashboard.content.newChoice.title",
+  "dashboard.content.newChoice.description",
+  "dashboard.content.newChoice.pageTitle",
+  "dashboard.content.newChoice.pageDescription",
+  "dashboard.content.newChoice.blogPostTitle",
+  "dashboard.content.newChoice.blogPostDescription",
+  "dashboard.content.newChoice.heroSliderTitle",
+  "dashboard.content.newChoice.heroSliderDescription",
+  "dashboard.content.newChoice.webshopTitle",
+  "dashboard.content.newChoice.webshopDescription",
+  "dashboard.content.newChoice.licenseServerTitle",
+  "dashboard.content.newChoice.licenseServerDescription",
+  "dashboard.content.typeDescription.page",
+  "dashboard.content.typeDescription.blog_post",
+  "dashboard.content.typeDescription.hero_slider",
+  "dashboard.content.form.name",
+  "dashboard.content.form.slug",
+  "dashboard.content.form.description",
+  "dashboard.content.form.descriptionPlaceholder",
+  "dashboard.content.form.saveAndClose",
+  "dashboard.content.form.sessionSecurity",
+  "dashboard.content.form.sessionSecurityDescription",
+  "dashboard.content.form.publishing",
+  "dashboard.content.form.visibility",
+  "dashboard.content.form.category",
+  "dashboard.content.form.history",
+  "dashboard.content.form.publicUrl",
+  "dashboard.content.form.publishAt",
+  "dashboard.content.form.unpublishAt",
+  "dashboard.content.form.schedulePublish",
+  "dashboard.content.form.clearSchedule",
+  "dashboard.content.form.public",
+  "dashboard.content.form.publicVisibilityHelp",
+  "dashboard.content.form.viewerDefaultRole",
+  "dashboard.content.form.adminsAlwaysAccess",
+] as const;
+
+const CONTENT_EDITOR_ALLOWED_SAME_AS_ENGLISH = new Set([
+  "Alt text",
+  "Autoplay",
+  "Center",
+  "Description",
+  "Full",
+  "Loop",
+  "Margin",
+  "Name",
+  "Overlay",
+  "Padding",
+  "Public",
+  "SEO",
+  "Slide",
+  "Slides",
+  "Slug",
+  "Status",
+  "Top",
+  "Upload",
+  "url-slug",
+  "desktop",
+  "tablet",
+  "mobile",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -538,6 +861,9 @@ test("core UI chrome labels localize across supported languages", async () => {
 
 test("paid addon shell labels localize across supported backend languages", async () => {
   const addonShellSources = new Set<string>(ADDON_SHELL_SOURCE_STRINGS);
+  const backendWebshopMenuSources = new Set<string>(
+    BACKEND_WEBSHOP_MENU_SOURCE_STRINGS,
+  );
   const addonShellKeys = collectMessageLeafPaths(en).filter((key) =>
     ADDON_SHELL_MESSAGE_PREFIXES.some((prefix) => key.startsWith(prefix)),
   );
@@ -555,9 +881,13 @@ test("paid addon shell labels localize across supported backend languages", asyn
     );
 
     for (const source of ADDON_SHELL_SOURCE_STRINGS) {
+      const expectedTranslation = backendWebshopMenuSources.has(source)
+        ? localizeSourceString(source, localizedCode)
+        : translations[source];
+
       assert.equal(
         localizeSourceString(source, localizedCode),
-        translations[source],
+        expectedTranslation,
         `${localizedCode}:${source}`,
       );
     }
@@ -566,16 +896,22 @@ test("paid addon shell labels localize across supported backend languages", asyn
       const englishLeaf = getMessageLeaf(en, key);
 
       assert.equal(typeof englishLeaf, "string", `${key} must be a string`);
+      const englishSource = englishLeaf as string;
+
       assert.equal(
-        addonShellSources.has(englishLeaf as string),
+        addonShellSources.has(englishSource),
         true,
         `addon shell source missing for ${key}: ${englishLeaf}`,
       );
 
       const values = sampleValuesForKey(key);
+      const expectedTranslation = backendWebshopMenuSources.has(englishSource)
+        ? localizeSourceString(englishSource, localizedCode)
+        : translations[englishSource];
+
       assert.equal(
         t(key, values),
-        renderTemplate(translations[englishLeaf as string], values),
+        renderTemplate(expectedTranslation, values),
         `${localizedCode}:${key}`,
       );
     }
@@ -603,6 +939,788 @@ test("edit lock UI labels localize across supported backend languages", () => {
       );
     }
   }
+});
+
+test("backend webshop menu labels localize across supported backend languages", async () => {
+  const english = createTranslator(en, en, "en");
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const sourceTranslations: Record<string, string> =
+      BACKEND_WEBSHOP_MENU_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of BACKEND_WEBSHOP_MENU_SOURCE_STRINGS) {
+      assert.notEqual(
+        sourceTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        source,
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    const t = createTranslator(
+      await loadMessages(localizedCode),
+      en,
+      localizedCode,
+    );
+
+    for (const key of BACKEND_WEBSHOP_NAV_KEYS) {
+      assert.notEqual(t(key), english(key), `${localizedCode}:${key}`);
+    }
+  }
+});
+
+test("webshop admin dashboard labels localize across supported backend languages", () => {
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      WEBSHOP_ADMIN_DASHBOARD_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of WEBSHOP_ADMIN_DASHBOARD_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      assert.notEqual(
+        translations[source],
+        source,
+        `${localizedCode}:${source}`,
+      );
+      assert.equal(
+        localizeSourceString(source, localizedCode),
+        translations[source],
+        `${localizedCode}:${source}`,
+      );
+    }
+  }
+});
+
+test("content dashboard labels localize across supported backend languages", async () => {
+  const english = createTranslator(en, en, "en");
+  const fallbackMatches: string[] = [];
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      CONTENT_DASHBOARD_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of CONTENT_DASHBOARD_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      assert.equal(
+        localizeSourceString(source, localizedCode),
+        translations[source],
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of CONTENT_REASSIGN_SOURCE_STRINGS) {
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        source,
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of CONTENT_DELETE_SOURCE_STRINGS) {
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        source,
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of CONTENT_PAGINATION_SOURCE_STRINGS) {
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        source,
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of CONTENT_HISTORY_SOURCE_STRINGS) {
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        source,
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    const t = createTranslator(
+      await loadMessages(localizedCode),
+      en,
+      localizedCode,
+    );
+
+    for (const key of VISIBLE_CONTENT_DASHBOARD_KEYS) {
+      const translated = t(key);
+      const englishValue = english(key);
+      if (translated === englishValue) {
+        fallbackMatches.push(`${localizedCode}:${key}:${englishValue}`);
+      }
+    }
+  }
+
+  assert.equal(
+    localizeSourceString("Changed by", "sr-Latn"),
+    "Promenu napravio",
+  );
+  assert.equal(
+    localizeSourceString("Changed by", "sr-Cyrl"),
+    "Промену направио",
+  );
+  assert.deepEqual(fallbackMatches, []);
+});
+
+test("content create and editor labels localize across supported backend languages", async () => {
+  const english = createTranslator(en, en, "en");
+  const fallbackMatches: string[] = [];
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      CONTENT_EDITOR_SOURCE_TRANSLATIONS[localizedCode];
+    const additionalTranslations: Record<string, string> =
+      CONTENT_EDITOR_ADDITIONAL_SOURCE_TRANSLATIONS[localizedCode] ?? {};
+    const newChoiceTranslations: Record<string, string> =
+      CONTENT_NEW_CHOICE_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of CONTENT_EDITOR_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      const translatedSource = localizeSourceString(source, localizedCode);
+      assert.notEqual(translatedSource, "", `${localizedCode}:${source}`);
+      if (!CONTENT_EDITOR_ALLOWED_SAME_AS_ENGLISH.has(source)) {
+        assert.notEqual(translatedSource, source, `${localizedCode}:${source}`);
+      }
+    }
+
+    for (const source of CONTENT_EDITOR_DIALOG_SOURCE_STRINGS) {
+      assert.notEqual(
+        additionalTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        additionalTranslations[source],
+        source,
+        `${localizedCode}:${source}`,
+      );
+      assert.equal(
+        localizeSourceString(source, localizedCode),
+        additionalTranslations[source],
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of CONTENT_NEW_CHOICE_SOURCE_STRINGS) {
+      assert.notEqual(
+        newChoiceTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        newChoiceTranslations[source],
+        source,
+        `${localizedCode}:${source}`,
+      );
+      assert.equal(
+        localizeSourceString(source, localizedCode),
+        newChoiceTranslations[source],
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    const t = createTranslator(
+      await loadMessages(localizedCode),
+      en,
+      localizedCode,
+    );
+
+    for (const key of VISIBLE_CONTENT_EDITOR_KEYS) {
+      const values = sampleValuesForKey(key);
+      const translated = t(key, values);
+      const englishValue = english(key, values);
+      if (
+        translated === englishValue &&
+        !CONTENT_EDITOR_ALLOWED_SAME_AS_ENGLISH.has(englishValue)
+      ) {
+        fallbackMatches.push(`${localizedCode}:${key}:${englishValue}`);
+      }
+    }
+  }
+
+  assert.equal(localizeSourceString("Edit image", "sr-Cyrl"), "Уреди слику");
+  assert.equal(
+    localizeSourceString("Insert gallery", "sr-Cyrl"),
+    "Уметни галерију",
+  );
+  assert.equal(
+    localizeSourceString("Search galleries…", "sr-Cyrl"),
+    "Претражи галерије…",
+  );
+  assert.equal(localizeSourceString("Insert", "sr-Cyrl"), "Уметни");
+  assert.match(
+    localizeSourceString(
+      "Pick an existing gallery from the Gallery Manager. Its images will render as a responsive thumbnail grid in the post.",
+      "sr-Cyrl",
+    ),
+    /^Изабери постојећу галерију/,
+  );
+  assert.deepEqual(fallbackMatches, []);
+});
+
+test("page builder chrome labels localize across supported backend languages", () => {
+  const exactPageBuilderSources = new Set<string>([
+    "AI assistant",
+    "Provider:",
+    "Model:",
+    "Add blocks",
+    "Root",
+    "Inspector",
+    "Properties",
+    "Select a block to edit its properties.",
+    "Expand settings sidebar",
+    "No settings available.",
+    "RawHtml",
+    "Spacing",
+    "Layout",
+    "Borders & Effects",
+    "Responsive",
+    "Animation",
+    "Selected image",
+    "Image selected",
+    "No image selected.",
+    "Change Image",
+    "Choose Image",
+    "Clear selection",
+    "Background image",
+    "No image",
+    "Border style",
+    "Default",
+    "Unset",
+    "Solid",
+    "Dashed",
+    "Dotted",
+    "Hide on desktop",
+    "Hide on tablet",
+    "Hide on mobile",
+    "Toggle visibility per viewport. Other responsive overrides are set by switching the tabs at the top of the Settings panel and editing sections — those edits apply only to the active viewport.",
+    "Slide up",
+    "Slide down",
+    "Slide left",
+    "Slide right",
+    "Animations honor user reduced-motion preferences.",
+    "Animation is configured globally — switch to the Desktop tab to edit.",
+    "Font family",
+    "Size",
+    "Weight",
+    "Align",
+    "Center",
+    "Justify",
+    "UPPER",
+    "lower",
+    "Style",
+    "Normal",
+    "Italic",
+    "Decoration",
+    "Underline",
+    "Line-through",
+    "Text color",
+    "Background color",
+    "Margin",
+    "Padding",
+    "Min height",
+    "Display",
+    "Block",
+    "Inline-block",
+    "Flex",
+    "Inline-flex",
+    "Grid",
+    "Direction",
+    "Row",
+    "Row reverse",
+    "Column reverse",
+    "Align items",
+    "Stretch",
+    "Start",
+    "End",
+    "Baseline",
+    "Space between",
+    "Space around",
+    "Space evenly",
+    "Overflow",
+    "Visible",
+    "Auto",
+    "Scroll",
+    "Z-index",
+    "XS",
+    "SM",
+    "MD",
+    "LG",
+    "Custom…",
+    "Choose color",
+    "Pick color",
+    "Pick custom color",
+    "Unlink sides",
+    "Link all sides",
+    "Cover",
+    "Contain",
+    "Repeat",
+    "No repeat",
+    "Repeat-X",
+    "Repeat-Y",
+    "Top",
+    "Inherited from desktop",
+  ]);
+  const nonEnglishBlockSettingsSources = new Set<string>([
+    "Selected image",
+    "Image selected",
+    "No image selected.",
+    "Change Image",
+    "Choose Image",
+    "Clear selection",
+    "Background image",
+    "No image",
+    "Border style",
+    "Default",
+    "Unset",
+    "Solid",
+    "Dashed",
+    "Dotted",
+    "Hide on desktop",
+    "Hide on tablet",
+    "Hide on mobile",
+    "Toggle visibility per viewport. Other responsive overrides are set by switching the tabs at the top of the Settings panel and editing sections — those edits apply only to the active viewport.",
+    "Slide up",
+    "Slide down",
+    "Slide left",
+    "Slide right",
+    "Animations honor user reduced-motion preferences.",
+    "Animation is configured globally — switch to the Desktop tab to edit.",
+  ]);
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      PAGE_BUILDER_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of PAGE_BUILDER_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      const localizedSource = localizeSourceString(source, localizedCode);
+      assert.notEqual(localizedSource, "", `${localizedCode}:${source}`);
+      if (exactPageBuilderSources.has(source)) {
+        assert.equal(
+          localizedSource,
+          translations[source],
+          `${localizedCode}:${source}`,
+        );
+      }
+      if (nonEnglishBlockSettingsSources.has(source)) {
+        assert.notEqual(localizedSource, source, `${localizedCode}:${source}`);
+      }
+    }
+  }
+
+  assert.equal(localizeSourceString("Root", "sr-Cyrl"), "Корен");
+  assert.equal(localizeSourceString("Inspector", "sr-Cyrl"), "Инспектор");
+  assert.equal(
+    localizeSourceString("Select a block to edit its properties.", "sr-Cyrl"),
+    "Изабери блок да уредиш његова својства.",
+  );
+  assert.equal(localizeSourceString("Spacing", "sr-Cyrl"), "Размаци");
+  assert.equal(localizeSourceString("Layout", "sr-Cyrl"), "Распоред");
+  assert.equal(
+    localizeSourceString("Borders & Effects", "sr-Cyrl"),
+    "Ивице и ефекти",
+  );
+  assert.equal(localizeSourceString("Responsive", "sr-Cyrl"), "Респонсивно");
+  assert.equal(localizeSourceString("Animation", "sr-Cyrl"), "Анимација");
+  assert.equal(
+    localizeSourceString("Selected image", "sr-Cyrl"),
+    "Изабрана слика",
+  );
+  assert.equal(
+    localizeSourceString("Change Image", "sr-Cyrl"),
+    "Промени слику",
+  );
+  assert.equal(
+    localizeSourceString("Clear selection", "sr-Cyrl"),
+    "Обриши избор",
+  );
+  assert.equal(
+    localizeSourceString("Background image", "sr-Cyrl"),
+    "Слика позадине",
+  );
+  assert.equal(localizeSourceString("Border style", "sr-Cyrl"), "Стил ивице");
+  assert.equal(localizeSourceString("Solid", "sr-Cyrl"), "Пуна");
+  assert.equal(localizeSourceString("Dashed", "sr-Cyrl"), "Испрекидана");
+  assert.equal(localizeSourceString("Dotted", "sr-Cyrl"), "Тачкаста");
+  assert.equal(
+    localizeSourceString("Hide on mobile", "sr-Cyrl"),
+    "Сакриј на мобилном",
+  );
+  assert.equal(localizeSourceString("Slide up", "sr-Cyrl"), "Клизање нагоре");
+  assert.equal(
+    localizeSourceString("Slide right", "sr-Cyrl"),
+    "Клизање удесно",
+  );
+  assert.match(
+    localizeSourceString(
+      "Toggle visibility per viewport. Other responsive overrides are set by switching the tabs at the top of the Settings panel and editing sections — those edits apply only to the active viewport.",
+      "sr-Cyrl",
+    ),
+    /^Укључи\/искључи/u,
+  );
+  assert.equal(
+    localizeSourceString("Font family", "sr-Cyrl"),
+    "Породица фонта",
+  );
+  assert.equal(localizeSourceString("UPPER", "sr-Cyrl"), "ВЕЛИКА");
+  assert.equal(localizeSourceString("Display", "sr-Cyrl"), "Приказ");
+  assert.equal(localizeSourceString("Block", "sr-Cyrl"), "Блок");
+  assert.equal(localizeSourceString("Repeat-X", "sr-Cyrl"), "Понављај X");
+  assert.equal(
+    localizeSourceString("Inherited from desktop", "sr-Cyrl"),
+    "Наслеђено са десктопа",
+  );
+});
+
+test("hero slider create and edit labels localize across supported languages", () => {
+  const allowedSameAsEnglish = new Set(["HTML", "URL", "Z-index"]);
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+    const language = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      HERO_SLIDER_SOURCE_TRANSLATIONS[language] ?? {};
+    assert.equal(
+      Object.keys(translations).length,
+      HERO_SLIDER_SOURCE_STRINGS.length,
+      language,
+    );
+
+    for (const source of HERO_SLIDER_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${language}:${source}`);
+      const localizedSource = localizeSourceString(source, language);
+      assert.equal(
+        localizedSource,
+        translations[source],
+        `${language}:${source}`,
+      );
+    }
+    assert.notEqual(localizeSourceString("Fade", language), "Fade", language);
+  }
+
+  for (const source of HERO_SLIDER_SOURCE_STRINGS) {
+    if (allowedSameAsEnglish.has(source)) continue;
+    assert.notEqual(
+      localizeSourceString(source, "sr-Cyrl"),
+      source,
+      `sr-Cyrl:${source}`,
+    );
+  }
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+    const language = code as LocalizedLanguage;
+    const localize = (source: string) => localizeSourceString(source, language);
+    const defaultSlider = createDefaultHeroSlider(localize);
+    const serialized = JSON.stringify(defaultSlider);
+
+    for (const englishSeed of [
+      "Build the hero your page deserves",
+      "Create rich slide layouts with media, layered overlays, CTAs, cards, and responsive controls.",
+      "Get started",
+      "Learn more",
+      "Hero slider",
+    ]) {
+      assert.equal(
+        serialized.includes(englishSeed),
+        false,
+        `${language}:${englishSeed}`,
+      );
+    }
+  }
+
+  const localizeSerbian = (source: string) =>
+    localizeSourceString(source, "sr-Cyrl");
+  const defaultSlider = createDefaultHeroSlider(localizeSerbian);
+  const serialized = JSON.stringify(defaultSlider);
+
+  for (const englishSeed of [
+    "Build the hero your page deserves",
+    "Create rich slide layouts with media, layered overlays, CTAs, cards, and responsive controls.",
+    "Get started",
+    "Learn more",
+    "Hero slider",
+  ]) {
+    assert.equal(serialized.includes(englishSeed), false, englishSeed);
+  }
+
+  assert.equal(serialized.includes("Направи херо"), true);
+  assert.equal(serialized.includes("Почни"), true);
+});
+
+test("global settings labels localize across supported backend languages", async () => {
+  const english = createTranslator(en, en, "en");
+  const globalSettingsKeys = collectMessageLeafPaths(en.globalSettings).map(
+    (key) => `globalSettings.${key}`,
+  );
+  const presetCatalogSources = new Set<string>();
+  for (const preset of APPEARANCE_SHELL_PRESETS) {
+    presetCatalogSources.add(preset.name);
+    presetCatalogSources.add(preset.description);
+    for (const tag of preset.tags) {
+      presetCatalogSources.add(tag);
+    }
+  }
+  const fallbackMatches: string[] = [];
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      GLOBAL_SETTINGS_SOURCE_TRANSLATIONS[localizedCode];
+    const controlTranslations: Record<string, string> =
+      GLOBAL_SETTINGS_CONTROL_SOURCE_TRANSLATIONS[localizedCode];
+    const appearanceTranslations: Record<string, string> =
+      GLOBAL_SETTINGS_APPEARANCE_SOURCE_TRANSLATIONS[localizedCode];
+    const optionTranslations: Record<string, string> =
+      GLOBAL_SETTINGS_OPTION_SOURCE_TRANSLATIONS[localizedCode];
+    const presetTranslations: Record<string, string> =
+      GLOBAL_SETTINGS_PRESET_SOURCE_TRANSLATIONS[localizedCode];
+    const sessionTranslations: Record<string, string> =
+      GLOBAL_SETTINGS_SESSION_SOURCE_TRANSLATIONS[localizedCode];
+    const formTranslations: Record<string, string> =
+      GLOBAL_SETTINGS_FORM_SOURCE_TRANSLATIONS[localizedCode];
+    const helpTranslations: Record<string, string> =
+      GLOBAL_SETTINGS_HELP_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of GLOBAL_SETTINGS_SOURCE_STRINGS) {
+      assert.equal(
+        localizeSourceString(source, localizedCode),
+        translations[source],
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+    }
+
+    for (const source of GLOBAL_SETTINGS_CONTROL_SOURCE_STRINGS) {
+      const translated = localizeSourceString(source, localizedCode);
+      assert.notEqual(translated, "", `${localizedCode}:${source}`);
+      assert.notEqual(translated, source, `${localizedCode}:${source}`);
+      assert.notEqual(
+        controlTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        controlTranslations[source],
+        source,
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of GLOBAL_SETTINGS_APPEARANCE_SOURCE_STRINGS) {
+      assert.notEqual(
+        appearanceTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        "",
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of GLOBAL_SETTINGS_OPTION_SOURCE_STRINGS) {
+      assert.notEqual(
+        optionTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        "",
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of GLOBAL_SETTINGS_PRESET_SOURCE_STRINGS) {
+      assert.equal(
+        Object.hasOwn(presetTranslations, source),
+        true,
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        presetTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.equal(
+        localizeSourceString(source, localizedCode),
+        presetTranslations[source],
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of presetCatalogSources) {
+      assert.equal(
+        GLOBAL_SETTINGS_PRESET_SOURCE_STRINGS.includes(
+          source as (typeof GLOBAL_SETTINGS_PRESET_SOURCE_STRINGS)[number],
+        ),
+        true,
+        `preset source missing from global settings preset translations: ${source}`,
+      );
+      assert.equal(
+        localizeSourceString(source, localizedCode),
+        presetTranslations[source],
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    assert.equal(
+      localizeSourceString("Cyber Journal", "sr-Latn"),
+      "Sajber žurnal",
+    );
+    assert.equal(localizeSourceString("cyberpunk", "sr-Latn"), "sajberpank");
+    assert.equal(localizeSourceString("journal", "sr-Latn"), "žurnal");
+    assert.equal(localizeSourceString("magazine", "sr-Latn"), "magazin");
+    assert.equal(localizeSourceString("Top", "sr-Cyrl"), "Врх");
+    assert.equal(localizeSourceString("Hero", "sr-Cyrl"), "Херо секција");
+    assert.equal(localizeSourceString("Lead", "sr-Cyrl"), "Уводно");
+    assert.equal(
+      localizeSourceString("After Content", "sr-Cyrl"),
+      "После садржаја",
+    );
+    assert.equal(
+      localizeSourceString("Footer Actions", "sr-Cyrl"),
+      "Акције у подножју",
+    );
+
+    assert.equal(
+      localizeSourceString("Full-bleed Builder", "el"),
+      "Builder πλήρους πλάτους",
+    );
+    assert.equal(localizeSourceString("Small", "el"), "Μικρό");
+    assert.equal(localizeSourceString("Soft", "el"), "Απαλό");
+    assert.equal(
+      localizeSourceString(
+        "Reasoning model: hidden reasoning may use output tokens. Keep the token cap low and watch billing.",
+        "el",
+      ),
+      "Μοντέλο συλλογιστικής: η κρυφή συλλογιστική μπορεί να χρησιμοποιεί output tokens. Κρατήστε χαμηλό το όριο token και παρακολουθήστε τη χρέωση.",
+    );
+
+    for (const source of GLOBAL_SETTINGS_SESSION_SOURCE_STRINGS) {
+      assert.notEqual(
+        sessionTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        sessionTranslations[source],
+        source,
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        source,
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of GLOBAL_SETTINGS_FORM_SOURCE_STRINGS) {
+      assert.notEqual(
+        formTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        "",
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    for (const source of GLOBAL_SETTINGS_HELP_SOURCE_STRINGS) {
+      assert.notEqual(
+        helpTranslations[source],
+        "",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        helpTranslations[source],
+        "Configure this option for CMS.",
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        helpTranslations[source],
+        "Подеси ову опцију за CMS.",
+        `${localizedCode}:${source}`,
+      );
+      assert.equal(
+        localizeSourceString(source, localizedCode),
+        helpTranslations[source],
+        `${localizedCode}:${source}`,
+      );
+    }
+
+    assert.equal(
+      localizeSourceString(
+        "Presets update the draft recipe while keeping identity, menus, and content.",
+        "sr-Cyrl",
+      ),
+      "Пресети ажурирају нацрт рецепта, а задржавају идентитет, меније и садржај.",
+    );
+    assert.equal(
+      localizeSourceString(
+        "Global template selections for public content surfaces.",
+        "sr-Cyrl",
+      ),
+      "Глобални избори шаблона за јавне површине садржаја.",
+    );
+    assert.equal(
+      localizeSourceString(
+        "Controls the visibility of the AI Writing Assistant UI.",
+        "sr-Cyrl",
+      ),
+      "Контролише видљивост UI-ја AI асистента за писање.",
+    );
+
+    const t = createTranslator(
+      await loadMessages(localizedCode),
+      en,
+      localizedCode,
+    );
+
+    assert.equal(t("globalSettings.tabs.ai"), "AI", `${localizedCode}:AI tab`);
+
+    for (const key of globalSettingsKeys) {
+      const translated = t(key);
+      const englishValue = english(key);
+      if (
+        translated === englishValue &&
+        !GLOBAL_SETTINGS_ALLOWED_SAME_AS_ENGLISH.has(englishValue)
+      ) {
+        fallbackMatches.push(`${localizedCode}:${key}:${englishValue}`);
+      }
+    }
+  }
+
+  assert.deepEqual(fallbackMatches, []);
 });
 
 test("webshop source strings localize across supported frontend languages", () => {

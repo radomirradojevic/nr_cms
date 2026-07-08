@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { hasRole, type Role } from "@/lib/roles";
 
 import { permanentlyDeleteContent, restoreDeletedContent } from "./actions";
@@ -32,6 +33,7 @@ export function DeletedContentRowActions({
   onMutated,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -86,7 +88,7 @@ export function DeletedContentRowActions({
         )}
       </div>
       {error && (
-        <p className="max-w-[260px] text-xs text-destructive">{error}</p>
+        <p className="max-w-[260px] text-xs text-destructive">{st(error)}</p>
       )}
 
       <AlertDialog
@@ -107,7 +109,9 @@ export function DeletedContentRowActions({
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {error && <p className="px-1 text-sm text-destructive">{error}</p>}
+          {error && (
+            <p className="px-1 text-sm text-destructive">{st(error)}</p>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>
               {t("dashboard.common.actions.cancel")}
@@ -144,7 +148,9 @@ export function DeletedContentRowActions({
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {error && <p className="px-1 text-sm text-destructive">{error}</p>}
+          {error && (
+            <p className="px-1 text-sm text-destructive">{st(error)}</p>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>
               {t("dashboard.common.actions.cancel")}

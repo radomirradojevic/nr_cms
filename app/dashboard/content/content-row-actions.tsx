@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +56,7 @@ export function ContentRowActions({
   onMutated,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
@@ -312,7 +314,7 @@ export function ContentRowActions({
 
       {error && (
         <p className="text-xs text-destructive mt-1 max-w-[240px] text-right">
-          {error}
+          {st(error)}
         </p>
       )}
 
@@ -341,7 +343,9 @@ export function ContentRowActions({
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {error && <p className="text-sm text-destructive px-1">{error}</p>}
+          {error && (
+            <p className="text-sm text-destructive px-1">{st(error)}</p>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>
               {t("dashboard.common.actions.cancel")}

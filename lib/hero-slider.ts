@@ -10,6 +10,15 @@ export type HeroSliderTemplate =
   | "ecommerce"
   | "video";
 
+export type HeroSliderTranslateFn = (source: string) => string;
+
+function translateSource(
+  translate: HeroSliderTranslateFn | undefined,
+  source: string,
+): string {
+  return translate ? translate(source) : source;
+}
+
 export const HERO_SLIDER_TEMPLATE_OPTIONS: Array<{
   value: HeroSliderTemplate;
   label: string;
@@ -525,54 +534,64 @@ export function makeHeroSliderId(prefix = "hs") {
   return `${prefix}-${random}`;
 }
 
-export function createHeroSlideBlock(type: HeroSlideBlockType): HeroSlideBlock {
+export function createHeroSlideBlock(
+  type: HeroSlideBlockType,
+  translate?: HeroSliderTranslateFn,
+): HeroSlideBlock {
   return {
     id: makeHeroSliderId("block"),
     type,
-    props: defaultBlockProps(type),
+    props: defaultBlockProps(type, translate),
     hiddenOn: [],
     ...(type === "container"
-      ? { children: [createHeroSlideBlock("heading")] }
+      ? { children: [createHeroSlideBlock("heading", translate)] }
       : {}),
     ...(type === "columns"
       ? {
           columns: [
-            [createHeroSlideBlock("heading")],
-            [createHeroSlideBlock("text")],
+            [createHeroSlideBlock("heading", translate)],
+            [createHeroSlideBlock("text", translate)],
           ],
         }
       : {}),
   };
 }
 
-export function createHeroSlideMenu(): HeroSlideMenu {
+export function createHeroSlideMenu(
+  translate?: HeroSliderTranslateFn,
+): HeroSlideMenu {
   return {
     id: makeHeroSliderId("menu"),
-    props: defaultMenuProps("glass"),
+    props: defaultMenuProps("glass", translate),
     hiddenOn: [],
   };
 }
 
-export function createHeroSlideSearchInput(): HeroSlideSearchInput {
+export function createHeroSlideSearchInput(
+  translate?: HeroSliderTranslateFn,
+): HeroSlideSearchInput {
   return {
     id: makeHeroSliderId("search"),
-    props: defaultSearchInputProps("glass"),
+    props: defaultSearchInputProps("glass", translate),
     hiddenOn: [],
   };
 }
 
 export function createHeroSlide(
-  name = "Slide",
-  blocks: HeroSlideBlock[] = [
-    createHeroSlideBlock("badge"),
-    createHeroSlideBlock("heading"),
-    createHeroSlideBlock("text"),
-    createHeroSlideBlock("cta_group"),
-  ],
+  name?: string,
+  blocks?: HeroSlideBlock[],
+  translate?: HeroSliderTranslateFn,
 ): HeroSlide {
+  const resolvedBlocks = blocks ?? [
+    createHeroSlideBlock("badge", translate),
+    createHeroSlideBlock("heading", translate),
+    createHeroSlideBlock("text", translate),
+    createHeroSlideBlock("cta_group", translate),
+  ];
+
   return {
     id: makeHeroSliderId("slide"),
-    name,
+    name: name ?? translateSource(translate, "Slide"),
     image: { src: "", alt: "" },
     video: { src: "", poster: "", autoplay: true, loop: true, muted: true },
     layout: { ...defaultHeroSlideLayout },
@@ -586,22 +605,31 @@ export function createHeroSlide(
         padding: "3.5rem 1.25rem",
       },
     },
-    blocks,
+    blocks: resolvedBlocks,
     menus: [],
     searchInputs: [],
   };
 }
 
-export function createDefaultHeroSlider(): HeroSliderContent {
-  return createHeroSliderTemplate("saas");
+export function createDefaultHeroSlider(
+  translate?: HeroSliderTranslateFn,
+): HeroSliderContent {
+  return createHeroSliderTemplate("saas", translate);
 }
 
 export function createHeroSliderTemplate(
   template: HeroSliderTemplate,
+  translate?: HeroSliderTranslateFn,
 ): HeroSliderContent {
-  const slide = createHeroSlide(`${templateLabel(template)} slide`);
+  const slideLabel = translateSource(translate, "Slide").toLocaleLowerCase();
+  const slide = createHeroSlide(
+    `${templateLabel(template, translate)} ${slideLabel}`,
+    undefined,
+    translate,
+  );
   const settings: HeroSliderSettings = {
     ...defaultHeroSliderSettings,
+    ariaLabel: translateSource(translate, "Hero slider"),
     ...(template === "video"
       ? { transitionType: "fade" as const, customHeight: "720px" }
       : {}),
@@ -610,7 +638,7 @@ export function createHeroSliderTemplate(
       : {}),
   };
 
-  slide.blocks = templateBlocks(template);
+  slide.blocks = templateBlocks(template, translate);
   slide.layout = {
     ...slide.layout,
     ...(template === "portfolio"
@@ -706,93 +734,146 @@ export function collectHeroSliderFileIds(value: unknown): string[] {
   return Array.from(ids);
 }
 
-function templateLabel(template: HeroSliderTemplate) {
-  return (
+function templateLabel(
+  template: HeroSliderTemplate,
+  translate?: HeroSliderTranslateFn,
+) {
+  const source =
     HERO_SLIDER_TEMPLATE_OPTIONS.find((option) => option.value === template)
-      ?.label ?? "Hero"
-  );
+      ?.label ?? "Hero";
+
+  return translateSource(translate, source);
 }
 
-function templateBlocks(template: HeroSliderTemplate): HeroSlideBlock[] {
-  const heading = createHeroSlideBlock("heading");
-  const text = createHeroSlideBlock("text");
-  const cta = createHeroSlideBlock("cta_group");
-  const badge = createHeroSlideBlock("badge");
+function templateBlocks(
+  template: HeroSliderTemplate,
+  translate?: HeroSliderTranslateFn,
+): HeroSlideBlock[] {
+  const translateText = (source: string) => translateSource(translate, source);
+  const heading = createHeroSlideBlock("heading", translate);
+  const text = createHeroSlideBlock("text", translate);
+  const cta = createHeroSlideBlock("cta_group", translate);
+  const badge = createHeroSlideBlock("badge", translate);
 
   if (template === "product") {
-    heading.props.text = "Launch the product story above the fold";
-    text.props.text =
-      "Show the promise, proof, and next action in a polished hero layout.";
-    badge.props.text = "Product Launch";
+    heading.props.text = translateText(
+      "Launch the product story above the fold",
+    );
+    text.props.text = translateText(
+      "Show the promise, proof, and next action in a polished hero layout.",
+    );
+    badge.props.text = translateText("Product Launch");
     cta.props.items = [
-      { label: "Explore Features", href: "#features", variant: "primary" },
-      { label: "Watch Demo", href: "#demo", variant: "secondary" },
+      {
+        label: translateText("Explore Features"),
+        href: "#features",
+        variant: "primary",
+      },
+      {
+        label: translateText("Watch Demo"),
+        href: "#demo",
+        variant: "secondary",
+      },
     ];
-    return [badge, heading, text, cta, createHeroSlideBlock("image")];
+    return [
+      badge,
+      heading,
+      text,
+      cta,
+      createHeroSlideBlock("image", translate),
+    ];
   }
 
   if (template === "agency") {
-    heading.props.text = "Strategy, design, and launch momentum";
-    text.props.text =
-      "Introduce the agency offer with a confident CTA and flexible proof blocks.";
-    badge.props.text = "Agency";
-    return [badge, heading, text, cta, createHeroSlideBlock("card")];
+    heading.props.text = translateText("Strategy, design, and launch momentum");
+    text.props.text = translateText(
+      "Introduce the agency offer with a confident CTA and flexible proof blocks.",
+    );
+    badge.props.text = translateText("Agency");
+    return [badge, heading, text, cta, createHeroSlideBlock("card", translate)];
   }
 
   if (template === "portfolio") {
-    heading.props.text = "Selected work with a strong point of view";
-    text.props.text =
-      "Use this slide to feature a signature project, client, or case study.";
-    badge.props.text = "Portfolio";
+    heading.props.text = translateText(
+      "Selected work with a strong point of view",
+    );
+    text.props.text = translateText(
+      "Use this slide to feature a signature project, client, or case study.",
+    );
+    badge.props.text = translateText("Portfolio");
     return [badge, heading, text, cta];
   }
 
   if (template === "ecommerce") {
-    heading.props.text = "Seasonal drop, product story, or featured collection";
-    text.props.text =
-      "Pair a high-impact background with a direct shopping action.";
-    badge.props.text = "New Collection";
+    heading.props.text = translateText(
+      "Seasonal drop, product story, or featured collection",
+    );
+    text.props.text = translateText(
+      "Pair a high-impact background with a direct shopping action.",
+    );
+    badge.props.text = translateText("New Collection");
     cta.props.items = [
-      { label: "Shop Now", href: "/shop", variant: "primary" },
-      { label: "View Lookbook", href: "#lookbook", variant: "secondary" },
+      { label: translateText("Shop Now"), href: "/shop", variant: "primary" },
+      {
+        label: translateText("View Lookbook"),
+        href: "#lookbook",
+        variant: "secondary",
+      },
     ];
     return [badge, heading, text, cta];
   }
 
   if (template === "video") {
-    heading.props.text = "Cinematic hero with motion-aware playback";
-    text.props.text =
-      "Use a muted MP4 background with a poster image and concise foreground copy.";
-    badge.props.text = "Video Hero";
+    heading.props.text = translateText(
+      "Cinematic hero with motion-aware playback",
+    );
+    text.props.text = translateText(
+      "Use a muted MP4 background with a poster image and concise foreground copy.",
+    );
+    badge.props.text = translateText("Video Hero");
     return [badge, heading, text, cta];
   }
 
-  heading.props.text = "Build the hero your page deserves";
-  text.props.text =
-    "Create rich slide layouts with media, layered overlays, CTAs, cards, and responsive controls.";
-  badge.props.text = "SaaS Hero";
+  heading.props.text = translateText("Build the hero your page deserves");
+  text.props.text = translateText(
+    "Create rich slide layouts with media, layered overlays, CTAs, cards, and responsive controls.",
+  );
+  badge.props.text = translateText("SaaS Hero");
   return [badge, heading, text, cta];
 }
 
-function defaultBlockProps(type: HeroSlideBlockType): Record<string, unknown> {
+function defaultBlockProps(
+  type: HeroSlideBlockType,
+  translate?: HeroSliderTranslateFn,
+): Record<string, unknown> {
+  const translateText = (source: string) => translateSource(translate, source);
+
   switch (type) {
     case "heading":
-      return { text: "Hero heading", level: "1" };
+      return { text: translateText("Hero heading"), level: "1" };
     case "text":
-      return { text: "Write concise hero copy that supports the main action." };
+      return {
+        text: translateText(
+          "Write concise hero copy that supports the main action.",
+        ),
+      };
     case "button":
-      return { label: "Get started", href: "#", variant: "primary" };
+      return {
+        label: translateText("Get started"),
+        href: "#",
+        variant: "primary",
+      };
     case "image":
       return { src: "", alt: "", width: "360px" };
     case "menu":
       return defaultMenuProps("glass");
     case "card":
       return {
-        title: "Proof point",
-        body: "Add a short supporting detail, metric, or offer.",
+        title: translateText("Proof point"),
+        body: translateText("Add a short supporting detail, metric, or offer."),
       };
     case "badge":
-      return { text: "Featured" };
+      return { text: translateText("Featured") };
     case "divider":
       return { width: "96px" };
     case "icon":
@@ -800,12 +881,20 @@ function defaultBlockProps(type: HeroSlideBlockType): Record<string, unknown> {
     case "cta_group":
       return {
         items: [
-          { label: "Get started", href: "#", variant: "primary" },
-          { label: "Learn more", href: "#", variant: "secondary" },
+          {
+            label: translateText("Get started"),
+            href: "#",
+            variant: "primary",
+          },
+          {
+            label: translateText("Learn more"),
+            href: "#",
+            variant: "secondary",
+          },
         ],
       };
     case "custom_html":
-      return { html: "<p>Custom HTML</p>" };
+      return { html: `<p>${translateText("Custom HTML")}</p>` };
     case "container":
       return { gap: "1rem" };
     case "columns":
@@ -813,7 +902,11 @@ function defaultBlockProps(type: HeroSlideBlockType): Record<string, unknown> {
   }
 }
 
-function defaultMenuProps(value: unknown): Record<string, unknown> {
+function defaultMenuProps(
+  value: unknown,
+  translate?: HeroSliderTranslateFn,
+): Record<string, unknown> {
+  const translateText = (source: string) => translateSource(translate, source);
   const preset = normalizeMenuPreset(value);
   return {
     menuId: "",
@@ -842,19 +935,23 @@ function defaultMenuProps(value: unknown): Record<string, unknown> {
     submenuWidth: "240px",
     submenuPadding: "0.5rem",
     megaWidth: "min(48rem, calc(100vw - 2rem))",
-    mobileButtonLabel: "Menu",
+    mobileButtonLabel: translateText("Menu"),
     mobilePanelWidth: "min(20rem, calc(100vw - 2rem))",
     mobileItemPadding: "0.75rem 0.85rem",
     ...createHeroSlideMenuPresetProps(preset),
   };
 }
 
-function defaultSearchInputProps(value: unknown): Record<string, unknown> {
+function defaultSearchInputProps(
+  value: unknown,
+  translate?: HeroSliderTranslateFn,
+): Record<string, unknown> {
+  const translateText = (source: string) => translateSource(translate, source);
   const preset = normalizeSearchInputPreset(value);
   return {
     preset,
-    label: "Search",
-    placeholder: "Search...",
+    label: translateText("Search"),
+    placeholder: translateText("Search..."),
     contentTypes: ["blog_post", "page"] satisfies HeroSlideSearchContentType[],
     positionMode: "absolute",
     flowAlign: "center",

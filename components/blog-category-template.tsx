@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import type { BlogCategoryTemplateV1 } from "@/lib/appearance-recipe";
-import { getTranslations } from "@/lib/i18n/server";
 import type { TranslateFn } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 import { sanitizeMediaSrc } from "@/lib/url-safety";
@@ -28,6 +27,10 @@ type BlogCategoryTemplateProps = {
     previousHref: string | null;
     nextHref: string | null;
   };
+};
+
+type BlogCategoryTemplateViewProps = BlogCategoryTemplateProps & {
+  t: TranslateFn;
 };
 
 function PostMeta({
@@ -205,13 +208,13 @@ function FeaturedFirstPosts({
   );
 }
 
-export async function BlogCategoryTemplate({
+export function BlogCategoryTemplateView({
   template,
   categoryName,
   posts,
   pagination,
-}: BlogCategoryTemplateProps) {
-  const t = await getTranslations("frontend");
+  t,
+}: BlogCategoryTemplateViewProps) {
   const variant = template.variant;
 
   return (
@@ -314,4 +317,11 @@ export async function BlogCategoryTemplate({
       </div>
     </section>
   );
+}
+
+export async function BlogCategoryTemplate(props: BlogCategoryTemplateProps) {
+  const { getTranslations } = await import("@/lib/i18n/server");
+  const t = await getTranslations("frontend");
+
+  return <BlogCategoryTemplateView {...props} t={t} />;
 }
