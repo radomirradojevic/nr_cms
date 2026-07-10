@@ -9,6 +9,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +38,7 @@ type Values = {
 
 export function CreateFormDialog() {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -132,7 +134,7 @@ export function CreateFormDialog() {
               )}
             />
             {serverError && (
-              <p className="text-sm text-destructive">{serverError}</p>
+              <p className="text-sm text-destructive">{st(serverError)}</p>
             )}
             <div className="flex justify-end gap-2">
               <Button

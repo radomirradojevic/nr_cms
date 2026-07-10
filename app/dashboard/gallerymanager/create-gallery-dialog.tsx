@@ -44,8 +44,14 @@ export function CreateGalleryDialog() {
   const form = useForm<FormValues>({
     resolver: zodResolver(
       z.object({
-        name: z.string().min(1, t("dashboard.galleries.nameRequired")).max(120),
-        description: z.string().max(1000).optional(),
+        name: z
+          .string()
+          .min(1, t("dashboard.galleries.nameRequired"))
+          .max(120, t("dashboard.galleries.errors.nameMax")),
+        description: z
+          .string()
+          .max(1000, t("dashboard.galleries.errors.descriptionMax"))
+          .optional(),
       }),
     ),
     defaultValues: { name: "", description: "" },

@@ -42,11 +42,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TablePagination } from "@/app/dashboard/table-pagination";
+import { useTranslations } from "@/components/i18n-provider";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
-import {
-  useSourceTranslations,
-  type SourceTranslateFn,
-} from "@/components/source-translations";
+import { useSourceTranslations } from "@/components/source-translations";
 
 import {
   bulkSubmissionAction,
@@ -74,10 +72,20 @@ type Props = {
   pageSize: number;
 };
 
-function statusBadge(s: string, st: SourceTranslateFn) {
-  if (s === "new") return <Badge>{st("new")}</Badge>;
-  if (s === "read") return <Badge variant="secondary">{st("read")}</Badge>;
-  return <Badge variant="destructive">{st("spam")}</Badge>;
+function statusBadge(s: string, label: string) {
+  if (s === "new") return <Badge>{label}</Badge>;
+  if (s === "read") return <Badge variant="secondary">{label}</Badge>;
+  return <Badge variant="destructive">{label}</Badge>;
+}
+
+function statusLabel(
+  status: string,
+  labels: Record<StatusFilter, string>,
+): string {
+  if (STATUS_FILTER.includes(status as StatusFilter)) {
+    return labels[status as StatusFilter];
+  }
+  return status;
 }
 
 export function SubmissionsList({
@@ -87,6 +95,7 @@ export function SubmissionsList({
   initialTotal,
   pageSize: initialPageSize,
 }: Props) {
+  const t = useTranslations();
   const st = useSourceTranslations();
   const { formatDateTime } = useRegionalSettings();
   const [rows, setRows] = useState<FormSubmissionRow[]>(initialRows);
@@ -121,7 +130,7 @@ export function SubmissionsList({
         offset: (newPage - 1) * newPageSize,
       });
       if ("error" in res) {
-        toast.error(res.error);
+        toast.error(st(res.error));
         return;
       }
       setRows(res.rows);
@@ -153,7 +162,7 @@ export function SubmissionsList({
     startTransition(async () => {
       const r = await setSubmissionStatus({ id, status: s });
       if ("error" in r && r.error) {
-        toast.error(r.error);
+        toast.error(st(r.error ?? "Something went wrong."));
         return;
       }
       setRows((prev) =>
@@ -170,7 +179,7 @@ export function SubmissionsList({
         action,
       });
       if ("error" in r && r.error) {
-        toast.error(r.error);
+        toast.error(st(r.error));
         return;
       }
       toast.success(st("{count} updated.", { count: r.count }));
@@ -184,7 +193,7 @@ export function SubmissionsList({
     startTransition(async () => {
       const r = await deleteSubmissionAction({ id });
       if ("error" in r && r.error) {
-        toast.error(r.error);
+        toast.error(st(r.error));
         setDeleteId(null);
         return;
       }
@@ -204,11 +213,16 @@ export function SubmissionsList({
         toDate: toDate || undefined,
         search: search.trim() || undefined,
       });
-      if ("error" in r) {
-        toast.error(r.error);
+      if ("error" in r && r.error) {
+        toast.error(st(r.error));
         return;
       }
-      const blob = new Blob([r.csv], { type: "text/csv;charset=utf-8" });
+      const csv = "csv" in r && typeof r.csv === "string" ? r.csv : null;
+      if (!csv) {
+        toast.error(st("Something went wrong."));
+        return;
+      }
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -222,6 +236,12 @@ export function SubmissionsList({
 
   const allChecked = rows.length > 0 && selected.size === rows.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const statusLabels: Record<StatusFilter, string> = {
+    all: t("dashboard.filters.allStatuses"),
+    new: t("dashboard.forms.submissionStatus.new"),
+    read: t("dashboard.forms.submissionStatus.read"),
+    spam: t("dashboard.forms.submissionStatus.spam"),
+  };
 
   return (
     <div className="space-y-3">
@@ -237,7 +257,9 @@ export function SubmissionsList({
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">{st("Status")}</Label>
+          <Label className="text-xs">
+            {t("dashboard.common.table.status")}
+          </Label>
           <Select
             value={status}
             onValueChange={(v) => setStatus(v as StatusFilter)}
@@ -248,7 +270,7 @@ export function SubmissionsList({
             <SelectContent>
               {STATUS_FILTER.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {st(s)}
+                  {statusLabels[s]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -315,7 +337,7 @@ export function SubmissionsList({
               />
             </TableHead>
             <TableHead>{st("Submitted")}</TableHead>
-            <TableHead>{st("Status")}</TableHead>
+            <TableHead>{t("dashboard.common.table.status")}</TableHead>
             <TableHead>{st("Email")}</TableHead>
             <TableHead>{st("Preview")}</TableHead>
             <TableHead className="w-[1%]"></TableHead>
@@ -358,7 +380,9 @@ export function SubmissionsList({
                   <TableCell className="whitespace-nowrap text-xs">
                     {formatDateTime(r.createdAt)}
                   </TableCell>
-                  <TableCell>{statusBadge(r.status, st)}</TableCell>
+                  <TableCell>
+                    {statusBadge(r.status, statusLabel(r.status, statusLabels))}
+                  </TableCell>
                   <TableCell className="text-xs">{r.emailStatus}</TableCell>
                   <TableCell
                     className="max-w-md truncate text-xs"
@@ -394,9 +418,15 @@ export function SubmissionsList({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent position="popper" align="end">
-                          <SelectItem value="new">{st("new")}</SelectItem>
-                          <SelectItem value="read">{st("read")}</SelectItem>
-                          <SelectItem value="spam">{st("spam")}</SelectItem>
+                          <SelectItem value="new">
+                            {statusLabels.new}
+                          </SelectItem>
+                          <SelectItem value="read">
+                            {statusLabels.read}
+                          </SelectItem>
+                          <SelectItem value="spam">
+                            {statusLabels.spam}
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <Button
@@ -445,8 +475,15 @@ export function SubmissionsList({
           {detail && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-[120px_1fr] gap-2 text-xs">
-                <span className="text-muted-foreground">{st("Status")}</span>
-                <span>{st(detail.status)}</span>
+                <span className="text-muted-foreground">
+                  {t("dashboard.common.table.status")}
+                </span>
+                <span>
+                  {statusBadge(
+                    detail.status,
+                    statusLabel(detail.status, statusLabels),
+                  )}
+                </span>
                 <span className="text-muted-foreground">
                   {st("Email status")}
                 </span>

@@ -7,6 +7,7 @@ import { Loader2, Pencil, Trash2, UserCog } from "lucide-react";
 import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,6 +72,7 @@ function RenameMenuDialog({
   onChanged?: () => void;
 }) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const [open, setOpen] = useState(false);
@@ -140,7 +142,7 @@ function RenameMenuDialog({
             />
           </div>
           {serverError && (
-            <p className="text-sm text-destructive">{serverError}</p>
+            <p className="text-sm text-destructive">{st(serverError)}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button
@@ -169,6 +171,7 @@ function ReassignMenuDialog({
   onChanged?: () => void;
 }) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const [open, setOpen] = useState(false);
@@ -246,7 +249,7 @@ function ReassignMenuDialog({
             />
           </div>
           {serverError && (
-            <p className="text-sm text-destructive">{serverError}</p>
+            <p className="text-sm text-destructive">{st(serverError)}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button
@@ -295,6 +298,7 @@ function DeleteMenuDialog({
   onChanged?: () => void;
 }) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const [open, setOpen] = useState(false);
@@ -356,7 +360,7 @@ function DeleteMenuDialog({
           </p>
         )}
         {serverError && (
-          <p className="text-sm text-destructive">{serverError}</p>
+          <p className="text-sm text-destructive">{st(serverError)}</p>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>

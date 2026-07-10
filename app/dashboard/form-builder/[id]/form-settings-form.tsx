@@ -114,7 +114,7 @@ export function FormSettingsForm({ formId, initialSettings, fields }: Props) {
         enableTurnstile,
       });
       if ("error" in res && res.error) {
-        toast.error(res.error);
+        toast.error(st(res.error));
         return;
       }
       toast.success(st("Settings saved."));

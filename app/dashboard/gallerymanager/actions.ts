@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getBackendUserOptionById } from "@/lib/backend-users";
+import { getTranslations } from "@/lib/i18n/server";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { getRoles, hasRole } from "@/lib/roles";
 import {
   addImagesToGallery as addImagesToGalleryRow,
@@ -34,29 +36,45 @@ async function getCaller() {
   return { userId, isAdmin: hasRole(roles, "admin") };
 }
 
+function translateGalleryDataError(message: string, t: TranslateFn): string {
+  switch (message) {
+    case "Gallery not found or access denied.":
+      return t("dashboard.galleries.errors.galleryNotFoundOrDenied");
+    case "Webshop galleries are managed from the Webshop editor.":
+      return t("dashboard.galleries.errors.webshopManaged");
+    case "Only image files can be added to galleries.":
+      return t("dashboard.galleries.errors.onlyImages");
+    default:
+      return message;
+  }
+}
+
 // ─── Create ───────────────────────────────────────────────────────────────────
 
-const createSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "Name is required.")
-    .max(120, "Name must be 120 characters or fewer."),
-  description: z
-    .string()
-    .trim()
-    .max(1000, "Description must be 1000 characters or fewer.")
-    .optional()
-    .nullable(),
-});
+function createSchema(t: TranslateFn) {
+  return z.object({
+    name: z
+      .string()
+      .trim()
+      .min(1, t("dashboard.galleries.nameRequired"))
+      .max(120, t("dashboard.galleries.errors.nameMax")),
+    description: z
+      .string()
+      .trim()
+      .max(1000, t("dashboard.galleries.errors.descriptionMax"))
+      .optional()
+      .nullable(),
+  });
+}
 
-export type CreateGalleryInput = z.input<typeof createSchema>;
+export type CreateGalleryInput = z.input<ReturnType<typeof createSchema>>;
 
 export async function createGallery(input: CreateGalleryInput) {
+  const t = await getTranslations("backend");
   const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
+  if (!caller) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = createSchema.safeParse(input);
+  const parsed = createSchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
@@ -68,26 +86,43 @@ export async function createGallery(input: CreateGalleryInput) {
     return { success: true as const, id: row.id, slug: row.slug };
   } catch (err) {
     console.error("[createGallery] error", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.galleries.errors.generic") };
   }
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────
 
-const updateSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().trim().min(1).max(120).optional(),
-  description: z.string().trim().max(1000).optional().nullable(),
-  coverFileId: z.string().uuid().nullable().optional(),
-});
+function updateSchema(t: TranslateFn) {
+  return z.object({
+    id: z.string().uuid(t("dashboard.galleries.errors.invalidId")),
+    name: z
+      .string()
+      .trim()
+      .min(1, t("dashboard.galleries.nameRequired"))
+      .max(120, t("dashboard.galleries.errors.nameMax"))
+      .optional(),
+    description: z
+      .string()
+      .trim()
+      .max(1000, t("dashboard.galleries.errors.descriptionMax"))
+      .optional()
+      .nullable(),
+    coverFileId: z
+      .string()
+      .uuid(t("dashboard.galleries.errors.invalidId"))
+      .nullable()
+      .optional(),
+  });
+}
 
-export type UpdateGalleryInput = z.input<typeof updateSchema>;
+export type UpdateGalleryInput = z.input<ReturnType<typeof updateSchema>>;
 
 export async function updateGallery(input: UpdateGalleryInput) {
+  const t = await getTranslations("backend");
   const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
+  if (!caller) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = updateSchema.safeParse(input);
+  const parsed = updateSchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
@@ -100,55 +135,67 @@ export async function updateGallery(input: UpdateGalleryInput) {
       },
       caller,
     );
-    if (!row) return { error: "Gallery not found or access denied." };
+    if (!row) {
+      return { error: t("dashboard.galleries.errors.galleryNotFoundOrDenied") };
+    }
     revalidatePath("/dashboard/gallerymanager");
     revalidatePath(`/dashboard/gallerymanager/${parsed.data.id}`);
     return { success: true as const, gallery: row };
   } catch (err) {
     console.error("[updateGallery] error", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.galleries.errors.generic") };
   }
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
-const deleteSchema = z.object({ id: z.string().uuid() });
+function deleteSchema(t: TranslateFn) {
+  return z.object({
+    id: z.string().uuid(t("dashboard.galleries.errors.invalidId")),
+  });
+}
 
 export async function deleteGallery(input: { id: string }) {
+  const t = await getTranslations("backend");
   const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
+  if (!caller) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = deleteSchema.safeParse(input);
-  if (!parsed.success) return { error: "Invalid id." };
+  const parsed = deleteSchema(t).safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
     const ok = await deleteGalleryRow(parsed.data.id, caller);
-    if (!ok) return { error: "Gallery not found or access denied." };
+    if (!ok) {
+      return { error: t("dashboard.galleries.errors.galleryNotFoundOrDenied") };
+    }
     revalidatePath("/dashboard/gallerymanager");
     return { success: true as const };
   } catch (err) {
     console.error("[deleteGallery] error", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.galleries.errors.generic") };
   }
 }
 
 // ─── Add images ───────────────────────────────────────────────────────────────
 
-const addImagesSchema = z.object({
-  galleryId: z.string().uuid(),
-  fileIds: z
-    .array(z.string().uuid())
-    .min(1, "Select at least one image.")
-    .max(200, "Cannot add more than 200 images at once."),
-});
+function addImagesSchema(t: TranslateFn) {
+  return z.object({
+    galleryId: z.string().uuid(t("dashboard.galleries.errors.invalidId")),
+    fileIds: z
+      .array(z.string().uuid(t("dashboard.galleries.errors.invalidId")))
+      .min(1, t("dashboard.galleries.errors.selectAtLeastOneImage"))
+      .max(200, t("dashboard.galleries.errors.tooManyImages")),
+  });
+}
 
-export type AddImagesInput = z.input<typeof addImagesSchema>;
+export type AddImagesInput = z.input<ReturnType<typeof addImagesSchema>>;
 
 export async function addImagesToGallery(input: AddImagesInput) {
+  const t = await getTranslations("backend");
   const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
+  if (!caller) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = addImagesSchema.safeParse(input);
+  const parsed = addImagesSchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
@@ -157,7 +204,9 @@ export async function addImagesToGallery(input: AddImagesInput) {
       parsed.data.fileIds,
       caller,
     );
-    if ("error" in result) return result;
+    if ("error" in result) {
+      return { error: translateGalleryDataError(result.error, t) };
+    }
     revalidatePath(`/dashboard/gallerymanager/${parsed.data.galleryId}`);
     return {
       success: true as const,
@@ -167,25 +216,28 @@ export async function addImagesToGallery(input: AddImagesInput) {
     };
   } catch (err) {
     console.error("[addImagesToGallery] error", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.galleries.errors.generic") };
   }
 }
 
 // ─── Remove image ─────────────────────────────────────────────────────────────
 
-const removeSchema = z.object({
-  galleryId: z.string().uuid(),
-  fileId: z.string().uuid(),
-});
+function removeSchema(t: TranslateFn) {
+  return z.object({
+    galleryId: z.string().uuid(t("dashboard.galleries.errors.invalidId")),
+    fileId: z.string().uuid(t("dashboard.galleries.errors.invalidId")),
+  });
+}
 
 export async function removeImageFromGallery(input: {
   galleryId: string;
   fileId: string;
 }) {
+  const t = await getTranslations("backend");
   const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
+  if (!caller) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = removeSchema.safeParse(input);
+  const parsed = removeSchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
@@ -194,29 +246,37 @@ export async function removeImageFromGallery(input: {
       parsed.data.fileId,
       caller,
     );
-    if (!ok) return { error: "Image not found in gallery or access denied." };
+    if (!ok) {
+      return { error: t("dashboard.galleries.errors.imageNotFoundOrDenied") };
+    }
     revalidatePath(`/dashboard/gallerymanager/${parsed.data.galleryId}`);
     return { success: true as const };
   } catch (err) {
     console.error("[removeImageFromGallery] error", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.galleries.errors.generic") };
   }
 }
 
 // ─── Reorder ──────────────────────────────────────────────────────────────────
 
-const reorderSchema = z.object({
-  galleryId: z.string().uuid(),
-  orderedFileIds: z.array(z.string().uuid()).min(1).max(500),
-});
+function reorderSchema(t: TranslateFn) {
+  return z.object({
+    galleryId: z.string().uuid(t("dashboard.galleries.errors.invalidId")),
+    orderedFileIds: z
+      .array(z.string().uuid(t("dashboard.galleries.errors.invalidId")))
+      .min(1, t("dashboard.galleries.errors.selectAtLeastOneImage"))
+      .max(500, t("dashboard.galleries.errors.tooManyImages")),
+  });
+}
 
-export type ReorderInput = z.input<typeof reorderSchema>;
+export type ReorderInput = z.input<ReturnType<typeof reorderSchema>>;
 
 export async function reorderGalleryImages(input: ReorderInput) {
+  const t = await getTranslations("backend");
   const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
+  if (!caller) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = reorderSchema.safeParse(input);
+  const parsed = reorderSchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
@@ -225,36 +285,41 @@ export async function reorderGalleryImages(input: ReorderInput) {
       parsed.data.orderedFileIds,
       caller,
     );
-    if ("error" in result) return result;
+    if ("error" in result) {
+      return { error: translateGalleryDataError(result.error, t) };
+    }
     revalidatePath(`/dashboard/gallerymanager/${parsed.data.galleryId}`);
     return { success: true as const };
   } catch (err) {
     console.error("[reorderGalleryImages] error", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.galleries.errors.generic") };
   }
 }
 
 // ─── List (client-driven search/pagination) ───────────────────────────────────
 
-const listSchema = z.object({
-  search: z.string().max(200).optional(),
-  createdBy: z.string().optional(),
-  limit: z.number().int().min(1).max(100).default(24),
-  offset: z.number().int().min(0).default(0),
-});
+function listSchema() {
+  return z.object({
+    search: z.string().max(200).optional(),
+    createdBy: z.string().optional(),
+    limit: z.number().int().min(1).max(100).default(24),
+    offset: z.number().int().min(0).default(0),
+  });
+}
 
-export type ListGalleriesInput = z.input<typeof listSchema>;
+export type ListGalleriesInput = z.input<ReturnType<typeof listSchema>>;
 
 export async function fetchGalleries(
   input: ListGalleriesInput,
 ): Promise<
   { error: string } | { success: true; rows: GalleryListItem[]; total: number }
 > {
+  const t = await getTranslations("backend");
   const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
+  if (!caller) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = listSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const parsed = listSchema().safeParse(input);
+  if (!parsed.success) return { error: t("dashboard.errors.invalidInput") };
 
   const { rows, total } = await listGalleries({
     caller,
@@ -268,7 +333,11 @@ export async function fetchGalleries(
 
 // ─── Picker preview ───────────────────────────────────────────────────────────
 
-const galleryByIdSchema = z.object({ id: z.string().uuid() });
+function galleryByIdSchema(t: TranslateFn) {
+  return z.object({
+    id: z.string().uuid(t("dashboard.galleries.errors.invalidId")),
+  });
+}
 
 export type GalleryPickerPreviewImage = {
   fileId: string;
@@ -278,41 +347,48 @@ export type GalleryPickerPreviewImage = {
 
 // ─── Reassign gallery owner (admin only) ──────────────────────────────────────
 
-const reassignSchema = z.object({
-  id: z.string().uuid(),
-  newOwnerId: z.string().min(1),
-});
+function reassignSchema(t: TranslateFn) {
+  return z.object({
+    id: z.string().uuid(t("dashboard.galleries.errors.invalidId")),
+    newOwnerId: z
+      .string()
+      .min(1, t("dashboard.galleries.reassignDialog.selectUser")),
+  });
+}
 
 export async function reassignGallery(input: {
   id: string;
   newOwnerId: string;
 }) {
+  const t = await getTranslations("backend");
   const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
-  if (!caller.isAdmin) return { error: "Forbidden." };
+  if (!caller) return { error: t("dashboard.errors.forbidden") };
+  if (!caller.isAdmin) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = reassignSchema.safeParse(input);
+  const parsed = reassignSchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   try {
     const owner = await getBackendUserOptionById(parsed.data.newOwnerId);
-    if (!owner) return { error: "Target user must be a backend user." };
+    if (!owner) {
+      return { error: t("dashboard.galleries.errors.targetUserBackend") };
+    }
 
     const row = await reassignGalleryRow(
       parsed.data.id,
       parsed.data.newOwnerId,
     );
-    if (!row) return { error: "Gallery not found." };
+    if (!row) return { error: t("dashboard.galleries.errors.galleryNotFound") };
     revalidatePath("/dashboard/gallerymanager");
     return { success: true as const };
   } catch (err) {
     console.error("[reassignGallery] error", err);
-    return { error: "Something went wrong. Please try again." };
+    return { error: t("dashboard.galleries.errors.generic") };
   }
 }
 
 export async function fetchGalleryPreview(
-  input: z.input<typeof galleryByIdSchema>,
+  input: z.input<ReturnType<typeof galleryByIdSchema>>,
 ): Promise<
   | { error: string }
   | {
@@ -322,17 +398,20 @@ export async function fetchGalleryPreview(
       images: GalleryPickerPreviewImage[];
     }
 > {
+  const t = await getTranslations("backend");
   const caller = await getCaller();
-  if (!caller) return { error: "Forbidden." };
+  if (!caller) return { error: t("dashboard.errors.forbidden") };
 
-  const parsed = galleryByIdSchema.safeParse(input);
+  const parsed = galleryByIdSchema(t).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const detail: GalleryDetail | null = await getGalleryById(
     parsed.data.id,
     caller,
   );
-  if (!detail) return { error: "Gallery not found or access denied." };
+  if (!detail) {
+    return { error: t("dashboard.galleries.errors.galleryNotFoundOrDenied") };
+  }
 
   return {
     success: true,

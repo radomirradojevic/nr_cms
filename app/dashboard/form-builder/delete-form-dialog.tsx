@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { deleteForm } from "./actions";
+import { translateFormBuilderError } from "./form-error-message";
 
 type Props = {
   id: string;
@@ -36,6 +38,7 @@ export function DeleteFormDialog({
   onDeleted,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirm, setConfirm] = useState("");
@@ -89,7 +92,11 @@ export function DeleteFormDialog({
             onChange={(e) => setConfirm(e.target.value)}
             placeholder={name}
           />
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p className="text-sm text-destructive">
+              {translateFormBuilderError(st, error)}
+            </p>
+          )}
         </div>
 
         <AlertDialogFooter>

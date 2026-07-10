@@ -754,6 +754,42 @@ export const en = {
         description:
           "You are about to permanently delete {target}. References to {reference} inside content items will also be removed. This action cannot be undone.",
         theseFiles: "these files",
+        blockedSingle:
+          "This file cannot be deleted because it is used by {usages}. Remove or replace those references first.{hint}",
+        blockedMultiple:
+          "One or more selected files cannot be deleted because they are used by {usages}. Remove or replace those references first.{hint}",
+        legacyDigitalAssetHint:
+          " Open the product in Webshop, upload a private file in Fulfillment, and save it, or remove file delivery first.",
+        nameList: " ({names})",
+        nameListWithMore: "{names} and {count} more",
+        fallbackUsage: "another record",
+        usages: {
+          productMedia: "Webshop product media{nameList}",
+          productCover: {
+            one: "Webshop product cover{nameList}",
+            other: "Webshop product covers{nameList}",
+          },
+          digitalAssetsWithEntitlements:
+            "Webshop digital assets with download entitlements{nameList}",
+          legacyDigitalAssetsWithoutPrivateReplacement:
+            "active legacy Webshop digital assets without a private file replacement{nameList}",
+          digitalAssets: "Webshop digital assets{nameList}",
+          categoryImage: {
+            one: "Webshop category image{nameList}",
+            other: "Webshop category images{nameList}",
+          },
+          gallery: {
+            one: "Gallery Manager gallery{nameList}",
+            other: "Gallery Manager galleries{nameList}",
+          },
+          heroSliderMedia: "Hero Slider content{nameList}",
+        },
+        errors: {
+          digitalAssetAttached:
+            "This file cannot be deleted because it is attached to a Webshop digital asset. Remove or replace that digital asset in Webshop first.",
+          productMediaAttached:
+            "This file cannot be deleted because it is used in Webshop product media. Remove or replace that media in Webshop first.",
+        },
       },
       move: {
         title: "Move files",
@@ -807,6 +843,21 @@ export const en = {
       galleryDeleted: "Gallery deleted.",
       somethingWentWrong: "Something went wrong.",
       nameRequired: "Name is required.",
+      errors: {
+        nameMax: "Name must be 120 characters or fewer.",
+        descriptionMax: "Description must be 1000 characters or fewer.",
+        generic: "Something went wrong. Please try again.",
+        invalidId: "Invalid id.",
+        galleryNotFoundOrDenied: "Gallery not found or access denied.",
+        galleryNotFound: "Gallery not found.",
+        selectAtLeastOneImage: "Select at least one image.",
+        tooManyImages: "Cannot add more than 200 images at once.",
+        imageNotFoundOrDenied: "Image not found in gallery or access denied.",
+        targetUserBackend: "Target user must be a backend user.",
+        webshopManaged:
+          "Webshop galleries are managed from the Webshop editor.",
+        onlyImages: "Only image files can be added to galleries.",
+      },
       imageCount: {
         one: "{count} image",
         other: "{count} images",
@@ -866,10 +917,22 @@ export const en = {
       general: "General",
       settings: "Settings",
       embed: "Embed",
+      backToForms: "Back to forms",
+      backToForm: "Back to form",
+      submissionsTitle: "{name} - Submissions",
+      totalSubmissions: {
+        one: "{count} total submission",
+        other: "{count} total submissions",
+      },
       noFormsYet: "No forms yet.",
       status: {
         draft: "Draft",
         published: "Published",
+      },
+      submissionStatus: {
+        new: "new",
+        read: "read",
+        spam: "spam",
       },
       lockedBy: "Locked by {name}",
       lockTitle: "Currently being edited by {name}. Last activity {time}.",
@@ -1057,6 +1120,14 @@ export const en = {
         status: "Status",
         presence: "Presence",
         roles: "Roles",
+      },
+      errors: {
+        invalidUserId: "Invalid user ID.",
+        cannotLockSelf: "You cannot lock your own account.",
+        cannotForceSignOutSelf: "You cannot force sign out your own account.",
+        revokeSessionsFailed: "Failed to revoke active sessions.",
+        cannotDeleteSelf: "You cannot delete your own account.",
+        loadUsersFailed: "Failed to load users.",
       },
     },
     globalSettings: {

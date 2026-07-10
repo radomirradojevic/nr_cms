@@ -3,16 +3,20 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getTranslations } from "@/lib/i18n/server";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { hasRole, ROLES } from "@/lib/roles";
 
-async function requireAdmin() {
+async function requireAdmin(t: TranslateFn) {
   const { userId: callerId } = await auth();
-  if (!callerId) return { callerId: null, error: "Unauthorized." };
+  if (!callerId) {
+    return { callerId: null, error: t("common.states.unauthorized") };
+  }
 
   const caller = await getOptionalCurrentUser();
   if (!hasRole(caller?.publicMetadata?.roles, "admin")) {
-    return { callerId: null, error: "Forbidden." };
+    return { callerId: null, error: t("dashboard.errors.forbidden") };
   }
 
   return { callerId, error: null };
@@ -28,11 +32,14 @@ type UpdateUserRolesInput = z.infer<typeof updateUserRolesSchema>;
 export async function updateUserRoles(
   input: UpdateUserRolesInput,
 ): Promise<{ success?: boolean; error?: string }> {
-  const { callerId, error: authError } = await requireAdmin();
-  if (authError || !callerId) return { error: authError ?? "Unauthorized." };
+  const t = await getTranslations("backend");
+  const { callerId, error: authError } = await requireAdmin(t);
+  if (authError || !callerId) {
+    return { error: authError ?? t("common.states.unauthorized") };
+  }
 
   const parsed = updateUserRolesSchema.safeParse(input);
-  if (!parsed.success) return { error: "Invalid input." };
+  if (!parsed.success) return { error: t("dashboard.errors.invalidInput") };
 
   // Only one role may be assigned at a time; viewer is always implicitly present.
   // If the caller submitted any non-viewer role, keep only the first one.
@@ -51,13 +58,16 @@ export async function updateUserRoles(
 export async function lockUser(
   userId: string,
 ): Promise<{ success?: boolean; error?: string }> {
-  const { callerId, error: authError } = await requireAdmin();
-  if (authError || !callerId) return { error: authError ?? "Unauthorized." };
+  const t = await getTranslations("backend");
+  const { callerId, error: authError } = await requireAdmin(t);
+  if (authError || !callerId) {
+    return { error: authError ?? t("common.states.unauthorized") };
+  }
 
   if (!userId || typeof userId !== "string")
-    return { error: "Invalid user ID." };
+    return { error: t("dashboard.users.errors.invalidUserId") };
   if (userId === callerId)
-    return { error: "You cannot lock your own account." };
+    return { error: t("dashboard.users.errors.cannotLockSelf") };
 
   const client = await clerkClient();
   await client.users.lockUser(userId);
@@ -70,11 +80,14 @@ export async function lockUser(
 export async function unlockUser(
   userId: string,
 ): Promise<{ success?: boolean; error?: string }> {
-  const { callerId, error: authError } = await requireAdmin();
-  if (authError || !callerId) return { error: authError ?? "Unauthorized." };
+  const t = await getTranslations("backend");
+  const { callerId, error: authError } = await requireAdmin(t);
+  if (authError || !callerId) {
+    return { error: authError ?? t("common.states.unauthorized") };
+  }
 
   if (!userId || typeof userId !== "string")
-    return { error: "Invalid user ID." };
+    return { error: t("dashboard.users.errors.invalidUserId") };
 
   const client = await clerkClient();
   await client.users.unlockUser(userId);
@@ -87,13 +100,16 @@ export async function unlockUser(
 export async function forceSignOutUser(
   userId: string,
 ): Promise<{ success?: boolean; revoked?: number; error?: string }> {
-  const { callerId, error: authError } = await requireAdmin();
-  if (authError || !callerId) return { error: authError ?? "Unauthorized." };
+  const t = await getTranslations("backend");
+  const { callerId, error: authError } = await requireAdmin(t);
+  if (authError || !callerId) {
+    return { error: authError ?? t("common.states.unauthorized") };
+  }
 
   if (!userId || typeof userId !== "string")
-    return { error: "Invalid user ID." };
+    return { error: t("dashboard.users.errors.invalidUserId") };
   if (userId === callerId)
-    return { error: "You cannot force sign out your own account." };
+    return { error: t("dashboard.users.errors.cannotForceSignOutSelf") };
 
   const client = await clerkClient();
 
@@ -114,7 +130,7 @@ export async function forceSignOutUser(
   revalidatePath("/dashboard/users");
 
   if (failed > 0 && revoked === 0) {
-    return { error: "Failed to revoke active sessions." };
+    return { error: t("dashboard.users.errors.revokeSessionsFailed") };
   }
 
   return { success: true, revoked };
@@ -123,13 +139,16 @@ export async function forceSignOutUser(
 export async function deleteUser(
   userId: string,
 ): Promise<{ success?: boolean; error?: string }> {
-  const { callerId, error: authError } = await requireAdmin();
-  if (authError || !callerId) return { error: authError ?? "Unauthorized." };
+  const t = await getTranslations("backend");
+  const { callerId, error: authError } = await requireAdmin(t);
+  if (authError || !callerId) {
+    return { error: authError ?? t("common.states.unauthorized") };
+  }
 
   if (!userId || typeof userId !== "string")
-    return { error: "Invalid user ID." };
+    return { error: t("dashboard.users.errors.invalidUserId") };
   if (userId === callerId)
-    return { error: "You cannot delete your own account." };
+    return { error: t("dashboard.users.errors.cannotDeleteSelf") };
 
   const client = await clerkClient();
   await client.users.deleteUser(userId);

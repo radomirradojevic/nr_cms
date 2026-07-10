@@ -41,6 +41,7 @@ import { AddCategoryDialog } from "./add-category-dialog";
 import { createMenuItem, reorderMenu } from "./actions";
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 
 const INDENT = 24;
 
@@ -58,6 +59,7 @@ export function TopMenuBuilder({
   categories,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const canEdit = lock.isEditor;
@@ -244,7 +246,7 @@ export function TopMenuBuilder({
 
           {error && (
             <p className="text-sm text-destructive border border-destructive/40 bg-destructive/10 rounded p-2">
-              {error}
+              {st(error)}
             </p>
           )}
 

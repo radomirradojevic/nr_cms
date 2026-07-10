@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, ExternalLink, FileText, FolderTree } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useSourceTranslations } from "@/components/source-translations";
 import type { FlatItem } from "./tree-utils";
 import { EditItemDialog } from "./edit-item-dialog";
 import { DeleteItemDialog } from "./delete-item-dialog";
@@ -27,6 +28,7 @@ export function MenuTreeRow({
   disabled,
   clientId,
 }: Props) {
+  const st = useSourceTranslations();
   const {
     attributes,
     listeners,
@@ -60,7 +62,7 @@ export function MenuTreeRow({
       <button
         type="button"
         className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-        aria-label="Drag handle"
+        aria-label={st("Drag handle")}
         disabled={disabled}
         {...attributes}
         {...listeners}
@@ -73,22 +75,22 @@ export function MenuTreeRow({
         {isContent ? (
           <Badge variant="secondary" className="gap-1">
             <FileText className="h-3 w-3" />
-            Content
+            {st("Content")}
           </Badge>
         ) : isCategory ? (
           <Badge variant="secondary" className="gap-1">
             <FolderTree className="h-3 w-3" />
-            Blog category
+            {st("Blog category")}
           </Badge>
         ) : (
           <Badge variant="outline" className="gap-1">
             <ExternalLink className="h-3 w-3" />
-            {isExternal ? "External" : "Custom"}
+            {isExternal ? st("External") : st("Custom")}
           </Badge>
         )}
         {item.target === "_blank" && (
           <Badge variant="outline" className="text-[10px]">
-            new tab
+            {st("new tab")}
           </Badge>
         )}
         <span className="text-xs text-muted-foreground truncate">
