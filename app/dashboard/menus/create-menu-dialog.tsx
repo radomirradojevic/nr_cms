@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +22,7 @@ import { createMenu } from "../top-menu/actions";
 
 export function CreateMenuDialog() {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const [open, setOpen] = useState(false);
@@ -83,7 +85,7 @@ export function CreateMenuDialog() {
             />
           </div>
           {serverError && (
-            <p className="text-sm text-destructive">{serverError}</p>
+            <p className="text-sm text-destructive">{st(serverError)}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button

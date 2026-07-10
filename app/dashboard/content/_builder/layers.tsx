@@ -37,6 +37,9 @@ function TranslatedLayer({ children }: { children?: ReactNode }) {
     },
   );
   const hasChildren = Boolean(children);
+  const rowStateClassName = selected
+    ? "bg-[var(--nav-hover-bg)] text-[var(--nav-hover-foreground)] ring-1 ring-inset ring-ring/50"
+    : "text-foreground hover:bg-[var(--nav-hover-bg)] hover:text-[var(--nav-hover-foreground)]";
 
   return (
     <div
@@ -46,21 +49,23 @@ function TranslatedLayer({ children }: { children?: ReactNode }) {
         drag(element);
       }}
       className={cn(
-        "rounded-sm text-xs transition-colors",
-        selected && "bg-accent text-accent-foreground",
-        !selected && "hover:bg-accent/50",
+        "rounded-sm text-xs",
+        hidden && !selected && "text-muted-foreground",
       )}
     >
       <div
         ref={(element) => {
           if (element) layerHeader(element);
         }}
-        className="flex min-w-0 items-center gap-1 px-2 py-1.5"
+        className={cn(
+          "flex min-w-0 items-center gap-1 rounded-sm px-2 py-1.5 transition-colors",
+          rowStateClassName,
+        )}
         style={{ paddingLeft: 8 + depth * 10 }}
       >
         <button
           type="button"
-          className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-background/60"
+          className="grid size-5 shrink-0 place-items-center rounded text-current opacity-75 transition hover:bg-background/20 hover:opacity-100"
           aria-label={hidden ? t("Show layer") : t("Hide layer")}
           title={hidden ? t("Show layer") : t("Hide layer")}
           onClick={(event) => {
@@ -75,7 +80,7 @@ function TranslatedLayer({ children }: { children?: ReactNode }) {
           )}
         </button>
         {topLevel ? (
-          <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <Link2 className="h-3.5 w-3.5 shrink-0 text-current opacity-75" />
         ) : null}
         <span className="min-w-0 flex-1 truncate font-medium">
           {t(displayName)}
@@ -83,7 +88,7 @@ function TranslatedLayer({ children }: { children?: ReactNode }) {
         {hasChildren ? (
           <button
             type="button"
-            className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-background/60"
+            className="grid size-5 shrink-0 place-items-center rounded text-current opacity-75 transition hover:bg-background/20 hover:opacity-100"
             aria-label={expanded ? t("Collapse layer") : t("Expand layer")}
             title={expanded ? t("Collapse layer") : t("Expand layer")}
             onMouseDown={(event) => {

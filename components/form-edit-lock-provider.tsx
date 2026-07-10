@@ -215,7 +215,7 @@ export function FormEditLockProvider({
       }
       setState({
         kind: "error",
-        message: json.error ?? `Failed to acquire lock (HTTP ${res.status}).`,
+        message: json.error ?? "Failed to acquire edit lock.",
       });
     } catch (err) {
       setState({
@@ -357,18 +357,20 @@ function FormEditLockBanner() {
   if (state.kind === "locked") {
     return (
       <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
-        Currently being edited by{" "}
-        <strong>{state.holder.userDisplayName}</strong> ({state.holder.userRole}
-        ). Last activity {formatTime(state.holder.lastHeartbeatAt)}. You can
-        view but not save changes. Another admin is editing — contact them to
-        release the lock, or wait until they close the page.
+        {st(
+          "This form is currently being edited by {name}. Wait until the current editor closes the page.",
+          { name: state.holder.userDisplayName },
+        )}
+        <span className="ml-1 text-xs opacity-80">
+          ({state.holder.userRole}, {formatTime(state.holder.lastHeartbeatAt)})
+        </span>
       </div>
     );
   }
   if (state.kind === "error") {
     return (
       <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-        {state.message}
+        {st(state.message)}
       </div>
     );
   }

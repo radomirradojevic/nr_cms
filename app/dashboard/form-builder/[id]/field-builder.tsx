@@ -81,19 +81,6 @@ const FIELD_ICONS: Record<FieldType, React.ReactNode> = {
   file: <FileUp className="h-4 w-4" />,
 };
 
-const FIELD_LABELS: Record<FieldType, string> = {
-  text: "Short text",
-  textarea: "Long text",
-  email: "Email",
-  number: "Number",
-  phone: "Phone",
-  select: "Dropdown",
-  radio: "Radio buttons",
-  checkbox: "Checkbox(es)",
-  date: "Date",
-  file: "File upload",
-};
-
 function getFieldTypeLabelKey(type: FieldType): TranslationKey {
   return `dashboard.forms.fieldBuilder.fieldType.${type}` as TranslationKey;
 }
@@ -106,17 +93,22 @@ function defaultKey(type: FieldType, existing: EditableField[]): string {
   return `${type}_${n}`;
 }
 
-function blankField(type: FieldType, existing: EditableField[]): EditableField {
+function blankField(
+  type: FieldType,
+  existing: EditableField[],
+  label: string,
+  choiceLabel: string,
+): EditableField {
   return {
     fieldKey: defaultKey(type, existing),
     fieldType: type,
-    label: FIELD_LABELS[type],
+    label,
     placeholder: "",
     helpText: "",
     required: false,
     options:
       type === "select" || type === "radio" || type === "checkbox"
-        ? { choices: [{ value: "option_1", label: "Option 1" }] }
+        ? { choices: [{ value: "option_1", label: choiceLabel }] }
         : {},
     validation: {},
   };
@@ -143,6 +135,7 @@ type Props = {
 
 export function FieldBuilder({ formId, initialFields }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useFormEditLock();
   const [fields, setFields] = useState<EditableField[]>(
@@ -164,7 +157,15 @@ export function FieldBuilder({ formId, initialFields }: Props) {
 
   function addField(type: FieldType) {
     setFields((prev) => {
-      const next = [...prev, blankField(type, prev)];
+      const next = [
+        ...prev,
+        blankField(
+          type,
+          prev,
+          t(getFieldTypeLabelKey(type)),
+          st("Option {number}", { number: 1 }),
+        ),
+      ];
       setSelectedIdx(next.length - 1);
       return next;
     });
@@ -262,7 +263,7 @@ export function FieldBuilder({ formId, initialFields }: Props) {
         })),
       });
       if ("error" in res && res.error) {
-        toast.error(res.error);
+        toast.error(st(res.error));
         return;
       }
       toast.success(t("dashboard.forms.fieldBuilder.fieldsSaved"));
@@ -411,7 +412,7 @@ function FieldRow({
         {FIELD_ICONS[field.fieldType]}
       </span>
       <button type="button" onClick={onSelect} className="flex-1 text-left">
-        <span className="font-medium">{field.label || "(no label)"}</span>
+        <span className="font-medium">{field.label || st("(no label)")}</span>
         {field.required && (
           <span className="ml-1 text-xs text-destructive">*</span>
         )}
@@ -707,7 +708,7 @@ function FieldConfig({
                 ...arr,
                 {
                   value: `option_${arr.length + 1}`,
-                  label: `Option ${arr.length + 1}`,
+                  label: st("Option {number}", { number: arr.length + 1 }),
                 },
               ]);
             }}

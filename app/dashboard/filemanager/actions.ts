@@ -32,6 +32,9 @@ import { sanitizeFilename } from "@/lib/file-manager";
 import { getBackendUserOptionById } from "@/lib/backend-users";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getGlobalSettings } from "@/data/global-settings";
+import { cmsLanguageToLocale } from "@/lib/i18n/languages";
+import { getI18nSettings, getTranslations } from "@/lib/i18n/server";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import {
   dateOnlyToUtcEndExclusive,
   dateOnlyToUtcStart,
@@ -70,35 +73,67 @@ function folderMutationError(err: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-function blockingFileDeleteError(refs: BlockingFileDeleteReferences): string {
+async function getBackendFileActionI18n() {
+  const [{ backendLanguage }, t] = await Promise.all([
+    getI18nSettings(),
+    getTranslations("backend"),
+  ]);
+
+  return {
+    locale: cmsLanguageToLocale(backendLanguage),
+    t,
+  };
+}
+
+function blockingFileDeleteError(
+  refs: BlockingFileDeleteReferences,
+  t: TranslateFn,
+  locale: string,
+): string {
   const single = refs.fileIds.length === 1;
-  const subject = single ? "This file" : "One or more selected files";
-  const object = single ? "it" : "them";
-  const verb = single ? "is" : "are";
 
   const usages: string[] = [];
   if (refs.productMedia > 0) {
     usages.push(
-      `Webshop product media${formatNameList(refs.productMediaProductNames)}`,
+      t("dashboard.files.delete.usages.productMedia", {
+        nameList: formatNameList(refs.productMediaProductNames, t),
+      }),
     );
   }
   if (refs.productCovers > 0) {
-    const coverLabel =
-      refs.productCovers === 1
-        ? "Webshop product cover"
-        : "Webshop product covers";
-    usages.push(`${coverLabel}${formatNameList(refs.productCoverNames)}`);
+    usages.push(
+      t.plural(
+        "dashboard.files.delete.usages.productCover",
+        refs.productCovers,
+        {
+          nameList: formatNameList(refs.productCoverNames, t),
+        },
+      ),
+    );
   }
   if (refs.digitalAssets > 0) {
     if (refs.digitalAssetsWithEntitlements > 0) {
       usages.push(
-        `Webshop digital assets with download entitlements${formatNameList(refs.digitalAssetEntitlementProductNames)}`,
+        t("dashboard.files.delete.usages.digitalAssetsWithEntitlements", {
+          nameList: formatNameList(
+            refs.digitalAssetEntitlementProductNames,
+            t,
+          ),
+        }),
       );
     }
 
     if (refs.digitalAssetsWithoutPrivateReplacement > 0) {
       usages.push(
-        `active legacy Webshop digital assets without a private file replacement${formatNameList(refs.digitalAssetMissingReplacementProductNames)}`,
+        t(
+          "dashboard.files.delete.usages.legacyDigitalAssetsWithoutPrivateReplacement",
+          {
+            nameList: formatNameList(
+              refs.digitalAssetMissingReplacementProductNames,
+              t,
+            ),
+          },
+        ),
       );
     }
 
@@ -107,54 +142,89 @@ function blockingFileDeleteError(refs: BlockingFileDeleteReferences): string {
       refs.digitalAssetsWithoutPrivateReplacement;
     if (refs.digitalAssets > describedDigitalAssets) {
       usages.push(
-        `Webshop digital assets${formatNameList(refs.digitalAssetProductNames)}`,
+        t("dashboard.files.delete.usages.digitalAssets", {
+          nameList: formatNameList(refs.digitalAssetProductNames, t),
+        }),
       );
     }
   }
   if (refs.categoryImages > 0) {
-    const categoryLabel =
-      refs.categoryImages === 1
-        ? "Webshop category image"
-        : "Webshop category images";
-    usages.push(`${categoryLabel}${formatNameList(refs.categoryNames)}`);
+    usages.push(
+      t.plural(
+        "dashboard.files.delete.usages.categoryImage",
+        refs.categoryImages,
+        {
+          nameList: formatNameList(refs.categoryNames, t),
+        },
+      ),
+    );
   }
   if (refs.galleryImages > 0 || refs.galleryCovers > 0) {
     const galleryCount = refs.galleryNames.length;
-    const galleryLabel =
-      galleryCount === 1
-        ? "Gallery Manager gallery"
-        : "Gallery Manager galleries";
-    usages.push(`${galleryLabel}${formatNameList(refs.galleryNames)}`);
+    usages.push(
+      t.plural("dashboard.files.delete.usages.gallery", galleryCount, {
+        nameList: formatNameList(refs.galleryNames, t),
+      }),
+    );
   }
   if (refs.heroSliderMedia > 0) {
-    usages.push(`Hero Slider content${formatNameList(refs.heroSliderNames)}`);
+    usages.push(
+      t("dashboard.files.delete.usages.heroSliderMedia", {
+        nameList: formatNameList(refs.heroSliderNames, t),
+      }),
+    );
   }
 
   const legacyDigitalAssetHint =
     refs.digitalAssetsWithoutPrivateReplacement > 0
-      ? " Open the product in Webshop, upload a private file in Fulfillment, and save it, or remove file delivery first."
+      ? t("dashboard.files.delete.legacyDigitalAssetHint")
       : "";
 
-  return `${subject} cannot be deleted because ${object} ${verb} used by ${formatUsageList(usages)}. Remove or replace those references first.${legacyDigitalAssetHint}`;
+  return t(
+    single
+      ? "dashboard.files.delete.blockedSingle"
+      : "dashboard.files.delete.blockedMultiple",
+    {
+      hint: legacyDigitalAssetHint,
+      usages: formatUsageList(usages, locale, t),
+    },
+  );
 }
 
-function formatNameList(names: string[]): string {
+function formatNameList(names: string[], t: TranslateFn): string {
   if (names.length === 0) return "";
   const visible = names.slice(0, 3);
-  const suffix =
+  const namesText =
     names.length > visible.length
-      ? ` and ${names.length - visible.length} more`
-      : "";
-  return ` (${visible.join(", ")}${suffix})`;
+      ? t("dashboard.files.delete.nameListWithMore", {
+          count: names.length - visible.length,
+          names: visible.join(", "),
+        })
+      : visible.join(", ");
+
+  return t("dashboard.files.delete.nameList", { names: namesText });
 }
 
-function formatUsageList(usages: string[]): string {
-  if (usages.length <= 1) return usages[0] ?? "another record";
-  if (usages.length === 2) return `${usages[0]} and ${usages[1]}`;
-  return `${usages.slice(0, -1).join(", ")}, and ${usages[usages.length - 1]}`;
+function formatUsageList(
+  usages: string[],
+  locale: string,
+  t: TranslateFn,
+): string {
+  if (usages.length <= 1) {
+    return usages[0] ?? t("dashboard.files.delete.fallbackUsage");
+  }
+
+  try {
+    return new Intl.ListFormat(locale, {
+      style: "long",
+      type: "conjunction",
+    }).format(usages);
+  } catch {
+    return usages.join(", ");
+  }
 }
 
-function fileDeleteMutationError(err: unknown): string {
+function fileDeleteMutationError(err: unknown, t: TranslateFn): string {
   const info =
     typeof err === "object" && err !== null
       ? (err as { code?: unknown; constraint?: unknown })
@@ -164,10 +234,10 @@ function fileDeleteMutationError(err: unknown): string {
 
   if (code === "23503") {
     if (constraint === "webshop_digital_assets_file_id_files_id_fk") {
-      return "This file cannot be deleted because it is attached to a Webshop digital asset. Remove or replace that digital asset in Webshop first.";
+      return t("dashboard.files.delete.errors.digitalAssetAttached");
     }
     if (constraint === "webshop_product_media_file_id_files_id_fk") {
-      return "This file cannot be deleted because it is used in Webshop product media. Remove or replace that media in Webshop first.";
+      return t("dashboard.files.delete.errors.productMediaAttached");
     }
   }
 
@@ -257,7 +327,8 @@ export async function bulkDeleteFiles(input: BulkDeleteFilesInput) {
 
     const blockingRefs = await findBlockingFileDeleteReferences(targetIds);
     if (blockingRefs.fileIds.length > 0) {
-      return { error: blockingFileDeleteError(blockingRefs) };
+      const { locale, t } = await getBackendFileActionI18n();
+      return { error: blockingFileDeleteError(blockingRefs, t, locale) };
     }
 
     // Purge content references first so we don't leave dangling links if the
@@ -276,7 +347,8 @@ export async function bulkDeleteFiles(input: BulkDeleteFilesInput) {
 
     return { success: true, deleted: removed.length };
   } catch (err) {
-    const message = fileDeleteMutationError(err);
+    const { t } = await getBackendFileActionI18n();
+    const message = fileDeleteMutationError(err, t);
     if (message === "Something went wrong. Please try again.") {
       console.error("[bulkDeleteFiles] Unexpected error:", err);
     }

@@ -7,6 +7,7 @@ import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-co
 import type { BackendUserOption } from "@/lib/backend-user-types";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { reassignForm } from "./actions";
+import { translateFormBuilderError } from "./form-error-message";
 
 type Props = {
   formId: string;
@@ -41,6 +43,7 @@ export function ReassignFormDialog({
   onReassigned,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
     currentOwnerId
       ? { id: currentOwnerId, name: currentOwnerName ?? currentOwnerId }
@@ -103,7 +106,9 @@ export function ReassignFormDialog({
           </div>
 
           {serverError && (
-            <p className="text-sm text-destructive">{serverError}</p>
+            <p className="text-sm text-destructive">
+              {translateFormBuilderError(st, serverError)}
+            </p>
           )}
 
           <div className="flex justify-end gap-2">

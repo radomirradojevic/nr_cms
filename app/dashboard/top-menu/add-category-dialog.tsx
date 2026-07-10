@@ -35,13 +35,11 @@ import {
 import type { BlogCategoryPickerItem } from "@/data/top-menu";
 import { createMenuItem } from "./actions";
 
-const formSchema = z.object({
-  categoryId: z.string().uuid("Pick a category."),
-  label: z.string().max(200).optional(),
-  target: z.enum(["_self", "_blank"]),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = {
+  categoryId: string;
+  label?: string;
+  target: "_self" | "_blank";
+};
 
 type Props = {
   menuId: string;
@@ -63,6 +61,11 @@ export function AddCategoryDialog({
   const st = useSourceTranslations();
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const formSchema = z.object({
+    categoryId: z.string().uuid(st("Pick a category.")),
+    label: z.string().max(200).optional(),
+    target: z.enum(["_self", "_blank"]),
+  });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

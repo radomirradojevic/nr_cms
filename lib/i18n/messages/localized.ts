@@ -2,6 +2,7 @@ import { en } from "@/lib/i18n/messages/en";
 import { ADDON_SHELL_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/addon-shell-translations";
 import { BACKEND_WEBSHOP_MENU_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/backend-menu-translations";
 import { CORE_UI_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/core-ui-translations";
+import { CONTENT_CATEGORIES_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/content-categories-translations";
 import { CONTENT_DASHBOARD_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/content-dashboard-translations";
 import { CONTENT_NEW_CHOICE_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/content-new-choice-translations";
 import {
@@ -9,6 +10,10 @@ import {
   CONTENT_EDITOR_SOURCE_TRANSLATIONS,
 } from "@/lib/i18n/messages/content-editor-translations";
 import { DASHBOARD_ROOT_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/dashboard-root-translations";
+import { FILE_MANAGER_DELETE_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/file-manager-delete-translations";
+import { FILE_MANAGER_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/file-manager-translations";
+import { FORM_BUILDER_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/form-builder-translations";
+import { GALLERY_MANAGER_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/gallery-manager-translations";
 import { GLOBAL_SETTINGS_APPEARANCE_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/global-settings-appearance-translations";
 import {
   GLOBAL_SETTINGS_SOURCE_TRANSLATIONS,
@@ -21,9 +26,11 @@ import { GLOBAL_SETTINGS_PRESET_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/
 import { GLOBAL_SETTINGS_SESSION_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/global-settings-session-translations";
 import { HERO_SLIDER_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/hero-slider-translations";
 import { PAGE_BUILDER_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/page-builder-translations";
+import { USER_MANAGEMENT_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/user-management-translations";
 import { WEBSHOP_ADMIN_DASHBOARD_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-admin-dashboard-translations";
 import type { CmsLanguage } from "@/lib/i18n/languages";
 import { LOCK_UI_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/lock-ui-translations";
+import { MENU_MANAGEMENT_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/menu-management-translations";
 import type {
   Messages,
   PluralCategory,
@@ -3878,8 +3885,22 @@ function localizeString(
     LOCK_UI_SOURCE_TRANSLATIONS[language];
   const dashboardRootTranslations: Record<string, string> =
     DASHBOARD_ROOT_SOURCE_TRANSLATIONS[language];
+  const fileManagerTranslations: Record<string, string> =
+    FILE_MANAGER_SOURCE_TRANSLATIONS[language];
+  const fileManagerDeleteTranslations: Record<string, string> =
+    FILE_MANAGER_DELETE_SOURCE_TRANSLATIONS[language];
+  const galleryManagerTranslations: Record<string, string> =
+    GALLERY_MANAGER_SOURCE_TRANSLATIONS[language];
+  const userManagementTranslations: Record<string, string> =
+    USER_MANAGEMENT_SOURCE_TRANSLATIONS[language];
+  const menuManagementTranslations: Record<string, string> =
+    MENU_MANAGEMENT_SOURCE_TRANSLATIONS[language];
+  const formBuilderTranslations: Record<string, string> =
+    FORM_BUILDER_SOURCE_TRANSLATIONS[language];
   const contentDashboardTranslations: Record<string, string> =
     CONTENT_DASHBOARD_SOURCE_TRANSLATIONS[language];
+  const contentCategoriesTranslations: Record<string, string> =
+    CONTENT_CATEGORIES_SOURCE_TRANSLATIONS[language];
   const contentNewChoiceTranslations: Record<string, string> =
     CONTENT_NEW_CHOICE_SOURCE_TRANSLATIONS[language];
   const contentEditorTranslations: Record<string, string> =
@@ -3914,6 +3935,7 @@ function localizeString(
     lockUiTranslations[source] ??
     commentsTranslations[source] ??
     contentDashboardTranslations[source] ??
+    contentCategoriesTranslations[source] ??
     contentNewChoiceTranslations[source] ??
     pageBuilderTranslations[source] ??
     heroSliderTranslations[source] ??
@@ -3927,6 +3949,12 @@ function localizeString(
     globalSettingsFormTranslations[source] ??
     globalSettingsHelpTranslations[source] ??
     globalSettingsPresetTranslations[source] ??
+    fileManagerDeleteTranslations[source] ??
+    galleryManagerTranslations[source] ??
+    userManagementTranslations[source] ??
+    menuManagementTranslations[source] ??
+    formBuilderTranslations[source] ??
+    fileManagerTranslations[source] ??
     sourceTranslations[source] ??
     profile.translations[source];
   if (translated) return translated;
@@ -3948,6 +3976,36 @@ export function localizeSourceString(
   return localizeString(source, language, LANGUAGE_PROFILES[language]);
 }
 
+function localizeStringForPath(
+  source: string,
+  language: LocalizedLanguage,
+  profile: LanguageProfile,
+  path: readonly string[],
+): string {
+  if (path[0] === "dashboard" && path[1] === "users") {
+    const userManagementTranslations: Record<string, string> =
+      USER_MANAGEMENT_SOURCE_TRANSLATIONS[language];
+    const userManagementTranslation = userManagementTranslations[source];
+    if (userManagementTranslation) return userManagementTranslation;
+  }
+
+  if (path[0] === "dashboard" && path[1] === "menus") {
+    const menuManagementTranslations: Record<string, string> =
+      MENU_MANAGEMENT_SOURCE_TRANSLATIONS[language];
+    const menuManagementTranslation = menuManagementTranslations[source];
+    if (menuManagementTranslation) return menuManagementTranslation;
+  }
+
+  if (path[0] === "dashboard" && path[1] === "forms") {
+    const formBuilderTranslations: Record<string, string> =
+      FORM_BUILDER_SOURCE_TRANSLATIONS[language];
+    const formBuilderTranslation = formBuilderTranslations[source];
+    if (formBuilderTranslation) return formBuilderTranslation;
+  }
+
+  return localizeString(source, language, profile);
+}
+
 function pluralCategoriesForLanguage(
   language: LocalizedLanguage,
 ): readonly PluralCategory[] {
@@ -3966,15 +4024,17 @@ function localizePluralMessages(
   source: PluralMessages,
   language: LocalizedLanguage,
   profile: LanguageProfile,
+  path: readonly string[],
 ): PluralMessages {
   const localized: Partial<Record<PluralCategory, string>> = {};
   const fallbackSource = source.other ?? source.one ?? "";
 
   for (const category of pluralCategoriesForLanguage(language)) {
-    localized[category] = localizeString(
+    localized[category] = localizeStringForPath(
       source[category] ?? fallbackSource,
       language,
       profile,
+      path,
     );
   }
 
@@ -3985,13 +4045,14 @@ function localizeNode(
   source: unknown,
   language: LocalizedLanguage,
   profile: LanguageProfile,
+  path: readonly string[] = [],
 ): unknown {
   if (typeof source === "string") {
-    return localizeString(source, language, profile);
+    return localizeStringForPath(source, language, profile, path);
   }
 
   if (isPluralMessages(source)) {
-    return localizePluralMessages(source, language, profile);
+    return localizePluralMessages(source, language, profile, path);
   }
 
   if (!isRecord(source)) {
@@ -4001,7 +4062,7 @@ function localizeNode(
   return Object.fromEntries(
     Object.entries(source).map(([key, value]) => [
       key,
-      localizeNode(value, language, profile),
+      localizeNode(value, language, profile, [...path, key]),
     ]),
   );
 }

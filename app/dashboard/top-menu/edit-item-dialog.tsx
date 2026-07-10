@@ -8,6 +8,7 @@ import { Loader2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,7 @@ export function EditItemDialog({
   clientId,
 }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -197,7 +199,7 @@ export function EditItemDialog({
               )}
             />
             {serverError && (
-              <p className="text-sm text-destructive">{serverError}</p>
+              <p className="text-sm text-destructive">{st(serverError)}</p>
             )}
             <div className="flex justify-end gap-2">
               <Button

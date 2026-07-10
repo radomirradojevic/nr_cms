@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { useFormEditLock } from "@/components/form-edit-lock-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ type Tab = "meta" | "fields" | "settings" | "embed";
 
 export function FormEditor({ form, fields, settings }: Props) {
   const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useFormEditLock();
   const [tab, setTab] = useState<Tab>("fields");
@@ -48,7 +50,7 @@ export function FormEditor({ form, fields, settings }: Props) {
         lockClientId: lock.clientId,
       });
       if ("error" in res && res.error) {
-        toast.error(res.error);
+        toast.error(st(res.error));
         return;
       }
       toast.success(t("dashboard.forms.editor.saved"));
@@ -63,7 +65,7 @@ export function FormEditor({ form, fields, settings }: Props) {
         lockClientId: lock.clientId,
       });
       if ("error" in res && res.error) {
-        toast.error(res.error);
+        toast.error(st(res.error));
         return;
       }
       toast.success(t("dashboard.forms.editor.published"));
@@ -78,7 +80,7 @@ export function FormEditor({ form, fields, settings }: Props) {
         lockClientId: lock.clientId,
       });
       if ("error" in res && res.error) {
-        toast.error(res.error);
+        toast.error(st(res.error));
         return;
       }
       toast.success(t("dashboard.forms.editor.unpublished"));
