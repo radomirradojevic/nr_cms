@@ -70,6 +70,35 @@ import {
   WEBSHOP_ADMIN_DASHBOARD_SOURCE_TRANSLATIONS,
 } from "@/lib/i18n/messages/webshop-admin-dashboard-translations";
 import {
+  WEBSHOP_CATEGORIES_SOURCE_STRINGS,
+  WEBSHOP_CATEGORIES_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/webshop-categories-translations";
+import {
+  WEBSHOP_ORDERS_SOURCE_STRINGS,
+  WEBSHOP_ORDERS_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/webshop-orders-translations";
+import {
+  WEBSHOP_PRODUCTS_DETAIL_HELP_SOURCE_STRINGS,
+  WEBSHOP_PRODUCTS_SOURCE_STRINGS,
+  WEBSHOP_PRODUCTS_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/webshop-products-translations";
+import {
+  WEBSHOP_PROMOTIONS_SOURCE_STRINGS,
+  WEBSHOP_PROMOTIONS_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/webshop-promotions-translations";
+import {
+  WEBSHOP_SETTINGS_SOURCE_STRINGS,
+  WEBSHOP_SETTINGS_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/webshop-settings-translations";
+import {
+  WEBSHOP_STOREFRONT_SOURCE_STRINGS,
+  WEBSHOP_STOREFRONT_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/webshop-storefront-translations";
+import {
+  WEBSHOP_WISHLISTS_SOURCE_STRINGS,
+  WEBSHOP_WISHLISTS_SOURCE_TRANSLATIONS,
+} from "@/lib/i18n/messages/webshop-wishlists-translations";
+import {
   GLOBAL_SETTINGS_CONTROL_SOURCE_STRINGS,
   GLOBAL_SETTINGS_CONTROL_SOURCE_TRANSLATIONS,
   GLOBAL_SETTINGS_SOURCE_STRINGS,
@@ -1033,6 +1062,10 @@ test("edit lock UI labels localize across supported backend languages", () => {
         source,
         `${localizedCode}:${source}`,
       );
+      assert.ok(
+        !translations[source].endsWith(`: ${source}`),
+        `${localizedCode}:${source}`,
+      );
     }
   }
 });
@@ -1094,6 +1127,442 @@ test("webshop admin dashboard labels localize across supported backend languages
       );
     }
   }
+});
+
+test("webshop categories labels localize across supported backend languages", () => {
+  const allowedSameAsEnglish = new Set([
+    "Actions",
+    "Description",
+    "Label",
+    "Name",
+    "No",
+    "Product",
+    "Source",
+    "Status",
+    "Type",
+  ]);
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      WEBSHOP_CATEGORIES_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of WEBSHOP_CATEGORIES_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      const localizedSource = localizeSourceString(source, localizedCode);
+      assert.notEqual(localizedSource, "", `${localizedCode}:${source}`);
+      if (!allowedSameAsEnglish.has(source)) {
+        assert.notEqual(localizedSource, source, `${localizedCode}:${source}`);
+      }
+    }
+  }
+});
+
+test("webshop categories header uses explicit Serbian translations", () => {
+  assert.equal(
+    localizeSourceString("Category tree", "sr-Cyrl"),
+    "Стабло категорија",
+  );
+  assert.equal(
+    localizeSourceString("Attribute definitions", "sr-Cyrl"),
+    "Дефиниције атрибута",
+  );
+  assert.equal(
+    localizeSourceString("CMS category bridge", "sr-Cyrl"),
+    "CMS веза категорија",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Nested category tree, images, SEO metadata, and reusable product filter attributes.",
+      "sr-Cyrl",
+    ),
+    "Угнежђено стабло категорија, слике, SEO метаподаци и вишекратни атрибути филтера производа.",
+  );
+});
+
+test("webshop orders labels localize across supported backend languages", () => {
+  const allowedSameAsEnglish = new Set([
+    "Details",
+    "Filter",
+    "IPS QR",
+    "Items",
+    "Monri",
+    "No",
+    "PayPal",
+    "Status",
+    "Status: {status}",
+    "Stripe",
+    "optional",
+  ]);
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      WEBSHOP_ORDERS_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of WEBSHOP_ORDERS_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      const localizedSource = localizeSourceString(source, localizedCode);
+      assert.notEqual(localizedSource, "", `${localizedCode}:${source}`);
+      if (!allowedSameAsEnglish.has(source)) {
+        assert.notEqual(localizedSource, source, `${localizedCode}:${source}`);
+      }
+    }
+  }
+});
+
+test("webshop orders detail uses explicit Serbian translations", () => {
+  assert.equal(
+    localizeSourceString("Back to orders", "sr-Cyrl"),
+    "Назад на поруџбине",
+  );
+  assert.equal(
+    localizeSourceString("Activity timeline", "sr-Cyrl"),
+    "Ток активности",
+  );
+  assert.equal(
+    localizeSourceString("Order workflow", "sr-Cyrl"),
+    "Ток поруџбине",
+  );
+  assert.equal(
+    localizeSourceString("No orders match these filters.", "sr-Cyrl"),
+    "Ниједна поруџбина не одговара овим филтерима.",
+  );
+  assert.equal(
+    localizeSourceString("Order number or email", "sr-Cyrl"),
+    "Број поруџбине или email",
+  );
+  assert.equal(
+    localizeSourceString("Admin marked payment failed", "sr-Cyrl"),
+    "Администратор је означио плаћање као неуспешно",
+  );
+  assert.equal(
+    localizeSourceString("Customer receipt PDF attached", "sr-Cyrl"),
+    "PDF рачун купцу је приложен",
+  );
+  assert.equal(localizeSourceString("Tax ID", "sr-Cyrl"), "ПИБ");
+  assert.equal(
+    localizeSourceString("Document: {title}", "sr-Cyrl"),
+    "Документ: {title}",
+  );
+});
+
+test("webshop promotions labels localize across supported backend languages", () => {
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      WEBSHOP_PROMOTIONS_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of WEBSHOP_PROMOTIONS_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      assert.notEqual(
+        translations[source],
+        source,
+        `${localizedCode}:${source}`,
+      );
+      assert.notEqual(
+        localizeSourceString(source, localizedCode),
+        "",
+        `${localizedCode}:${source}`,
+      );
+    }
+  }
+});
+
+test("webshop promotions detail uses explicit Serbian translations", () => {
+  assert.equal(localizeSourceString("Promotions", "sr-Cyrl"), "Промоције");
+  assert.equal(localizeSourceString("New coupon", "sr-Cyrl"), "Нови купон");
+  assert.equal(
+    localizeSourceString("Coupon not found", "sr-Cyrl"),
+    "Купон није пронађен",
+  );
+  assert.equal(
+    localizeSourceString("Product and category targeting", "sr-Cyrl"),
+    "Циљање производа и категорија",
+  );
+  assert.equal(
+    localizeSourceString("No matching coupons", "sr-Cyrl"),
+    "Нема одговарајућих купона",
+  );
+});
+
+test("webshop products labels localize across supported backend languages", () => {
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      WEBSHOP_PRODUCTS_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of WEBSHOP_PRODUCTS_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      assert.notEqual(
+        translations[source],
+        source,
+        `${localizedCode}:${source}`,
+      );
+      assertPlaceholderParity(
+        source,
+        translations[source],
+        ["webshopProducts", source],
+        localizedCode,
+      );
+    }
+  }
+});
+
+test("webshop product detail help tooltips do not fall back to English", () => {
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+
+    for (const source of WEBSHOP_PRODUCTS_DETAIL_HELP_SOURCE_STRINGS) {
+      const localizedSource = localizeSourceString(source, localizedCode);
+      assert.notEqual(localizedSource, "", `${localizedCode}:${source}`);
+      assert.notEqual(localizedSource, source, `${localizedCode}:${source}`);
+    }
+  }
+});
+
+test("webshop products detail uses explicit Serbian translations", () => {
+  assert.equal(localizeSourceString("Basics", "sr-Cyrl"), "Основно");
+  assert.equal(
+    localizeSourceString("Variants (SKU)", "sr-Cyrl"),
+    "Варијанте (SKU)",
+  );
+  assert.equal(
+    localizeSourceString("License key pool", "sr-Cyrl"),
+    "Пул лиценцних кључева",
+  );
+  assert.equal(
+    localizeSourceString("Related products", "sr-Cyrl"),
+    "Повезани производи",
+  );
+  assert.equal(
+    localizeSourceString("Track inventory", "sr-Cyrl"),
+    "Праћење залиха",
+  );
+  assert.equal(
+    localizeSourceString("Generate {label} with AI", "sr-Cyrl"),
+    "{label}: AI асистент за писање",
+  );
+  assert.equal(
+    localizeSourceString("License key policy", "sr-Cyrl"),
+    "Политика лиценцног кључа",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Controls whether the customer receives a file, a license key, or both.",
+      "sr-Cyrl",
+    ),
+    "Одређује да ли купац добија фајл, лиценцни кључ или оба.",
+  );
+  assert.notEqual(
+    localizeSourceString("License key policy", "sr-Cyrl"),
+    "Подешавања лиценци",
+  );
+  assert.notEqual(
+    localizeSourceString(
+      "Controls whether the customer receives a file, a license key, or both.",
+      "sr-Cyrl",
+    ),
+    "Подешавања испуњења",
+  );
+});
+
+test("webshop wishlists labels localize across supported backend languages", () => {
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      WEBSHOP_WISHLISTS_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of WEBSHOP_WISHLISTS_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      assert.notEqual(
+        translations[source],
+        source,
+        `${localizedCode}:${source}`,
+      );
+    }
+  }
+});
+
+test("webshop wishlists detail uses explicit Serbian translations", () => {
+  assert.equal(localizeSourceString("Wishlists", "sr-Cyrl"), "Листе жеља");
+  assert.equal(localizeSourceString("Wishlist", "sr-Cyrl"), "Листа жеља");
+  assert.equal(
+    localizeSourceString("Wishlist not found", "sr-Cyrl"),
+    "Листа жеља није пронађена",
+  );
+  assert.equal(
+    localizeSourceString("No saved products match these filters.", "sr-Cyrl"),
+    "Ниједан сачуван производ не одговара овим филтерима.",
+  );
+  assert.equal(localizeSourceString("active", "sr-Cyrl"), "активно");
+});
+
+test("webshop settings labels localize across supported backend languages", () => {
+  const allowedSameAsEnglish = new Set([
+    "API URL",
+    "Actions",
+    "Checkout",
+    "Description",
+    "Mode",
+    "Notifications",
+    "Optional",
+    "Status",
+    "Title",
+  ]);
+
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      WEBSHOP_SETTINGS_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of WEBSHOP_SETTINGS_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      const localizedSource = localizeSourceString(source, localizedCode);
+      assert.notEqual(localizedSource, "", `${localizedCode}:${source}`);
+      if (
+        translations[source] !== source &&
+        !allowedSameAsEnglish.has(source)
+      ) {
+        assert.notEqual(localizedSource, source, `${localizedCode}:${source}`);
+      }
+    }
+  }
+});
+
+test("webshop settings help tooltips use explicit Serbian translations", () => {
+  assert.equal(
+    localizeSourceString("Guest checkout", "sr-Cyrl"),
+    "Наплата за госте",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Allows customers to place orders without signing in first.",
+      "sr-Cyrl",
+    ),
+    "Омогућава купцима да поруче без претходне пријаве.",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Customer-facing name used in checkout and store communication.",
+      "sr-Cyrl",
+    ),
+    "Назив који купац види током наплате и у комуникацији продавнице.",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Delivery choices, fees, limits, and courier coverage.",
+      "sr-Cyrl",
+    ),
+    "Опције доставе, накнаде, ограничења и покривеност курира.",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Offline payment methods that should receive a payment request PDF attachment. Online receipt PDFs for Stripe, PayPal, and local card gateway are attached automatically when authorized or paid.",
+      "sr-Cyrl",
+    ),
+    "Офлајн методе плаћања које треба да добију PDF захтев за плаћање као прилог. Онлајн PDF рачуни за Stripe, PayPal и локални картични гејтвеј прилажу се аутоматски када су ауторизовани или плаћени.",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Store the connection details used by paid digital products that issue keys from an external Night Raven License Server.",
+      "sr-Cyrl",
+    ),
+    "Сачувај детаље везе које користе плаћени дигитални производи који издају кључеве преко екстерног сервера Night Raven License Server.",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Enable checkout methods and configure buyer-facing payment details.",
+      "sr-Cyrl",
+    ),
+    "Укључи методе наплате и подеси детаље плаћања које види купац.",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Cash on delivery has no extra credentials or checkout copy to configure.",
+      "sr-Cyrl",
+    ),
+    "Плаћање поузећем нема додатне креденцијале нити текст за наплату за подешавање.",
+  );
+  assert.equal(
+    localizeSourceString("Active in checkout", "sr-Cyrl"),
+    "Активно при наплати",
+  );
+  assert.equal(localizeSourceString("Courier", "sr-Cyrl"), "Курир");
+  assert.equal(
+    localizeSourceString("Monri production readiness checklist", "sr-Cyrl"),
+    "Monri листа спремности за продукцију",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Use this checklist after the basic env vars above are present. Monri requires the test integration and webshop content to be reviewed before the production account is activated. This app currently implements Redirect Form; the Payment API flow is separate.",
+      "sr-Cyrl",
+    ),
+    "Користи ову листу када су основне env варијабле изнад присутне. Monri захтева да тест интеграција и садржај веб-продавнице буду прегледани пре активације продукционог налога. Ова апликација тренутно имплементира Redirect Form; Payment API ток је одвојен.",
+  );
+  assert.equal(
+    localizeSourceString(
+      "Document who handles captures, voids, refunds, failed callbacks, chargebacks, and support escalations with Monri or the acquiring bank.",
+      "sr-Cyrl",
+    ),
+    "Документуј ко рукује captures, voids, refunds, неуспелим callbackovima, chargebackovima и support ескалацијама са Monri-јем или acquiring банком.",
+  );
+});
+
+test("webshop storefront preset labels localize across supported backend languages", () => {
+  for (const { code } of SUPPORTED_CMS_LANGUAGES) {
+    if (code === "en") continue;
+
+    const localizedCode = code as LocalizedLanguage;
+    const translations: Record<string, string> =
+      WEBSHOP_STOREFRONT_SOURCE_TRANSLATIONS[localizedCode];
+
+    for (const source of WEBSHOP_STOREFRONT_SOURCE_STRINGS) {
+      assert.notEqual(translations[source], "", `${localizedCode}:${source}`);
+      const localizedSource = localizeSourceString(source, localizedCode);
+      assert.notEqual(localizedSource, "", `${localizedCode}:${source}`);
+      if (translations[source] !== source) {
+        assert.notEqual(localizedSource, source, `${localizedCode}:${source}`);
+      }
+    }
+  }
+});
+
+test("webshop storefront preset labels use explicit Serbian translations", () => {
+  assert.equal(
+    localizeSourceString(
+      "Catalog browsing presets for category lists, product cards, filters, and product detail pages.",
+      "sr-Cyrl",
+    ),
+    "Пресети излога за листе категорија, картице производа, филтере и странице детаља производа.",
+  );
+  assert.equal(localizeSourceString("Overview", "sr-Cyrl"), "Преглед");
+  assert.equal(
+    localizeSourceString("Category presets", "sr-Cyrl"),
+    "Пресети категорија",
+  );
+  assert.equal(
+    localizeSourceString("Product presets", "sr-Cyrl"),
+    "Пресети производа",
+  );
+  assert.equal(
+    localizeSourceString("Category browsing", "sr-Cyrl"),
+    "Преглед категорија",
+  );
 });
 
 test("content dashboard labels localize across supported backend languages", async () => {

@@ -11,8 +11,8 @@ import { useSourceTranslations } from "@/components/source-translations";
 import { useFormEditLock } from "@/components/form-edit-lock-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import type { FormFieldRow, FormRow, FormSettingsRow } from "@/lib/form-types";
 import { publishForm, unpublishForm, updateForm } from "../actions";
 import { FieldBuilder } from "./field-builder";
@@ -98,30 +98,26 @@ export function FormEditor({ form, fields, settings }: Props) {
   const embedDiv = `<div data-cms-form-id="${form.id}"></div>`;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-        {(["meta", "fields", "settings", "embed"] as Tab[]).map((tabId) => (
-          <button
-            key={tabId}
-            type="button"
-            onClick={() => setTab(tabId)}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              tab === tabId
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent",
-            )}
-          >
-            {tabId === "meta"
-              ? t("dashboard.forms.general")
-              : tabId === "fields"
-                ? t("dashboard.forms.fields")
-                : tabId === "settings"
-                  ? t("dashboard.forms.settings")
-                  : t("dashboard.forms.embed")}
-          </button>
-        ))}
-        <div className="ml-auto flex items-center gap-2">
+    <Tabs
+      value={tab}
+      onValueChange={(value) => setTab(value as Tab)}
+      className="space-y-4"
+    >
+      <div className="flex flex-wrap items-center gap-3 border-b">
+        <TabsList className="w-auto flex-1 flex-wrap overflow-x-visible border-b-0">
+          {(["meta", "fields", "settings", "embed"] as Tab[]).map((tabId) => (
+            <TabsTrigger key={tabId} value={tabId}>
+              {tabId === "meta"
+                ? t("dashboard.forms.general")
+                : tabId === "fields"
+                  ? t("dashboard.forms.fields")
+                  : tabId === "settings"
+                    ? t("dashboard.forms.settings")
+                    : t("dashboard.forms.embed")}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <div className="ml-auto flex items-center gap-2 pb-2">
           {form.status === "published" ? (
             <Button
               variant="outline"
@@ -142,7 +138,7 @@ export function FormEditor({ form, fields, settings }: Props) {
         </div>
       </div>
 
-      {tab === "meta" && (
+      <TabsContent value="meta" className="m-0">
         <div className="space-y-4 max-w-2xl">
           <div className="space-y-1">
             <Label>{t("dashboard.forms.name")}</Label>
@@ -191,21 +187,21 @@ export function FormEditor({ form, fields, settings }: Props) {
             </Button>
           </div>
         </div>
-      )}
+      </TabsContent>
 
-      {tab === "fields" && (
+      <TabsContent value="fields" className="m-0">
         <FieldBuilder formId={form.id} initialFields={fields} />
-      )}
+      </TabsContent>
 
-      {tab === "settings" && (
+      <TabsContent value="settings" className="m-0">
         <FormSettingsForm
           formId={form.id}
           initialSettings={settings}
           fields={fields}
         />
-      )}
+      </TabsContent>
 
-      {tab === "embed" && (
+      <TabsContent value="embed" className="m-0">
         <div className="space-y-4 max-w-2xl">
           <p className="text-sm text-muted-foreground">
             {t("dashboard.forms.editor.embedHelp")}
@@ -229,7 +225,7 @@ export function FormEditor({ form, fields, settings }: Props) {
             </div>
           </div>
         </div>
-      )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

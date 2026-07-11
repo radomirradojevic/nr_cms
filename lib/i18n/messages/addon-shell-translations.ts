@@ -493,23 +493,23 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
         "Javni CMS shell je spreman. Aktiviraj licencu, instaliraj privatni Webshop add-on paket i podesi WEBSHOP_ADDON_MODULE pre nego što commerce funkcije budu dostupne.",
       editShell: "Izmeni shell",
       viewStorefront: "Prikaži storefront",
-      setUp: "Podesi Webshop",
-      noShellTitle: "Webshop shell još ne postoji",
+      setUp: "Podesi veb-prodavnicu",
+      noShellTitle: "Shell veb-prodavnice još ne postoji",
       shellEntryDescription:
         "Kreiraj CMS unos koji poseduje slug prodavnice, SEO, status, vidljivost i rutiranje.",
       createCmsShell: "Kreiraj CMS shell",
       publicPreview: "Javni pregled",
       usesShellRenderer: "Koristi CMS shell renderer.",
-      categories: "Webshop kategorije",
-      dashboard: "Webshop kontrolna tabla",
+      categories: "Kategorije veb-prodavnice",
+      dashboard: "Kontrolna tabla veb-prodavnice",
       categoryBridge: {
         readOnlyBadge: "Read-only most",
         description:
-          "Upravljanje Webshop kategorijama dostupno je kroz plaćeni add-on. Ova CMS sekcija održava stabilan navigacioni unos dok add-on kontroliše commerce podatke.",
+          "Upravljanje kategorijama veb-prodavnice dostupno je kroz plaćeni add-on. Ova CMS sekcija održava stabilan navigacioni unos dok add-on kontroliše commerce podatke.",
         editExistingOnlyBadge: "Samo izmena postojećih",
         unavailableBadge: "Most nije dostupan",
         unavailableDescription:
-          "Add-on most za kategorije trenutno nije dostupan. Otvori Webshop upravljanje da pregledaš trenutno stanje add-ona.",
+          "Add-on most za kategorije trenutno nije dostupan. Otvori upravljanje veb-prodavnicom da pregledaš trenutno stanje add-ona.",
         openManagement: "Otvori upravljanje",
       },
     },
@@ -525,7 +525,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Čeka se instalacija add-ona",
       title: "Naslov",
-      slug: "Slug",
+      slug: "URL oznaka",
       status: "Status",
       category: "Kategorija",
       products: "Proizvodi",
@@ -587,23 +587,23 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
         "Јавни CMS shell је спреман. Активирај лиценцу, инсталирај приватни Webshop add-on пакет и подеси WEBSHOP_ADDON_MODULE пре него што commerce функције буду доступне.",
       editShell: "Измени shell",
       viewStorefront: "Прикажи storefront",
-      setUp: "Подеси Webshop",
-      noShellTitle: "Webshop shell још не постоји",
+      setUp: "Подеси веб-продавницу",
+      noShellTitle: "Shell веб-продавнице још не постоји",
       shellEntryDescription:
         "Креирај CMS унос који поседује slug продавнице, SEO, статус, видљивост и рутирање.",
       createCmsShell: "Креирај CMS shell",
       publicPreview: "Јавни преглед",
       usesShellRenderer: "Користи CMS shell renderer.",
-      categories: "Webshop категорије",
-      dashboard: "Webshop контролна табла",
+      categories: "Категорије веб-продавнице",
+      dashboard: "Контролна табла веб-продавнице",
       categoryBridge: {
         readOnlyBadge: "Read-only мост",
         description:
-          "Управљање Webshop категоријама доступно је кроз плаћени add-on. Ова CMS секција одржава стабилан навигациони унос док add-on контролише commerce податке.",
+          "Управљање категоријама веб-продавнице доступно је кроз плаћени add-on. Ова CMS секција одржава стабилан навигациони унос док add-on контролише commerce податке.",
         editExistingOnlyBadge: "Само измена постојећих",
         unavailableBadge: "Мост није доступан",
         unavailableDescription:
-          "Add-on мост за категорије тренутно није доступан. Отвори Webshop управљање да прегледаш тренутно стање add-ona.",
+          "Add-on мост за категорије тренутно није доступан. Отвори управљање веб-продавницом да прегледаш тренутно стање add-ona.",
         openManagement: "Отвори управљање",
       },
     },
@@ -619,7 +619,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Чека се инсталација add-ona",
       title: "Наслов",
-      slug: "Slug",
+      slug: "URL ознака",
       status: "Статус",
       category: "Категорија",
       products: "Производи",
@@ -713,7 +713,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Čeka se instalacija add-ona",
       title: "Naslov",
-      slug: "Slug",
+      slug: "URL oznaka",
       status: "Status",
       category: "Kategorija",
       products: "Proizvodi",
@@ -808,7 +808,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Warten auf Add-on-Installation",
       title: "Titel",
-      slug: "Slug",
+      slug: "URL-Kennung",
       status: "Status",
       category: "Kategorie",
       products: "Produkte",
@@ -903,7 +903,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "En attente de l'installation du module",
       title: "Titre",
-      slug: "Slug",
+      slug: "Identifiant URL",
       status: "Statut",
       category: "Catégorie",
       products: "Produits",
@@ -998,7 +998,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Esperando la instalación del complemento",
       title: "Título",
-      slug: "Slug",
+      slug: "Identificador URL",
       status: "Estado",
       category: "Categoría",
       products: "Productos",
@@ -1093,7 +1093,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "In attesa dell'installazione dell'add-on",
       title: "Titolo",
-      slug: "Slug",
+      slug: "Identificatore URL",
       status: "Stato",
       category: "Categoria",
       products: "Prodotti",
@@ -1188,7 +1188,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "A aguardar instalação do add-on",
       title: "Título",
-      slug: "Slug",
+      slug: "Identificador URL",
       status: "Estado",
       category: "Categoria",
       products: "Produtos",
@@ -1283,7 +1283,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Aguardando instalação do add-on",
       title: "Título",
-      slug: "Slug",
+      slug: "Identificador URL",
       status: "Status",
       category: "Categoria",
       products: "Produtos",
@@ -1377,7 +1377,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Wachten op add-oninstallatie",
       title: "Titel",
-      slug: "Slug",
+      slug: "URL-kenmerk",
       status: "Status",
       category: "Categorie",
       products: "Producten",
@@ -1471,7 +1471,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Oczekiwanie na instalację dodatku",
       title: "Tytuł",
-      slug: "Slug",
+      slug: "Identyfikator URL",
       status: "Status",
       category: "Kategoria",
       products: "Produkty",
@@ -1566,7 +1566,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Eklenti kurulumu bekleniyor",
       title: "Başlık",
-      slug: "Slug",
+      slug: "URL kimliği",
       status: "Durum",
       category: "Kategori",
       products: "Ürünler",
@@ -1660,7 +1660,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Се чека инсталација на add-on",
       title: "Наслов",
-      slug: "Slug",
+      slug: "URL ознака",
       status: "Статус",
       category: "Категорија",
       products: "Производи",
@@ -1754,7 +1754,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Čeka se instalacija add-ona",
       title: "Naslov",
-      slug: "Slug",
+      slug: "URL oznaka",
       status: "Status",
       category: "Kategorija",
       products: "Proizvodi",
@@ -1848,7 +1848,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Čakanje na namestitev dodatka",
       title: "Naslov",
-      slug: "Slug",
+      slug: "URL oznaka",
       status: "Stanje",
       category: "Kategorija",
       products: "Izdelki",
@@ -1942,7 +1942,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Ожидание установки дополнения",
       title: "Заголовок",
-      slug: "Slug",
+      slug: "URL-метка",
       status: "Статус",
       category: "Категория",
       products: "Продукты",
@@ -2036,7 +2036,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Várakozás a kiegészítő telepítésére",
       title: "Cím",
-      slug: "Slug",
+      slug: "URL-azonosító",
       status: "Állapot",
       category: "Kategória",
       products: "Termékek",
@@ -2130,7 +2130,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Изчаква се инсталация на добавката",
       title: "Заглавие",
-      slug: "Slug",
+      slug: "URL означение",
       status: "Статус",
       category: "Категория",
       products: "Продукти",
@@ -2224,7 +2224,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "アドオンのインストール待ち",
       title: "タイトル",
-      slug: "Slug",
+      slug: "URL識別子",
       status: "ステータス",
       category: "カテゴリ",
       products: "商品",
@@ -2316,7 +2316,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "等待插件安装",
       title: "标题",
-      slug: "Slug",
+      slug: "URL 标识",
       status: "状态",
       category: "分类",
       products: "产品",
@@ -2408,7 +2408,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "等待外掛安裝",
       title: "標題",
-      slug: "Slug",
+      slug: "URL 識別碼",
       status: "狀態",
       category: "分類",
       products: "產品",
@@ -2501,7 +2501,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "انتظار تثبيت الإضافة",
       title: "العنوان",
-      slug: "Slug",
+      slug: "معرّف URL",
       status: "الحالة",
       category: "التصنيف",
       products: "المنتجات",
@@ -2595,7 +2595,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Menunggu instalasi add-on",
       title: "Judul",
-      slug: "Slug",
+      slug: "Penanda URL",
       status: "Status",
       category: "Kategori",
       products: "Produk",
@@ -2689,7 +2689,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Čekání na instalaci doplňku",
       title: "Název",
-      slug: "Slug",
+      slug: "URL označení",
       status: "Stav",
       category: "Kategorie",
       products: "Produkty",
@@ -2783,7 +2783,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Se așteaptă instalarea add-onului",
       title: "Titlu",
-      slug: "Slug",
+      slug: "Identificator URL",
       status: "Status",
       category: "Categorie",
       products: "Produse",
@@ -2879,7 +2879,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Αναμονή εγκατάστασης πρόσθετου",
       title: "Τίτλος",
-      slug: "Slug",
+      slug: "Αναγνωριστικό URL",
       status: "Κατάσταση",
       category: "Κατηγορία",
       products: "Προϊόντα",
@@ -2973,7 +2973,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Venter på add-on-installation",
       title: "Titel",
-      slug: "Slug",
+      slug: "URL-id",
       status: "Status",
       category: "Kategori",
       products: "Produkter",
@@ -3067,7 +3067,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Väntar på tilläggsinstallation",
       title: "Titel",
-      slug: "Slug",
+      slug: "URL-id",
       status: "Status",
       category: "Kategori",
       products: "Produkter",
@@ -3161,7 +3161,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Venter på tilleggsinstallasjon",
       title: "Tittel",
-      slug: "Slug",
+      slug: "URL-id",
       status: "Status",
       category: "Kategori",
       products: "Produkter",
@@ -3255,7 +3255,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Ventar på tilleggsinstallasjon",
       title: "Tittel",
-      slug: "Slug",
+      slug: "URL-id",
       status: "Status",
       category: "Kategori",
       products: "Produkt",
@@ -3349,7 +3349,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Odotetaan lisäosan asennusta",
       title: "Otsikko",
-      slug: "Slug",
+      slug: "URL-tunniste",
       status: "Tila",
       category: "Kategoria",
       products: "Tuotteet",
@@ -3443,7 +3443,7 @@ export const ADDON_SHELL_SOURCE_TRANSLATIONS = {
     labels: {
       waitingForInstall: "Bíður eftir uppsetningu viðbótar",
       title: "Titill",
-      slug: "Slug",
+      slug: "URL-auðkenni",
       status: "Staða",
       category: "Flokkur",
       products: "Vörur",

@@ -28,6 +28,13 @@ import { HERO_SLIDER_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/hero-slider
 import { PAGE_BUILDER_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/page-builder-translations";
 import { USER_MANAGEMENT_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/user-management-translations";
 import { WEBSHOP_ADMIN_DASHBOARD_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-admin-dashboard-translations";
+import { WEBSHOP_CATEGORIES_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-categories-translations";
+import { WEBSHOP_ORDERS_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-orders-translations";
+import { WEBSHOP_PRODUCTS_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-products-translations";
+import { WEBSHOP_PROMOTIONS_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-promotions-translations";
+import { WEBSHOP_SETTINGS_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-settings-translations";
+import { WEBSHOP_STOREFRONT_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-storefront-translations";
+import { WEBSHOP_WISHLISTS_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/webshop-wishlists-translations";
 import type { CmsLanguage } from "@/lib/i18n/languages";
 import { LOCK_UI_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/lock-ui-translations";
 import { MENU_MANAGEMENT_SOURCE_TRANSLATIONS } from "@/lib/i18n/messages/menu-management-translations";
@@ -3881,6 +3888,20 @@ function localizeString(
     BACKEND_WEBSHOP_MENU_SOURCE_TRANSLATIONS[language];
   const webshopAdminDashboardTranslations: Record<string, string> =
     WEBSHOP_ADMIN_DASHBOARD_SOURCE_TRANSLATIONS[language];
+  const webshopCategoriesTranslations: Record<string, string> =
+    WEBSHOP_CATEGORIES_SOURCE_TRANSLATIONS[language];
+  const webshopOrdersTranslations: Record<string, string> =
+    WEBSHOP_ORDERS_SOURCE_TRANSLATIONS[language];
+  const webshopPromotionsTranslations: Record<string, string> =
+    WEBSHOP_PROMOTIONS_SOURCE_TRANSLATIONS[language];
+  const webshopProductsTranslations: Record<string, string> =
+    WEBSHOP_PRODUCTS_SOURCE_TRANSLATIONS[language];
+  const webshopSettingsTranslations: Record<string, string> =
+    WEBSHOP_SETTINGS_SOURCE_TRANSLATIONS[language];
+  const webshopStorefrontTranslations: Record<string, string> =
+    WEBSHOP_STOREFRONT_SOURCE_TRANSLATIONS[language];
+  const webshopWishlistsTranslations: Record<string, string> =
+    WEBSHOP_WISHLISTS_SOURCE_TRANSLATIONS[language];
   const lockUiTranslations: Record<string, string> =
     LOCK_UI_SOURCE_TRANSLATIONS[language];
   const dashboardRootTranslations: Record<string, string> =
@@ -3939,6 +3960,7 @@ function localizeString(
     contentNewChoiceTranslations[source] ??
     pageBuilderTranslations[source] ??
     heroSliderTranslations[source] ??
+    webshopCategoriesTranslations[source] ??
     contentEditorTranslations[source] ??
     contentEditorAdditionalTranslations[source] ??
     globalSettingsTranslations[source] ??
@@ -3956,7 +3978,13 @@ function localizeString(
     formBuilderTranslations[source] ??
     fileManagerTranslations[source] ??
     sourceTranslations[source] ??
-    profile.translations[source];
+    profile.translations[source] ??
+    webshopOrdersTranslations[source] ??
+    webshopPromotionsTranslations[source] ??
+    webshopSettingsTranslations[source] ??
+    webshopStorefrontTranslations[source] ??
+    webshopWishlistsTranslations[source] ??
+    webshopProductsTranslations[source];
   if (translated) return translated;
   if (shouldPreserveSource(source)) return source;
 
