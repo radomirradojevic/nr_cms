@@ -90,6 +90,16 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+function normalizeLineEndings(value) {
+  return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
+function lineEndingHashVariants(value) {
+  const lf = normalizeLineEndings(value);
+  const crlf = lf.replace(/\n/g, "\r\n");
+  return new Set([sha256(lf), sha256(crlf)]);
+}
+
 function normalizeSql(value) {
   return value.replace(/\s+/g, " ").replace(/;$/, "").trim().toLowerCase();
 }
@@ -434,7 +444,8 @@ function loadMigrations() {
       idx: entry.idx,
       tag: entry.tag,
       when: entry.when,
-      hash: sha256(sql),
+      hash: sha256(normalizeLineEndings(sql)),
+      hashVariants: lineEndingHashVariants(sql),
       sql,
       statements: splitStatements(sql),
     };
@@ -960,7 +971,7 @@ async function loadAppliedRowsReadOnly(client) {
 function findAppliedRow(rows, migration, options = {}) {
   const { tolerateHashMismatch = false } = options;
   const hashMatches = (hash) =>
-    hash === migration.hash ||
+    migration.hashVariants.has(hash) ||
     (LEGACY_MIGRATION_HASHES.get(migration.tag)?.has(hash) ?? false);
 
   const byTag = rows.find((row) => row.tag === migration.tag);
@@ -1181,7 +1192,8 @@ async function main() {
 
           if (
             status.satisfied &&
-            (appliedRow.hash !== migration.hash ||
+            ((!migration.hashVariants.has(appliedRow.hash) &&
+              appliedRow.hash !== migration.hash) ||
               Number(appliedRow.created_at) !== migration.when ||
               appliedRow.tag !== migration.tag)
           ) {
