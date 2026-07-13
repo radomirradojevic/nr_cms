@@ -3,14 +3,12 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 import { runContentPublishingSchedule } from "@/data/content-publishing";
 import { TOP_MENU_TAG } from "@/data/top-menu";
+import { securityLogger } from "@/lib/security/logger";
 
 export const dynamic = "force-dynamic";
 
 function getCronSecrets(): string[] {
-  return [
-    process.env.CONTENT_PUBLISHING_CRON_SECRET,
-    process.env.CRON_SECRET,
-  ].flatMap((value) => {
+  return [process.env.CONTENT_PUBLISHING_CRON_SECRET].flatMap((value) => {
     const secret = value?.trim();
     return secret ? [secret] : [];
   });
@@ -45,9 +43,10 @@ async function handleContentPublishingCron(request: NextRequest) {
     }
   }
 
-  console.log(
-    `[content-publishing-cron] published=${result.published.length} unpublished=${result.unpublished.length}`,
-  );
+  securityLogger.info("content_publishing_cron.completed", {
+    published: result.published.length,
+    unpublished: result.unpublished.length,
+  });
 
   return NextResponse.json({
     success: true,

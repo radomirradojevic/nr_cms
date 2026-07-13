@@ -4,6 +4,8 @@ import { createReadStream } from "node:fs";
 import path from "node:path";
 import type { Readable } from "node:stream";
 
+import { isPathWithinRoot } from "@/lib/path-containment";
+
 /**
  * Storage layer abstraction.
  *
@@ -113,10 +115,10 @@ export function getUploadsDir(): string {
  * preventing path traversal. Local-filesystem only.
  */
 export function resolvePath(storagePath: string): string {
-  const root = path.resolve(getUploadsDir());
+  const root = path.resolve(/*turbopackIgnore: true*/ getUploadsDir());
   const safe = sanitizeKey(storagePath);
-  const full = path.resolve(root, safe);
-  if (!full.startsWith(root)) {
+  const full = path.resolve(/*turbopackIgnore: true*/ root, safe);
+  if (!isPathWithinRoot(root, full)) {
     throw new Error("Invalid storage path");
   }
   return full;
@@ -134,12 +136,14 @@ const localProvider: StorageProvider = {
   buildKey: buildStoragePath,
   async write(key, data) {
     const full = resolvePath(key);
-    await mkdir(path.dirname(full), { recursive: true });
-    await writeFile(full, data);
+    await mkdir(/*turbopackIgnore: true*/ path.dirname(full), {
+      recursive: true,
+    });
+    await writeFile(/*turbopackIgnore: true*/ full, data);
   },
   async delete(key) {
     try {
-      await unlink(resolvePath(key));
+      await unlink(/*turbopackIgnore: true*/ resolvePath(key));
     } catch (err) {
       const e = err as NodeJS.ErrnoException;
       if (e.code !== "ENOENT") {
@@ -148,16 +152,19 @@ const localProvider: StorageProvider = {
     }
   },
   async stat(key) {
-    const s = await stat(resolvePath(key));
+    const s = await stat(/*turbopackIgnore: true*/ resolvePath(key));
     return { size: s.size };
   },
   async read(key) {
     const full = resolvePath(key);
-    const s = await stat(full);
-    return { stream: createReadStream(full), size: s.size };
+    const s = await stat(/*turbopackIgnore: true*/ full);
+    return {
+      stream: createReadStream(/*turbopackIgnore: true*/ full),
+      size: s.size,
+    };
   },
   async readBuffer(key) {
-    return readFile(resolvePath(key));
+    return readFile(/*turbopackIgnore: true*/ resolvePath(key));
   },
 };
 
@@ -338,7 +345,7 @@ export async function readUploadBuffer(storagePath: string): Promise<Buffer> {
  * keep working.
  */
 export function readUploadStream(storagePath: string) {
-  return createReadStream(resolvePath(storagePath));
+  return createReadStream(/*turbopackIgnore: true*/ resolvePath(storagePath));
 }
 
 export function getMaxUploadBytes(): number {

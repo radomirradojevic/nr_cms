@@ -13,6 +13,8 @@ export type SaveLicenseServerAddonEntitlementInput = {
   entitlementToken: string;
   expiresAt: Date;
   features?: unknown;
+  installationId?: string | null;
+  installationKeyFingerprint?: string | null;
   licenseKeyRef: string;
   metadata?: unknown;
   packageName?: string | null;
@@ -42,6 +44,8 @@ export async function saveLicenseServerAddonEntitlement(
     entitlementToken: input.entitlementToken,
     expiresAt: input.expiresAt,
     features: input.features ?? [],
+    installationId: input.installationId ?? null,
+    installationKeyFingerprint: input.installationKeyFingerprint ?? null,
     licenseKeyRef: input.licenseKeyRef,
     metadata: input.metadata ?? {},
     packageName: input.packageName ?? null,

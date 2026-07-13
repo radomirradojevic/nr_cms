@@ -1,0 +1,15 @@
+{
+  "name": "@nr-cms/addon-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./manifest": "./src/manifest-v1.ts",
+    "./runtime": "./src/runtime-v1.ts",
+    "./host-services": "./src/host-services-v1.ts",
+    "./routing": "./src/routing-v1.ts",
+    "./migrations": "./src/migrations-v1.ts",
+    "./testing": "./src/testing.ts",
+    "./customer-license-issuer": "./src/customer-license-issuer-v1.ts"
+  }
+}

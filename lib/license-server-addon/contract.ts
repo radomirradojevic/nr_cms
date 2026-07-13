@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { CustomerLicenseIssuerCapabilityV1 } from "@nr-cms/addon-sdk/customer-license-issuer";
 
 import type { AddonI18nContext } from "@/lib/i18n/addon-contract";
 import type { WebshopDeploymentPlatform } from "@/lib/webshop-addon/contract";
@@ -39,6 +40,10 @@ export type LicenseServerAddon = {
     input: LicenseServerDashboardPathInput,
   ): Promise<ReactNode>;
   handleApiRoute?(input: LicenseServerApiRouteInput): Promise<Response>;
+  customerLicenseIssuer?: CustomerLicenseIssuerCapabilityV1;
+  jobs?: {
+    customerLicenseIssuerOutbox?(input: { limit: number }): Promise<{ claimed: number; deadLettered: number; retried: number; succeeded: number }>;
+  };
   listMigrations?(): Promise<LicenseServerMigration[]>;
 };
 

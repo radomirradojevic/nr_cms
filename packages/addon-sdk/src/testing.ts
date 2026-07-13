@@ -1,0 +1,2 @@
+import type { AddonManifestV1 } from "./manifest-v1";
+export function fixtureManifest(overrides: Partial<AddonManifestV1> = {}): AddonManifestV1 { return { addonKey: "webshop", capabilities: {}, cmsVersionRange: "^0.1.0", displayName: "Fixture", lifecycle: { dataRetentionPolicy: "retain_by_default", supportsDeactivate: true, supportsUninstall: true }, manifestVersion: 1, migrations: [], packageName: "@nr-cms/fixture-addon", packageVersion: "1.0.0", runtimeContractVersion: "1", schemaVersion: 1, ...overrides }; }

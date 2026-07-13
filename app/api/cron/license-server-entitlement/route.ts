@@ -3,15 +3,13 @@ import { NextResponse } from "next/server";
 import { revalidateLicenseServerAddonEntitlement } from "@/lib/license-server-addon/license";
 
 export async function POST(request: Request) {
-  const secret =
-    process.env.LICENSE_SERVER_ENTITLEMENT_CRON_SECRET ??
-    process.env.CRON_SECRET;
+  const secret = process.env.LICENSE_SERVER_ENTITLEMENT_CRON_SECRET?.trim();
   if (secret) {
     const header = request.headers.get("authorization") ?? "";
     if (header !== `Bearer ${secret}`) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
-  } else if (process.env.NODE_ENV === "production") {
+  } else {
     return NextResponse.json(
       { error: "Cron secret is not configured." },
       { status: 503 },
