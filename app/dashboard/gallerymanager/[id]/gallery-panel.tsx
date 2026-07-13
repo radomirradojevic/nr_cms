@@ -9,6 +9,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { ImageIcon, X } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { GalleryImageView } from "./gallery-editor";
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export function GalleryPanel({ images, sortableIds, onRemove }: Props) {
+  const t = useTranslations();
   const { setNodeRef, isOver } = useDroppable({ id: GALLERY_DROP_ID });
 
   return (
@@ -32,9 +34,11 @@ export function GalleryPanel({ images, sortableIds, onRemove }: Props) {
       }`}
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Gallery contents</h2>
+        <h2 className="text-sm font-semibold">
+          {t("dashboard.galleries.detail.contents")}
+        </h2>
         <span className="text-xs text-muted-foreground">
-          {images.length} image{images.length === 1 ? "" : "s"}
+          {t.plural("dashboard.galleries.imageCount", images.length)}
         </span>
       </div>
 
@@ -42,8 +46,9 @@ export function GalleryPanel({ images, sortableIds, onRemove }: Props) {
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
           <ImageIcon className="h-10 w-10" />
           <p className="text-sm text-center">
-            Drag images here from the left, or check images and click{" "}
-            <span className="font-medium">Add selected</span>.
+            {t("dashboard.galleries.detail.emptyDrop", {
+              action: t("dashboard.galleries.detail.addSelected"),
+            })}
           </p>
         </div>
       ) : (
@@ -55,6 +60,7 @@ export function GalleryPanel({ images, sortableIds, onRemove }: Props) {
                 fileId={img.fileId}
                 file={img.file}
                 onRemove={onRemove}
+                removeTitle={t("dashboard.galleries.detail.removeFromGallery")}
               />
             ))}
           </div>
@@ -68,10 +74,12 @@ function SortableTile({
   fileId,
   file,
   onRemove,
+  removeTitle,
 }: {
   fileId: string;
   file: GalleryImageView["file"];
   onRemove: (fileId: string) => void;
+  removeTitle: string;
 }) {
   const {
     attributes,
@@ -116,7 +124,7 @@ function SortableTile({
         className="absolute top-1 right-1 h-7 w-7 bg-background/80 backdrop-blur-sm hover:bg-background z-10"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => onRemove(fileId)}
-        title="Remove from gallery"
+        title={removeTitle}
       >
         <X className="h-4 w-4" />
       </Button>

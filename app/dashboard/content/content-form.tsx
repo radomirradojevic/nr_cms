@@ -32,6 +32,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { HelpInfo } from "@/components/ui/help-info";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,11 +55,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn, slugify } from "@/lib/utils";
-import { hasRole, type Role } from "@/lib/roles";
+import { getRoleLabelKey, hasRole, type Role } from "@/lib/roles";
 import {
   CONTENT_CREATE_STATUSES,
   CONTENT_STATUSES,
-  getContentStatusLabel,
+  getContentStatusLabelKey,
   type ContentStatus,
 } from "@/lib/content-status";
 import {
@@ -85,7 +87,11 @@ import {
   createDefaultHeroSlider,
   heroSliderToPlainText,
 } from "@/lib/hero-slider";
-import type { ContentType } from "@/lib/content-types";
+import {
+  getContentTypeDescriptionKey,
+  getContentTypeLabelKey,
+  type ContentType,
+} from "@/lib/content-types";
 
 // PageEditor is heavy and uses Craft.js + CodeMirror — load client-only.
 const PageEditor = dynamic(
@@ -123,6 +129,7 @@ import {
   dateTimeLocalInputToUtc,
   formatDateTimeLocalInputValue,
 } from "@/lib/regional-settings";
+import type { TranslateFn } from "@/lib/i18n/translate";
 
 export type ContentFormCategory = { id: string; name: string };
 
@@ -202,6 +209,8 @@ export function ContentForm({
   history,
   initial,
 }: Props) {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const { timezone } = useRegionalSettings();
   const [pending, startTransition] = useTransition();
@@ -361,7 +370,7 @@ export function ContentForm({
       : contentType === "page"
         ? emptyBuilderData
         : contentType === "hero_slider"
-          ? createDefaultHeroSlider()
+          ? createDefaultHeroSlider(st)
           : contentType === "webshop"
             ? emptyWebshopContent
             : emptyTiptapJson,
@@ -390,10 +399,15 @@ export function ContentForm({
     if (!slugTouched) setSlug(slugify(v));
   }
 
-  const savedToastMessage = `${contentTypeLabel(contentType)} saved successfully`;
+  const savedToastMessage = t("dashboard.content.form.saved", {
+    type: t(getContentTypeLabelKey(contentType)),
+  });
   const savePending = pending || saveInFlight;
   const primarySaveDisabled = savePending || lockBlocksSave;
-  const primarySaveLabel = mode === "create" ? "Create" : "Save";
+  const primarySaveLabel =
+    mode === "create"
+      ? t("dashboard.content.form.create")
+      : t("dashboard.content.form.save");
   const idleLogoutLabel = formatSessionMinutes(
     sessionSecurity.idleLogoutMinutes,
   );
@@ -516,7 +530,7 @@ export function ContentForm({
     };
     const surface: AiAssistantSurface =
       contentType === "blog_post" ? "blogEditor" : "pageBuilder";
-    const contextError = getAiFieldContextError(field, context, surface);
+    const contextError = getAiFieldContextError(field, context, t, surface);
     if (contextError) {
       toast.error(contextError);
       return;
@@ -555,14 +569,14 @@ export function ContentForm({
         toast.error(
           typeof data?.error === "string"
             ? data.error
-            : "AI generation failed.",
+            : t("dashboard.content.form.aiGenerationFailed"),
         );
         return;
       }
 
       const text = typeof data?.text === "string" ? data.text.trim() : "";
       if (!text) {
-        toast.error("AI did not return usable text.");
+        toast.error(t("dashboard.content.form.aiNoUsableText"));
         return;
       }
 
@@ -574,9 +588,13 @@ export function ContentForm({
         setMetaDescription(text);
       }
 
-      toast.success(`${AI_FIELD_LABELS[field]} generated.`);
+      toast.success(
+        t("dashboard.content.form.generated", {
+          field: getAiFieldLabel(field, t),
+        }),
+      );
     } catch {
-      toast.error("AI generation failed.");
+      toast.error(t("dashboard.content.form.aiGenerationFailed"));
     } finally {
       setAiGenerationField(null);
     }
@@ -598,7 +616,7 @@ export function ContentForm({
 
   async function openPreview() {
     if (mode !== "edit" || !initial?.id) {
-      toast.error("Save this content before previewing.");
+      toast.error(t("dashboard.content.form.saveBeforePreview"));
       return;
     }
 
@@ -619,7 +637,7 @@ export function ContentForm({
         toast.error(
           typeof data?.error === "string"
             ? data.error
-            : "Preview link could not be created.",
+            : t("dashboard.content.errors.previewLinkFailed"),
         );
         return;
       }
@@ -627,13 +645,13 @@ export function ContentForm({
       const previewUrl =
         typeof data?.previewUrl === "string" ? data.previewUrl : "";
       if (!previewUrl) {
-        toast.error("Preview link could not be created.");
+        toast.error(t("dashboard.content.errors.previewLinkFailed"));
         return;
       }
 
       window.open(previewUrl, "_blank", "noopener,noreferrer");
     } catch {
-      toast.error("Preview link could not be created.");
+      toast.error(t("dashboard.content.errors.previewLinkFailed"));
     } finally {
       setPreviewPending(false);
     }
@@ -663,9 +681,15 @@ export function ContentForm({
     if (scheduleOverride?.unpublishAt !== undefined) {
       setUnpublishAt(scheduleOverride.unpublishAt ?? "");
     }
-    if (!title.trim()) return failSave("Title is required.", showToast);
-    if (!slug.trim()) return failSave("Slug is required.", showToast);
-    if (!categoryId) return failSave("Category is required.", showToast);
+    if (!title.trim()) {
+      return failSave(t("dashboard.content.form.titleRequired"), showToast);
+    }
+    if (!slug.trim()) {
+      return failSave(t("dashboard.content.form.slugRequired"), showToast);
+    }
+    if (!categoryId) {
+      return failSave(t("dashboard.content.form.categoryRequired"), showToast);
+    }
 
     // Pull the freshest value directly from the editor (uncontrolled).
     // Falls back to the ref if the editor hasn't registered yet.
@@ -771,7 +795,7 @@ export function ContentForm({
             setStaleVersion(null);
             if (showToast) {
               if ("unchanged" in r && r.unchanged) {
-                toast.info("No changes to save.");
+                toast.info(t("dashboard.content.form.noChangesToSave"));
               } else {
                 toast.success(savedToastMessage);
               }
@@ -780,7 +804,7 @@ export function ContentForm({
           }
         }
       } catch {
-        failSave("Save failed. Please try again.", showToast);
+        failSave(t("dashboard.content.form.saveFailed"), showToast);
       } finally {
         saveInFlightRef.current = false;
         setSaveInFlight(false);
@@ -800,8 +824,16 @@ export function ContentForm({
       Date.now()
     : false;
   const scheduleSummary = [
-    publishAt ? `Publish at ${publishAt.replace("T", " ")}` : null,
-    unpublishAt ? `Unpublish at ${unpublishAt.replace("T", " ")}` : null,
+    publishAt
+      ? t("dashboard.content.form.scheduleSummaryPublishAt", {
+          date: publishAt.replace("T", " "),
+        })
+      : null,
+    unpublishAt
+      ? t("dashboard.content.form.scheduleSummaryUnpublishAt", {
+          date: unpublishAt.replace("T", " "),
+        })
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -810,7 +842,7 @@ export function ContentForm({
     <div className="space-y-4">
       {canChooseStatus ? (
         <div className="space-y-2">
-          <Label>Status</Label>
+          <Label>{t("dashboard.common.table.status")}</Label>
           <Select
             value={status}
             onValueChange={(v) => setStatus(v as typeof status)}
@@ -821,7 +853,7 @@ export function ContentForm({
             <SelectContent>
               {statusOptions.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {getContentStatusLabel(option)}
+                  {t(getContentStatusLabelKey(option))}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -830,11 +862,9 @@ export function ContentForm({
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Current status:{" "}
-            <span className="font-medium text-foreground">
-              {getContentStatusLabel(status)}
-            </span>
-            . Authors can save drafts and submit their own drafts for review.
+            {t("dashboard.content.form.currentStatus", {
+              status: t(getContentStatusLabelKey(status)),
+            })}
           </p>
           <div className="flex flex-wrap gap-2">
             {canSubmitForReview && (
@@ -845,7 +875,7 @@ export function ContentForm({
                 disabled={primarySaveDisabled}
                 onClick={() => submit(false, true, "in_review")}
               >
-                Submit for review
+                {t("dashboard.content.actions.submitForReview")}
               </Button>
             )}
             {canReturnToDraft && (
@@ -856,7 +886,7 @@ export function ContentForm({
                 disabled={primarySaveDisabled}
                 onClick={() => submit(false, true, "draft")}
               >
-                Return to draft
+                {t("dashboard.content.actions.returnToDraft")}
               </Button>
             )}
           </div>
@@ -867,7 +897,9 @@ export function ContentForm({
         <div className="space-y-3 rounded-md border p-3">
           <div className="grid gap-3">
             <div className="space-y-2">
-              <Label htmlFor="publish-at">Publish at</Label>
+              <Label htmlFor="publish-at">
+                {t("dashboard.content.form.publishAt")}
+              </Label>
               <div className="relative">
                 <Input
                   id="publish-at"
@@ -880,7 +912,7 @@ export function ContentForm({
                 />
                 <button
                   type="button"
-                  aria-label="Open publish date picker"
+                  aria-label={t("dashboard.content.form.openPublishDatePicker")}
                   className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-foreground/75 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => showDateTimePicker(publishAtInputRef.current)}
                 >
@@ -889,7 +921,9 @@ export function ContentForm({
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="unpublish-at">Unpublish at</Label>
+              <Label htmlFor="unpublish-at">
+                {t("dashboard.content.form.unpublishAt")}
+              </Label>
               <div className="relative">
                 <Input
                   id="unpublish-at"
@@ -902,7 +936,9 @@ export function ContentForm({
                 />
                 <button
                   type="button"
-                  aria-label="Open unpublish date picker"
+                  aria-label={t(
+                    "dashboard.content.form.openUnpublishDatePicker",
+                  )}
                   className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-foreground/75 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() =>
                     showDateTimePicker(unpublishAtInputRef.current)
@@ -923,7 +959,7 @@ export function ContentForm({
                 submit(false, true, "published", { publishAt: "" })
               }
             >
-              Publish now
+              {t("dashboard.content.actions.publishNow")}
             </Button>
             <Button
               type="button"
@@ -932,7 +968,7 @@ export function ContentForm({
               disabled={primarySaveDisabled || !publishAt}
               onClick={() => submit(false, true, "approved")}
             >
-              Schedule publish
+              {t("dashboard.content.form.schedulePublish")}
             </Button>
             <Button
               type="button"
@@ -946,13 +982,12 @@ export function ContentForm({
                 })
               }
             >
-              Clear schedule
+              {t("dashboard.content.form.clearSchedule")}
             </Button>
           </div>
           {homepage && unpublishAt && (
             <p className="text-xs text-muted-foreground">
-              Homepage will show the fallback page after this unpublish time
-              unless another live homepage is assigned.
+              {t("dashboard.content.form.homepageUnpublishWarning")}
             </p>
           )}
         </div>
@@ -965,8 +1000,11 @@ export function ContentForm({
       {isAdmin && contentType === "page" && (
         <div className="flex items-center justify-between gap-3">
           <div>
-            <InlineHelpLabel htmlFor="homepage" label="Set as homepage">
-              Only one page can be the homepage. Must be live now.
+            <InlineHelpLabel
+              htmlFor="homepage"
+              label={t("dashboard.content.actions.setHomepage")}
+            >
+              {t("dashboard.content.form.setAsHomepageHelp")}
             </InlineHelpLabel>
           </div>
           <Switch
@@ -982,8 +1020,8 @@ export function ContentForm({
 
   const visibilitySettings = (
     <div className="space-y-4">
-      <InlineHelpLabel label="Visibility">
-        Choose who can view this content on the public site.
+      <InlineHelpLabel label={t("dashboard.content.form.visibility")}>
+        {t("dashboard.content.form.visibilityHelp")}
       </InlineHelpLabel>
       <div className="space-y-3">
         <label className="flex items-start gap-3">
@@ -994,10 +1032,11 @@ export function ContentForm({
             className="mt-0.5"
           />
           <div className="space-y-0.5">
-            <span className="text-sm font-medium">Public</span>
+            <span className="text-sm font-medium">
+              {t("dashboard.content.form.public")}
+            </span>
             <p className="text-xs text-muted-foreground">
-              Visible to everyone, including anonymous visitors. Role selections
-              below are ignored while this is on.
+              {t("dashboard.content.form.publicVisibilityHelp")}
             </p>
           </div>
         </label>
@@ -1009,10 +1048,10 @@ export function ContentForm({
               onCheckedChange={(v) => toggleVisibilityRole(role, !!v)}
             />
             <span className="text-sm capitalize">
-              {role}
+              {t(getRoleLabelKey(role))}
               {role === "viewer" && (
-                <span className="ml-2 text-xs normal-case text-muted-foreground">
-                  (default role after registration)
+                <span className="ms-2 text-xs normal-case text-muted-foreground">
+                  {t("dashboard.content.form.viewerDefaultRole")}
                 </span>
               )}
             </span>
@@ -1021,8 +1060,10 @@ export function ContentForm({
         <label className="flex items-center gap-3 pl-1">
           <Checkbox id="visibility-admin" checked disabled />
           <span className="text-sm capitalize text-muted-foreground">
-            admin
-            <span className="ml-2 text-xs">(admins always have access)</span>
+            {t(getRoleLabelKey("admin"))}
+            <span className="ms-2 text-xs">
+              {t("dashboard.content.form.adminsAlwaysAccess")}
+            </span>
           </span>
         </label>
       </div>
@@ -1033,7 +1074,9 @@ export function ContentForm({
     <div className="space-y-4">
       <Select value={categoryId} onValueChange={setCategoryId}>
         <SelectTrigger>
-          <SelectValue placeholder="Select a category" />
+          <SelectValue
+            placeholder={t("dashboard.content.form.selectCategory")}
+          />
         </SelectTrigger>
         <SelectContent>
           {categories.map((c) => (
@@ -1045,7 +1088,7 @@ export function ContentForm({
       </Select>
       {categories.length === 0 && (
         <p className="text-xs text-destructive">
-          No categories for this type. Create one in Content Categories first.
+          {t("dashboard.content.form.noCategories")}
         </p>
       )}
     </div>
@@ -1061,7 +1104,7 @@ export function ContentForm({
     <div className="space-y-4">
       <AiTextAssistField
         id="meta-title"
-        label="Meta title"
+        label={t("dashboard.content.form.metaTitle")}
         field="metaTitle"
         value={metaTitle}
         onChange={setMetaTitle}
@@ -1077,7 +1120,7 @@ export function ContentForm({
       />
       <AiTextAssistField
         id="meta-desc"
-        label="Meta description"
+        label={t("dashboard.content.form.metaDescription")}
         field="metaDescription"
         value={metaDescription}
         onChange={setMetaDescription}
@@ -1100,8 +1143,11 @@ export function ContentForm({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <InlineHelpLabel htmlFor="enable-comments" label="Enable comments">
-            Master switch for the comment form and list.
+          <InlineHelpLabel
+            htmlFor="enable-comments"
+            label={t("dashboard.content.form.enableComments")}
+          >
+            {t("dashboard.content.form.enableCommentsHelp")}
           </InlineHelpLabel>
         </div>
         <Switch
@@ -1114,9 +1160,9 @@ export function ContentForm({
         <div>
           <InlineHelpLabel
             htmlFor="auto-publish-comments"
-            label="Auto-publish comments"
+            label={t("dashboard.content.form.autoPublishComments")}
           >
-            Skip moderation queue for new comments.
+            {t("dashboard.content.form.autoPublishCommentsHelp")}
           </InlineHelpLabel>
         </div>
         <Switch
@@ -1130,9 +1176,9 @@ export function ContentForm({
         <div>
           <InlineHelpLabel
             htmlFor="allow-anon-comments"
-            label="Allow anonymous"
+            label={t("dashboard.content.form.allowAnonymous")}
           >
-            Guests can comment with name + optional email.
+            {t("dashboard.content.form.allowAnonymousHelp")}
           </InlineHelpLabel>
         </div>
         <Switch
@@ -1146,7 +1192,7 @@ export function ContentForm({
         <div className="pt-2 border-t">
           <Button asChild variant="outline" size="sm" className="w-full">
             <Link href={`/dashboard/content/${initial.id}/comments`}>
-              Manage comments
+              {t("dashboard.content.form.manageComments")}
             </Link>
           </Button>
         </div>
@@ -1194,7 +1240,7 @@ export function ContentForm({
     <div className="space-y-6">
       <div
         className={[
-          "fixed right-4 bottom-[calc(var(--sticky-footer-h,0px)+1rem+env(safe-area-inset-bottom,0px))] z-[60] transition-all duration-200 sm:right-6 sm:bottom-[calc(var(--sticky-footer-h,0px)+1.5rem+env(safe-area-inset-bottom,0px))]",
+          "fixed end-4 bottom-[calc(var(--sticky-footer-h,0px)+1rem+env(safe-area-inset-bottom,0px))] z-[60] transition-all duration-200 sm:end-6 sm:bottom-[calc(var(--sticky-footer-h,0px)+1.5rem+env(safe-area-inset-bottom,0px))]",
           showFloatingSave
             ? "translate-y-0 opacity-100"
             : "pointer-events-none translate-y-3 opacity-0",
@@ -1209,16 +1255,14 @@ export function ContentForm({
           aria-label={
             savePending
               ? mode === "create"
-                ? "Creating content"
-                : "Saving content"
+                ? t("dashboard.content.form.creating")
+                : t("dashboard.common.actions.saving")
               : mode === "create"
-                ? "Create content"
-                : "Save content"
+                ? t("dashboard.content.form.createContent")
+                : t("dashboard.content.form.saveContent")
           }
           title={
-            lockBlocksSave
-              ? "Saving is disabled while another editor holds the edit lock."
-              : undefined
+            lockBlocksSave ? t("dashboard.content.form.saveLocked") : undefined
           }
         >
           {savePending ? (
@@ -1229,15 +1273,15 @@ export function ContentForm({
           <span className="hidden sm:inline">
             {savePending
               ? mode === "create"
-                ? "Creating…"
-                : "Saving…"
+                ? t("dashboard.content.form.creating")
+                : t("dashboard.common.actions.saving")
               : primarySaveLabel}
           </span>
           <span className="sm:hidden">
             {savePending
               ? mode === "create"
-                ? "Creating…"
-                : "Saving…"
+                ? t("dashboard.content.form.creating")
+                : t("dashboard.common.actions.saving")
               : primarySaveLabel}
           </span>
         </Button>
@@ -1246,18 +1290,20 @@ export function ContentForm({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">
-            {mode === "create" ? "Create" : "Edit"}{" "}
-            {contentTypeLabel(contentType)}
+            {mode === "create"
+              ? t("dashboard.content.form.create")
+              : t("dashboard.content.form.edit")}{" "}
+            {t(getContentTypeLabelKey(contentType))}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {contentTypeDescription(contentType)}
+            {t(getContentTypeDescriptionKey(contentType))}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {mode === "create" ? (
             <Button onClick={submitPrimary} disabled={primarySaveDisabled}>
-              {savePending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create
+              {savePending && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+              {t("dashboard.content.form.create")}
             </Button>
           ) : (
             <>
@@ -1268,30 +1314,30 @@ export function ContentForm({
                 disabled={previewPending || status === "archived"}
                 title={
                   status === "archived"
-                    ? "Archived content cannot be previewed."
-                    : "Open a frontend preview of the saved version."
+                    ? t("dashboard.content.form.previewDisabledArchived")
+                    : t("dashboard.content.form.previewTitle")
                 }
               >
                 {previewPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Eye className="mr-2 h-4 w-4" />
+                  <Eye className="me-2 h-4 w-4" />
                 )}
-                Preview
+                {t("dashboard.content.form.preview")}
               </Button>
               <Button
                 onClick={submitPrimary}
                 disabled={primarySaveDisabled}
                 title={
                   lockBlocksSave
-                    ? "Saving is disabled while another editor holds the edit lock."
+                    ? t("dashboard.content.form.saveLocked")
                     : undefined
                 }
               >
                 {savePending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                 )}
-                Save
+                {t("dashboard.content.form.save")}
               </Button>
               <Button
                 onClick={() => submit(true)}
@@ -1299,19 +1345,21 @@ export function ContentForm({
                 variant="secondary"
                 title={
                   lockBlocksSave
-                    ? "Saving is disabled while another editor holds the edit lock."
+                    ? t("dashboard.content.form.saveLocked")
                     : undefined
                 }
               >
                 {savePending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                 )}
-                Save and close
+                {t("dashboard.content.form.saveAndClose")}
               </Button>
             </>
           )}
           <Button variant="outline" asChild disabled={savePending}>
-            <Link href="/dashboard/content">Cancel</Link>
+            <Link href="/dashboard/content">
+              {t("dashboard.common.actions.cancel")}
+            </Link>
           </Button>
         </div>
       </div>
@@ -1326,7 +1374,7 @@ export function ContentForm({
                 variant="outline"
                 onClick={() => router.refresh()}
               >
-                Reload latest version
+                {t("dashboard.content.form.refresh")}
               </Button>
             </div>
           )}
@@ -1336,11 +1384,14 @@ export function ContentForm({
       <div className="flex gap-3 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-950 dark:text-cyan-100">
         <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <div className="space-y-1">
-          <p className="font-medium">Session security</p>
+          <p className="font-medium">
+            {t("dashboard.content.form.sessionSecurity")}
+          </p>
           <p className="text-cyan-900/80 dark:text-cyan-100/80">
-            You may be signed out after {idleLogoutLabel} of inactivity, or
-            after {maxSessionLabel} total session time. Save your changes before
-            leaving this editor idle.
+            {t("dashboard.content.form.sessionSecurityDescription", {
+              idle: idleLogoutLabel,
+              max: maxSessionLabel,
+            })}
           </p>
         </div>
       </div>
@@ -1360,17 +1411,19 @@ export function ContentForm({
         <div className="min-w-0 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">
-              {contentType === "hero_slider" ? "Name" : "Title"}
+              {contentType === "hero_slider"
+                ? t("dashboard.content.form.name")
+                : t("dashboard.content.form.title")}
             </Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
-              placeholder="Enter title"
+              placeholder={t("dashboard.content.form.titlePlaceholder")}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="slug">Slug</Label>
+            <Label htmlFor="slug">{t("dashboard.content.form.slug")}</Label>
             <Input
               id="slug"
               value={slug}
@@ -1379,10 +1432,10 @@ export function ContentForm({
                 setSlug(e.target.value);
               }}
               onBlur={() => setSlug(slugify(slug))}
-              placeholder="url-slug"
+              placeholder={t("dashboard.content.form.slugPlaceholder")}
             />
             <p className="text-xs text-muted-foreground">
-              Public URL:{" "}
+              {t("dashboard.content.form.publicUrl")}{" "}
               <Link
                 href={`/${slug || "your-slug"}`}
                 target="_blank"
@@ -1398,7 +1451,7 @@ export function ContentForm({
             <>
               <AiTextAssistField
                 id="excerpt"
-                label="Excerpt"
+                label={t("dashboard.content.form.excerpt")}
                 field="excerpt"
                 value={excerpt}
                 onChange={setExcerpt}
@@ -1412,10 +1465,12 @@ export function ContentForm({
                 aiModelId={effectiveAiModelId}
                 multiline
                 rows={3}
-                placeholder="Short summary"
+                placeholder={t("dashboard.content.form.excerptPlaceholder")}
               />
               <div className="space-y-2">
-                <Label htmlFor="cover">Cover image URL</Label>
+                <Label htmlFor="cover">
+                  {t("dashboard.content.form.coverImageUrl")}
+                </Label>
                 <div className="flex gap-2">
                   <Input
                     id="cover"
@@ -1429,7 +1484,7 @@ export function ContentForm({
                     onClick={() => setCoverPickerOpen(true)}
                   >
                     <ImageIcon className="h-4 w-4" />
-                    Browse
+                    {t("dashboard.content.form.browse")}
                   </Button>
                 </div>
                 {coverImage && (
@@ -1437,7 +1492,7 @@ export function ContentForm({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={coverImage}
-                      alt="Cover preview"
+                      alt={t("dashboard.content.form.coverPreviewAlt")}
                       className="max-h-40 rounded object-contain"
                     />
                   </div>
@@ -1454,7 +1509,7 @@ export function ContentForm({
           {contentType === "hero_slider" && (
             <AiTextAssistField
               id="excerpt"
-              label="Description"
+              label={t("dashboard.content.form.description")}
               field="excerpt"
               value={excerpt}
               onChange={setExcerpt}
@@ -1467,14 +1522,16 @@ export function ContentForm({
               suggestionsEnabled={false}
               multiline
               rows={3}
-              placeholder="Short internal or SEO description"
+              placeholder={t("dashboard.content.form.descriptionPlaceholder")}
             />
           )}
 
           {contentType !== "webshop" && (
             <div className="space-y-2">
               <Label>
-                {contentType === "hero_slider" ? "Slides" : "Content"}
+                {contentType === "hero_slider"
+                  ? t("dashboard.content.form.slides")
+                  : t("dashboard.content.form.content")}
               </Label>
               {contentType === "page" ? (
                 <PageEditor
@@ -1567,22 +1624,30 @@ export function ContentForm({
                   className="min-w-0 px-2 text-xs"
                 >
                   <Rocket className="h-4 w-4" />
-                  <span className="truncate">Publishing</span>
+                  <span className="truncate">
+                    {t("dashboard.content.form.publishing")}
+                  </span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="visibility"
                   className="min-w-0 px-2 text-xs"
                 >
                   <Eye className="h-4 w-4" />
-                  <span className="truncate">Visibility</span>
+                  <span className="truncate">
+                    {t("dashboard.content.form.visibility")}
+                  </span>
                 </TabsTrigger>
                 <TabsTrigger value="category" className="min-w-0 px-2 text-xs">
                   <FolderTree className="h-4 w-4" />
-                  <span className="truncate">Category</span>
+                  <span className="truncate">
+                    {t("dashboard.content.form.category")}
+                  </span>
                 </TabsTrigger>
                 <TabsTrigger value="seo" className="min-w-0 px-2 text-xs">
                   <Search className="h-4 w-4" />
-                  <span className="truncate">SEO</span>
+                  <span className="truncate">
+                    {t("dashboard.content.form.seo")}
+                  </span>
                 </TabsTrigger>
                 {contentType === "blog_post" && (
                   <TabsTrigger
@@ -1590,13 +1655,17 @@ export function ContentForm({
                     className="min-w-0 px-2 text-xs"
                   >
                     <MessageSquare className="h-4 w-4" />
-                    <span className="truncate">Comments</span>
+                    <span className="truncate">
+                      {t("dashboard.content.form.comments")}
+                    </span>
                   </TabsTrigger>
                 )}
                 {historyPanel && (
                   <TabsTrigger value="history" className="min-w-0 px-2 text-xs">
                     <HistoryIcon className="h-4 w-4" />
-                    <span className="truncate">History</span>
+                    <span className="truncate">
+                      {t("dashboard.content.form.history")}
+                    </span>
                   </TabsTrigger>
                 )}
               </TabsList>
@@ -1630,28 +1699,10 @@ export function ContentForm({
   );
 }
 
-const AI_FIELD_LABELS: Record<AiGeneratedField, string> = {
-  excerpt: "Excerpt",
-  metaTitle: "Meta title",
-  metaDescription: "Meta description",
-};
-
-function contentTypeLabel(contentType: Props["contentType"]) {
-  if (contentType === "page") return "Page";
-  if (contentType === "hero_slider") return "Hero Slider";
-  if (contentType === "webshop") return "Webshop";
-  return "Blog Post";
-}
-
-function contentTypeDescription(contentType: Props["contentType"]) {
-  if (contentType === "page") return "Visual page builder.";
-  if (contentType === "hero_slider") {
-    return "Hero slider editor for page builder embeds.";
-  }
-  if (contentType === "webshop") {
-    return "Paid Webshop add-on shell for publishing, routing, and SEO.";
-  }
-  return "Rich-text blog post editor.";
+function getAiFieldLabel(field: AiGeneratedField, t: TranslateFn) {
+  if (field === "excerpt") return t("dashboard.content.form.excerpt");
+  if (field === "metaTitle") return t("dashboard.content.form.metaTitle");
+  return t("dashboard.content.form.metaDescription");
 }
 
 function getDefaultInspectorTab(
@@ -1762,6 +1813,7 @@ function AiTextAssistField({
   rows,
   placeholder,
 }: AiTextAssistFieldProps) {
+  const t = useTranslations();
   const controlRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(
     null,
   );
@@ -1803,7 +1855,7 @@ function AiTextAssistField({
     if (before.trim().length < 3) return;
 
     const content = contentProvider().trim();
-    if (getAiFieldContextError(field, { title, excerpt, content })) return;
+    if (getAiFieldContextError(field, { title, excerpt, content }, t)) return;
 
     debounceRef.current = setTimeout(async () => {
       const controller = new AbortController();
@@ -1964,7 +2016,9 @@ function AiTextAssistField({
                   variant="ghost"
                   className="h-6 w-6 text-primary hover:text-primary"
                   disabled={generating}
-                  aria-label={`Generate ${label} with AI`}
+                  aria-label={t("dashboard.content.form.generateWithAi", {
+                    field: label,
+                  })}
                   onClick={() => onGenerate(field)}
                 >
                   {generating ? (
@@ -1974,7 +2028,9 @@ function AiTextAssistField({
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Generate {label} with AI</TooltipContent>
+              <TooltipContent>
+                {t("dashboard.content.form.generateWithAi", { field: label })}
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         )}
@@ -1992,9 +2048,11 @@ function AiTextAssistField({
         <button
           id={`${id}-ai-suggestion`}
           type="button"
-          aria-label={`Accept AI suggestion: ${suggestion}`}
+          aria-label={t("dashboard.content.form.acceptAiSuggestion", {
+            suggestion,
+          })}
           className={cn(
-            "flex max-w-full items-start gap-1.5 text-left text-xs",
+            "flex max-w-full items-start gap-1.5 text-start text-xs",
             "text-muted-foreground transition hover:text-foreground",
           )}
           onMouseDown={(event) => event.preventDefault()}
@@ -2016,12 +2074,13 @@ function AiTextAssistField({
 function getAiFieldContextError(
   field: AiGeneratedField,
   context: { title: string; excerpt: string; content: string },
+  t: TranslateFn,
   surface: AiAssistantSurface = "blogEditor",
 ) {
   if (!context.title.trim()) {
     return field === "excerpt"
-      ? "Enter a title first so AI has enough context for the excerpt."
-      : "Enter a title first so AI has enough context for SEO text.";
+      ? t("dashboard.content.form.aiNeedsTitleForExcerpt")
+      : t("dashboard.content.form.aiNeedsTitleForSeo");
   }
 
   if (surface === "pageBuilder") {
@@ -2033,7 +2092,7 @@ function getAiFieldContextError(
     !context.excerpt.trim() &&
     !context.content.trim()
   ) {
-    return "Enter an excerpt or content first so AI has enough context for SEO text.";
+    return t("dashboard.content.form.aiNeedsExcerptOrContentForSeo");
   }
 
   return null;

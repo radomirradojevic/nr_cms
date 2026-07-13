@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 
 import { useAdminSectionLock } from "@/components/admin-section-lock-provider";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +21,8 @@ import { Label } from "@/components/ui/label";
 import { createMenu } from "../top-menu/actions";
 
 export function CreateMenuDialog() {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useAdminSectionLock();
   const [open, setOpen] = useState(false);
@@ -58,19 +62,19 @@ export function CreateMenuDialog() {
       <DialogTrigger asChild>
         <Button type="button" disabled={!lock.isEditor}>
           <Plus className="h-4 w-4" />
-          Create Menu
+          {t("dashboard.menus.create")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create Menu</DialogTitle>
+          <DialogTitle>{t("dashboard.menus.createTitle")}</DialogTitle>
           <DialogDescription>
-            Menu names must be unique across the system.
+            {t("dashboard.menus.createDescription")}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="menuName">Menu Name</Label>
+            <Label htmlFor="menuName">{t("dashboard.menus.menuName")}</Label>
             <Input
               id="menuName"
               value={name}
@@ -81,7 +85,7 @@ export function CreateMenuDialog() {
             />
           </div>
           {serverError && (
-            <p className="text-sm text-destructive">{serverError}</p>
+            <p className="text-sm text-destructive">{st(serverError)}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button
@@ -89,11 +93,11 @@ export function CreateMenuDialog() {
               variant="outline"
               onClick={() => setOpen(false)}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={isPending || !lock.isEditor}>
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Create
+              {t("dashboard.common.actions.create")}
             </Button>
           </div>
         </form>

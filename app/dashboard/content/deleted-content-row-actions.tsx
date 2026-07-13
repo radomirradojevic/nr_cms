@@ -14,6 +14,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { hasRole, type Role } from "@/lib/roles";
 
 import { permanentlyDeleteContent, restoreDeletedContent } from "./actions";
@@ -30,6 +32,8 @@ export function DeletedContentRowActions({
   currentUserRoles,
   onMutated,
 }: Props) {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -65,7 +69,7 @@ export function DeletedContentRowActions({
             }}
           >
             <RotateCcw className="h-4 w-4" />
-            Restore
+            {t("dashboard.content.actions.restore")}
           </Button>
         )}
         {isAdmin && (
@@ -79,12 +83,12 @@ export function DeletedContentRowActions({
             }}
           >
             <Trash2 className="h-4 w-4" />
-            Delete
+            {t("dashboard.common.actions.delete")}
           </Button>
         )}
       </div>
       {error && (
-        <p className="max-w-[260px] text-xs text-destructive">{error}</p>
+        <p className="max-w-[260px] text-xs text-destructive">{st(error)}</p>
       )}
 
       <AlertDialog
@@ -96,15 +100,22 @@ export function DeletedContentRowActions({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore this deleted content?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("dashboard.content.dialogs.restoreTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-medium">{row.title}</span> will be moved
-              back to regular content with its revision history.
+              {t("dashboard.content.dialogs.restoreDescription", {
+                title: row.title,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {error && <p className="px-1 text-sm text-destructive">{error}</p>}
+          {error && (
+            <p className="px-1 text-sm text-destructive">{st(error)}</p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>
+              {t("dashboard.common.actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={pending}
               onClick={(event) => {
@@ -113,7 +124,7 @@ export function DeletedContentRowActions({
               }}
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Restore
+              {t("dashboard.content.actions.restore")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -129,16 +140,21 @@ export function DeletedContentRowActions({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Permanently delete this content?
+              {t("dashboard.content.dialogs.permanentlyDeleteTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete <span className="font-medium">{row.title}</span>,
-              comments, and all revision history. This cannot be undone.
+              {t("dashboard.content.dialogs.permanentlyDeleteDescription", {
+                title: row.title,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {error && <p className="px-1 text-sm text-destructive">{error}</p>}
+          {error && (
+            <p className="px-1 text-sm text-destructive">{st(error)}</p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>
+              {t("dashboard.common.actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={pending}
               onClick={(event) => {
@@ -148,7 +164,7 @@ export function DeletedContentRowActions({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Permanently delete
+              {t("dashboard.content.actions.permanentlyDelete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

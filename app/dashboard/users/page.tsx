@@ -12,7 +12,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
-import { hasRole, getRoles, type Role } from "@/lib/roles";
+import { getRoleLabelKey, hasRole, getRoles, type Role } from "@/lib/roles";
+import { getTranslations } from "@/lib/i18n/server";
 import { UsersFilters } from "./_components/users-filters";
 import { UsersTablePagination } from "./_components/users-table-pagination";
 import { LockUserButton } from "./[userId]/lock-user-button";
@@ -35,6 +36,7 @@ export default async function UsersPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  const t = await getTranslations("backend");
   const caller = await getOptionalCurrentUser();
 
   if (!hasRole(caller?.publicMetadata?.roles, "admin")) {
@@ -118,9 +120,9 @@ export default async function UsersPage({
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">User Management</h1>
+        <h1 className="text-2xl font-semibold">{t("dashboard.users.title")}</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage users and their roles. Admin access only.
+          {t("dashboard.users.description")}
         </p>
       </div>
 
@@ -129,12 +131,14 @@ export default async function UsersPage({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Username</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Roles</TableHead>
-            <TableHead>Presence</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>{t("dashboard.common.table.username")}</TableHead>
+            <TableHead>{t("dashboard.common.table.email")}</TableHead>
+            <TableHead>{t("dashboard.common.table.status")}</TableHead>
+            <TableHead>{t("dashboard.common.table.roles")}</TableHead>
+            <TableHead>{t("dashboard.common.table.presence")}</TableHead>
+            <TableHead className="text-right">
+              {t("dashboard.common.table.actions")}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -144,7 +148,7 @@ export default async function UsersPage({
                 colSpan={6}
                 className="text-center text-muted-foreground py-8"
               >
-                No users found.
+                {t("dashboard.users.noUsers")}
               </TableCell>
             </TableRow>
           ) : (
@@ -163,14 +167,16 @@ export default async function UsersPage({
                   <TableCell>{email}</TableCell>
                   <TableCell>
                     <Badge variant={user.locked ? "destructive" : "secondary"}>
-                      {user.locked ? "Locked" : "Active"}
+                      {user.locked
+                        ? t("dashboard.users.status.locked")
+                        : t("dashboard.users.status.active")}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {roles.map((role) => (
                         <Badge key={role} variant={roleBadgeVariant[role]}>
-                          {role}
+                          {t(getRoleLabelKey(role))}
                         </Badge>
                       ))}
                     </div>
@@ -183,7 +189,9 @@ export default async function UsersPage({
                         }`}
                       />
                       <span className="text-sm">
-                        {isOnline ? "Online" : "Offline"}
+                        {isOnline
+                          ? t("dashboard.users.presence.online")
+                          : t("dashboard.users.presence.offline")}
                       </span>
                     </span>
                   </TableCell>
@@ -198,7 +206,9 @@ export default async function UsersPage({
                         isLocked={user.locked ?? false}
                       />
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={`/dashboard/users/${user.id}`}>View</Link>
+                        <Link href={`/dashboard/users/${user.id}`}>
+                          {t("dashboard.common.actions.view")}
+                        </Link>
                       </Button>
                     </div>
                   </TableCell>

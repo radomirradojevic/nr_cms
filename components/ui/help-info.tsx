@@ -14,6 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useSourceTranslations } from "@/components/source-translations";
 import { cn } from "@/lib/utils";
 
 type HelpInfoProps = {
@@ -35,6 +36,7 @@ export function HelpInfo({
   side = "top",
   title,
 }: HelpInfoProps) {
+  const st = useSourceTranslations();
   const contentId = useId();
   const [hoverOpen, setHoverOpen] = useState(false);
   const [focusOpen, setFocusOpen] = useState(false);
@@ -110,7 +112,11 @@ export function HelpInfo({
         <button
           aria-controls={open ? contentId : undefined}
           aria-expanded={open}
-          aria-label={typeof title === "string" ? `Help: ${title}` : "Help"}
+          aria-label={
+            typeof title === "string"
+              ? st("Help: {title}", { title })
+              : st("Help")
+          }
           className={cn(
             "inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition hover:border-primary/70 hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none",
             pinned && "border-primary/70 text-foreground",
@@ -155,7 +161,7 @@ export function HelpInfo({
           </div>
           {pinned ? (
             <button
-              aria-label="Close help"
+              aria-label={st("Close help")}
               className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
               onClick={closePinned}
               type="button"

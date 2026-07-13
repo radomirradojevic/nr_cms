@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { put } from "@vercel/blob/client";
 import { Loader2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "@/components/i18n-provider";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export function UploadDropzone({
   storageProvider,
   currentFolderId,
 }: Props) {
+  const t = useTranslations();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [state, setState] = useState<UploadState>({
@@ -69,7 +71,9 @@ export function UploadDropzone({
   }
 
   function getErrorMessage(err: unknown): string {
-    return err instanceof Error ? err.message : "Upload failed.";
+    return err instanceof Error
+      ? err.message
+      : t("dashboard.files.uploadDropzone.failed");
   }
 
   async function uploadViaApi(accepted: File[]): Promise<FileRow[]> {
@@ -104,7 +108,8 @@ export function UploadDropzone({
           reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
         }
       };
-      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.onerror = () =>
+        reject(new Error(t("dashboard.files.uploadDropzone.networkError")));
       xhr.send(form);
     });
 
@@ -202,7 +207,12 @@ export function UploadDropzone({
 
     for (const f of all) {
       if (f.size > maxFileSize) {
-        toast.error(`${f.name}: exceeds ${formatBytes(maxFileSize)} limit.`);
+        toast.error(
+          t("dashboard.files.uploadDropzone.fileTooLarge", {
+            name: f.name,
+            limit: formatBytes(maxFileSize),
+          }),
+        );
         continue;
       }
       if (
@@ -211,7 +221,12 @@ export function UploadDropzone({
         // some browsers omit a type for SVG/text - allow server to validate
         f.type !== ""
       ) {
-        toast.error(`${f.name}: file type "${f.type}" is not allowed.`);
+        toast.error(
+          t("dashboard.files.uploadDropzone.fileTypeNotAllowed", {
+            name: f.name,
+            type: f.type,
+          }),
+        );
         continue;
       }
       accepted.push(f);
@@ -222,7 +237,10 @@ export function UploadDropzone({
 
     if (totalSize > maxBatchSize) {
       toast.error(
-        `Total size ${formatBytes(totalSize)} exceeds batch limit of ${formatBytes(maxBatchSize)}.`,
+        t("dashboard.files.uploadDropzone.batchTooLarge", {
+          size: formatBytes(totalSize),
+          limit: formatBytes(maxBatchSize),
+        }),
       );
       return;
     }
@@ -240,12 +258,16 @@ export function UploadDropzone({
           ? await uploadViaVercelBlob(accepted, totalSize)
           : await uploadViaApi(accepted);
       if (successes.length > 0) {
-        toast.success(`Uploaded ${successes.length} file(s).`);
+        toast.success(
+          t("dashboard.files.uploadDropzone.uploadedCount", {
+            count: successes.length,
+          }),
+        );
         onUploaded(successes);
       }
     } catch (err) {
       console.error(err);
-      toast.error("Upload failed. Please try again.");
+      toast.error(t("dashboard.files.uploadDropzone.failedTryAgain"));
     } finally {
       setState({
         active: false,
@@ -291,8 +313,12 @@ export function UploadDropzone({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               {state.processing
-                ? `Processing ${state.totalCount} file(s)…`
-                : `Uploading ${state.totalCount} file(s)…`}
+                ? t("dashboard.files.uploadDropzone.processing", {
+                    count: state.totalCount,
+                  })
+                : t("dashboard.files.uploadDropzone.uploading", {
+                    count: state.totalCount,
+                  })}
             </p>
             <div className="w-full max-w-md">
               <Progress value={state.progress} />
@@ -302,14 +328,17 @@ export function UploadDropzone({
           <>
             <UploadCloud className="h-10 w-10 text-muted-foreground" />
             <div>
-              <p className="font-medium">Drop files here, or click to browse</p>
+              <p className="font-medium">
+                {t("dashboard.files.uploadDropzone.prompt")}
+              </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Up to {formatBytes(maxFileSize)} per file. Images, video, and
-                documents.
+                {t("dashboard.files.uploadDropzone.limits", {
+                  limit: formatBytes(maxFileSize),
+                })}
               </p>
             </div>
             <Button type="button" variant="outline" size="sm">
-              Choose files
+              {t("dashboard.files.uploadDropzone.chooseFiles")}
             </Button>
           </>
         )}

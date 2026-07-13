@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useSourceTranslations } from "@/components/source-translations";
 
 import { restoreContentRevision } from "./actions";
 
@@ -33,6 +34,7 @@ export function RevisionPreviewRestoreButton({
   revisionNumber,
   expectedVersion,
 }: RevisionPreviewRestoreButtonProps) {
+  const st = useSourceTranslations();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -49,9 +51,11 @@ export function RevisionPreviewRestoreButton({
         return;
       }
 
-      toast.success(`Revision #${revisionNumber} restored.`);
+      toast.success(
+        st("Revision #{revisionNumber} restored.", { revisionNumber }),
+      );
       for (const warning of result.warnings ?? []) {
-        toast.warning(warning);
+        toast.warning(st(warning));
       }
       router.replace(`/dashboard/content/${contentId}/edit?inspector=history`);
     });
@@ -66,21 +70,24 @@ export function RevisionPreviewRestoreButton({
           ) : (
             <RotateCcw aria-hidden className="size-4" />
           )}
-          Restore
+          {st("Restore")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            Restore revision #{revisionNumber}?
+            {st("Restore revision #{revisionNumber}?", { revisionNumber })}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            This replaces the saved content with this revision snapshot and then
-            returns you to the editor.
+            {st(
+              "This replaces the saved content with this revision snapshot and then returns you to the editor.",
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>
+            {st("Cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             disabled={isPending}
             onClick={(event) => {
@@ -88,7 +95,7 @@ export function RevisionPreviewRestoreButton({
               restoreRevision();
             }}
           >
-            Restore
+            {st("Restore")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

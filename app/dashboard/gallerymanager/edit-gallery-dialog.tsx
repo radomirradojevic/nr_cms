@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useTranslations } from "@/components/i18n-provider";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export function EditGalleryDialog({
   onOpenChange,
   onUpdated,
 }: Props) {
+  const t = useTranslations();
   const router = useRouter();
   const [name, setName] = useState(gallery.name);
   const [description, setDescription] = useState(gallery.description ?? "");
@@ -67,7 +69,7 @@ export function EditGalleryDialog({
       setError(result.error);
       return;
     }
-    toast.success("Gallery updated.");
+    toast.success(t("dashboard.galleries.galleryUpdated"));
     if ("gallery" in result && result.gallery) {
       onUpdated?.({
         id: result.gallery.id,
@@ -84,15 +86,19 @@ export function EditGalleryDialog({
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Edit gallery</DialogTitle>
+            <DialogTitle>
+              {t("dashboard.galleries.editDialog.title")}
+            </DialogTitle>
             <DialogDescription>
-              Rename the gallery or update its description.
+              {t("dashboard.galleries.editDialog.description")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="gallery-name">Name</Label>
+              <Label htmlFor="gallery-name">
+                {t("dashboard.galleries.createDialog.name")}
+              </Label>
               <Input
                 id="gallery-name"
                 value={name}
@@ -103,7 +109,9 @@ export function EditGalleryDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="gallery-description">Description</Label>
+              <Label htmlFor="gallery-description">
+                {t("dashboard.galleries.createDialog.descriptionLabel")}
+              </Label>
               <Textarea
                 id="gallery-description"
                 value={description}
@@ -123,11 +131,11 @@ export function EditGalleryDialog({
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
+              {t("dashboard.common.actions.save")}
             </Button>
           </DialogFooter>
         </form>

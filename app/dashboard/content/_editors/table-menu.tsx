@@ -138,7 +138,9 @@ export function TableMenu({ editor, toolbarState }: Props) {
                       selected && "border-primary bg-primary/20",
                     )}
                     aria-label={`Insert ${col} by ${row} table`}
-                    onMouseEnter={() => setSelectedSize({ rows: row, cols: col })}
+                    onMouseEnter={() =>
+                      setSelectedSize({ rows: row, cols: col })
+                    }
                     onFocus={() => setSelectedSize({ rows: row, cols: col })}
                     onClick={() => insertTable(row, col)}
                   />
@@ -168,7 +170,10 @@ export function TableMenu({ editor, toolbarState }: Props) {
             >
               Toggle header column
             </MenuItem>
-            <MenuItem disabled={!can.fixTables} onSelect={() => run("fixTables")}>
+            <MenuItem
+              disabled={!can.fixTables}
+              onSelect={() => run("fixTables")}
+            >
               Normalize structure
             </MenuItem>
           </DropdownMenuSubContent>
@@ -190,13 +195,23 @@ export function TableMenu({ editor, toolbarState }: Props) {
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-52">
             <DropdownMenuLabel>Cell properties</DropdownMenuLabel>
-            <MenuItem onSelect={() => editor.chain().focus().setTextAlign("left").run()}>
+            <MenuItem
+              onSelect={() => editor.chain().focus().setTextAlign("left").run()}
+            >
               Align left
             </MenuItem>
-            <MenuItem onSelect={() => editor.chain().focus().setTextAlign("center").run()}>
+            <MenuItem
+              onSelect={() =>
+                editor.chain().focus().setTextAlign("center").run()
+              }
+            >
               Align center
             </MenuItem>
-            <MenuItem onSelect={() => editor.chain().focus().setTextAlign("right").run()}>
+            <MenuItem
+              onSelect={() =>
+                editor.chain().focus().setTextAlign("right").run()
+              }
+            >
               Align right
             </MenuItem>
             <DropdownMenuSeparator />
@@ -206,7 +221,10 @@ export function TableMenu({ editor, toolbarState }: Props) {
             >
               Merge cells
             </MenuItem>
-            <MenuItem disabled={!can.splitCell} onSelect={() => run("splitCell")}>
+            <MenuItem
+              disabled={!can.splitCell}
+              onSelect={() => run("splitCell")}
+            >
               Split cell
             </MenuItem>
             <MenuItem
@@ -236,7 +254,10 @@ export function TableMenu({ editor, toolbarState }: Props) {
             >
               Insert row after
             </MenuItem>
-            <MenuItem disabled={!can.deleteRow} onSelect={() => run("deleteRow")}>
+            <MenuItem
+              disabled={!can.deleteRow}
+              onSelect={() => run("deleteRow")}
+            >
               Delete row
             </MenuItem>
             <DropdownMenuSeparator />

@@ -17,6 +17,9 @@ import { HeroSliderRendererWithMenus } from "@/components/hero-slider-renderer-w
 import { PageTemplate } from "@/components/page-template";
 import { WebshopPublicPlaceholder } from "@/components/webshop-public-placeholder";
 import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
+import { buildAddonI18nContext } from "@/lib/i18n/addon-contract";
+import { getTranslations } from "@/lib/i18n/server";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { getDateFormatter } from "@/lib/regional-settings";
 import { hasRole, type Role } from "@/lib/roles";
 import type {
@@ -40,7 +43,13 @@ type ContentPublicRendererProps = {
   webshopPath?: readonly string[];
 };
 
-function PreviewNotice({ banner }: { banner?: PreviewBanner }) {
+function PreviewNotice({
+  banner,
+  t,
+}: {
+  banner?: PreviewBanner;
+  t: TranslateFn;
+}) {
   const expiresAt = banner?.expiresAt
     ? new Date(banner.expiresAt).toLocaleString()
     : null;
@@ -48,10 +57,10 @@ function PreviewNotice({ banner }: { banner?: PreviewBanner }) {
   return (
     <div className="border-b bg-amber-50 px-4 py-3 text-sm text-amber-950">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3">
-        <span className="font-medium">Preview - not public</span>
+        <span className="font-medium">{t("public.preview.notPublic")}</span>
         {expiresAt ? (
           <span className="text-amber-900/80">
-            Preview link expires {expiresAt}
+            {t("public.preview.expires", { date: expiresAt })}
           </span>
         ) : null}
         {banner?.editHref ? (
@@ -59,7 +68,7 @@ function PreviewNotice({ banner }: { banner?: PreviewBanner }) {
             href={banner.editHref}
             className="ml-auto font-medium underline underline-offset-4"
           >
-            Edit content
+            {t("public.preview.editContent")}
           </Link>
         ) : null}
       </div>
@@ -91,6 +100,8 @@ export async function ContentPublicRenderer({
   }
 
   const settings = await getGlobalSettings();
+  const t = await getTranslations("frontend");
+  const addonI18n = buildAddonI18nContext(settings);
   const displayDate = row.updatedAt ?? row.createdAt;
   const formattedDate = displayDate
     ? getDateFormatter(settings.regional, {
@@ -163,6 +174,7 @@ export async function ContentPublicRenderer({
         webshopPath.length === 0
           ? addon.renderStorefrontRoot({
               contentId: row.id,
+              i18n: addonI18n,
               licenseMode,
               path: [],
               searchParams,
@@ -170,6 +182,7 @@ export async function ContentPublicRenderer({
             })
           : addon.renderStorefrontPath({
               contentId: row.id,
+              i18n: addonI18n,
               licenseMode,
               path: webshopPath,
               searchParams,
@@ -244,7 +257,7 @@ export async function ContentPublicRenderer({
 
   return (
     <>
-      <PreviewNotice banner={previewBanner} />
+      <PreviewNotice banner={previewBanner} t={t} />
       {body}
     </>
   );

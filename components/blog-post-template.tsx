@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 
 import type { BlogPostTemplateV1 } from "@/lib/appearance-recipe";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 import { sanitizeMediaSrc } from "@/lib/url-safety";
 
@@ -19,18 +20,26 @@ type BlogPostTemplateProps = {
   comments?: React.ReactNode;
 };
 
+type BlogPostTemplateViewProps = BlogPostTemplateProps & {
+  t: TranslateFn;
+};
+
 function EditPostLink({
   href,
   placement,
+  t,
 }: {
   href: string;
   placement: BlogPostTemplateV1["editAffordancePlacement"];
+  t: TranslateFn;
 }) {
+  const label = t("public.blog.post.editPost");
+
   if (placement === "title-inline") {
     return (
       <Link
         href={href}
-        title="Edit post"
+        title={label}
         className="ml-3 inline-flex align-middle rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <Pencil className="h-5 w-5" />
@@ -41,11 +50,11 @@ function EditPostLink({
   return (
     <Link
       href={href}
-      title="Edit post"
+      title={label}
       className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
       <Pencil className="h-4 w-4" />
-      Edit post
+      {label}
     </Link>
   );
 }
@@ -55,11 +64,13 @@ function MetadataLine({
   authorName,
   formattedDate,
   dateTime,
+  t,
 }: {
   treatment: BlogPostTemplateV1["metadataTreatment"];
   authorName: string | null;
   formattedDate: string | null;
   dateTime: string | null;
+  t: TranslateFn;
 }) {
   if (!authorName && !formattedDate) return null;
 
@@ -70,7 +81,9 @@ function MetadataLine({
   if (treatment === "stacked") {
     return (
       <div className="space-y-1 text-sm text-muted-foreground">
-        {authorName && <p>By {authorName}</p>}
+        {authorName && (
+          <p>{t("public.blog.post.byAuthor", { name: authorName })}</p>
+        )}
         {date && <p>{date}</p>}
       </div>
     );
@@ -79,7 +92,9 @@ function MetadataLine({
   if (treatment === "eyebrow") {
     return (
       <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {authorName && <span>By {authorName}</span>}
+        {authorName && (
+          <span>{t("public.blog.post.byAuthor", { name: authorName })}</span>
+        )}
         {authorName && date && <span aria-hidden="true">/</span>}
         {date}
       </div>
@@ -93,7 +108,9 @@ function MetadataLine({
         treatment === "compact" ? "text-xs" : "text-sm",
       )}
     >
-      {authorName && <span>By {authorName}</span>}
+      {authorName && (
+        <span>{t("public.blog.post.byAuthor", { name: authorName })}</span>
+      )}
       {authorName && date && <span aria-hidden="true">.</span>}
       {date}
     </div>
@@ -158,7 +175,7 @@ function Excerpt({
   );
 }
 
-export function BlogPostTemplate({
+export function BlogPostTemplateView({
   template,
   title,
   coverImage,
@@ -170,7 +187,8 @@ export function BlogPostTemplate({
   editHref,
   children,
   comments,
-}: BlogPostTemplateProps) {
+  t,
+}: BlogPostTemplateViewProps) {
   const editPlacement = template.editAffordancePlacement;
   const showHeaderEdit = canEdit && editPlacement === "header-actions";
   const showFooterEdit = canEdit && editPlacement === "footer-actions";
@@ -222,12 +240,17 @@ export function BlogPostTemplate({
                   authorName={authorName}
                   formattedDate={formattedDate}
                   dateTime={dateTime}
+                  t={t}
                 />
               )}
               <h1 className="text-4xl font-bold tracking-tight">
                 {title}
                 {showTitleEdit && (
-                  <EditPostLink href={editHref} placement={editPlacement} />
+                  <EditPostLink
+                    href={editHref}
+                    placement={editPlacement}
+                    t={t}
+                  />
                 )}
               </h1>
               {template.metadataTreatment !== "eyebrow" && (
@@ -236,12 +259,13 @@ export function BlogPostTemplate({
                   authorName={authorName}
                   formattedDate={formattedDate}
                   dateTime={dateTime}
+                  t={t}
                 />
               )}
             </div>
             {showHeaderEdit && (
               <div className="shrink-0">
-                <EditPostLink href={editHref} placement={editPlacement} />
+                <EditPostLink href={editHref} placement={editPlacement} t={t} />
               </div>
             )}
           </div>
@@ -264,10 +288,17 @@ export function BlogPostTemplate({
         {contentWithOptionalComments}
         {showFooterEdit && (
           <div className="border-t pt-6">
-            <EditPostLink href={editHref} placement={editPlacement} />
+            <EditPostLink href={editHref} placement={editPlacement} t={t} />
           </div>
         )}
       </div>
     </article>
   );
+}
+
+export async function BlogPostTemplate(props: BlogPostTemplateProps) {
+  const { getTranslations } = await import("@/lib/i18n/server");
+  const t = await getTranslations("frontend");
+
+  return <BlogPostTemplateView {...props} t={t} />;
 }

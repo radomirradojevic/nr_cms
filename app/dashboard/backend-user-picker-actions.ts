@@ -7,6 +7,7 @@ import {
   searchBackendUserOptions,
   type BackendUserOption,
 } from "@/lib/backend-users";
+import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 
@@ -29,21 +30,24 @@ export async function searchBackendUsers(
       hasMore: boolean;
     }
 > {
+  const t = await getTranslations("backend");
   const { userId } = await auth();
-  if (!userId) return { error: "Forbidden." };
+  if (!userId) return { error: t("dashboard.errors.forbidden") };
 
   const caller = await getOptionalCurrentUser();
   const roles = getRoles(caller?.publicMetadata);
-  if (!hasRole(roles, "admin")) return { error: "Forbidden." };
+  if (!hasRole(roles, "admin")) {
+    return { error: t("dashboard.errors.forbidden") };
+  }
 
   const parsed = searchSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: t("dashboard.errors.invalidInput") };
 
   try {
     const result = await searchBackendUserOptions(parsed.data);
     return { success: true, ...result };
   } catch (err) {
     console.error("[searchBackendUsers] Unexpected error:", err);
-    return { error: "Failed to load users." };
+    return { error: t("dashboard.users.errors.loadUsersFailed") };
   }
 }

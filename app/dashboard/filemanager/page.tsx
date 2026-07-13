@@ -5,6 +5,7 @@ import { getRoles, hasRole } from "@/lib/roles";
 import { listFiles, listFolders, getDistinctUploaderIds } from "@/data/files";
 import { getGlobalSettings } from "@/data/global-settings";
 import { getStorageProviderName } from "@/lib/file-storage";
+import { getTranslations } from "@/lib/i18n/server";
 import { FileManager } from "./file-manager";
 
 export type UploaderInfo = { id: string; name: string };
@@ -13,6 +14,7 @@ const ALLOWED_ROLES = ["admin", "publisher", "author"] as const;
 const PAGE_SIZE = 60;
 
 export default async function FileManagerPage() {
+  const t = await getTranslations("backend");
   const { userId } = await auth();
   if (!userId) redirect("/");
 
@@ -70,9 +72,9 @@ export default async function FileManagerPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">File Manager</h1>
+        <h1 className="text-2xl font-semibold">{t("dashboard.files.title")}</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Upload and manage images, videos, and documents.
+          {t("dashboard.files.description")}
         </p>
       </div>
 

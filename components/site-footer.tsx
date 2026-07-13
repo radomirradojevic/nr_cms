@@ -10,6 +10,9 @@ import type {
   FooterRegionV1,
 } from "@/lib/appearance-recipe";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
+import { en } from "@/lib/i18n/messages/en";
+import { createTranslator } from "@/lib/i18n/translate";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 
 type SlotOf<T extends AppearanceSlotV1["type"]> = Extract<
@@ -22,6 +25,7 @@ type SiteFooterProps = {
   isBackendUser?: boolean;
   isAdmin?: boolean;
   isLoggedIn?: boolean;
+  t?: TranslateFn;
 };
 
 type FooterContext = Required<
@@ -74,6 +78,8 @@ const SOCIAL_ICON_COMPONENTS: Partial<Record<string, LucideIcon>> = {
   email: Mail,
   mail: Mail,
 };
+
+const defaultTranslate = createTranslator(en, en, "en");
 
 type ResolvedSocialIcon =
   | { type: "component"; Icon: LucideIcon }
@@ -363,6 +369,7 @@ export function SiteFooter({
   isBackendUser = false,
   isAdmin = false,
   isLoggedIn = false,
+  t = defaultTranslate,
 }: SiteFooterProps) {
   if (region.hidden || region.variant === "hidden") return null;
 
@@ -414,11 +421,19 @@ export function SiteFooter({
         <div className="site-content-container mx-auto flex w-full min-w-0 flex-col items-center gap-4">
           {htmlSlots.map(renderFooterHtmlSlot)}
           {renderCtaSlot(ctaSlot)}
-          {renderLinkSlot(footerLinksSlot, "Footer links", "justify-center")}
-          {renderLinkSlot(socialLinksSlot, "Social links", "justify-center")}
+          {renderLinkSlot(
+            footerLinksSlot,
+            t("shell.footerLinks"),
+            "justify-center",
+          )}
+          {renderLinkSlot(
+            socialLinksSlot,
+            t("shell.socialLinks"),
+            "justify-center",
+          )}
           {renderLinkSlot(
             legalLinksSlot,
-            "Legal links",
+            t("shell.legalLinks"),
             "justify-center text-xs",
           )}
           {copyrightSlots.map(renderCopyrightSlot)}
@@ -436,10 +451,14 @@ export function SiteFooter({
             {copyrightSlots.map(renderCopyrightSlot)}
           </div>
           <div className="min-w-0 space-y-3">
-            {renderLinkSlot(footerLinksSlot, "Footer links", "flex-col gap-2")}
+            {renderLinkSlot(
+              footerLinksSlot,
+              t("shell.footerLinks"),
+              "flex-col gap-2",
+            )}
             {renderLinkSlot(
               legalLinksSlot,
-              "Legal links",
+              t("shell.legalLinks"),
               "flex-col gap-2 text-xs",
             )}
           </div>
@@ -447,7 +466,7 @@ export function SiteFooter({
             {renderCtaSlot(ctaSlot)}
             {renderLinkSlot(
               socialLinksSlot,
-              "Social links",
+              t("shell.socialLinks"),
               "justify-start md:justify-end",
             )}
           </div>
@@ -462,15 +481,15 @@ export function SiteFooter({
         <div className="site-content-container mx-auto flex w-full min-w-0 flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0 space-y-3">
             {htmlSlots.map(renderFooterHtmlSlot)}
-            {renderLinkSlot(footerLinksSlot, "Footer links")}
-            {renderLinkSlot(legalLinksSlot, "Legal links", "text-xs")}
+            {renderLinkSlot(footerLinksSlot, t("shell.footerLinks"))}
+            {renderLinkSlot(legalLinksSlot, t("shell.legalLinks"), "text-xs")}
             {copyrightSlots.map(renderCopyrightSlot)}
           </div>
           <div className="flex shrink-0 flex-col items-start gap-3 md:items-end">
             {renderCtaSlot(ctaSlot)}
             {renderLinkSlot(
               socialLinksSlot,
-              "Social links",
+              t("shell.socialLinks"),
               "justify-start md:justify-end",
             )}
           </div>
@@ -493,9 +512,9 @@ export function SiteFooter({
           {copyrightSlots.map(renderCopyrightSlot)}
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-3 sm:justify-end">
-          {renderLinkSlot(footerLinksSlot, "Footer links")}
-          {renderLinkSlot(legalLinksSlot, "Legal links")}
-          {renderLinkSlot(socialLinksSlot, "Social links")}
+          {renderLinkSlot(footerLinksSlot, t("shell.footerLinks"))}
+          {renderLinkSlot(legalLinksSlot, t("shell.legalLinks"))}
+          {renderLinkSlot(socialLinksSlot, t("shell.socialLinks"))}
           {renderCtaSlot(ctaSlot)}
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,15 +25,21 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { createCategory } from "@/app/dashboard/content-categories/actions";
+import { useTranslations } from "@/components/i18n-provider";
+import type { TranslateFn } from "@/lib/i18n/translate";
 
-const formSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Name is required.")
-    .max(100, "Name must be 100 characters or fewer."),
-});
+function getFormSchema(t: TranslateFn) {
+  return z.object({
+    name: z
+      .string()
+      .min(1, t("dashboard.contentCategories.validation.nameRequired"))
+      .max(100, t("dashboard.contentCategories.validation.nameMax")),
+  });
+}
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = {
+  name: string;
+};
 
 type Props = {
   contentType: "page" | "blog_post";
@@ -43,6 +49,8 @@ type Props = {
 export function CreateCategoryDialog({ contentType, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const t = useTranslations();
+  const formSchema = useMemo(() => getFormSchema(t), [t]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -63,7 +71,14 @@ export function CreateCategoryDialog({ contentType, onSuccess }: Props) {
     onSuccess?.();
   }
 
-  const label = contentType === "page" ? "Page" : "Blog Post";
+  const label =
+    contentType === "page"
+      ? t("dashboard.contentCategories.types.page")
+      : t("dashboard.contentCategories.types.blogPost");
+  const lowercaseLabel =
+    contentType === "page"
+      ? t("dashboard.contentCategories.types.pageLower")
+      : t("dashboard.contentCategories.types.blogPostLower");
 
   return (
     <Dialog
@@ -79,15 +94,21 @@ export function CreateCategoryDialog({ contentType, onSuccess }: Props) {
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="mr-2 h-4 w-4" />
-          Add Category
+          {t("dashboard.contentCategories.actions.addCategory")}
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add {label} Category</DialogTitle>
+          <DialogTitle>
+            {t("dashboard.contentCategories.dialogs.createTitle", {
+              type: label,
+            })}
+          </DialogTitle>
           <DialogDescription>
-            Enter a name for the new {label.toLowerCase()} category.
+            {t("dashboard.contentCategories.dialogs.createDescription", {
+              type: lowercaseLabel,
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -98,9 +119,16 @@ export function CreateCategoryDialog({ contentType, onSuccess }: Props) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category Name</FormLabel>
+                  <FormLabel>
+                    {t("dashboard.contentCategories.form.categoryName")}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. News" {...field} />
+                    <Input
+                      placeholder={t(
+                        "dashboard.contentCategories.form.categoryNamePlaceholder",
+                      )}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -117,13 +145,13 @@ export function CreateCategoryDialog({ contentType, onSuccess }: Props) {
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t("dashboard.contentCategories.actions.cancel")}
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Create
+                {t("dashboard.contentCategories.actions.create")}
               </Button>
             </div>
           </form>

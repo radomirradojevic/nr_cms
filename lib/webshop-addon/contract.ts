@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import type { AddonI18nContext } from "@/lib/i18n/addon-contract";
 
 export const WEBSHOP_SUPPORTED_PROVIDERS = [
   "vercel_production_oidc",
@@ -42,6 +43,7 @@ export type WebshopDeploymentPlatform =
 export type WebshopLicenseMode = "ready" | "edit_existing_only";
 
 export type WebshopDashboardInput = {
+  i18n?: AddonI18nContext;
   licenseMode: WebshopLicenseMode;
   path: readonly string[];
   searchParams?: Record<string, string | string[] | undefined>;
@@ -52,6 +54,7 @@ export type WebshopDashboardPathInput = WebshopDashboardInput;
 
 export type WebshopStorefrontInput = {
   contentId: string;
+  i18n?: AddonI18nContext;
   licenseMode: WebshopLicenseMode;
   path: readonly string[];
   searchParams?: Record<string, string | string[] | undefined>;
@@ -61,6 +64,7 @@ export type WebshopStorefrontInput = {
 export type WebshopStorefrontPathInput = WebshopStorefrontInput;
 
 export type WebshopApiRouteInput = {
+  i18n?: AddonI18nContext;
   licenseMode: WebshopLicenseMode;
   method: string;
   path: readonly string[];
@@ -69,6 +73,7 @@ export type WebshopApiRouteInput = {
 };
 
 export type WebshopContentCategoriesBridgeInput = {
+  i18n?: AddonI18nContext;
   licenseMode: WebshopLicenseMode;
   userId: string;
 };
@@ -93,6 +98,11 @@ export type WebshopAddon = {
     input: WebshopContentCategoriesBridgeInput,
   ): Promise<ReactNode>;
   listMigrations?(): Promise<WebshopMigration[]>;
+  jobs?: {
+    webshopLicenseFulfillment?(input: { limit: number; policy: "settle_existing_obligations" }): Promise<{
+      claimed: number; deadLettered: number; retried: number; succeeded: number;
+    }>;
+  };
 };
 
 export type WebshopAddonState =

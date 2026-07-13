@@ -9,6 +9,11 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".private/**/.next/**",
+    // Private packages are checked from source. Their signed build products and
+    // vendored host snapshot are generated JavaScript, not lint inputs.
+    ".private/**/dist/**",
+    ".private/**/runtime-snapshot/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

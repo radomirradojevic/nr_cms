@@ -1,8 +1,63 @@
 import { z } from "zod";
+import { publicMessage, type PublicMessage } from "@/lib/i18n/public-message";
 import type { FormFieldRow } from "@/lib/form-types";
 import type { FieldOptions, FieldValidation } from "@/lib/form-types";
 
 const TEXT_DEFAULT_MAX = 10_000;
+const REQUIRED_FIELD_MESSAGE = "This field is required.";
+const REQUIRED_MESSAGE = "Required";
+const INVALID_FORMAT_MESSAGE = "Invalid format";
+const INVALID_EMAIL_MESSAGE = "Invalid email address.";
+const INVALID_PHONE_MESSAGE = "Invalid phone number";
+const INVALID_DATE_MESSAGE = "Invalid date";
+const INVALID_CHOICE_MESSAGE = "Invalid choice";
+
+export const PUBLIC_FORM_VALIDATION_ERRORS = {
+  requiredField: publicMessage(
+    "public.forms.errors.requiredField",
+    REQUIRED_FIELD_MESSAGE,
+  ),
+  invalidFormat: publicMessage(
+    "public.forms.errors.invalidFormat",
+    INVALID_FORMAT_MESSAGE,
+  ),
+  invalidEmail: publicMessage(
+    "public.forms.errors.invalidEmail",
+    INVALID_EMAIL_MESSAGE,
+  ),
+  invalidPhone: publicMessage(
+    "public.forms.errors.invalidPhone",
+    INVALID_PHONE_MESSAGE,
+  ),
+  invalidDate: publicMessage(
+    "public.forms.errors.invalidDate",
+    INVALID_DATE_MESSAGE,
+  ),
+  invalidChoice: publicMessage(
+    "public.forms.errors.invalidChoice",
+    INVALID_CHOICE_MESSAGE,
+  ),
+} as const;
+
+export function getPublicFormValidationError(message: string): PublicMessage {
+  switch (message) {
+    case REQUIRED_FIELD_MESSAGE:
+    case REQUIRED_MESSAGE:
+      return PUBLIC_FORM_VALIDATION_ERRORS.requiredField;
+    case INVALID_FORMAT_MESSAGE:
+      return PUBLIC_FORM_VALIDATION_ERRORS.invalidFormat;
+    case INVALID_EMAIL_MESSAGE:
+      return PUBLIC_FORM_VALIDATION_ERRORS.invalidEmail;
+    case INVALID_PHONE_MESSAGE:
+      return PUBLIC_FORM_VALIDATION_ERRORS.invalidPhone;
+    case INVALID_DATE_MESSAGE:
+      return PUBLIC_FORM_VALIDATION_ERRORS.invalidDate;
+    case INVALID_CHOICE_MESSAGE:
+      return PUBLIC_FORM_VALIDATION_ERRORS.invalidChoice;
+    default:
+      return publicMessage("public.forms.errors.invalidFieldValue", message);
+  }
+}
 
 /**
  * Build a Zod schema for a form's submission `values` object from its
@@ -26,11 +81,11 @@ export function buildFormValuesSchema(fields: FormFieldRow[]) {
         let str = z.string().max(validation.maxLength ?? TEXT_DEFAULT_MAX);
         if (validation.minLength !== undefined && validation.minLength > 0)
           str = str.min(validation.minLength);
-        else if (f.required) str = str.min(1, "This field is required.");
+        else if (f.required) str = str.min(1, REQUIRED_FIELD_MESSAGE);
         if (validation.pattern) {
           try {
             const re = new RegExp(validation.pattern);
-            str = str.refine((v) => re.test(v), "Invalid format");
+            str = str.refine((v) => re.test(v), INVALID_FORMAT_MESSAGE);
           } catch {
             /* ignore bad pattern */
           }
@@ -39,7 +94,7 @@ export function buildFormValuesSchema(fields: FormFieldRow[]) {
         break;
       }
       case "email": {
-        s = z.string().email().max(254);
+        s = z.string().email(INVALID_EMAIL_MESSAGE).max(254);
         break;
       }
       case "phone": {
@@ -47,7 +102,7 @@ export function buildFormValuesSchema(fields: FormFieldRow[]) {
         s = z
           .string()
           .max(32)
-          .refine((v) => /^\+?[0-9 ()\-]{4,}$/.test(v), "Invalid phone number");
+          .refine((v) => /^\+?[0-9 ()\-]{4,}$/.test(v), INVALID_PHONE_MESSAGE);
         break;
       }
       case "number": {
@@ -60,13 +115,15 @@ export function buildFormValuesSchema(fields: FormFieldRow[]) {
       case "date": {
         s = z
           .string()
-          .refine((v) => !Number.isNaN(Date.parse(v)), "Invalid date");
+          .refine((v) => !Number.isNaN(Date.parse(v)), INVALID_DATE_MESSAGE);
         break;
       }
       case "select":
       case "radio": {
         const allowed = choices.map((c) => c.value);
-        s = z.string().refine((v) => allowed.includes(v), "Invalid choice");
+        s = z
+          .string()
+          .refine((v) => allowed.includes(v), INVALID_CHOICE_MESSAGE);
         break;
       }
       case "checkbox": {
@@ -80,7 +137,7 @@ export function buildFormValuesSchema(fields: FormFieldRow[]) {
             .max(allowed.length)
             .refine(
               (arr) => arr.every((v) => allowed.includes(v)),
-              "Invalid choice",
+              INVALID_CHOICE_MESSAGE,
             );
         }
         break;
@@ -107,7 +164,7 @@ export function buildFormValuesSchema(fields: FormFieldRow[]) {
     ) {
       // A required single boolean checkbox must be true.
       s = z.literal(true, {
-        error: () => ({ message: "Required" }),
+        error: () => ({ message: REQUIRED_MESSAGE }),
       });
     }
     shape[f.fieldKey] = s;

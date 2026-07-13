@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
+import { useTranslations } from "@/components/i18n-provider";
 import { useRegionalSettings } from "@/components/regional-settings-provider";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -73,6 +74,7 @@ export function CmsFormField({
   error,
   disabled,
 }: Props) {
+  const t = useTranslations();
   const { formatDate } = useRegionalSettings();
   const id = useId();
   const labelId = `${id}-label`;
@@ -88,7 +90,7 @@ export function CmsFormField({
     return (
       <Label htmlFor={htmlFor} id={labelId} className="text-sm font-medium">
         {field.label}
-        {required && <span className="ml-0.5 text-destructive">*</span>}
+        {required && <span className="ms-0.5 text-destructive">*</span>}
       </Label>
     );
   }
@@ -206,14 +208,14 @@ export function CmsFormField({
                 aria-describedby={describedBy}
                 aria-invalid={!!error}
                 className={cn(
-                  "h-9 w-full justify-start border-input bg-background px-3 text-left font-normal hover:bg-background",
+                  "h-9 w-full justify-start border-input bg-background px-3 text-start font-normal hover:bg-background",
                   !selectedDate && "text-muted-foreground",
                 )}
               >
-                <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                <CalendarIcon className="me-2 h-4 w-4 text-muted-foreground" />
                 {selectedDate
                   ? formatDate(selectedDate)
-                  : field.placeholder || "Select date"}
+                  : field.placeholder || t("public.forms.fields.selectDate")}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -240,7 +242,7 @@ export function CmsFormField({
                       setDateOpen(false);
                     }}
                   >
-                    Clear
+                    {t("public.forms.fields.clear")}
                   </Button>
                 </div>
               )}
@@ -261,7 +263,11 @@ export function CmsFormField({
             disabled={disabled}
           >
             <SelectTrigger id={id} aria-describedby={describedBy}>
-              <SelectValue placeholder={field.placeholder ?? "Select…"} />
+              <SelectValue
+                placeholder={
+                  field.placeholder ?? t("public.forms.fields.selectOption")
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {cs.map((c) => (
@@ -329,7 +335,7 @@ export function CmsFormField({
               />
               <Label htmlFor={id} className="text-sm font-normal">
                 {field.label}
-                {required && <span className="ml-0.5 text-destructive">*</span>}
+                {required && <span className="ms-0.5 text-destructive">*</span>}
               </Label>
             </div>
             {helpAndError()}
@@ -404,7 +410,9 @@ export function CmsFormField({
           />
           {fileVal && (
             <p className="text-xs text-muted-foreground">
-              Uploaded: {fileVal.originalName}
+              {t("public.forms.fields.uploaded", {
+                fileName: fileVal.originalName,
+              })}
             </p>
           )}
           {helpAndError()}

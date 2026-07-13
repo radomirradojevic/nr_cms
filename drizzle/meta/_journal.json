@@ -519,6 +519,111 @@
       "when": 1781654400046,
       "tag": "0073_webshop_fulfillment_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1781654400047,
+      "tag": "0074_webshop_license_servers",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1781654400048,
+      "tag": "0075_webshop_license_server_issues",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1781654400049,
+      "tag": "0076_license_server_addon",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1781654400050,
+      "tag": "0077_license_server_addon_phase3",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1781654400051,
+      "tag": "0078_webshop_license_server_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1781654400052,
+      "tag": "0079_global_settings_cms_languages",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1781654400053,
+      "tag": "0080_webshop_payment_state_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1783980000000,
+      "tag": "0081_webshop_license_fulfillment_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1783987200000,
+      "tag": "0082_vendor_addon_activation_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1783990800000,
+      "tag": "0083_cms_addon_installations",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1783994400000,
+      "tag": "0084_cms_addon_sdk_ledgers",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1784073600000,
+      "tag": "0085_security_rate_limit_buckets",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1784160000000,
+      "tag": "0086_customer_license_issuer",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1784163600000,
+      "tag": "0087_webshop_license_key_encryption",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1784167200000,
+      "tag": "0088_customer_issuer_durable_outbox",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useTranslations } from "@/components/i18n-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,7 @@ export function DeleteGalleryDialog({
   onOpenChange,
   onDeleted,
 }: Props) {
+  const t = useTranslations();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirm, setConfirm] = useState("");
@@ -48,7 +50,7 @@ export function DeleteGalleryDialog({
       setError(result.error);
       return;
     }
-    toast.success("Gallery deleted.");
+    toast.success(t("dashboard.galleries.galleryDeleted"));
     onOpenChange(false);
     onDeleted?.(id);
     router.refresh();
@@ -69,17 +71,17 @@ export function DeleteGalleryDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete gallery?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {t("dashboard.galleries.deleteDialog.title")}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently deletes the gallery{" "}
-            <span className="font-medium">{name}</span>. The underlying images
-            in the File Manager are not deleted. This cannot be undone.
+            {t("dashboard.galleries.deleteDialog.description", { name })}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="space-y-2 px-1">
           <Label htmlFor="confirm-name">
-            Type the gallery name to confirm:
+            {t("dashboard.galleries.deleteDialog.confirmName")}
           </Label>
           <Input
             id="confirm-name"
@@ -91,7 +93,9 @@ export function DeleteGalleryDialog({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>
+            {t("dashboard.common.actions.cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -101,7 +105,7 @@ export function DeleteGalleryDialog({
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Delete
+            {t("dashboard.common.actions.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

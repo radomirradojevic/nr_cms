@@ -9,6 +9,7 @@ import {
   listBlogCategories,
   listPickableContent,
 } from "@/data/top-menu";
+import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { TopMenuBuilder } from "../../top-menu/top-menu-builder";
@@ -18,6 +19,7 @@ type MenuEditorPageProps = {
 };
 
 export default async function MenuEditorPage({ params }: MenuEditorPageProps) {
+  const t = await getTranslations("backend");
   const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) {
@@ -40,15 +42,13 @@ export default async function MenuEditorPage({ params }: MenuEditorPageProps) {
         <div>
           <h1 className="text-2xl font-semibold">{menu.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Drag content items from the left into the menu on the right. Reorder
-            by dragging existing items up/down or sideways to nest. Use
-            &quot;Add blog category&quot; to link to a list of posts in a
-            category, or &quot;Add custom link&quot; for a free-form URL. Admin
-            access only.
+            {t("dashboard.menus.editorDescription")}
           </p>
         </div>
         <Button asChild variant="outline">
-          <Link href="/dashboard/menus">Back to Menus</Link>
+          <Link href="/dashboard/menus">
+            {t("dashboard.common.actions.backToMenus")}
+          </Link>
         </Button>
       </div>
 

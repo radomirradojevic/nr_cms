@@ -379,6 +379,28 @@ test("backend menu helper exposes stable role-aware targets", () => {
   assert.ok(adminLinks.some((item) => item.id === "backend:global-settings"));
   assert.ok(adminLinks.some((item) => item.id === "backend:webshop"));
   assert.ok(adminLinks.some((item) => item.id === "backend:webshop-orders"));
+  assert.equal(
+    adminLinks.some((item) => item.id === "backend:license-server"),
+    false,
+  );
+  assert.equal(
+    adminLinks.some((item) => item.id === "backend:license-server-api-clients"),
+    false,
+  );
+  const licensedAdminLinks = getBackendMenuLinks({
+    isBackendUser: true,
+    isAdmin: true,
+    hasLicenseServerShell: true,
+    hasWebshopShell: true,
+  });
+  assert.ok(
+    licensedAdminLinks.some((item) => item.id === "backend:license-server"),
+  );
+  assert.ok(
+    licensedAdminLinks.some(
+      (item) => item.id === "backend:license-server-api-clients",
+    ),
+  );
   assert.ok(adminLinks.some((item) => item.id === "backend:form-builder"));
   assert.equal(
     getBackendMenuLinks({
@@ -396,10 +418,10 @@ test("backend menu helper exposes stable role-aware targets", () => {
     false,
   );
   assert.deepEqual(
-    adminLinks
+    licensedAdminLinks
       .filter((item) => item.isChild)
       .map((item) => item.id)
-      .slice(0, 9),
+      .slice(0, 13),
     [
       "backend:global-settings",
       "backend:content-categories",
@@ -410,10 +432,14 @@ test("backend menu helper exposes stable role-aware targets", () => {
       "backend:webshop-orders",
       "backend:webshop-wishlist",
       "backend:webshop-promotions",
+      "backend:license-server-api-clients",
+      "backend:license-server-product-types",
+      "backend:license-server-licenses",
+      "backend:license-server-events",
     ],
   );
   assert.deepEqual(
-    adminLinks
+    licensedAdminLinks
       .filter((item) => item.id.startsWith("backend:webshop-"))
       .map(({ href, label }) => ({ href, label })),
     [
@@ -427,10 +453,10 @@ test("backend menu helper exposes stable role-aware targets", () => {
     ],
   );
   assert.deepEqual(
-    adminLinks
+    licensedAdminLinks
       .filter((item) => item.isChild)
       .map((item) => item.id)
-      .slice(9, 10),
+      .slice(13, 14),
     ["backend:gallerymanager"],
   );
 });

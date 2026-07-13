@@ -3,6 +3,7 @@ import { listContentTargetOptions } from "@/data/content";
 import { collectHeroSliderMenuIds } from "@/lib/hero-slider";
 import { getTopMenuTreeForViewer, type TopMenuTreeNode } from "@/data/top-menu";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { resolveHasLicenseServerShellForMenu } from "@/lib/license-server-addon/menu-access";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
 
 type Props = {
@@ -26,10 +27,12 @@ export async function HeroSliderRendererWithMenus({
       hasRole(viewerRoles, "publisher") ||
       hasRole(viewerRoles, "author"));
   const isAdmin = !!viewerRoles && hasRole(viewerRoles, "admin");
-  const [initialMenuTrees, hasWebshopShell] = await Promise.all([
-    getInitialMenuTrees(data, viewerRoles),
-    getHasWebshopShell(),
-  ]);
+  const [initialMenuTrees, hasLicenseServerShell, hasWebshopShell] =
+    await Promise.all([
+      getInitialMenuTrees(data, viewerRoles),
+      resolveHasLicenseServerShellForMenu(isAdmin),
+      getHasWebshopShell(),
+    ]);
   return (
     <HeroSliderRenderer
       data={data}
@@ -39,6 +42,7 @@ export async function HeroSliderRendererWithMenus({
       initialMenuTrees={initialMenuTrees}
       fallbackIsBackendUser={isBackendUser}
       fallbackIsAdmin={isAdmin}
+      hasLicenseServerShell={hasLicenseServerShell}
       hasWebshopShell={hasWebshopShell}
     />
   );

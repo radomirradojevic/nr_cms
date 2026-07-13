@@ -5,6 +5,7 @@ import { Search, X } from "lucide-react";
 import { type Ref, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import { cn } from "@/lib/utils";
 
 export type SearchContentType = "blog_post" | "page";
@@ -26,12 +27,8 @@ type SiteSearchProps = {
   className?: string;
   inputClassName?: string;
   displayMode?: "responsive" | "input";
-  resultsAlign?: "left" | "right";
+  resultsAlign?: "left" | "right" | "start" | "end";
 };
-
-function typeLabel(type: SearchContentType): string {
-  return type === "blog_post" ? "Blog post" : "Page";
-}
 
 export function SiteSearch({
   label,
@@ -42,6 +39,7 @@ export function SiteSearch({
   displayMode = "responsive",
   resultsAlign = "left",
 }: SiteSearchProps) {
+  const t = useTranslations();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -57,6 +55,11 @@ export function SiteSearch({
   );
   const canSearch = query.trim().length >= 2 && typesParam.length > 0;
   const inputOnly = displayMode === "input";
+  const getTypeLabel = (type: SearchContentType) =>
+    type === "blog_post"
+      ? t("search.resultType.blogPost")
+      : t("search.resultType.page");
+  const resultsAlignsEnd = resultsAlign === "right" || resultsAlign === "end";
 
   useEffect(() => {
     abortRef.current?.abort();
@@ -172,8 +175,8 @@ export function SiteSearch({
     <div
       ref={resultsRef}
       className={cn(
-        "absolute top-[calc(100%+0.5rem)] z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border bg-popover text-left text-popover-foreground shadow-lg",
-        resultsAlign === "right" ? "right-0" : "left-0",
+        "absolute top-[calc(100%+0.5rem)] z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border bg-popover text-start text-popover-foreground shadow-lg",
+        resultsAlignsEnd ? "end-0" : "start-0",
       )}
       style={{
         transform:
@@ -183,7 +186,7 @@ export function SiteSearch({
     >
       {loading && results.length === 0 ? (
         <div className="px-3 py-2 text-sm text-muted-foreground">
-          Searching...
+          {t("search.loading")}
         </div>
       ) : results.length > 0 ? (
         <div className="max-h-96 overflow-y-auto py-1">
@@ -198,7 +201,7 @@ export function SiteSearch({
               className="group block px-3 py-2 text-sm outline-none transition-colors hover:!bg-[var(--nav-hover-bg)] hover:!text-[var(--nav-hover-foreground)] focus-visible:!bg-[var(--nav-hover-bg)] focus-visible:!text-[var(--nav-hover-foreground)]"
             >
               <span className="block text-xs font-medium text-muted-foreground transition-colors group-hover:text-[var(--nav-hover-foreground)] group-focus-visible:text-[var(--nav-hover-foreground)]">
-                {typeLabel(result.contentType)}
+                {getTypeLabel(result.contentType)}
               </span>
               <span className="mt-0.5 block font-medium">{result.title}</span>
               {result.snippet && (
@@ -211,7 +214,7 @@ export function SiteSearch({
         </div>
       ) : (
         <div className="px-3 py-2 text-sm text-muted-foreground">
-          No results found.
+          {t("search.noResults")}
         </div>
       )}
     </div>
@@ -225,7 +228,7 @@ export function SiteSearch({
           variant="ghost"
           size="icon"
           className="lg:hidden"
-          aria-label={mobileOpen ? "Close search" : label}
+          aria-label={mobileOpen ? t("search.close") : label}
           aria-expanded={mobileOpen}
           onClick={() => {
             setMobileOpen((current) => !current);
@@ -238,7 +241,7 @@ export function SiteSearch({
       {!inputOnly && mobileOpen ? (
         <form
           action="/search"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 flex w-[min(20rem,calc(100vw-1.5rem))] items-center lg:hidden"
+          className="absolute end-0 top-[calc(100%+0.5rem)] z-50 flex w-[min(20rem,calc(100vw-1.5rem))] items-center lg:hidden"
           role="search"
           aria-label={label}
           onFocus={() => setOpen(true)}

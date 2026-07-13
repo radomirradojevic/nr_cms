@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
 import type { BackendUserOption } from "@/lib/backend-user-types";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ export function ReassignGalleryDialog({
   onOpenChange,
   onReassigned,
 }: Props) {
+  const t = useTranslations();
   const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
     null,
   );
@@ -49,7 +51,7 @@ export function ReassignGalleryDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedUser) {
-      setError("Please select a user.");
+      setError(t("dashboard.galleries.reassignDialog.selectUser"));
       return;
     }
 
@@ -62,7 +64,7 @@ export function ReassignGalleryDialog({
     setSubmitting(false);
 
     if ("error" in res) {
-      setError(res.error ?? "Something went wrong.");
+      setError(res.error ?? t("dashboard.galleries.somethingWentWrong"));
       return;
     }
 
@@ -74,15 +76,19 @@ export function ReassignGalleryDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Reassign Owner</DialogTitle>
+          <DialogTitle>
+            {t("dashboard.galleries.reassignDialog.title")}
+          </DialogTitle>
           <DialogDescription>
-            Assign &ldquo;{gallery.name}&rdquo; to a different user.
+            {t("dashboard.galleries.reassignDialog.description", {
+              name: gallery.name,
+            })}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>New Owner</Label>
+            <Label>{t("dashboard.galleries.reassignDialog.newOwner")}</Label>
             <BackendUserCombobox
               value={selectedUser?.id ?? ""}
               selectedUser={selectedUser}
@@ -100,11 +106,11 @@ export function ReassignGalleryDialog({
               onClick={() => handleOpenChange(false)}
               disabled={submitting}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={submitting || !selectedUser}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Reassign
+              {t("dashboard.common.actions.reassign")}
             </Button>
           </DialogFooter>
         </form>

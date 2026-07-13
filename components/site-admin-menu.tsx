@@ -15,22 +15,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SiteTopMenuLink } from "@/components/site-top-menu-link";
 import { SiteTopMenuParentTrigger } from "@/components/site-top-menu-parent-trigger";
-import { headerNavTriggerClassName } from "@/components/site-header-nav-styles";
 import {
   NavigationMenu,
   NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
-import { cn } from "@/lib/utils";
-import { WEBSHOP_BACKEND_CHILD_LINKS } from "@/lib/backend-menu";
+import { useTranslations } from "@/components/i18n-provider";
+import { getBackendMenuLinks, getBackendMenuTree } from "@/lib/backend-menu";
 import { getRoles, hasRole } from "@/lib/roles";
 
 type SiteAdminMenuProps = {
   fallbackIsBackendUser?: boolean;
   fallbackIsAdmin?: boolean;
+  hasLicenseServerShell?: boolean;
   hasWebshopShell?: boolean;
 };
 
@@ -75,148 +74,59 @@ function useEffectiveBackendState({
 export function SiteAdminMenu({
   fallbackIsBackendUser = false,
   fallbackIsAdmin = false,
+  hasLicenseServerShell = false,
   hasWebshopShell = false,
 }: SiteAdminMenuProps) {
+  const t = useTranslations();
   const { isAdmin, isBackendUser } = useEffectiveBackendState({
     fallbackIsBackendUser,
     fallbackIsAdmin,
+  });
+  const menuTree = getBackendMenuTree({
+    hasLicenseServerShell,
+    hasWebshopShell,
+    isAdmin,
+    isBackendUser,
+    t,
   });
 
   if (!isBackendUser) return null;
 
   return (
     <div className="hidden lg:block">
-      <NavigationMenu viewport={false} aria-label="Admin navigation">
+      <NavigationMenu viewport={false} aria-label={t("shell.adminNavigation")}>
         <NavigationMenuList>
-          <NavigationMenuItem>
-            {isAdmin ? (
-              <>
-                <SiteTopMenuParentTrigger
-                  url="/dashboard"
-                  target="_self"
-                  label="Dashboard"
-                />
-                <NavigationMenuContent>
-                  <ul className="grid w-48 gap-1 p-2">
-                    <li>
-                      <NavigationMenuLink asChild>
-                        <Link
-                          href="/dashboard/global-settings"
-                          className={submenuLinkClassName}
-                        >
-                          Global Settings
-                        </Link>
-                      </NavigationMenuLink>
-                    </li>
-                  </ul>
-                </NavigationMenuContent>
-              </>
-            ) : (
-              <NavigationMenuLink
-                asChild
-                className={cn(
-                  navigationMenuTriggerStyle(),
-                  headerNavTriggerClassName,
-                )}
-              >
-                <Link href="/dashboard">Dashboard</Link>
-              </NavigationMenuLink>
-            )}
-          </NavigationMenuItem>
-          <NavigationMenuItem>
-            {isAdmin ? (
-              <>
-                <SiteTopMenuParentTrigger
-                  url="/dashboard/content"
-                  target="_self"
-                  label="Content"
-                />
-                <NavigationMenuContent>
-                  <ul className="grid w-52 gap-1 p-2">
-                    <li>
-                      <NavigationMenuLink asChild>
-                        <Link
-                          href="/dashboard/content-categories"
-                          className={submenuLinkClassName}
-                        >
-                          Content Categories
-                        </Link>
-                      </NavigationMenuLink>
-                    </li>
-                  </ul>
-                </NavigationMenuContent>
-              </>
-            ) : (
-              <NavigationMenuLink
-                asChild
-                className={cn(
-                  navigationMenuTriggerStyle(),
-                  headerNavTriggerClassName,
-                )}
-              >
-                <Link href="/dashboard/content">Content</Link>
-              </NavigationMenuLink>
-            )}
-          </NavigationMenuItem>
-          {isAdmin && hasWebshopShell && (
-            <NavigationMenuItem>
-              <SiteTopMenuParentTrigger
-                url="/dashboard/webshop"
-                target="_self"
-                label="Webshop"
-              />
-              <NavigationMenuContent>
-                <ul className="grid w-52 gap-1 p-2">
-                  {WEBSHOP_BACKEND_CHILD_LINKS.map((item) => (
-                    <li key={item.id}>
-                      <NavigationMenuLink asChild>
-                        <Link href={item.href} className={submenuLinkClassName}>
-                          {item.label}
-                        </Link>
-                      </NavigationMenuLink>
-                    </li>
-                  ))}
-                </ul>
-              </NavigationMenuContent>
+          {menuTree.map((item) => (
+            <NavigationMenuItem key={item.id}>
+              {item.children.length > 0 ? (
+                <>
+                  <SiteTopMenuParentTrigger
+                    url={item.url}
+                    target={item.target}
+                    label={item.label}
+                  />
+                  <NavigationMenuContent>
+                    <ul className="grid w-52 gap-1 p-2">
+                      {item.children.map((child) => (
+                        <li key={child.id}>
+                          <NavigationMenuLink asChild>
+                            <Link
+                              href={child.url}
+                              className={submenuLinkClassName}
+                            >
+                              {child.label}
+                            </Link>
+                          </NavigationMenuLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </NavigationMenuContent>
+                </>
+              ) : (
+                <SiteTopMenuLink href={item.url} label={item.label} />
+              )}
             </NavigationMenuItem>
-          )}
-          <NavigationMenuItem>
-            <SiteTopMenuParentTrigger
-              url="/dashboard/filemanager"
-              target="_self"
-              label="File Manager"
-            />
-            <NavigationMenuContent>
-              <ul className="grid w-52 gap-1 p-2">
-                <li>
-                  <NavigationMenuLink asChild>
-                    <Link
-                      href="/dashboard/gallerymanager"
-                      className={submenuLinkClassName}
-                    >
-                      Gallery Manager
-                    </Link>
-                  </NavigationMenuLink>
-                </li>
-              </ul>
-            </NavigationMenuContent>
-          </NavigationMenuItem>
-          {isAdmin && (
-            <>
-              <NavigationMenuItem>
-                <SiteTopMenuLink href="/dashboard/users" label="Users" />
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <SiteTopMenuLink href="/dashboard/menus" label="Menus" />
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <SiteTopMenuLink
-                  href="/dashboard/form-builder"
-                  label="Form Builder"
-                />
-              </NavigationMenuItem>
-            </>
-          )}
+          ))}
         </NavigationMenuList>
       </NavigationMenu>
     </div>
@@ -227,8 +137,10 @@ export function SiteAdminMenuLauncher({
   fallbackIsBackendUser = false,
   fallbackIsAdmin = false,
   fallbackIsLoggedIn = false,
+  hasLicenseServerShell = false,
   hasWebshopShell = false,
 }: SiteAdminMenuLauncherProps) {
+  const t = useTranslations();
   const { openSignIn, openSignUp, signOut } = useClerk();
   const { displayName, isAdmin, isBackendUser, isSignedIn } =
     useEffectiveBackendState({
@@ -236,11 +148,18 @@ export function SiteAdminMenuLauncher({
       fallbackIsAdmin,
       fallbackIsLoggedIn,
     });
+  const backendLinks = getBackendMenuLinks({
+    hasLicenseServerShell,
+    hasWebshopShell,
+    isAdmin,
+    isBackendUser,
+    t,
+  });
 
-  const authLabel = displayName ?? "Account";
+  const authLabel = displayName ?? t("common.auth.account");
 
   return (
-    <div className="fixed left-[calc(env(safe-area-inset-left,0px)+0.75rem)] top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-[70]">
+    <div className="fixed start-[calc(env(safe-area-inset-left,0px)+0.75rem)] top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-[70]">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -248,8 +167,8 @@ export function SiteAdminMenuLauncher({
             variant="secondary"
             size="icon"
             className="size-9 rounded-full border bg-background/95 shadow-lg shadow-black/15 backdrop-blur supports-[backdrop-filter]:bg-background/80"
-            aria-label="Open site menu"
-            title="Site menu"
+            aria-label={t("shell.openSiteMenu")}
+            title={t("shell.siteMenu")}
           >
             <LayoutDashboard aria-hidden className="size-4" />
           </Button>
@@ -257,73 +176,30 @@ export function SiteAdminMenuLauncher({
         <DropdownMenuContent align="start" sideOffset={8} className="w-56">
           {isBackendUser && (
             <>
-              <DropdownMenuLabel>Backend menu</DropdownMenuLabel>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard">Dashboard</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/content">Content</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/filemanager">File Manager</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/gallerymanager">Gallery Manager</Link>
-              </DropdownMenuItem>
-              {isAdmin && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/global-settings">
-                      Global Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/content-categories">
-                      Content Categories
-                    </Link>
-                  </DropdownMenuItem>
-                  {hasWebshopShell && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/dashboard/webshop">Webshop</Link>
-                      </DropdownMenuItem>
-                      {WEBSHOP_BACKEND_CHILD_LINKS.map((item) => (
-                        <DropdownMenuItem asChild inset key={item.id}>
-                          <Link href={item.href}>{item.label}</Link>
-                        </DropdownMenuItem>
-                      ))}
-                    </>
-                  )}
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/users">Users</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/menus">Menus</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/form-builder">Form Builder</Link>
-                  </DropdownMenuItem>
-                </>
-              )}
+              <DropdownMenuLabel>{t("shell.backendMenu")}</DropdownMenuLabel>
+              {backendLinks.map((link) => (
+                <DropdownMenuItem asChild inset={link.isChild} key={link.id}>
+                  <Link href={link.href}>{link.label}</Link>
+                </DropdownMenuItem>
+              ))}
               <DropdownMenuSeparator />
             </>
           )}
 
           <DropdownMenuLabel>
-            {isSignedIn ? authLabel : "Account"}
+            {isSignedIn ? authLabel : t("common.auth.account")}
           </DropdownMenuLabel>
           {isSignedIn ? (
             <DropdownMenuItem onSelect={() => void signOut()}>
-              Sign out
+              {t("common.auth.signOut")}
             </DropdownMenuItem>
           ) : (
             <>
               <DropdownMenuItem onSelect={() => openSignIn()}>
-                Sign in
+                {t("common.auth.signIn")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => openSignUp()}>
-                Sign up
+                {t("common.auth.signUp")}
               </DropdownMenuItem>
             </>
           )}

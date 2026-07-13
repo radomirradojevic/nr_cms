@@ -7,6 +7,8 @@ import { z } from "zod";
 import { Loader2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   Dialog,
   DialogContent,
@@ -31,10 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  isValidMenuUrl,
-  MENU_URL_VALIDATION_MESSAGE,
-} from "@/lib/menu-url";
+import { isValidMenuUrl } from "@/lib/menu-url";
 import { updateMenuItem } from "./actions";
 
 type Props = {
@@ -59,6 +58,8 @@ export function EditItemDialog({
   disabled,
   clientId,
 }: Props) {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -66,14 +67,17 @@ export function EditItemDialog({
   const isContentLinked = isLinked;
 
   const formSchema = z.object({
-    label: z.string().min(1, "Label is required.").max(200),
+    label: z
+      .string()
+      .min(1, t("dashboard.menus.customLink.labelRequired"))
+      .max(200),
     url: isContentLinked
       ? z.string().optional()
       : z
           .string()
-          .min(1, "URL is required.")
+          .min(1, t("dashboard.menus.customLink.urlRequired"))
           .max(2000)
-          .refine(isValidMenuUrl, MENU_URL_VALIDATION_MESSAGE),
+          .refine(isValidMenuUrl, t("dashboard.menus.customLink.invalidUrl")),
     target: z.enum(["_self", "_blank"]),
   });
   type FormValues = z.infer<typeof formSchema>;
@@ -125,16 +129,18 @@ export function EditItemDialog({
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" disabled={disabled}>
           <Pencil className="h-4 w-4" />
-          <span className="sr-only">Edit</span>
+          <span className="sr-only">
+            {t("dashboard.menus.customLink.editSr")}
+          </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit menu item</DialogTitle>
+          <DialogTitle>{t("dashboard.menus.customLink.edit")}</DialogTitle>
           <DialogDescription>
             {isContentLinked
-              ? "URL is locked because this item is linked to content or a category. It will follow the source automatically."
-              : "Edit the label, URL, and link target."}
+              ? t("dashboard.menus.customLink.linkedDescription")
+              : t("dashboard.menus.customLink.editDescription")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -144,7 +150,7 @@ export function EditItemDialog({
               name="label"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Label</FormLabel>
+                  <FormLabel>{t("dashboard.menus.customLink.label")}</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -157,7 +163,7 @@ export function EditItemDialog({
               name="url"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL</FormLabel>
+                  <FormLabel>{t("dashboard.menus.customLink.url")}</FormLabel>
                   <FormControl>
                     <Input {...field} disabled={isContentLinked} />
                   </FormControl>
@@ -170,7 +176,9 @@ export function EditItemDialog({
               name="target"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Open in</FormLabel>
+                  <FormLabel>
+                    {t("dashboard.menus.customLink.openIn")}
+                  </FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
@@ -178,8 +186,12 @@ export function EditItemDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="_self">Same tab</SelectItem>
-                      <SelectItem value="_blank">New tab</SelectItem>
+                      <SelectItem value="_self">
+                        {t("dashboard.menus.target.sameTab")}
+                      </SelectItem>
+                      <SelectItem value="_blank">
+                        {t("dashboard.menus.target.newTab")}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -187,7 +199,7 @@ export function EditItemDialog({
               )}
             />
             {serverError && (
-              <p className="text-sm text-destructive">{serverError}</p>
+              <p className="text-sm text-destructive">{st(serverError)}</p>
             )}
             <div className="flex justify-end gap-2">
               <Button
@@ -195,13 +207,13 @@ export function EditItemDialog({
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t("dashboard.common.actions.cancel")}
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Save
+                {t("dashboard.common.actions.save")}
               </Button>
             </div>
           </form>

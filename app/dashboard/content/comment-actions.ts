@@ -21,14 +21,19 @@ import { getRoles, hasRole, type Role } from "@/lib/roles";
 import { isContentLive } from "@/lib/content-schedule";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { checkCommentRateLimit, getClientIp, hashIp } from "@/lib/rate-limit";
+import { publicMessage, type PublicMessage } from "@/lib/i18n/public-message";
+import {
+  publicCommentRateLimitError,
+  validatePublicCommentInput,
+} from "@/lib/public-comment-validation";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const submitSchema = z.object({
   contentId: z.string().uuid(),
   parentId: z.string().uuid().nullable().optional(),
-  body: z.string().min(1).max(5000),
-  guestName: z.string().min(1).max(120).optional(),
+  body: z.string(),
+  guestName: z.string().max(120).optional(),
   guestEmail: z.string().email().max(254).optional().or(z.literal("")),
   turnstileToken: z.string().min(1).max(4096),
 });
@@ -113,29 +118,60 @@ function logModeration(args: {
 export async function submitComment(
   input: SubmitCommentInput,
 ): Promise<
-  { success: true; status: "pending" | "published" } | { error: string }
+  { success: true; status: "pending" | "published" } | { error: PublicMessage }
 > {
   const parsed = submitSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return {
+      error: publicMessage(
+        "public.comments.errors.invalidInput",
+        "Invalid input.",
+      ),
+    };
   }
   const data = parsed.data;
   const body = data.body.trim();
-  if (body.length < 1 || body.length > 5000) {
-    return { error: "Comment must be between 1 and 5000 characters." };
+  const bodyValidation = validatePublicCommentInput({
+    body,
+    isSignedIn: true,
+  });
+  if (bodyValidation) {
+    return { error: bodyValidation };
   }
 
   // 1. Load post
   const post = await getContentById(data.contentId);
-  if (!post) return { error: "Post not found." };
+  if (!post) {
+    return {
+      error: publicMessage(
+        "public.comments.errors.postNotFound",
+        "Post not found.",
+      ),
+    };
+  }
   if (post.contentType !== "blog_post") {
-    return { error: "Comments are not allowed on this content." };
+    return {
+      error: publicMessage(
+        "public.comments.errors.notAllowed",
+        "Comments are not allowed on this content.",
+      ),
+    };
   }
   if (!post.enableComments) {
-    return { error: "Comments are disabled for this post." };
+    return {
+      error: publicMessage(
+        "public.comments.errors.disabled",
+        "Comments are disabled for this post.",
+      ),
+    };
   }
   if (!isContentLive(post)) {
-    return { error: "Cannot comment on posts that are not live." };
+    return {
+      error: publicMessage(
+        "public.comments.errors.notLive",
+        "Cannot comment on posts that are not live.",
+      ),
+    };
   }
 
   // 2. Auth + identity snapshot
@@ -150,10 +186,20 @@ export async function submitComment(
       "User";
   } else {
     if (!post.allowAnonymousComments) {
-      return { error: "You must be signed in to comment." };
+      return {
+        error: publicMessage(
+          "public.comments.errors.signInRequired",
+          "You must be signed in to comment.",
+        ),
+      };
     }
-    const guest = data.guestName?.trim();
-    if (!guest) return { error: "Name is required." };
+    const guestValidation = validatePublicCommentInput({
+      body,
+      guestName: data.guestName,
+      isSignedIn: false,
+    });
+    if (guestValidation) return { error: guestValidation };
+    const guest = data.guestName?.trim() ?? "";
     authorName = guest.slice(0, 120);
     authorEmail = (data.guestEmail || "").trim() || null;
   }
@@ -161,20 +207,42 @@ export async function submitComment(
   // 3. Verify Turnstile
   const ip = await getClientIp();
   const ok = await verifyTurnstile(data.turnstileToken, ip);
-  if (!ok) return { error: "Captcha verification failed." };
+  if (!ok) {
+    return {
+      error: publicMessage(
+        "public.comments.errors.captchaFailed",
+        "Captcha verification failed.",
+      ),
+    };
+  }
 
   // 4. Validate parent (no replies-to-replies)
   let parentId: string | null = null;
   if (data.parentId) {
     const parent = await getCommentById(data.parentId);
     if (!parent || parent.contentId !== data.contentId) {
-      return { error: "Invalid reply target." };
+      return {
+        error: publicMessage(
+          "public.comments.errors.invalidReplyTarget",
+          "Invalid reply target.",
+        ),
+      };
     }
     if (parent.parentId !== null) {
-      return { error: "Replies to replies are not allowed." };
+      return {
+        error: publicMessage(
+          "public.comments.errors.repliesToReplies",
+          "Replies to replies are not allowed.",
+        ),
+      };
     }
     if (parent.status !== "published") {
-      return { error: "Cannot reply to a comment that is not published." };
+      return {
+        error: publicMessage(
+          "public.comments.errors.replyTargetUnpublished",
+          "Cannot reply to a comment that is not published.",
+        ),
+      };
     }
     parentId = parent.id;
   }
@@ -186,7 +254,7 @@ export async function submitComment(
     authorId: userId ?? null,
     body,
   });
-  if (!rl.allowed) return { error: rl.reason };
+  if (!rl.allowed) return { error: publicCommentRateLimitError(rl.reason) };
 
   // 6. Snapshot UA (truncated)
   let userAgent: string | null = null;
@@ -217,7 +285,12 @@ export async function submitComment(
     });
   } catch (err) {
     console.error("[submitComment] db error", err);
-    return { error: "Something went wrong." };
+    return {
+      error: publicMessage(
+        "public.comments.errors.generic",
+        "Something went wrong.",
+      ),
+    };
   }
 
   if (status === "published") {

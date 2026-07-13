@@ -113,7 +113,7 @@ export async function verifyWebshopDeploymentPlatform({
   env?: EnvLike;
   fetcher?: typeof fetch;
   selfHostedSiteId?: string | null;
-} = {}): Promise<SupportedWebshopDeploymentPlatform> {
+} = {}): Promise<WebshopDeploymentPlatform> {
   const hint = getWebshopDeploymentHint(env);
   const licenseServerUrl = env.WEBSHOP_LICENSE_API_URL?.trim();
 
@@ -140,10 +140,10 @@ export async function verifyWebshopDeploymentPlatform({
         const payload = (await response.json()) as PlatformVerifyResponse;
         if (payload.status === "supported") return payload;
       }
-    } catch {
-      // Platform attestation is best-effort now; license activation still runs.
-    }
+    } catch { /* fail closed below */ }
+    return { status: "unsupported", reason: "invalid_attestation", message: "Vercel deployment attestation could not be verified; self-hosted fallback is forbidden." };
   }
-
+  if (hint.providerHint === "vercel") return { status: "unsupported", reason: "missing_attestation", message: "Vercel deployment requires a verified platform attestation." };
+  if (env.WEBSHOP_DEPLOYMENT_MODE !== "self_hosted") return { status: "unsupported", reason: "self_hosted", message: "Self-hosted activation requires explicit WEBSHOP_DEPLOYMENT_MODE=self_hosted." };
   return getSelfHostedDeploymentPlatform({ env, siteId: selfHostedSiteId });
 }

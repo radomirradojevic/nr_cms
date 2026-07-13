@@ -6,6 +6,8 @@ import { Loader2, UserRoundCog } from "lucide-react";
 import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
 import type { BackendUserOption } from "@/lib/backend-user-types";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +32,8 @@ export function ContentReassignDialog({
   onOpenChange,
   onMutated,
 }: Props) {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
     null,
   );
@@ -72,12 +76,12 @@ export function ContentReassignDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserRoundCog className="h-5 w-5" />
-            Reassign author
+            {t("dashboard.content.dialogs.reassignAuthorTitle")}
           </DialogTitle>
           <DialogDescription>
-            Select a new author for{" "}
-            <span className="font-medium">{row.title}</span>. Only admins can
-            perform this action.
+            {t("dashboard.content.dialogs.reassignAuthorDescription", {
+              title: row.title,
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -89,7 +93,7 @@ export function ContentReassignDialog({
             onValueChange={setSelectedUser}
           />
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive">{st(error)}</p>}
         </div>
 
         <DialogFooter>
@@ -98,11 +102,11 @@ export function ContentReassignDialog({
             onClick={() => onOpenChange(false)}
             disabled={pending}
           >
-            Cancel
+            {t("dashboard.common.actions.cancel")}
           </Button>
           <Button onClick={handleConfirm} disabled={pending || !selectedUser}>
             {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Reassign
+            {t("dashboard.common.actions.reassign")}
           </Button>
         </DialogFooter>
       </DialogContent>

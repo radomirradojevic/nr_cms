@@ -8,7 +8,7 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Bot,
@@ -27,6 +27,9 @@ import {
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import {
   Card,
   CardContent,
@@ -170,6 +173,10 @@ import {
   SUPPORTED_LOCALES,
   SUPPORTED_TIMEZONES,
 } from "@/lib/regional-settings";
+import {
+  DEFAULT_CMS_LANGUAGE,
+  SUPPORTED_CMS_LANGUAGES,
+} from "@/lib/i18n/languages";
 
 interface GlowFieldsProps {
   idPrefix: string;
@@ -201,6 +208,8 @@ function GlowFields({
   colorValid,
   onChange,
 }: GlowFieldsProps) {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const enabledId = `${idPrefix}-glow-enabled`;
   const colorId = `${idPrefix}-glow-color`;
   const intensityId = `${idPrefix}-glow-intensity`;
@@ -208,7 +217,9 @@ function GlowFields({
   return (
     <div className="space-y-3 rounded-md border p-3">
       <div className="flex items-center justify-between">
-        <Label htmlFor={enabledId}>Border</Label>
+        <Label htmlFor={enabledId}>
+          {t("globalSettings.layoutDesign.glow.border")}
+        </Label>
         <Switch
           id={enabledId}
           checked={value.enabled}
@@ -217,7 +228,9 @@ function GlowFields({
       </div>
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor={colorId}>Border Color</Label>
+          <Label htmlFor={colorId}>
+            {t("globalSettings.layoutDesign.glow.borderColor")}
+          </Label>
           <div className="flex items-center gap-2">
             <Input
               id={colorId}
@@ -242,13 +255,15 @@ function GlowFields({
           </div>
           {!colorValid && (
             <p className="text-xs text-destructive">
-              Enter a valid hex color like #349aee or leave it blank.
+              {st("Enter a valid hex color like #349aee or leave it blank.")}
             </p>
           )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={intensityId}>
-            Glow Intensity ({value.intensity})
+            {t("globalSettings.layoutDesign.glow.glowIntensity", {
+              value: value.intensity,
+            })}
           </Label>
           <Input
             id={intensityId}
@@ -267,7 +282,11 @@ function GlowFields({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={blurId}>Glow Blur Size ({value.blurSize}px)</Label>
+          <Label htmlFor={blurId}>
+            {t("globalSettings.layoutDesign.glow.glowBlurSize", {
+              value: value.blurSize,
+            })}
+          </Label>
           <Input
             id={blurId}
             type="range"
@@ -439,6 +458,9 @@ function HeaderPreviewBlock({
   label: string;
   tone?: "muted" | "primary" | "border" | "brand";
 }) {
+  const st = useSourceTranslations();
+  const translatedLabel = st(label);
+
   return (
     <span
       className={cn(
@@ -452,9 +474,9 @@ function HeaderPreviewBlock({
               : "bg-muted-foreground/20 text-muted-foreground",
         className,
       )}
-      title={label}
+      title={translatedLabel}
     >
-      {label}
+      {translatedLabel}
     </span>
   );
 }
@@ -462,10 +484,14 @@ function HeaderPreviewBlock({
 function HeaderVariantPreview({
   variant,
   hidden = false,
+  t,
 }: {
   variant: HeaderVariant;
   hidden?: boolean;
+  t: TranslateFn;
 }) {
+  const st = useSourceTranslations();
+
   if (hidden) {
     return (
       <div className="overflow-hidden rounded-md border bg-muted/20">
@@ -482,18 +508,22 @@ function HeaderVariantPreview({
             <div className="flex h-full items-center justify-center pt-8">
               <HeaderPreviewBlock
                 className="h-6 w-28 border-dashed"
-                label="Header hidden"
+                label={t("globalSettings.layoutDesign.preview.headerHidden")}
                 tone="border"
               />
             </div>
           </div>
           <div className="min-w-0 space-y-1.5">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium">Hidden</h3>
-              <Badge variant="outline">Header preview</Badge>
+              <h3 className="text-sm font-medium">
+                {t("globalSettings.layoutDesign.preview.hidden")}
+              </h3>
+              <Badge variant="outline">
+                {t("globalSettings.layoutDesign.preview.headerPreview")}
+              </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Backend users get a compact menu launcher in the top-right corner.
+              {t("globalSettings.layoutDesign.preview.headerHiddenDescription")}
             </p>
           </div>
         </div>
@@ -678,12 +708,14 @@ function HeaderVariantPreview({
         <div className="min-w-0 space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">
-              {HEADER_VARIANT_LABELS[variant]}
+              {st(HEADER_VARIANT_LABELS[variant])}
             </span>
-            <Badge variant="outline">Header preview</Badge>
+            <Badge variant="outline">
+              {t("globalSettings.layoutDesign.preview.headerPreview")}
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {HEADER_VARIANT_SUMMARIES[variant]}
+            {st(HEADER_VARIANT_SUMMARIES[variant])}
           </p>
         </div>
       </div>
@@ -724,6 +756,9 @@ function FooterPreviewBlock({
   label?: string;
   tone?: "muted" | "primary" | "border";
 }) {
+  const st = useSourceTranslations();
+  const translatedLabel = label ? st(label) : undefined;
+
   return (
     <span
       className={cn(
@@ -735,14 +770,21 @@ function FooterPreviewBlock({
             : "bg-muted-foreground/20 text-muted-foreground",
         className,
       )}
-      title={label}
+      title={translatedLabel}
     >
-      {label}
+      {translatedLabel}
     </span>
   );
 }
 
-function FooterVariantPreview({ variant }: { variant: FooterVariant }) {
+function FooterVariantPreview({
+  variant,
+  t,
+}: {
+  variant: FooterVariant;
+  t: TranslateFn;
+}) {
+  const st = useSourceTranslations();
   const isHidden = variant === "hidden";
 
   return (
@@ -885,7 +927,7 @@ function FooterVariantPreview({ variant }: { variant: FooterVariant }) {
               <div className="flex items-center justify-center py-2">
                 <FooterPreviewBlock
                   className="h-6 w-28 border-dashed"
-                  label="Footer hidden"
+                  label={t("globalSettings.layoutDesign.preview.footerHidden")}
                   tone="border"
                 />
               </div>
@@ -895,12 +937,16 @@ function FooterVariantPreview({ variant }: { variant: FooterVariant }) {
         <div className="min-w-0 space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">
-              {FOOTER_VARIANT_LABELS[variant]}
+              {isHidden
+                ? t("globalSettings.layoutDesign.preview.hidden")
+                : st(FOOTER_VARIANT_LABELS[variant])}
             </span>
-            <Badge variant="outline">Footer preview</Badge>
+            <Badge variant="outline">
+              {t("globalSettings.layoutDesign.preview.footerPreview")}
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {FOOTER_VARIANT_SUMMARIES[variant]}
+            {st(FOOTER_VARIANT_SUMMARIES[variant])}
           </p>
         </div>
       </div>
@@ -914,6 +960,65 @@ const MAIN_VARIANT_LABELS: Record<MainSurfaceVariant, string> = {
   "full-bleed-builder": "Full-bleed Builder",
   "editorial-article": "Editorial Article",
   "category-grid": "Category Grid",
+};
+
+const THEME_LABELS: Record<Theme, string> = {
+  default: "Default",
+  dark: "Dark",
+  minimal: "Minimal",
+  corporate: "Corporate",
+  cyberpunk: "Cyberpunk",
+  elegant: "Elegant",
+  forest: "Forest",
+  ocean: "Ocean",
+  sunset: "Sunset",
+  pastel: "Pastel",
+  luxury: "Luxury",
+  obsidian: "Obsidian",
+  midnight: "Midnight",
+  aurora: "Aurora",
+  nordic: "Nordic",
+  graphite: "Graphite",
+  paper: "Paper",
+  sage: "Sage",
+  terracotta: "Terracotta",
+  lavender: "Lavender",
+  monochrome: "Monochrome",
+  terminal: "Terminal",
+  rose: "Rose",
+  "high-contrast": "High Contrast",
+};
+
+const CONTENT_WIDTH_LABELS: Record<ContentWidthPreset, string> = {
+  "full-width": "Full Width",
+  contained: "Contained",
+  narrow: "Narrow",
+  wide: "Wide",
+  "ultra-wide": "Ultra Wide",
+};
+
+const FONT_PRESET_LABELS: Record<FontPreset, string> = {
+  system: "System",
+  sans: "Sans",
+  serif: "Serif",
+  mono: "Mono",
+  display: "Display",
+  humanist: "Humanist",
+};
+
+const RADIUS_PRESET_LABELS: Record<RadiusPreset, string> = {
+  none: "None",
+  small: "Small",
+  medium: "Medium",
+  large: "Large",
+  rounded: "Rounded",
+};
+
+const SHADOW_PRESET_LABELS: Record<ShadowPreset, string> = {
+  none: "None",
+  soft: "Soft",
+  medium: "Medium",
+  strong: "Strong",
 };
 
 const BLOG_POST_METADATA_LABELS: Record<BlogPostMetadataTreatment, string> = {
@@ -1081,6 +1186,7 @@ function ContentWidthField({
   value,
   onChange,
 }: ContentWidthFieldProps) {
+  const st = useSourceTranslations();
   const valueIsPreset = isContentWidthPreset(value);
   // Track the user's selection in local state so switching to "custom" with
   // an empty/invalid input still reveals the number field (the committed
@@ -1124,10 +1230,12 @@ function ContentWidthField({
         <SelectContent>
           {CONTENT_WIDTHS.map((w) => (
             <SelectItem key={w} value={w}>
-              {w}
+              {st(CONTENT_WIDTH_LABELS[w])}
             </SelectItem>
           ))}
-          <SelectItem value={CUSTOM_WIDTH_OPTION}>custom (px)</SelectItem>
+          <SelectItem value={CUSTOM_WIDTH_OPTION}>
+            {st("custom (px)")}
+          </SelectItem>
         </SelectContent>
       </Select>
       {isCustom && (
@@ -1139,7 +1247,7 @@ function ContentWidthField({
             min={MIN_CUSTOM_CONTENT_WIDTH_PX}
             max={MAX_CUSTOM_CONTENT_WIDTH_PX}
             step={1}
-            placeholder="e.g. 1200"
+            placeholder={st("e.g. 1200")}
             value={customDraft}
             onChange={(e) => {
               const next = e.target.value;
@@ -1169,8 +1277,13 @@ function ContentWidthField({
             }
           >
             {showError
-              ? `Enter a whole number between ${MIN_CUSTOM_CONTENT_WIDTH_PX} and ${MAX_CUSTOM_CONTENT_WIDTH_PX}.`
-              : `Max-width in pixels. Layout stays responsive and centered (width: 100%, mx-auto).`}
+              ? st("Enter a whole number between {min} and {max}.", {
+                  min: MIN_CUSTOM_CONTENT_WIDTH_PX,
+                  max: MAX_CUSTOM_CONTENT_WIDTH_PX,
+                })
+              : st(
+                  "Max-width in pixels. Layout stays responsive and centered (width: 100%, mx-auto).",
+                )}
           </p>
         </div>
       )}
@@ -1202,6 +1315,7 @@ function SearchableSelect({
   searchPlaceholder,
   onChange,
 }: SearchableSelectProps) {
+  const st = useSourceTranslations();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const selected = options.find((option) => option.value === value);
@@ -1233,7 +1347,7 @@ function SearchableSelect({
             aria-expanded={open}
             className="w-full justify-between"
           >
-            <span className="truncate text-left">
+            <span className="truncate text-start">
               {selected ? `${selected.label} (${selected.value})` : placeholder}
             </span>
             <ChevronsUpDown className="size-4 opacity-50" aria-hidden />
@@ -1252,7 +1366,7 @@ function SearchableSelect({
           <div className="max-h-72 overflow-y-auto">
             {filteredOptions.length === 0 ? (
               <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-                No matches found.
+                {st("No matches found.")}
               </p>
             ) : (
               filteredOptions.map((option) => (
@@ -1260,7 +1374,7 @@ function SearchableSelect({
                   key={option.value}
                   type="button"
                   variant="ghost"
-                  className="h-auto w-full justify-start gap-2 px-2 py-2 text-left"
+                  className="h-auto w-full justify-start gap-2 px-2 py-2 text-start"
                   onClick={() => {
                     onChange(option.value);
                     setOpen(false);
@@ -1401,6 +1515,7 @@ function ShellVisibilitySection({
   onModeChange: (mode: ShellVisibilityMode) => void;
   onTargetsChange: (targets: ShellVisibilityTargets) => void;
 }) {
+  const st = useSourceTranslations();
   const selectedCount = countVisibilityTargets(targets);
 
   function setTarget(
@@ -1446,7 +1561,7 @@ function ShellVisibilitySection({
             className="justify-center"
             onClick={() => onModeChange("everywhere")}
           >
-            Show everywhere
+            {st("Show everywhere")}
           </Button>
           <Button
             type="button"
@@ -1455,7 +1570,7 @@ function ShellVisibilitySection({
             className="justify-center"
             onClick={() => onModeChange("selected")}
           >
-            Show only on selected locations
+            {st("Show only on selected locations")}
           </Button>
         </div>
       </div>
@@ -1491,12 +1606,12 @@ function ShellVisibilitySection({
                     ) ? (
                       <>
                         <X className="size-3" aria-hidden />
-                        Deselect all
+                        {st("Deselect all")}
                       </>
                     ) : (
                       <>
                         <Check className="size-3" aria-hidden />
-                        Select all
+                        {st("Select all")}
                       </>
                     )}
                   </Button>
@@ -1505,7 +1620,7 @@ function ShellVisibilitySection({
               <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
                 {group.options.length === 0 ? (
                   <p className="px-2 py-4 text-sm text-muted-foreground">
-                    No options available.
+                    {st("No options available.")}
                   </p>
                 ) : (
                   group.options.map((option) => (
@@ -1542,6 +1657,7 @@ function SessionSecurityCard({
   idleLogoutMinutes,
   setIdleLogoutMinutes,
 }: SessionSecurityCardProps) {
+  const t = useTranslations();
   const maxNum = parseInt(maxSessionMinutes, 10);
   const idleNum = parseInt(idleLogoutMinutes, 10);
   const maxValid =
@@ -1553,12 +1669,12 @@ function SessionSecurityCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Session Security</CardTitle>
+        <CardTitle>{t("globalSettings.system.sessionSecurity")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="maxSessionMinutes">
-            Max Session Duration (minutes)
+            {t("globalSettings.system.maxSessionDuration")}
           </Label>
           <Input
             id="maxSessionMinutes"
@@ -1578,12 +1694,20 @@ function SessionSecurityCard({
             }
           >
             {maxValid
-              ? `${maxNum} minutes = ${formatMinutesHuman(maxNum)}. Absolute lifetime — user is signed out when this elapses regardless of activity.`
-              : `Enter a whole number between ${MIN_MAX_SESSION_MINUTES} and ${MAX_MAX_SESSION_MINUTES}.`}
+              ? t("globalSettings.system.absoluteLifetimeHelp", {
+                  minutes: maxNum,
+                  human: formatMinutesHuman(maxNum),
+                })
+              : t("globalSettings.system.maxSessionRange", {
+                  min: MIN_MAX_SESSION_MINUTES,
+                  max: MAX_MAX_SESSION_MINUTES,
+                })}
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="idleLogoutMinutes">Idle Auto-Logout (minutes)</Label>
+          <Label htmlFor="idleLogoutMinutes">
+            {t("globalSettings.system.idleAutoLogout")}
+          </Label>
           <Input
             id="idleLogoutMinutes"
             type="number"
@@ -1602,16 +1726,19 @@ function SessionSecurityCard({
             }
           >
             {!idleValid
-              ? `Enter a whole number greater than or equal to ${MIN_IDLE_MINUTES}.`
+              ? t("globalSettings.system.idleRange", {
+                  min: MIN_IDLE_MINUTES,
+                })
               : !idleLeqMax
-                ? "Idle logout cannot exceed max session duration."
-                : `${idleNum} minutes = ${formatMinutesHuman(idleNum)}. Sliding window — reset by user activity; a warning appears before sign-out.`}
+                ? t("globalSettings.system.idleExceedsMax")
+                : t("globalSettings.system.idleSlidingWindowHelp", {
+                    minutes: idleNum,
+                    human: formatMinutesHuman(idleNum),
+                  })}
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
-          Note: for hard server-side enforcement, also configure Clerk&apos;s
-          session token lifetime in the Clerk dashboard to match the max session
-          duration.
+          {t("globalSettings.system.serverEnforcementNote")}
         </p>
       </CardContent>
     </Card>
@@ -1625,6 +1752,9 @@ export function SettingsForm({
   visibilityContentTargets,
   visibilityBlogCategories,
 }: SettingsFormProps) {
+  const router = useRouter();
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const searchParams = useSearchParams();
   const urlSettingsTab = parseSettingsTab(
     searchParams.get(SETTINGS_TAB_PARAM),
@@ -1742,7 +1872,7 @@ export function SettingsForm({
   const visibilityTargetGroups: VisibilityTargetGroup[] = [
     {
       key: "systemPageIds",
-      label: "System Pages",
+      label: st("System Pages"),
       options: SYSTEM_PAGE_TARGETS.map((target) => ({
         id: target.id,
         label: target.label,
@@ -1751,7 +1881,7 @@ export function SettingsForm({
     },
     {
       key: "pageIds",
-      label: "Pages",
+      label: st("Pages"),
       options: visibilityContentTargets
         .filter((item) => item.contentType === "page")
         .map((item) => ({
@@ -1762,7 +1892,7 @@ export function SettingsForm({
     },
     {
       key: "blogPostIds",
-      label: "Blog Posts",
+      label: st("Blog Posts"),
       options: visibilityContentTargets
         .filter((item) => item.contentType === "blog_post")
         .map((item) => ({
@@ -1773,7 +1903,7 @@ export function SettingsForm({
     },
     {
       key: "heroSliderIds",
-      label: "Hero Sliders",
+      label: st("Hero Sliders"),
       options: visibilityContentTargets
         .filter((item) => item.contentType === "hero_slider")
         .map((item) => ({
@@ -1784,7 +1914,7 @@ export function SettingsForm({
     },
     {
       key: "webshopIds",
-      label: "Webshops",
+      label: st("Webshops"),
       options: visibilityContentTargets
         .filter((item) => item.contentType === "webshop")
         .map((item) => ({
@@ -1795,16 +1925,16 @@ export function SettingsForm({
     },
     {
       key: "blogCategoryIds",
-      label: "Blog Categories",
+      label: st("Blog Categories"),
       options: visibilityBlogCategories.map((category) => ({
         id: category.id,
         label: category.name,
-        meta: "Blog category",
+        meta: st("Blog category"),
       })),
     },
     {
       key: "adminPageIds",
-      label: "Admin/backend Pages",
+      label: st("Admin/backend Pages"),
       options: ADMIN_PAGE_TARGETS.map((target) => ({
         id: target.id,
         label: target.label,
@@ -1830,6 +1960,12 @@ export function SettingsForm({
   );
   const [publicSiteUrl, setPublicSiteUrl] = useState(
     settings?.publicSiteUrl ?? "",
+  );
+  const [frontendLanguage, setFrontendLanguage] = useState(
+    settings?.frontendLanguage ?? DEFAULT_CMS_LANGUAGE,
+  );
+  const [backendLanguage, setBackendLanguage] = useState(
+    settings?.backendLanguage ?? DEFAULT_CMS_LANGUAGE,
   );
   const [defaultLanguage, setDefaultLanguage] = useState(
     settings?.defaultLanguage ?? DEFAULT_REGIONAL_SETTINGS.defaultLanguage,
@@ -2619,7 +2755,11 @@ export function SettingsForm({
   function applyPresetDraft(preset: AppearanceShellPreset) {
     const nextRecipe = applyAppearancePresetToRecipe(draftRecipe, preset);
     syncDraftFromRecipe(nextRecipe, preset.id);
-    toast.success(`${preset.name} applied as a draft.`);
+    toast.success(
+      t("globalSettings.layoutDesign.toast.presetApplied", {
+        name: preset.name,
+      }),
+    );
   }
 
   function handleAdminMenuEnabledChange(enabled: boolean) {
@@ -2631,9 +2771,12 @@ export function SettingsForm({
           ? "/dashboard"
           : `${window.location.origin}/dashboard`;
 
-      toast.warning("Admin menu hidden", {
+      toast.warning(t("globalSettings.layoutDesign.toast.adminMenuHidden"), {
         id: "admin-menu-hidden-warning",
-        description: `Hiding the admin menu will remove the backend navigation links from the site header. To access the backend again, open ${dashboardUrl}.`,
+        description: t(
+          "globalSettings.layoutDesign.toast.adminMenuHiddenDescription",
+          { url: dashboardUrl },
+        ),
         duration: 30000,
       });
     }
@@ -2645,7 +2788,11 @@ export function SettingsForm({
       APPEARANCE_SHELL_PRESETS[0];
     const nextRecipe = applyAppearancePresetToRecipe(draftRecipe, preset);
     syncDraftFromRecipe(nextRecipe, preset.id);
-    toast.success(`${preset.name} structure reset.`);
+    toast.success(
+      t("globalSettings.layoutDesign.toast.presetReset", {
+        name: preset.name,
+      }),
+    );
   }
 
   async function exportDraftRecipe() {
@@ -2654,9 +2801,9 @@ export function SettingsForm({
 
     try {
       await navigator.clipboard.writeText(serialized);
-      toast.success("Appearance recipe copied.");
+      toast.success(t("globalSettings.layoutDesign.toast.recipeCopied"));
     } catch {
-      toast.success("Appearance recipe exported.");
+      toast.success(t("globalSettings.layoutDesign.toast.recipeExported"));
     }
   }
 
@@ -2668,7 +2815,7 @@ export function SettingsForm({
     }
 
     syncDraftFromRecipe(parsed.recipe, inferPresetId(parsed.recipe));
-    toast.success("Appearance recipe imported as a draft.");
+    toast.success(t("globalSettings.layoutDesign.toast.recipeImported"));
   }
 
   function updateAiProvider(
@@ -2712,19 +2859,15 @@ export function SettingsForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSave) {
-      toast.error(
-        "You do not currently hold the edit lock. Another admin is editing these settings.",
-      );
+      toast.error(t("globalSettings.validation.editLockMissing"));
       return;
     }
     if (!logoBorderColorValid) {
-      toast.error("Logo border custom color must be a valid hex value.");
+      toast.error(t("globalSettings.validation.logoBorderColorInvalid"));
       return;
     }
     if (!backgroundColorsValid || !glowColorsValid) {
-      toast.error(
-        "Header and footer background and glow colors must be valid hex values.",
-      );
+      toast.error(t("globalSettings.validation.shellColorsInvalid"));
       return;
     }
     const parsedMax = clampMinutes(
@@ -2740,17 +2883,15 @@ export function SettingsForm({
       Math.min(SESSION_SECURITY_DEFAULTS.idleLogoutMinutes, parsedMax),
     );
     if (parsedIdle > parsedMax) {
-      toast.error("Idle logout cannot exceed max session duration.");
+      toast.error(t("globalSettings.validation.idleExceedsSession"));
       return;
     }
     if (!aiWritingAssistantSettingsValid) {
-      toast.error("AI writing assistant settings are invalid.");
+      toast.error(t("globalSettings.validation.aiSettingsInvalid"));
       return;
     }
     if (aiAssistantShownInEditors && usableAiProviderIds.length === 0) {
-      toast.error(
-        "Enable at least one AI provider model before showing the assistant.",
-      );
+      toast.error(t("globalSettings.validation.aiProviderRequired"));
       return;
     }
     const parsedAiProviders = Object.fromEntries(
@@ -2801,6 +2942,8 @@ export function SettingsForm({
         {
           siteName,
           publicSiteUrl: publicSiteUrl.trim() || null,
+          frontendLanguage,
+          backendLanguage,
           defaultLanguage,
           timezone,
           siteLogoFileId: logoFileId,
@@ -2856,7 +2999,13 @@ export function SettingsForm({
             ) as AiProviderFormStateById,
         );
         setAiDefaultProvider(effectiveAiDefaultProvider);
-        toast.success("Settings saved.");
+        const languageChanged =
+          frontendLanguage !==
+            (settings?.frontendLanguage ?? DEFAULT_CMS_LANGUAGE) ||
+          backendLanguage !==
+            (settings?.backendLanguage ?? DEFAULT_CMS_LANGUAGE);
+        toast.success(t("globalSettings.actions.settingsSaved"));
+        if (languageChanged) router.refresh();
       }
     });
   }
@@ -2865,7 +3014,7 @@ export function SettingsForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div
         className={cn(
-          "fixed right-4 bottom-[calc(var(--sticky-footer-h,0px)+1rem+env(safe-area-inset-bottom,0px))] z-[60] transition-all duration-200 sm:right-6 sm:bottom-[calc(var(--sticky-footer-h,0px)+1.5rem+env(safe-area-inset-bottom,0px))]",
+          "fixed end-4 bottom-[calc(var(--sticky-footer-h,0px)+1rem+env(safe-area-inset-bottom,0px))] z-[60] transition-all duration-200 sm:end-6 sm:bottom-[calc(var(--sticky-footer-h,0px)+1.5rem+env(safe-area-inset-bottom,0px))]",
           bottomSaveButtonVisible
             ? "pointer-events-none translate-y-3 opacity-0"
             : "translate-y-0 opacity-100",
@@ -2877,13 +3026,23 @@ export function SettingsForm({
           size="lg"
           disabled={settingsSaveDisabled}
           className="h-11 rounded-full px-4 shadow-lg shadow-black/15"
-          aria-label={isPending ? "Saving settings" : "Save settings"}
+          aria-label={
+            isPending
+              ? t("globalSettings.actions.saving")
+              : t("globalSettings.actions.saveSettings")
+          }
         >
           <Save aria-hidden className="h-4 w-4" />
           <span className="hidden sm:inline">
-            {isPending ? "Saving…" : "Save changes"}
+            {isPending
+              ? t("globalSettings.actions.saving")
+              : t("common.actions.saveChanges")}
           </span>
-          <span className="sm:hidden">{isPending ? "Saving…" : "Save"}</span>
+          <span className="sm:hidden">
+            {isPending
+              ? t("globalSettings.actions.saving")
+              : t("common.actions.save")}
+          </span>
         </Button>
       </div>
 
@@ -2893,21 +3052,29 @@ export function SettingsForm({
         className="space-y-4"
       >
         <TabsList className="flex-wrap overflow-x-visible">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="layout-design">Layout &amp; Design</TabsTrigger>
-          <TabsTrigger value="ai">AI</TabsTrigger>
-          <TabsTrigger value="system">System</TabsTrigger>
+          <TabsTrigger value="general">
+            {t("globalSettings.tabs.general")}
+          </TabsTrigger>
+          <TabsTrigger value="layout-design">
+            {t("globalSettings.tabs.layoutDesign")}
+          </TabsTrigger>
+          <TabsTrigger value="ai">{t("globalSettings.tabs.ai")}</TabsTrigger>
+          <TabsTrigger value="system">
+            {t("globalSettings.tabs.system")}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
           {/* ── Site ── */}
           <Card>
             <CardHeader>
-              <CardTitle>Site Identity</CardTitle>
+              <CardTitle>{t("globalSettings.siteIdentity.title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="siteName">Site Name</Label>
+                <Label htmlFor="siteName">
+                  {t("globalSettings.siteIdentity.siteName")}
+                </Label>
                 <Input
                   id="siteName"
                   value={siteName}
@@ -2917,7 +3084,9 @@ export function SettingsForm({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="publicSiteUrl">Public site URL</Label>
+                <Label htmlFor="publicSiteUrl">
+                  {t("globalSettings.siteIdentity.publicSiteUrl")}
+                </Label>
                 <Input
                   id="publicSiteUrl"
                   type="url"
@@ -2934,35 +3103,74 @@ export function SettingsForm({
           {/* ── Regional ── */}
           <Card>
             <CardHeader>
-              <CardTitle>Regional Settings</CardTitle>
+              <CardTitle>
+                {t("globalSettings.regionalSettings.title")}
+              </CardTitle>
               <CardDescription>
-                Single-site locale and timezone for language metadata and date
-                display.
+                {t("globalSettings.regionalSettings.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <SearchableSelect
+                id="frontendLanguage"
+                label={t("globalSettings.languageControls.frontendLanguage")}
+                value={frontendLanguage}
+                options={SUPPORTED_CMS_LANGUAGES.map((language) => ({
+                  value: language.code,
+                  label: language.label,
+                }))}
+                placeholder={t(
+                  "globalSettings.languageControls.selectLanguage",
+                )}
+                searchPlaceholder={t(
+                  "globalSettings.languageControls.searchLanguages",
+                )}
+                onChange={setFrontendLanguage}
+              />
+              <SearchableSelect
+                id="backendLanguage"
+                label={t("globalSettings.languageControls.backendLanguage")}
+                value={backendLanguage}
+                options={SUPPORTED_CMS_LANGUAGES.map((language) => ({
+                  value: language.code,
+                  label: language.label,
+                }))}
+                placeholder={t(
+                  "globalSettings.languageControls.selectLanguage",
+                )}
+                searchPlaceholder={t(
+                  "globalSettings.languageControls.searchLanguages",
+                )}
+                onChange={setBackendLanguage}
+              />
+              <SearchableSelect
                 id="defaultLanguage"
-                label="Default language"
+                label={t("globalSettings.languageControls.regionalLocale")}
                 value={defaultLanguage}
                 options={SUPPORTED_LOCALES.map((locale) => ({
                   value: locale.code,
                   label: locale.label,
                 }))}
-                placeholder="Select locale"
-                searchPlaceholder="Search locales..."
+                placeholder={t("globalSettings.languageControls.selectLocale")}
+                searchPlaceholder={t(
+                  "globalSettings.languageControls.searchLocales",
+                )}
                 onChange={setDefaultLanguage}
               />
               <SearchableSelect
                 id="timezone"
-                label="Timezone"
+                label={t("globalSettings.languageControls.timezone")}
                 value={timezone}
                 options={SUPPORTED_TIMEZONES.map((tz) => ({
                   value: tz,
                   label: tz,
                 }))}
-                placeholder="Select timezone"
-                searchPlaceholder="Search timezones..."
+                placeholder={t(
+                  "globalSettings.languageControls.selectTimezone",
+                )}
+                searchPlaceholder={t(
+                  "globalSettings.languageControls.searchTimezones",
+                )}
                 onChange={setTimezone}
               />
             </CardContent>
@@ -2976,23 +3184,33 @@ export function SettingsForm({
             className="space-y-4"
           >
             <TabsList className="flex-wrap overflow-x-visible">
-              <TabsTrigger value="header">Header</TabsTrigger>
-              <TabsTrigger value="footer">Footer</TabsTrigger>
-              <TabsTrigger value="appearance">Appearance</TabsTrigger>
+              <TabsTrigger value="header">
+                {t("globalSettings.layoutDesign.tabs.header")}
+              </TabsTrigger>
+              <TabsTrigger value="footer">
+                {t("globalSettings.layoutDesign.tabs.footer")}
+              </TabsTrigger>
+              <TabsTrigger value="appearance">
+                {t("globalSettings.layoutDesign.tabs.appearance")}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="header" className="space-y-6">
               {/* ── Header ── */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Header Settings</CardTitle>
+                  <CardTitle>
+                    {t("globalSettings.layoutDesign.header.title")}
+                  </CardTitle>
                   <CardDescription>
-                    Choose a curated header layout and enable structured slots.
+                    {t("globalSettings.layoutDesign.header.description")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="headerVariant">Header Variant</Label>
+                    <Label htmlFor="headerVariant">
+                      {t("globalSettings.layoutDesign.header.variant")}
+                    </Label>
                     <Select
                       value={headerVariant}
                       onValueChange={(v) =>
@@ -3005,7 +3223,7 @@ export function SettingsForm({
                       <SelectContent>
                         {HEADER_VARIANTS.map((variant) => (
                           <SelectItem key={variant} value={variant}>
-                            {HEADER_VARIANT_LABELS[variant]}
+                            {st(HEADER_VARIANT_LABELS[variant])}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -3013,10 +3231,13 @@ export function SettingsForm({
                     <HeaderVariantPreview
                       variant={headerVariant}
                       hidden={headerHidden}
+                      t={t}
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="headerHidden">Hidden Header</Label>
+                    <Label htmlFor="headerHidden">
+                      {t("globalSettings.layoutDesign.header.hidden")}
+                    </Label>
                     <Switch
                       id="headerHidden"
                       checked={headerHidden}
@@ -3026,7 +3247,7 @@ export function SettingsForm({
                   {!headerHidden && (
                     <ShellVisibilitySection
                       idPrefix="headerVisibility"
-                      title="Header visibility"
+                      title={t("globalSettings.layoutDesign.header.visibility")}
                       mode={headerVisibilityMode}
                       targets={headerVisibilityTargets}
                       groups={visibilityTargetGroups}
@@ -3035,7 +3256,9 @@ export function SettingsForm({
                     />
                   )}
                   <div className="space-y-1.5">
-                    <Label htmlFor="navigationMenuId">Navigation Menu</Label>
+                    <Label htmlFor="navigationMenuId">
+                      {t("globalSettings.layoutDesign.header.navigationMenu")}
+                    </Label>
                     <Select
                       value={navigationMenuId ?? WITHOUT_MENU_VALUE}
                       onValueChange={(value) =>
@@ -3049,7 +3272,7 @@ export function SettingsForm({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={WITHOUT_MENU_VALUE}>
-                          Without menu
+                          {st("Without menu")}
                         </SelectItem>
                         {navigationMenus.map((menu) => (
                           <SelectItem key={menu.id} value={menu.id}>
@@ -3060,7 +3283,9 @@ export function SettingsForm({
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Site Logo</Label>
+                    <Label>
+                      {t("globalSettings.layoutDesign.header.siteLogo")}
+                    </Label>
                     <div className="flex items-center gap-3">
                       <div className="flex h-16 w-16 items-center justify-center rounded-md border bg-muted overflow-hidden shrink-0">
                         {logoFileId ? (
@@ -3086,8 +3311,10 @@ export function SettingsForm({
                             onClick={() => setPickerOpen(true)}
                           >
                             {logoFileId
-                              ? "Change logo…"
-                              : "Choose from File Manager…"}
+                              ? t("globalSettings.actions.changeLogo")
+                              : t(
+                                  "globalSettings.actions.chooseFromFileManager",
+                                )}
                           </Button>
                           {logoFileId && (
                             <Button
@@ -3100,7 +3327,8 @@ export function SettingsForm({
                                 setHeaderShowLogo(false);
                               }}
                             >
-                              <X className="mr-1 h-4 w-4" /> Remove
+                              <X className="me-1 h-4 w-4" />{" "}
+                              {t("globalSettings.actions.removeLogo")}
                             </Button>
                           )}
                         </div>
@@ -3113,7 +3341,9 @@ export function SettingsForm({
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="headerShowLogo">Show Logo</Label>
+                    <Label htmlFor="headerShowLogo">
+                      {t("globalSettings.layoutDesign.header.showLogo")}
+                    </Label>
                     <Switch
                       id="headerShowLogo"
                       checked={headerShowLogo}
@@ -3123,7 +3353,9 @@ export function SettingsForm({
                   <div className="space-y-3 rounded-md border p-3">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="logoBorderEnabled">
-                        Enable logo border
+                        {t(
+                          "globalSettings.layoutDesign.header.enableLogoBorder",
+                        )}
                       </Label>
                       <Switch
                         id="logoBorderEnabled"
@@ -3134,7 +3366,9 @@ export function SettingsForm({
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="logoBorderShape">
-                          Logo border shape
+                          {t(
+                            "globalSettings.layoutDesign.header.logoBorderShape",
+                          )}
                         </Label>
                         <Select
                           value={logoBorderShape}
@@ -3151,7 +3385,7 @@ export function SettingsForm({
                           <SelectContent>
                             {LOGO_BORDER_SHAPES.map((shape) => (
                               <SelectItem key={shape} value={shape}>
-                                {LOGO_BORDER_SHAPE_LABELS[shape]}
+                                {st(LOGO_BORDER_SHAPE_LABELS[shape])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3159,7 +3393,9 @@ export function SettingsForm({
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="logoBorderColorMode">
-                          Logo border color
+                          {t(
+                            "globalSettings.layoutDesign.header.logoBorderColor",
+                          )}
                         </Label>
                         <Select
                           value={logoBorderColorMode}
@@ -3182,7 +3418,7 @@ export function SettingsForm({
                           <SelectContent>
                             {LOGO_BORDER_COLOR_MODES.map((mode) => (
                               <SelectItem key={mode} value={mode}>
-                                {LOGO_BORDER_COLOR_MODE_LABELS[mode]}
+                                {st(LOGO_BORDER_COLOR_MODE_LABELS[mode])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3192,7 +3428,9 @@ export function SettingsForm({
                     {logoBorderColorMode === "custom" && (
                       <div className="space-y-1.5">
                         <Label htmlFor="logoBorderColor">
-                          Custom logo border color
+                          {t(
+                            "globalSettings.layoutDesign.header.customLogoBorderColor",
+                          )}
                         </Label>
                         <div className="flex items-center gap-2">
                           <Input
@@ -3218,14 +3456,18 @@ export function SettingsForm({
                         </div>
                         {!logoBorderColorValid && (
                           <p className="text-xs text-destructive">
-                            Enter a valid hex color like #fff or #ffffff.
+                            {st(
+                              "Enter a valid hex color like #fff or #ffffff.",
+                            )}
                           </p>
                         )}
                       </div>
                     )}
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="headerShowSiteName">Show Site Name</Label>
+                    <Label htmlFor="headerShowSiteName">
+                      {t("globalSettings.layoutDesign.header.showSiteName")}
+                    </Label>
                     <Switch
                       id="headerShowSiteName"
                       checked={headerShowSiteName}
@@ -3233,7 +3475,9 @@ export function SettingsForm({
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="headerSticky">Sticky Header</Label>
+                    <Label htmlFor="headerSticky">
+                      {t("globalSettings.layoutDesign.header.sticky")}
+                    </Label>
                     <Switch
                       id="headerSticky"
                       checked={headerSticky}
@@ -3242,7 +3486,7 @@ export function SettingsForm({
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="stickyHeaderHeight">
-                      Header Height (px)
+                      {t("globalSettings.layoutDesign.header.heightPx")}
                     </Label>
                     <Input
                       id="stickyHeaderHeight"
@@ -3255,7 +3499,7 @@ export function SettingsForm({
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="headerBackground">
-                      Background Color (hex, optional)
+                      {t("globalSettings.layoutDesign.header.backgroundColor")}
                     </Label>
                     <div className="flex items-center gap-2">
                       <Input
@@ -3279,8 +3523,9 @@ export function SettingsForm({
                     </div>
                     {!headerBackgroundValid && (
                       <p className="text-xs text-destructive">
-                        Enter a valid hex color like #fff or #ffffff, or leave
-                        it blank.
+                        {st(
+                          "Enter a valid hex color like #fff or #ffffff, or leave it blank.",
+                        )}
                       </p>
                     )}
                   </div>
@@ -3292,13 +3537,17 @@ export function SettingsForm({
                   />
                   <div className="space-y-3 rounded-md border p-3">
                     <div>
-                      <LabelWithHelp label="Header Slots">
-                        These controls enable curated, validated shell pieces.
+                      <LabelWithHelp
+                        label={t("globalSettings.layoutDesign.header.slots")}
+                      >
+                        {t("globalSettings.layoutDesign.header.slotsHelp")}
                       </LabelWithHelp>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="siteMenuEnabled">Site Menu</Label>
+                        <Label htmlFor="siteMenuEnabled">
+                          {t("globalSettings.layoutDesign.header.siteMenu")}
+                        </Label>
                         <Switch
                           id="siteMenuEnabled"
                           checked={siteMenuEnabled}
@@ -3306,7 +3555,9 @@ export function SettingsForm({
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="adminMenuEnabled">Admin Menu</Label>
+                        <Label htmlFor="adminMenuEnabled">
+                          {t("globalSettings.layoutDesign.header.adminMenu")}
+                        </Label>
                         <Switch
                           id="adminMenuEnabled"
                           checked={adminMenuEnabled}
@@ -3315,7 +3566,9 @@ export function SettingsForm({
                       </div>
                       <div className="flex items-center justify-between">
                         <Label htmlFor="headerCustomHtmlEnabled">
-                          CustomHtml Slot
+                          {t(
+                            "globalSettings.layoutDesign.header.customHtmlSlot",
+                          )}
                         </Label>
                         <Switch
                           id="headerCustomHtmlEnabled"
@@ -3324,7 +3577,9 @@ export function SettingsForm({
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="searchEnabled">Search Slot</Label>
+                        <Label htmlFor="searchEnabled">
+                          {t("globalSettings.layoutDesign.header.searchSlot")}
+                        </Label>
                         <Switch
                           id="searchEnabled"
                           checked={searchEnabled}
@@ -3332,7 +3587,9 @@ export function SettingsForm({
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="headerCtaEnabled">CTA Slot</Label>
+                        <Label htmlFor="headerCtaEnabled">
+                          {t("globalSettings.layoutDesign.header.ctaSlot")}
+                        </Label>
                         <Switch
                           id="headerCtaEnabled"
                           checked={headerCtaEnabled}
@@ -3344,7 +3601,9 @@ export function SettingsForm({
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-1.5">
                           <Label htmlFor="searchPlaceholder">
-                            Search Placeholder
+                            {t(
+                              "globalSettings.layoutDesign.header.searchPlaceholder",
+                            )}
                           </Label>
                           <Input
                             id="searchPlaceholder"
@@ -3356,7 +3615,11 @@ export function SettingsForm({
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Search Content</Label>
+                          <Label>
+                            {t(
+                              "globalSettings.layoutDesign.header.searchContent",
+                            )}
+                          </Label>
                           <div className="flex flex-wrap gap-4 rounded-lg border border-border/70 px-3 py-2.5">
                             <label
                               htmlFor="searchBlogPosts"
@@ -3369,7 +3632,11 @@ export function SettingsForm({
                                   setSearchBlogPosts(checked === true)
                                 }
                               />
-                              <span>Search blog posts</span>
+                              <span>
+                                {t(
+                                  "globalSettings.layoutDesign.preview.searchBlogPosts",
+                                )}
+                              </span>
                             </label>
                             <label
                               htmlFor="searchPages"
@@ -3382,7 +3649,11 @@ export function SettingsForm({
                                   setSearchPages(checked === true)
                                 }
                               />
-                              <span>Search pages</span>
+                              <span>
+                                {t(
+                                  "globalSettings.layoutDesign.preview.searchPages",
+                                )}
+                              </span>
                             </label>
                           </div>
                         </div>
@@ -3392,7 +3663,7 @@ export function SettingsForm({
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-1.5">
                           <Label htmlFor="headerCtaLabel">
-                            Header CTA Label
+                            {t("globalSettings.layoutDesign.header.ctaLabel")}
                           </Label>
                           <Input
                             id="headerCtaLabel"
@@ -3402,7 +3673,9 @@ export function SettingsForm({
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label htmlFor="headerCtaHref">Header CTA URL</Label>
+                          <Label htmlFor="headerCtaHref">
+                            {t("globalSettings.layoutDesign.header.ctaUrl")}
+                          </Label>
                           <Input
                             id="headerCtaHref"
                             value={headerCtaHref}
@@ -3414,7 +3687,9 @@ export function SettingsForm({
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Header CustomHtml (expert)</Label>
+                    <Label>
+                      {t("globalSettings.layoutDesign.header.customHtml")}
+                    </Label>
                     <FooterContentEditor
                       value={headerContent}
                       onChange={setHeaderContent}
@@ -3428,14 +3703,18 @@ export function SettingsForm({
               {/* ── Footer ── */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Footer Settings</CardTitle>
+                  <CardTitle>
+                    {t("globalSettings.layoutDesign.footer.title")}
+                  </CardTitle>
                   <CardDescription>
-                    Select a curated footer layout and structured footer slots.
+                    {t("globalSettings.layoutDesign.footer.description")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="footerVariant">Footer Variant</Label>
+                    <Label htmlFor="footerVariant">
+                      {t("globalSettings.layoutDesign.footer.variant")}
+                    </Label>
                     <Select
                       value={footerVariant}
                       onValueChange={(v) =>
@@ -3448,17 +3727,20 @@ export function SettingsForm({
                       <SelectContent>
                         {FOOTER_LAYOUT_VARIANTS.map((variant) => (
                           <SelectItem key={variant} value={variant}>
-                            {FOOTER_VARIANT_LABELS[variant]}
+                            {st(FOOTER_VARIANT_LABELS[variant])}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <FooterVariantPreview
                       variant={footerHidden ? "hidden" : footerVariant}
+                      t={t}
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="footerHidden">Hidden Footer</Label>
+                    <Label htmlFor="footerHidden">
+                      {t("globalSettings.layoutDesign.footer.hidden")}
+                    </Label>
                     <Switch
                       id="footerHidden"
                       checked={footerHidden}
@@ -3468,7 +3750,7 @@ export function SettingsForm({
                   {!footerHidden && (
                     <ShellVisibilitySection
                       idPrefix="footerVisibility"
-                      title="Footer visibility"
+                      title={t("globalSettings.layoutDesign.footer.visibility")}
                       mode={footerVisibilityMode}
                       targets={footerVisibilityTargets}
                       groups={visibilityTargetGroups}
@@ -3477,7 +3759,9 @@ export function SettingsForm({
                     />
                   )}
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="footerSticky">Sticky Footer</Label>
+                    <Label htmlFor="footerSticky">
+                      {t("globalSettings.layoutDesign.footer.sticky")}
+                    </Label>
                     <Switch
                       id="footerSticky"
                       checked={footerSticky}
@@ -3486,7 +3770,7 @@ export function SettingsForm({
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="stickyFooterHeight">
-                      Footer Height (px)
+                      {t("globalSettings.layoutDesign.footer.heightPx")}
                     </Label>
                     <Input
                       id="stickyFooterHeight"
@@ -3499,7 +3783,7 @@ export function SettingsForm({
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="footerBackground">
-                      Background Color (hex, optional)
+                      {t("globalSettings.layoutDesign.footer.backgroundColor")}
                     </Label>
                     <div className="flex items-center gap-2">
                       <Input
@@ -3523,8 +3807,9 @@ export function SettingsForm({
                     </div>
                     {!footerBackgroundValid && (
                       <p className="text-xs text-destructive">
-                        Enter a valid hex color like #fff or #ffffff, or leave
-                        it blank.
+                        {st(
+                          "Enter a valid hex color like #fff or #ffffff, or leave it blank.",
+                        )}
                       </p>
                     )}
                   </div>
@@ -3536,15 +3821,18 @@ export function SettingsForm({
                   />
                   <div className="space-y-3 rounded-md border p-3">
                     <div>
-                      <LabelWithHelp label="Footer Slots">
-                        Link slots use one item per line in the form: Label |
-                        URL.
+                      <LabelWithHelp
+                        label={t("globalSettings.layoutDesign.footer.slots")}
+                      >
+                        {t("globalSettings.layoutDesign.footer.slotsHelp")}
                       </LabelWithHelp>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="footerCustomHtmlEnabled">
-                          CustomHtml Slot
+                          {t(
+                            "globalSettings.layoutDesign.footer.customHtmlSlot",
+                          )}
                         </Label>
                         <Switch
                           id="footerCustomHtmlEnabled"
@@ -3553,7 +3841,11 @@ export function SettingsForm({
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="copyrightEnabled">Copyright Slot</Label>
+                        <Label htmlFor="copyrightEnabled">
+                          {t(
+                            "globalSettings.layoutDesign.footer.copyrightSlot",
+                          )}
+                        </Label>
                         <Switch
                           id="copyrightEnabled"
                           checked={copyrightEnabled}
@@ -3561,7 +3853,9 @@ export function SettingsForm({
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="footerLinksEnabled">Footer Links</Label>
+                        <Label htmlFor="footerLinksEnabled">
+                          {t("globalSettings.layoutDesign.footer.footerLinks")}
+                        </Label>
                         <Switch
                           id="footerLinksEnabled"
                           checked={footerLinksEnabled}
@@ -3569,7 +3863,9 @@ export function SettingsForm({
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="legalLinksEnabled">Legal Links</Label>
+                        <Label htmlFor="legalLinksEnabled">
+                          {t("globalSettings.layoutDesign.footer.legalLinks")}
+                        </Label>
                         <Switch
                           id="legalLinksEnabled"
                           checked={legalLinksEnabled}
@@ -3577,7 +3873,9 @@ export function SettingsForm({
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="socialLinksEnabled">Social Links</Label>
+                        <Label htmlFor="socialLinksEnabled">
+                          {t("globalSettings.layoutDesign.footer.socialLinks")}
+                        </Label>
                         <Switch
                           id="socialLinksEnabled"
                           checked={socialLinksEnabled}
@@ -3585,7 +3883,9 @@ export function SettingsForm({
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="footerCtaEnabled">CTA Slot</Label>
+                        <Label htmlFor="footerCtaEnabled">
+                          {t("globalSettings.layoutDesign.footer.ctaSlot")}
+                        </Label>
                         <Switch
                           id="footerCtaEnabled"
                           checked={footerCtaEnabled}
@@ -3595,7 +3895,9 @@ export function SettingsForm({
                     </div>
                     {footerLinksEnabled && (
                       <div className="space-y-1.5">
-                        <Label htmlFor="footerLinksText">Footer Links</Label>
+                        <Label htmlFor="footerLinksText">
+                          {t("globalSettings.layoutDesign.footer.footerLinks")}
+                        </Label>
                         <Textarea
                           id="footerLinksText"
                           rows={3}
@@ -3607,7 +3909,9 @@ export function SettingsForm({
                     )}
                     {legalLinksEnabled && (
                       <div className="space-y-1.5">
-                        <Label htmlFor="legalLinksText">Legal Links</Label>
+                        <Label htmlFor="legalLinksText">
+                          {t("globalSettings.layoutDesign.footer.legalLinks")}
+                        </Label>
                         <Textarea
                           id="legalLinksText"
                           rows={3}
@@ -3621,7 +3925,9 @@ export function SettingsForm({
                       <div className="space-y-3">
                         <div className="flex items-center justify-between rounded-md border p-3">
                           <Label htmlFor="socialLinksGenerateSocialIcons">
-                            Generate Social Link Icons
+                            {t(
+                              "globalSettings.layoutDesign.footer.generateSocialIcons",
+                            )}
                           </Label>
                           <Switch
                             id="socialLinksGenerateSocialIcons"
@@ -3630,7 +3936,11 @@ export function SettingsForm({
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label htmlFor="socialLinksText">Social Links</Label>
+                          <Label htmlFor="socialLinksText">
+                            {t(
+                              "globalSettings.layoutDesign.footer.socialLinks",
+                            )}
+                          </Label>
                           <Textarea
                             id="socialLinksText"
                             rows={3}
@@ -3645,7 +3955,7 @@ export function SettingsForm({
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-1.5">
                           <Label htmlFor="footerCtaLabel">
-                            Footer CTA Label
+                            {t("globalSettings.layoutDesign.footer.ctaLabel")}
                           </Label>
                           <Input
                             id="footerCtaLabel"
@@ -3655,7 +3965,9 @@ export function SettingsForm({
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label htmlFor="footerCtaHref">Footer CTA URL</Label>
+                          <Label htmlFor="footerCtaHref">
+                            {t("globalSettings.layoutDesign.footer.ctaUrl")}
+                          </Label>
                           <Input
                             id="footerCtaHref"
                             value={footerCtaHref}
@@ -3668,7 +3980,7 @@ export function SettingsForm({
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="footerCopyright">
-                      Copyright Text (optional)
+                      {t("globalSettings.layoutDesign.footer.copyrightText")}
                     </Label>
                     <Input
                       id="footerCopyright"
@@ -3678,7 +3990,9 @@ export function SettingsForm({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Footer CustomHtml (expert)</Label>
+                    <Label>
+                      {t("globalSettings.layoutDesign.footer.customHtml")}
+                    </Label>
                     <FooterContentEditor
                       value={footerContent}
                       onChange={setFooterContent}
@@ -3692,19 +4006,25 @@ export function SettingsForm({
               {/* ── Appearance ── */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Appearance</CardTitle>
+                  <CardTitle>
+                    {t("globalSettings.layoutDesign.appearance.title")}
+                  </CardTitle>
                   <CardDescription>
-                    Build a draft shell with presets, slot controls, and
-                    responsive preview before saving.
+                    {t("globalSettings.layoutDesign.appearance.description")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <LabelWithHelp label="Shell Presets">
-                          Presets update the draft recipe while keeping
-                          identity, menus, and content.
+                        <LabelWithHelp
+                          label={t(
+                            "globalSettings.layoutDesign.appearance.shellPresets",
+                          )}
+                        >
+                          {t(
+                            "globalSettings.layoutDesign.appearance.shellPresetsHelp",
+                          )}
                         </LabelWithHelp>
                         <div className="mt-3 flex gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
                           <Info
@@ -3712,10 +4032,9 @@ export function SettingsForm({
                             aria-hidden
                           />
                           <p>
-                            Presets are starting points. Mix Theme, content
-                            widths, font, radius, shadow, main surface, and
-                            content templates to shape the public pages and blog
-                            posts exactly how you want.
+                            {st(
+                              "Presets are starting points. Mix Theme, content widths, font, radius, shadow, main surface, and content templates to shape the public pages and blog posts exactly how you want.",
+                            )}
                           </p>
                         </div>
                       </div>
@@ -3726,7 +4045,7 @@ export function SettingsForm({
                         onClick={resetToDraftPreset}
                       >
                         <RotateCcw aria-hidden />
-                        Reset to preset
+                        {t("globalSettings.actions.resetToPreset")}
                       </Button>
                     </div>
                     <PresetCards
@@ -3737,7 +4056,9 @@ export function SettingsForm({
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label htmlFor="appearance-theme">Theme</Label>
+                      <Label htmlFor="appearance-theme">
+                        {t("globalSettings.layoutDesign.appearance.theme")}
+                      </Label>
                       <Select
                         value={theme}
                         onValueChange={(v) => setTheme(v as Theme)}
@@ -3748,7 +4069,7 @@ export function SettingsForm({
                         <SelectContent>
                           {THEMES.map((t) => (
                             <SelectItem key={t} value={t}>
-                              {t}
+                              {st(THEME_LABELS[t])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -3756,7 +4077,11 @@ export function SettingsForm({
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="mainVariant">Main Surface Variant</Label>
+                      <Label htmlFor="mainVariant">
+                        {t(
+                          "globalSettings.layoutDesign.appearance.mainSurfaceVariant",
+                        )}
+                      </Label>
                       <Select
                         value={mainVariant}
                         onValueChange={(v) =>
@@ -3769,7 +4094,7 @@ export function SettingsForm({
                         <SelectContent>
                           {MAIN_SURFACE_VARIANTS.map((variant) => (
                             <SelectItem key={variant} value={variant}>
-                              {MAIN_VARIANT_LABELS[variant]}
+                              {st(MAIN_VARIANT_LABELS[variant])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -3778,20 +4103,26 @@ export function SettingsForm({
 
                     <ContentWidthField
                       id="appearance-frontend-width"
-                      label="Frontend Content Width"
+                      label={t(
+                        "globalSettings.layoutDesign.appearance.frontendContentWidth",
+                      )}
                       value={frontendContentWidth}
                       onChange={setFrontendContentWidth}
                     />
 
                     <ContentWidthField
                       id="appearance-backend-width"
-                      label="Backend Content Width"
+                      label={t(
+                        "globalSettings.layoutDesign.appearance.backendContentWidth",
+                      )}
                       value={backendContentWidth}
                       onChange={setBackendContentWidth}
                     />
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="appearance-font">Font Preset</Label>
+                      <Label htmlFor="appearance-font">
+                        {t("globalSettings.layoutDesign.appearance.fontPreset")}
+                      </Label>
                       <Select
                         value={fontPreset}
                         onValueChange={(v) => setFontPreset(v as FontPreset)}
@@ -3802,7 +4133,7 @@ export function SettingsForm({
                         <SelectContent>
                           {FONT_PRESETS.map((f) => (
                             <SelectItem key={f} value={f}>
-                              {f}
+                              {st(FONT_PRESET_LABELS[f])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -3810,7 +4141,11 @@ export function SettingsForm({
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="appearance-radius">Border Radius</Label>
+                      <Label htmlFor="appearance-radius">
+                        {t(
+                          "globalSettings.layoutDesign.appearance.borderRadius",
+                        )}
+                      </Label>
                       <Select
                         value={radiusPreset}
                         onValueChange={(v) =>
@@ -3823,7 +4158,7 @@ export function SettingsForm({
                         <SelectContent>
                           {RADIUS_PRESETS.map((r) => (
                             <SelectItem key={r} value={r}>
-                              {r}
+                              {st(RADIUS_PRESET_LABELS[r])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -3831,7 +4166,11 @@ export function SettingsForm({
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="appearance-shadow">Shadow Preset</Label>
+                      <Label htmlFor="appearance-shadow">
+                        {t(
+                          "globalSettings.layoutDesign.appearance.shadowPreset",
+                        )}
+                      </Label>
                       <Select
                         value={shadowPreset}
                         onValueChange={(v) =>
@@ -3844,7 +4183,7 @@ export function SettingsForm({
                         <SelectContent>
                           {SHADOW_PRESETS.map((s) => (
                             <SelectItem key={s} value={s}>
-                              {s}
+                              {st(SHADOW_PRESET_LABELS[s])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -3854,14 +4193,22 @@ export function SettingsForm({
 
                   <div className="space-y-4 rounded-md border p-3">
                     <div>
-                      <LabelWithHelp label="Content Templates">
-                        Global template selections for public content surfaces.
+                      <LabelWithHelp
+                        label={t(
+                          "globalSettings.layoutDesign.appearance.contentTemplates",
+                        )}
+                      >
+                        {t(
+                          "globalSettings.layoutDesign.appearance.contentTemplatesHelp",
+                        )}
                       </LabelWithHelp>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="pageTemplateVariant">
-                          Page Template
+                          {t(
+                            "globalSettings.layoutDesign.appearance.pageTemplate",
+                          )}
                         </Label>
                         <Select
                           value={pageTemplateVariant}
@@ -3875,7 +4222,7 @@ export function SettingsForm({
                           <SelectContent>
                             {PAGE_TEMPLATE_VARIANTS.map((variant) => (
                               <SelectItem key={variant} value={variant}>
-                                {PAGE_TEMPLATE_LABELS[variant]}
+                                {st(PAGE_TEMPLATE_LABELS[variant])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3884,7 +4231,9 @@ export function SettingsForm({
 
                       <div className="space-y-1.5">
                         <Label htmlFor="blogCategoryTemplateVariant">
-                          Blog Category Template
+                          {t(
+                            "globalSettings.layoutDesign.appearance.blogCategoryTemplate",
+                          )}
                         </Label>
                         <Select
                           value={blogCategoryTemplateVariant}
@@ -3900,7 +4249,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_CATEGORY_TEMPLATE_VARIANTS.map((variant) => (
                               <SelectItem key={variant} value={variant}>
-                                {BLOG_CATEGORY_TEMPLATE_LABELS[variant]}
+                                {st(BLOG_CATEGORY_TEMPLATE_LABELS[variant])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3909,7 +4258,9 @@ export function SettingsForm({
 
                       <div className="space-y-1.5">
                         <Label htmlFor="blogPostMetadataTreatment">
-                          Blog Post Metadata
+                          {t(
+                            "globalSettings.layoutDesign.appearance.blogPostMetadata",
+                          )}
                         </Label>
                         <Select
                           value={blogPostMetadataTreatment}
@@ -3925,7 +4276,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_POST_METADATA_TREATMENTS.map((treatment) => (
                               <SelectItem key={treatment} value={treatment}>
-                                {BLOG_POST_METADATA_LABELS[treatment]}
+                                {st(BLOG_POST_METADATA_LABELS[treatment])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3934,7 +4285,9 @@ export function SettingsForm({
 
                       <div className="space-y-1.5">
                         <Label htmlFor="blogPostCoverPlacement">
-                          Blog Post Cover
+                          {t(
+                            "globalSettings.layoutDesign.appearance.blogPostCover",
+                          )}
                         </Label>
                         <Select
                           value={blogPostCoverPlacement}
@@ -3950,7 +4303,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_POST_COVER_PLACEMENTS.map((placement) => (
                               <SelectItem key={placement} value={placement}>
-                                {BLOG_POST_COVER_LABELS[placement]}
+                                {st(BLOG_POST_COVER_LABELS[placement])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3959,7 +4312,9 @@ export function SettingsForm({
 
                       <div className="space-y-1.5">
                         <Label htmlFor="blogPostExcerptTreatment">
-                          Blog Post Excerpt
+                          {t(
+                            "globalSettings.layoutDesign.appearance.blogPostExcerpt",
+                          )}
                         </Label>
                         <Select
                           value={blogPostExcerptTreatment}
@@ -3975,7 +4330,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_POST_EXCERPT_TREATMENTS.map((treatment) => (
                               <SelectItem key={treatment} value={treatment}>
-                                {BLOG_POST_EXCERPT_LABELS[treatment]}
+                                {st(BLOG_POST_EXCERPT_LABELS[treatment])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3984,7 +4339,9 @@ export function SettingsForm({
 
                       <div className="space-y-1.5">
                         <Label htmlFor="blogPostCommentsPlacement">
-                          Blog Post Comments
+                          {t(
+                            "globalSettings.layoutDesign.appearance.blogPostComments",
+                          )}
                         </Label>
                         <Select
                           value={blogPostCommentsPlacement}
@@ -4000,7 +4357,7 @@ export function SettingsForm({
                           <SelectContent>
                             {BLOG_POST_COMMENTS_PLACEMENTS.map((placement) => (
                               <SelectItem key={placement} value={placement}>
-                                {BLOG_POST_COMMENTS_LABELS[placement]}
+                                {st(BLOG_POST_COMMENTS_LABELS[placement])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4009,7 +4366,9 @@ export function SettingsForm({
 
                       <div className="space-y-1.5">
                         <Label htmlFor="blogPostEditPlacement">
-                          Blog Post Edit Link
+                          {t(
+                            "globalSettings.layoutDesign.appearance.blogPostEditLink",
+                          )}
                         </Label>
                         <Select
                           value={blogPostEditPlacement}
@@ -4026,7 +4385,7 @@ export function SettingsForm({
                             {BLOG_POST_EDIT_AFFORDANCE_PLACEMENTS.map(
                               (placement) => (
                                 <SelectItem key={placement} value={placement}>
-                                  {BLOG_POST_EDIT_LABELS[placement]}
+                                  {st(BLOG_POST_EDIT_LABELS[placement])}
                                 </SelectItem>
                               ),
                             )}
@@ -4038,15 +4397,22 @@ export function SettingsForm({
 
                   <div className="space-y-4 rounded-md border p-3">
                     <div>
-                      <LabelWithHelp label="Motion & Effects">
-                        Recipe-level motion policy for animation and background
-                        effects.
+                      <LabelWithHelp
+                        label={t(
+                          "globalSettings.layoutDesign.appearance.motionEffects",
+                        )}
+                      >
+                        {t(
+                          "globalSettings.layoutDesign.appearance.motionEffectsHelp",
+                        )}
                       </LabelWithHelp>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="motionPreference">
-                          Motion Preference
+                          {t(
+                            "globalSettings.layoutDesign.appearance.motionPreference",
+                          )}
                         </Label>
                         <Select
                           value={motionPreference}
@@ -4060,7 +4426,7 @@ export function SettingsForm({
                           <SelectContent>
                             {APPEARANCE_MOTION_PREFERENCES.map((preference) => (
                               <SelectItem key={preference} value={preference}>
-                                {MOTION_PREFERENCE_LABELS[preference]}
+                                {st(MOTION_PREFERENCE_LABELS[preference])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4069,7 +4435,9 @@ export function SettingsForm({
 
                       <div className="space-y-1.5">
                         <Label htmlFor="backgroundEffects">
-                          Background Effects
+                          {t(
+                            "globalSettings.layoutDesign.appearance.backgroundEffects",
+                          )}
                         </Label>
                         <Select
                           value={backgroundEffects}
@@ -4085,7 +4453,7 @@ export function SettingsForm({
                           <SelectContent>
                             {APPEARANCE_BACKGROUND_EFFECTS.map((effect) => (
                               <SelectItem key={effect} value={effect}>
-                                {BACKGROUND_EFFECTS_LABELS[effect]}
+                                {st(BACKGROUND_EFFECTS_LABELS[effect])}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4097,9 +4465,14 @@ export function SettingsForm({
                   <div className="space-y-4 rounded-md border p-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <LabelWithHelp label="Quality Gates">
-                          Checks run across desktop, tablet, mobile, and auth
-                          states.
+                        <LabelWithHelp
+                          label={t(
+                            "globalSettings.layoutDesign.appearance.qualityGates",
+                          )}
+                        >
+                          {t(
+                            "globalSettings.layoutDesign.appearance.qualityGatesHelp",
+                          )}
                         </LabelWithHelp>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -4109,10 +4482,14 @@ export function SettingsForm({
                           }
                         >
                           <ShieldCheck aria-hidden />
-                          {qualityErrorCount} errors
+                          {st("{count} errors", {
+                            count: qualityErrorCount,
+                          })}
                         </Badge>
                         <Badge variant="outline">
-                          {qualityWarningCount} warnings
+                          {st("{count} warnings", {
+                            count: qualityWarningCount,
+                          })}
                         </Badge>
                       </div>
                     </div>
@@ -4138,7 +4515,7 @@ export function SettingsForm({
                       </ul>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        No quality gate issues detected.
+                        {st("No quality gate issues detected.")}
                       </p>
                     )}
                   </div>
@@ -4148,10 +4525,13 @@ export function SettingsForm({
                       <div>
                         <LabelWithHelp
                           htmlFor="recipePortabilityText"
-                          label="Appearance Recipe JSON"
+                          label={t(
+                            "globalSettings.layoutDesign.appearance.recipeJson",
+                          )}
                         >
-                          Portable recipe data. Imported HTML slots are
-                          disabled.
+                          {t(
+                            "globalSettings.layoutDesign.appearance.recipeJsonHelp",
+                          )}
                         </LabelWithHelp>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -4162,7 +4542,7 @@ export function SettingsForm({
                           onClick={exportDraftRecipe}
                         >
                           <Download aria-hidden />
-                          Export
+                          {t("globalSettings.actions.export")}
                         </Button>
                         <Button
                           type="button"
@@ -4172,7 +4552,7 @@ export function SettingsForm({
                           disabled={recipePortabilityText.trim().length === 0}
                         >
                           <Upload aria-hidden />
-                          Import Draft
+                          {t("globalSettings.actions.importDraft")}
                         </Button>
                       </div>
                     </div>
@@ -4191,18 +4571,26 @@ export function SettingsForm({
                         size="sm"
                         onClick={() => {
                           setRecipePortabilityText("");
-                          toast.message("Appearance recipe JSON cleared.");
+                          toast.message(
+                            t(
+                              "globalSettings.layoutDesign.toast.recipeCleared",
+                            ),
+                          );
                         }}
                       >
                         <Clipboard aria-hidden />
-                        Clear
+                        {t("globalSettings.actions.clear")}
                       </Button>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Label>Shell Preview</Label>
+                      <Label>
+                        {t(
+                          "globalSettings.layoutDesign.appearance.shellPreview",
+                        )}
+                      </Label>
                       <Badge variant="outline">
                         {previewAppearance.frontendContainerMaxWidth}
                       </Badge>
@@ -4220,8 +4608,7 @@ export function SettingsForm({
                       logoBorderShape={logoBorderShape}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Preview reflects current selections only. Save changes to
-                      apply site-wide.
+                      {t("globalSettings.layoutDesign.appearance.previewNote")}
                     </p>
                   </div>
                 </CardContent>
@@ -4236,10 +4623,10 @@ export function SettingsForm({
               <div className="space-y-1">
                 <CardTitle className="flex items-center gap-2">
                   <Bot aria-hidden className="h-5 w-5" />
-                  AI Settings
+                  {t("globalSettings.ai.title")}
                 </CardTitle>
                 <CardDescription>
-                  Configure provider access for editor AI assistants.
+                  {t("globalSettings.ai.description")}
                 </CardDescription>
               </div>
             </CardHeader>
@@ -4249,9 +4636,9 @@ export function SettingsForm({
                   <div>
                     <LabelWithHelp
                       htmlFor="ai-writing-assistant-enabled"
-                      label="Show in blog editor"
+                      label={t("globalSettings.ai.showInBlogEditor")}
                     >
-                      Controls the visibility of the AI Writing Assistant UI.
+                      {t("globalSettings.ai.showInBlogEditorHelp")}
                     </LabelWithHelp>
                   </div>
                   <Switch
@@ -4265,10 +4652,9 @@ export function SettingsForm({
                   <div>
                     <LabelWithHelp
                       htmlFor="ai-page-builder-assistant-enabled"
-                      label="Show in page builder"
+                      label={t("globalSettings.ai.showInPageBuilder")}
                     >
-                      Controls the visibility of the page builder AI Assistant
-                      UI.
+                      {t("globalSettings.ai.showInPageBuilderHelp")}
                     </LabelWithHelp>
                   </div>
                   <Switch
@@ -4282,10 +4668,9 @@ export function SettingsForm({
                   <div>
                     <LabelWithHelp
                       htmlFor="ai-webshop-assistant-enabled"
-                      label="Show in WebShop"
+                      label={t("globalSettings.ai.showInWebshop")}
                     >
-                      Controls the visibility of the WebShop product AI
-                      Assistant UI.
+                      {t("globalSettings.ai.showInWebshopHelp")}
                     </LabelWithHelp>
                   </div>
                   <Switch
@@ -4298,9 +4683,11 @@ export function SettingsForm({
 
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label>Providers</Label>
+                  <Label>{t("globalSettings.ai.providers")}</Label>
                   <Badge variant="outline">
-                    {enabledAiProviderIds.length} enabled
+                    {t("globalSettings.ai.enabledCount", {
+                      count: enabledAiProviderIds.length,
+                    })}
                   </Badge>
                 </div>
 
@@ -4348,9 +4735,11 @@ export function SettingsForm({
                           <div>
                             <LabelWithHelp
                               htmlFor={`${providerId}-enabled`}
-                              label="Enabled"
+                              label={t("globalSettings.ai.enabled")}
                             >
-                              Authors can use {providerLabel} when enabled.
+                              {t("globalSettings.ai.providerEnabledHelp", {
+                                provider: providerLabel,
+                              })}
                             </LabelWithHelp>
                           </div>
                           <Switch
@@ -4364,7 +4753,7 @@ export function SettingsForm({
 
                         <div className="space-y-1.5">
                           <Label htmlFor={`${providerId}-api-key`}>
-                            API key
+                            {t("globalSettings.ai.apiKey")}
                           </Label>
                           <div className="flex flex-col gap-2 sm:flex-row">
                             <Input
@@ -4381,8 +4770,12 @@ export function SettingsForm({
                               }}
                               placeholder={
                                 apiKeyConfigured
-                                  ? "Configured - leave blank to keep current key"
-                                  : "Paste API key"
+                                  ? t(
+                                      "globalSettings.ai.apiKeyConfiguredPlaceholder",
+                                    )
+                                  : t(
+                                      "globalSettings.ai.apiKeyPastePlaceholder",
+                                    )
                               }
                               disabled={provider.clearApiKey}
                               aria-invalid={
@@ -4400,8 +4793,8 @@ export function SettingsForm({
                             >
                               <KeyRound aria-hidden className="h-4 w-4" />
                               {apiKeyConfigured
-                                ? "Configured"
-                                : "Not configured"}
+                                ? t("globalSettings.ai.configured")
+                                : t("globalSettings.ai.notConfigured")}
                             </Badge>
                           </div>
                           {provider.apiKeyConfigured && (
@@ -4416,7 +4809,9 @@ export function SettingsForm({
                                 }
                               />
                               <span>
-                                Clear saved {providerLabel} API key on save
+                                {t("globalSettings.ai.clearSavedApiKey", {
+                                  provider: providerLabel,
+                                })}
                               </span>
                             </label>
                           )}
@@ -4424,9 +4819,13 @@ export function SettingsForm({
 
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <Label>Allowed models</Label>
+                            <Label>
+                              {t("globalSettings.ai.allowedModels")}
+                            </Label>
                             <Badge variant="outline">
-                              {provider.enabledModels.length} enabled
+                              {t("globalSettings.ai.enabledCount", {
+                                count: provider.enabledModels.length,
+                              })}
                             </Badge>
                           </div>
                           <div className="grid gap-2 sm:grid-cols-2">
@@ -4473,7 +4872,7 @@ export function SettingsForm({
                                           aria-hidden
                                           className="mt-0.5 h-3.5 w-3.5 shrink-0"
                                         />
-                                        <span>{costWarning.text}</span>
+                                        <span>{st(costWarning.text)}</span>
                                       </span>
                                     )}
                                   </span>
@@ -4483,15 +4882,16 @@ export function SettingsForm({
                           </div>
                           {providerHasNoModels && (
                             <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
-                              Enable at least one {providerLabel} model before
-                              using this provider in editors.
+                              {t("globalSettings.ai.enableModelFirst", {
+                                provider: providerLabel,
+                              })}
                             </div>
                           )}
                         </div>
 
                         <div className="space-y-1.5">
                           <Label htmlFor={`${providerId}-model`}>
-                            Default model
+                            {t("globalSettings.ai.defaultModel")}
                           </Label>
                           {provider.enabledModels.length > 1 ? (
                             <Select
@@ -4528,7 +4928,7 @@ export function SettingsForm({
                             </div>
                           ) : (
                             <div className="flex h-10 items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-3 text-sm text-amber-950 dark:text-amber-100">
-                              No model enabled
+                              {t("globalSettings.ai.noModelEnabled")}
                             </div>
                           )}
                         </div>
@@ -4536,7 +4936,7 @@ export function SettingsForm({
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="space-y-1.5">
                             <Label htmlFor={`${providerId}-max-tokens`}>
-                              Max short-output tokens
+                              {t("globalSettings.ai.maxShortOutputTokens")}
                             </Label>
                             <Input
                               id={`${providerId}-max-tokens`}
@@ -4559,19 +4959,14 @@ export function SettingsForm({
                               }
                             />
                             <p className="text-xs leading-5 text-muted-foreground">
-                              Caps short editor suggestions and SEO output.
-                              Reasoning and pro models can spend this same
-                              budget on hidden reasoning, so higher values may
-                              increase cost without making the visible text
-                              longer. Page builder generation uses a separate
-                              larger JSON budget. Allowed range: 8-160.
+                              {t("globalSettings.ai.maxShortOutputTokensHelp")}
                             </p>
                           </div>
                         </div>
 
                         <div className="space-y-1.5">
                           <Label htmlFor={`${providerId}-instructions`}>
-                            Custom instructions
+                            {t("globalSettings.ai.customInstructions")}
                           </Label>
                           <Textarea
                             id={`${providerId}-instructions`}
@@ -4582,15 +4977,18 @@ export function SettingsForm({
                                 instructions: e.target.value,
                               })
                             }
-                            placeholder="Optional tone, language, or editorial guidance for blog post suggestions."
+                            placeholder={t(
+                              "globalSettings.ai.instructionsPlaceholder",
+                            )}
                             aria-invalid={
                               provider.instructions.trim().length > 2_000 ||
                               undefined
                             }
                           />
                           <p className="text-xs text-muted-foreground">
-                            {provider.instructions.trim().length}/2000
-                            characters
+                            {t("globalSettings.ai.characterCount", {
+                              count: provider.instructions.trim().length,
+                            })}
                           </p>
                         </div>
                       </TabsContent>
@@ -4600,7 +4998,9 @@ export function SettingsForm({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="ai-default-provider">Default Provider</Label>
+                <Label htmlFor="ai-default-provider">
+                  {t("globalSettings.ai.defaultProvider")}
+                </Label>
                 <Select
                   value={effectiveAiDefaultProvider}
                   onValueChange={(value) =>
@@ -4609,7 +5009,11 @@ export function SettingsForm({
                   disabled={usableAiProviderIds.length === 0}
                 >
                   <SelectTrigger id="ai-default-provider">
-                    <SelectValue placeholder="Enable a provider model first" />
+                    <SelectValue
+                      placeholder={t(
+                        "globalSettings.ai.enableProviderModelFirst",
+                      )}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {usableAiProviderIds.map((providerId) => (
@@ -4624,8 +5028,7 @@ export function SettingsForm({
               {aiAssistantShownInEditors &&
                 usableAiProviderIds.length === 0 && (
                   <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
-                    Enable at least one provider model before showing the
-                    assistant in editors.
+                    {t("globalSettings.ai.providerModelRequired")}
                   </div>
                 )}
 
@@ -4640,9 +5043,9 @@ export function SettingsForm({
 
                   return hasKey ? null : (
                     <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
-                      The assistant toggle will be visible after save, but
-                      suggestions need a {AI_PROVIDER_LABELS[providerId]} API
-                      key.
+                      {t("globalSettings.ai.assistantNeedsApiKey", {
+                        provider: AI_PROVIDER_LABELS[providerId],
+                      })}
                     </div>
                   );
                 })()}
@@ -4654,12 +5057,12 @@ export function SettingsForm({
           {/* ── Uploads ── */}
           <Card>
             <CardHeader>
-              <CardTitle>Upload Limits</CardTitle>
+              <CardTitle>{t("globalSettings.system.uploadLimits")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="maxUploadMB">
-                  Max Per-File Upload Size (MB)
+                  {t("globalSettings.system.maxPerFileUploadSize")}
                 </Label>
                 <Input
                   id="maxUploadMB"
@@ -4669,12 +5072,14 @@ export function SettingsForm({
                   onChange={(e) => setMaxUploadMB(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {(parseInt(maxUploadMB, 10) || 0) * MB} bytes
+                  {st("{bytes} bytes", {
+                    bytes: (parseInt(maxUploadMB, 10) || 0) * MB,
+                  })}
                 </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="maxBatchUploadMB">
-                  Max Batch Upload Size (MB)
+                  {t("globalSettings.system.maxBatchUploadSize")}
                 </Label>
                 <Input
                   id="maxBatchUploadMB"
@@ -4684,7 +5089,9 @@ export function SettingsForm({
                   onChange={(e) => setMaxBatchUploadMB(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {(parseInt(maxBatchUploadMB, 10) || 0) * MB} bytes
+                  {st("{bytes} bytes", {
+                    bytes: (parseInt(maxBatchUploadMB, 10) || 0) * MB,
+                  })}
                 </p>
               </div>
             </CardContent>
@@ -4693,29 +5100,28 @@ export function SettingsForm({
           {/* ── Content History ── */}
           <Card>
             <CardHeader>
-              <CardTitle>Content History</CardTitle>
+              <CardTitle>{t("globalSettings.system.contentHistory")}</CardTitle>
               <CardDescription>
-                Control whether content saves create restorable revision
-                snapshots.
+                {t("globalSettings.system.contentHistoryDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
                 <div className="space-y-0.5">
                   <Label htmlFor="content-history-enabled">
-                    Content history
+                    {t("globalSettings.system.contentHistoryToggle")}
                   </Label>
                   <p className="text-sm text-muted-foreground">
                     {contentHistoryEnabled
-                      ? "New content changes are saved as revision history."
-                      : "New content changes will not create revisions. Existing revisions remain available."}
+                      ? t("globalSettings.system.contentHistoryEnabled")
+                      : t("globalSettings.system.contentHistoryDisabled")}
                   </p>
                 </div>
                 <Switch
                   id="content-history-enabled"
                   checked={contentHistoryEnabled}
                   onCheckedChange={setContentHistoryEnabled}
-                  aria-label="Toggle content history"
+                  aria-label={t("globalSettings.system.toggleContentHistory")}
                 />
               </div>
             </CardContent>
@@ -4733,7 +5139,9 @@ export function SettingsForm({
 
       <div ref={bottomSaveButtonRef}>
         <Button type="submit" disabled={settingsSaveDisabled}>
-          {isPending ? "Saving…" : "Save changes"}
+          {isPending
+            ? t("globalSettings.actions.saving")
+            : t("common.actions.saveChanges")}
         </Button>
       </div>
 

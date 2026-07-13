@@ -45,6 +45,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTiptapToolbarState } from "@/app/dashboard/content/_editors/tiptap-toolbar-state";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
+import { useSourceTranslations } from "@/components/source-translations";
 
 interface FooterContentEditorProps {
   value: string;
@@ -62,6 +63,8 @@ function Btn({
   onClick: () => void;
   children: React.ReactNode;
 }) {
+  const st = useSourceTranslations();
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -76,7 +79,7 @@ function Btn({
           {children}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{tooltip}</TooltipContent>
+      <TooltipContent>{st(tooltip)}</TooltipContent>
     </Tooltip>
   );
 }
@@ -303,6 +306,7 @@ export function FooterContentEditor({
   value,
   onChange,
 }: FooterContentEditorProps) {
+  const st = useSourceTranslations();
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [htmlMode, setHtmlMode] = useState(false);
@@ -589,13 +593,13 @@ export function FooterContentEditor({
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Insert Link</DialogTitle>
+            <DialogTitle>{st("Insert Link")}</DialogTitle>
             <DialogDescription className="sr-only">
-              Add, update, or remove the selected footer content link.
+              {st("Add, update, or remove the selected footer content link.")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="footer-link-url">URL</Label>
+            <Label htmlFor="footer-link-url">{st("URL")}</Label>
             <Input
               id="footer-link-url"
               value={linkUrl}
@@ -612,11 +616,11 @@ export function FooterContentEditor({
           <DialogFooter>
             {toolbarState.link && (
               <Button type="button" variant="ghost" onClick={removeLink}>
-                Remove link
+                {st("Remove link")}
               </Button>
             )}
             <Button type="button" onClick={applyLink}>
-              Apply
+              {st("Apply")}
             </Button>
           </DialogFooter>
         </DialogContent>

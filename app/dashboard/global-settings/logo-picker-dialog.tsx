@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -32,6 +33,7 @@ export function LogoPickerDialog({
   onSelect,
   selectedId,
 }: Props) {
+  const t = useTranslations();
   const [files, setFiles] = useState<FileRow[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -94,9 +96,11 @@ export function LogoPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Choose Logo from File Manager</DialogTitle>
+          <DialogTitle>
+            {t("dashboard.files.picker.chooseLogoTitle")}
+          </DialogTitle>
           <DialogDescription className="sr-only">
-            Search image files and choose one to use as the site logo.
+            {t("dashboard.files.picker.chooseLogoDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -105,7 +109,7 @@ export function LogoPickerDialog({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search images…"
+            placeholder={t("dashboard.files.picker.searchImages")}
             className="pl-9"
           />
         </div>
@@ -118,7 +122,7 @@ export function LogoPickerDialog({
           </div>
         ) : files.length === 0 ? (
           <p className="text-center py-8 text-sm text-muted-foreground">
-            No images found.
+            {t("dashboard.files.picker.noImages")}
           </p>
         ) : (
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-[420px] overflow-y-auto">
@@ -150,7 +154,10 @@ export function LogoPickerDialog({
 
         <div className="flex items-center justify-between pt-1">
           <p className="text-xs text-muted-foreground">
-            Showing {files.length} of {total}
+            {t("dashboard.files.picker.showing", {
+              count: files.length,
+              total,
+            })}
           </p>
           {hasMore && (
             <Button
@@ -159,17 +166,19 @@ export function LogoPickerDialog({
               onClick={() => runFetch(offset, false, search)}
               disabled={pending}
             >
-              {pending ? "Loading…" : "Load more"}
+              {pending
+                ? t("dashboard.common.actions.loading")
+                : t("dashboard.common.actions.loadMore")}
             </Button>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("dashboard.common.actions.cancel")}
           </Button>
           <Button onClick={handleConfirm} disabled={!pickedId}>
-            Use selected image
+            {t("dashboard.files.picker.useSelectedImage")}
           </Button>
         </DialogFooter>
       </DialogContent>

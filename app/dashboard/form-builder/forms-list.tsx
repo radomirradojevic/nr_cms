@@ -15,6 +15,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -73,6 +74,7 @@ export function FormsList({
   pageSize,
   creators,
 }: Props) {
+  const t = useTranslations();
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
   const [page, setPage] = useState(1);
@@ -156,7 +158,7 @@ export function FormsList({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search forms…"
+            placeholder={t("dashboard.forms.searchPlaceholder")}
             className="pl-9"
           />
         </div>
@@ -168,9 +170,15 @@ export function FormsList({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="published">Published</SelectItem>
+            <SelectItem value="all">
+              {t("dashboard.filters.allStatuses")}
+            </SelectItem>
+            <SelectItem value="draft">
+              {t("dashboard.forms.status.draft")}
+            </SelectItem>
+            <SelectItem value="published">
+              {t("dashboard.forms.status.published")}
+            </SelectItem>
           </SelectContent>
         </Select>
         {creatorOptions.length > 0 && (
@@ -179,7 +187,9 @@ export function FormsList({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All creators</SelectItem>
+              <SelectItem value="all">
+                {t("dashboard.filters.allCreators")}
+              </SelectItem>
               {creatorOptions.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
                   {option.name}
@@ -193,12 +203,16 @@ export function FormsList({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Creator</TableHead>
-            <TableHead className="text-right">Fields</TableHead>
-            <TableHead className="text-right">Submissions</TableHead>
-            <TableHead>Updated</TableHead>
+            <TableHead>{t("dashboard.common.table.name")}</TableHead>
+            <TableHead>{t("dashboard.common.table.status")}</TableHead>
+            <TableHead>{t("dashboard.common.table.creator")}</TableHead>
+            <TableHead className="text-right">
+              {t("dashboard.forms.fields")}
+            </TableHead>
+            <TableHead className="text-right">
+              {t("dashboard.forms.submissions")}
+            </TableHead>
+            <TableHead>{t("dashboard.common.table.updated")}</TableHead>
             <TableHead className="w-[60px]" />
           </TableRow>
         </TableHeader>
@@ -217,7 +231,7 @@ export function FormsList({
                 colSpan={7}
                 className="text-center text-muted-foreground py-10"
               >
-                No forms yet.
+                {t("dashboard.forms.noFormsYet")}
               </TableCell>
             </TableRow>
           ) : (
@@ -237,11 +251,16 @@ export function FormsList({
                         <Badge
                           variant="outline"
                           className="max-w-[280px] gap-1 text-xs"
-                          title={`Currently being edited by ${r.editLock.userDisplayName}. Last activity ${formatTime(r.editLock.lastHeartbeatAt)}.`}
+                          title={t("dashboard.forms.lockTitle", {
+                            name: r.editLock.userDisplayName,
+                            time: formatTime(r.editLock.lastHeartbeatAt),
+                          })}
                         >
                           <Lock className="h-3 w-3 shrink-0" />
                           <span className="truncate">
-                            Currently edited by {r.editLock.userDisplayName}
+                            {t("dashboard.forms.lockBadge", {
+                              name: r.editLock.userDisplayName,
+                            })}
                           </span>
                         </Badge>
                       )}
@@ -254,7 +273,7 @@ export function FormsList({
                         r.status === "published" ? "default" : "secondary"
                       }
                     >
-                      {r.status}
+                      {t(`dashboard.forms.status.${r.status}`)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
@@ -270,7 +289,10 @@ export function FormsList({
                   <TableCell className="text-xs text-muted-foreground">
                     <div>{formatDateTime(r.updatedAt)}</div>
                     <div className="mt-0.5">
-                      by {r.updatedByName ?? "Unknown"}
+                      {t("dashboard.common.meta.by", {
+                        name:
+                          r.updatedByName ?? t("dashboard.common.meta.unknown"),
+                      })}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -288,40 +310,47 @@ export function FormsList({
                               className="whitespace-normal text-muted-foreground"
                             >
                               <Lock className="mr-2 h-4 w-4 shrink-0" />
-                              Locked by {r.editLock.userDisplayName}
+                              {t("dashboard.forms.lockedBy", {
+                                name: r.editLock.userDisplayName,
+                              })}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                           </>
                         )}
                         <DropdownMenuItem asChild>
                           <Link href={`/dashboard/form-builder/${r.id}`}>
-                            <Pencil className="mr-2 h-4 w-4" /> Edit
+                            <Pencil className="mr-2 h-4 w-4" />
+                            {t("dashboard.common.actions.edit")}
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link
                             href={`/dashboard/form-builder/${r.id}/submissions`}
                           >
-                            <Inbox className="mr-2 h-4 w-4" /> Submissions
+                            <Inbox className="mr-2 h-4 w-4" />
+                            {t("dashboard.forms.submissions")}
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link href={`/dashboard/form-builder/${r.id}`}>
-                            <FileText className="mr-2 h-4 w-4" /> Fields
+                            <FileText className="mr-2 h-4 w-4" />
+                            {t("dashboard.forms.fields")}
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={locked}
                           onSelect={() => setReassignTarget(r)}
                         >
-                          <UserCog className="mr-2 h-4 w-4" /> Reassign
+                          <UserCog className="mr-2 h-4 w-4" />
+                          {t("dashboard.common.actions.reassign")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={locked}
                           onSelect={() => setDeleteTarget(r)}
                           className="text-destructive focus:text-destructive"
                         >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {t("dashboard.common.actions.delete")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

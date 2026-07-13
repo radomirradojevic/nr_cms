@@ -65,11 +65,9 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useSourceTranslations } from "@/components/source-translations";
 import type { AIProviderId, AiProviderOption } from "@/lib/global-settings";
-import {
-  buildAiCostConfirmationMessage,
-  getAiProviderModelCostWarning,
-} from "@/lib/ai-model-cost-warnings";
+import { getAiProviderModelCostWarning } from "@/lib/ai-model-cost-warnings";
 import {
   getLayoutColumnCount,
   layoutPresets,
@@ -206,6 +204,7 @@ const items: Array<{
 
 export function BlocksPalette({ collapsed = false }: { collapsed?: boolean }) {
   const { connectors, query, actions } = useEditor();
+  const t = useSourceTranslations();
   const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
   const [pendingLayoutNodeId, setPendingLayoutNodeId] = useState<string | null>(
     null,
@@ -320,7 +319,7 @@ export function BlocksPalette({ collapsed = false }: { collapsed?: boolean }) {
                 "w-full cursor-grab justify-start active:cursor-grabbing",
                 collapsed && "h-8 justify-center px-0",
               )}
-              aria-label={it.label}
+              aria-label={t(it.label)}
             >
               <span className="text-muted-foreground">{it.icon}</span>
               <span
@@ -329,7 +328,7 @@ export function BlocksPalette({ collapsed = false }: { collapsed?: boolean }) {
                   collapsed && "sr-only opacity-0",
                 )}
               >
-                {it.label}
+                {t(it.label)}
               </span>
             </Button>
           );
@@ -337,7 +336,7 @@ export function BlocksPalette({ collapsed = false }: { collapsed?: boolean }) {
           return collapsed ? (
             <Tooltip key={it.name}>
               <TooltipTrigger asChild>{blockButton}</TooltipTrigger>
-              <TooltipContent side="right">{it.label}</TooltipContent>
+              <TooltipContent side="right">{t(it.label)}</TooltipContent>
             </Tooltip>
           ) : (
             blockButton
@@ -350,9 +349,9 @@ export function BlocksPalette({ collapsed = false }: { collapsed?: boolean }) {
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Insert Layout</DialogTitle>
+            <DialogTitle>{t("Insert Layout")}</DialogTitle>
             <DialogDescription>
-              Choose a responsive grid layout for this page section.
+              {t("Choose a responsive grid layout for this page section.")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -363,7 +362,7 @@ export function BlocksPalette({ collapsed = false }: { collapsed?: boolean }) {
                 className="rounded-md border bg-background p-3 text-left transition hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => insertLayout(option.value)}
               >
-                <span className="text-sm font-medium">{option.label}</span>
+                <span className="text-sm font-medium">{t(option.label)}</span>
                 <span
                   aria-hidden="true"
                   className="mt-3 grid h-16 gap-2"
@@ -392,6 +391,8 @@ export function BlocksSidebar({
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
 }) {
+  const t = useSourceTranslations();
+
   return (
     <aside
       className={cn(
@@ -407,9 +408,11 @@ export function BlocksSidebar({
             variant="ghost"
             onClick={() => onCollapsedChange(!collapsed)}
             aria-label={
-              collapsed ? "Expand blocks sidebar" : "Collapse blocks sidebar"
+              collapsed
+                ? t("Expand blocks sidebar")
+                : t("Collapse blocks sidebar")
             }
-            title={collapsed ? "Expand blocks" : "Collapse blocks"}
+            title={collapsed ? t("Expand blocks") : t("Collapse blocks")}
           >
             {collapsed ? (
               <PanelLeftOpen className="h-4 w-4" />
@@ -423,7 +426,7 @@ export function BlocksSidebar({
               collapsed && "pointer-events-none opacity-0",
             )}
           >
-            Add blocks
+            {t("Add blocks")}
           </h4>
         </div>
         <div
@@ -442,7 +445,7 @@ export function BlocksSidebar({
               )}
             >
               <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Layers
+                {t("Layers")}
               </h4>
               <div className="rounded border">
                 <LayersPanel />
@@ -458,6 +461,7 @@ export function BlocksSidebar({
 /* ===================== Settings panel (right rail) ===================== */
 
 export function SettingsPanel() {
+  const t = useSourceTranslations();
   const { selected } = useEditor((state, query) => {
     const ids = Array.from(state.events.selected) as string[];
     const id = ids[0];
@@ -479,7 +483,7 @@ export function SettingsPanel() {
   if (!selected) {
     return (
       <p className="p-3 text-xs text-muted-foreground">
-        Select a block to edit its properties.
+        {t("Select a block to edit its properties.")}
       </p>
     );
   }
@@ -488,12 +492,12 @@ export function SettingsPanel() {
   return (
     <div className="space-y-3 p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {selected.name}
+        {t(selected.name)}
       </p>
       {SettingsComp ? (
         <SettingsComp />
       ) : (
-        <p className="text-xs text-muted-foreground">No settings.</p>
+        <p className="text-xs text-muted-foreground">{t("No settings.")}</p>
       )}
     </div>
   );
@@ -542,6 +546,7 @@ export function Toolbar({
   onAiModelIdChange?: (modelId: string) => void;
   pageTitle?: string;
 }) {
+  const t = useSourceTranslations();
   const { canUndo, canRedo, actions, query, selectedId, isDeletable } =
     useEditor((state, query) => {
       const id = (Array.from(state.events.selected) as string[])[0];
@@ -569,7 +574,7 @@ export function Toolbar({
   const selectedAiProvider = aiProviderOptions.find(
     (provider) => provider.id === effectiveAiProviderId,
   );
-  const selectedAiProviderLabel = selectedAiProvider?.label ?? "Provider";
+  const selectedAiProviderLabel = selectedAiProvider?.label ?? t("Provider");
   const effectiveAiModelId = selectedAiProvider?.models.some(
     (model) => model.id === aiModelId,
   )
@@ -581,7 +586,7 @@ export function Toolbar({
     selectedAiProvider?.models.find((model) => model.id === effectiveAiModelId)
       ?.label ??
     effectiveAiModelId ??
-    "Model";
+    t("Model");
   const selectedAiModelCostWarning = getAiProviderModelCostWarning(
     effectiveAiProviderId,
     effectiveAiModelId,
@@ -666,33 +671,43 @@ export function Toolbar({
   async function handleGeneratePage() {
     const prompt = aiPrompt.trim();
     if (!prompt) {
-      toast.error("Enter a prompt first.");
+      toast.error(t("Enter a prompt first."));
       return;
     }
     if (!effectiveAiProviderId) {
-      toast.error("Choose an AI provider first.");
+      toast.error(t("Choose an AI provider first."));
       return;
     }
     if (!effectiveAiModelId) {
-      toast.error("Choose an AI model first.");
+      toast.error(t("Choose an AI model first."));
       return;
     }
 
     if (aiInsertMode === "replace" && hasCurrentRootChildren(query)) {
       const confirmed = window.confirm(
-        "Replace the current page content with the AI-generated page?",
+        t("Replace the current page content with the AI-generated page?"),
       );
       if (!confirmed) return;
     }
 
     if (selectedAiModelCostWarning) {
       const confirmed = window.confirm(
-        buildAiCostConfirmationMessage({
-          providerLabel: selectedAiProviderLabel,
-          modelLabel: selectedAiModelLabel,
-          warning: selectedAiModelCostWarning,
-          action: "pageBuilderGenerate",
-        }),
+        [
+          `${t(
+            selectedAiModelCostWarning.tone === "danger"
+              ? "VERY HIGH COST WARNING"
+              : "Cost warning",
+          )}: ${selectedAiProviderLabel} ${selectedAiModelLabel}`,
+          "",
+          t(selectedAiModelCostWarning.text),
+          t(
+            "Page builder generation uses a separate larger JSON budget of about 2,800-4,000 output tokens.",
+          ),
+          "",
+          t(
+            "Continue only if you accept the possible API cost for this request/model.",
+          ),
+        ].join("\n"),
       );
       if (!confirmed) return;
     }
@@ -724,13 +739,13 @@ export function Toolbar({
         toast.error(
           typeof data?.error === "string"
             ? data.error
-            : "AI page generation failed.",
+            : t("AI page generation failed."),
         );
         return;
       }
 
       if (!isBuilderData(data?.builderData)) {
-        toast.error("AI did not return usable page blocks.");
+        toast.error(t("AI did not return usable page blocks."));
         return;
       }
 
@@ -744,11 +759,11 @@ export function Toolbar({
       setAiPrompt("");
       toast.success(
         aiInsertMode === "append"
-          ? "AI sections appended."
-          : "AI page generated.",
+          ? t("AI sections appended.")
+          : t("AI page generated."),
       );
     } catch {
-      toast.error("AI page generation failed.");
+      toast.error(t("AI page generation failed."));
     } finally {
       setAiGenerating(false);
     }
@@ -762,11 +777,11 @@ export function Toolbar({
         variant="outline"
         disabled={!canUndo}
         onClick={() => actions.history.undo()}
-        aria-label="Undo"
-        title="Undo"
+        aria-label={t("Undo")}
+        title={t("Undo")}
       >
         <Undo2 className="h-4 w-4" />
-        <span className="hidden sm:inline">Undo</span>
+        <span className="hidden sm:inline">{t("Undo")}</span>
       </Button>
       <Button
         type="button"
@@ -774,11 +789,11 @@ export function Toolbar({
         variant="outline"
         disabled={!canRedo}
         onClick={() => actions.history.redo()}
-        aria-label="Redo"
-        title="Redo"
+        aria-label={t("Redo")}
+        title={t("Redo")}
       >
         <Redo2 className="h-4 w-4" />
-        <span className="hidden sm:inline">Redo</span>
+        <span className="hidden sm:inline">{t("Redo")}</span>
       </Button>
       <Button
         type="button"
@@ -786,11 +801,11 @@ export function Toolbar({
         variant="outline"
         disabled={!selectedId || !isDeletable}
         onClick={handleDelete}
-        aria-label="Delete"
-        title="Delete"
+        aria-label={t("Delete")}
+        title={t("Delete")}
       >
         <Trash2 className="h-4 w-4" />
-        <span className="hidden sm:inline">Delete</span>
+        <span className="hidden sm:inline">{t("Delete")}</span>
       </Button>
       {aiAssistantAvailable && onAiAssistantActiveChange && (
         <div className="flex h-8 items-center gap-2 rounded-md border bg-background px-2 text-xs">
@@ -799,7 +814,7 @@ export function Toolbar({
             htmlFor="page-builder-ai-assistant"
             className="whitespace-nowrap text-xs font-medium"
           >
-            AI assistant
+            {t("AI assistant")}
           </Label>
           <Switch
             id="page-builder-ai-assistant"
@@ -809,7 +824,7 @@ export function Toolbar({
           />
           {aiProviderOptions.length > 0 && effectiveAiProviderId && (
             <div className="flex min-w-0 items-center gap-1 border-l pl-2">
-              <span className="text-muted-foreground">Provider:</span>
+              <span className="text-muted-foreground">{t("Provider:")}</span>
               {aiProviderOptions.length > 1 ? (
                 <Select
                   value={effectiveAiProviderId}
@@ -825,7 +840,7 @@ export function Toolbar({
                   }}
                 >
                   <SelectTrigger
-                    aria-label="AI provider"
+                    aria-label={t("AI provider")}
                     className="h-7 w-28 rounded-md px-2 text-xs"
                   >
                     <SelectValue />
@@ -847,14 +862,14 @@ export function Toolbar({
           )}
           {selectedAiProvider && selectedAiProvider.models.length > 0 && (
             <div className="flex min-w-0 items-center gap-1 border-l pl-2">
-              <span className="text-muted-foreground">Model:</span>
+              <span className="text-muted-foreground">{t("Model:")}</span>
               {selectedAiProvider.models.length > 1 ? (
                 <Select
                   value={effectiveAiModelId}
                   onValueChange={(value) => onAiModelIdChange?.(value)}
                 >
                   <SelectTrigger
-                    aria-label="AI model"
+                    aria-label={t("AI model")}
                     className="h-7 w-36 rounded-md px-2 text-xs"
                   >
                     <SelectValue />
@@ -883,11 +898,11 @@ export function Toolbar({
           variant="default"
           disabled={sourceMode || !effectiveAiProviderId || !effectiveAiModelId}
           onClick={() => setAiDialogOpen(true)}
-          aria-label="Generate page with AI"
-          title="Generate page with AI"
+          aria-label={t("Generate page with AI")}
+          title={t("Generate page with AI")}
         >
           <Wand2 className="h-4 w-4" />
-          <span className="hidden sm:inline">Generate page</span>
+          <span className="hidden sm:inline">{t("Generate page")}</span>
         </Button>
       )}
       <div className="ml-auto flex items-center gap-1">
@@ -896,8 +911,8 @@ export function Toolbar({
           size="sm"
           variant={focusMode ? "default" : "outline"}
           onClick={onToggleFocusMode}
-          aria-label={focusMode ? "Exit focus mode" : "Focus mode"}
-          title={focusMode ? "Exit focus mode" : "Focus mode"}
+          aria-label={focusMode ? t("Exit focus mode") : t("Focus mode")}
+          title={focusMode ? t("Exit focus mode") : t("Focus mode")}
         >
           {focusMode ? (
             <Minimize2 className="h-4 w-4" />
@@ -905,7 +920,7 @@ export function Toolbar({
             <Maximize2 className="h-4 w-4" />
           )}
           <span className="hidden sm:inline">
-            {focusMode ? "Exit focus" : "Focus"}
+            {focusMode ? t("Exit focus") : t("Focus")}
           </span>
         </Button>
         <Button
@@ -914,34 +929,36 @@ export function Toolbar({
           variant={sourceMode ? "default" : "outline"}
           onClick={onToggleSource}
           className="ml-2"
-          aria-label={sourceMode ? "Visual" : "Source"}
-          title={sourceMode ? "Visual" : "Source"}
+          aria-label={sourceMode ? t("Visual") : t("Source")}
+          title={sourceMode ? t("Visual") : t("Source")}
         >
-          {sourceMode ? "Visual" : "Source"}
+          {sourceMode ? t("Visual") : t("Source")}
         </Button>
       </div>
       <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>AI page builder</DialogTitle>
+            <DialogTitle>{t("AI page builder")}</DialogTitle>
             <DialogDescription className="sr-only">
-              Generate Craft.js page blocks from a prompt.
+              {t("Generate Craft.js page blocks from a prompt.")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="page-builder-ai-prompt">Prompt</Label>
+              <Label htmlFor="page-builder-ai-prompt">{t("Prompt")}</Label>
               <Textarea
                 id="page-builder-ai-prompt"
                 value={aiPrompt}
                 onChange={(event) => setAiPrompt(event.target.value)}
                 rows={5}
                 maxLength={2_000}
-                placeholder="Create landing page for DevOps consulting company"
+                placeholder={t(
+                  "Create landing page for DevOps consulting company",
+                )}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="page-builder-ai-mode">Mode</Label>
+              <Label htmlFor="page-builder-ai-mode">{t("Mode")}</Label>
               <Select
                 value={aiInsertMode}
                 onValueChange={(value) =>
@@ -952,8 +969,8 @@ export function Toolbar({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="replace">Replace page</SelectItem>
-                  <SelectItem value="append">Append sections</SelectItem>
+                  <SelectItem value="replace">{t("Replace page")}</SelectItem>
+                  <SelectItem value="append">{t("Append sections")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -971,10 +988,11 @@ export function Toolbar({
                   className="mt-0.5 h-4 w-4 shrink-0"
                 />
                 <div className="space-y-1">
-                  <p>{selectedAiModelCostWarning.text}</p>
+                  <p>{t(selectedAiModelCostWarning.text)}</p>
                   <p>
-                    Page builder uses a separate larger JSON budget of about
-                    2,800-4,000 output tokens.
+                    {t(
+                      "Page builder uses a separate larger JSON budget of about 2,800-4,000 output tokens.",
+                    )}
                   </p>
                 </div>
               </div>
@@ -987,7 +1005,7 @@ export function Toolbar({
               onClick={() => setAiDialogOpen(false)}
               disabled={aiGenerating}
             >
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button
               type="button"
@@ -999,7 +1017,7 @@ export function Toolbar({
               ) : (
                 <Wand2 className="h-4 w-4" />
               )}
-              Generate
+              {t("Generate")}
             </Button>
           </DialogFooter>
         </DialogContent>

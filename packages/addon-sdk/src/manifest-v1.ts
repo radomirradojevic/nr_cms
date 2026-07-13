@@ -1,0 +1,8 @@
+export const ADDON_MANIFEST_VERSION = 1 as const;
+export const ADDON_RUNTIME_CONTRACT_VERSION = "1" as const;
+export type AddonKey = "webshop" | "license-server";
+export type LicensePolicy = "ready_only" | "existing_operations" | "financial_reconciliation" | "public_runtime_validation" | "always_cleanup";
+export type AddonRouteDescriptor = { id: string; path: string; methods: readonly ("GET" | "POST" | "PUT" | "PATCH" | "DELETE")[]; auth: "public" | "session" | "admin" | "hmac" | "cron"; permission?: string; licensePolicy: LicensePolicy; maxBodyBytes?: number };
+export type AddonJobDescriptor = { id: string; schedule?: string; concurrency: number; timeoutSeconds: number; licensePolicy: LicensePolicy };
+export type AddonMigrationDescriptor = { id: string; checksum: string; schemaVersion: number; destructive: boolean; requiresBackup: boolean };
+export type AddonManifestV1 = { manifestVersion: 1; addonKey: AddonKey; displayName: string; packageName: string; packageVersion: string; runtimeContractVersion: "1"; cmsVersionRange: string; schemaVersion: number; capabilities: { adminRoutes?: readonly AddonRouteDescriptor[]; apiRoutes?: readonly AddonRouteDescriptor[]; storefrontRoutes?: readonly AddonRouteDescriptor[]; menuItems?: readonly { id: string; labelKey: string; icon: string; permission: string }[]; permissions?: readonly { id: string; labelKey: string }[]; jobs?: readonly AddonJobDescriptor[]; settings?: readonly { key: string; type: string }[]; emailTemplates?: readonly { id: string }[]; contentTypes?: readonly { id: string }[] }; migrations: readonly AddonMigrationDescriptor[]; lifecycle: { supportsDeactivate: boolean; supportsUninstall: boolean; dataRetentionPolicy: "retain_by_default" | "purge_by_default" } };

@@ -3,8 +3,8 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { BlogCategoryTemplate } from "@/components/blog-category-template";
-import { BlogPostTemplate } from "@/components/blog-post-template";
+import { BlogCategoryTemplateView } from "@/components/blog-category-template";
+import { BlogPostTemplateView } from "@/components/blog-post-template";
 import { PageTemplate } from "@/components/page-template";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteMain } from "@/components/site-main";
@@ -46,7 +46,11 @@ import {
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 import { parseGlobalSettingsAppearance } from "@/lib/global-settings";
 import { DEFAULT_GLOW } from "@/lib/glow";
+import { en } from "@/lib/i18n/messages/en";
+import { createTranslator } from "@/lib/i18n/translate";
 import { shouldRenderMobileHeaderMenu } from "@/lib/site-mobile-menu";
+
+const testTranslate = createTranslator(en, en, "en");
 
 const classicLegacyInput = {
   appearance: {
@@ -1188,7 +1192,7 @@ test("builder layout static renderer preserves three-column preset", () => {
 test("BlogPostTemplate keeps edit and comments affordances across placements", () => {
   const html = renderToStaticMarkup(
     createElement(
-      BlogPostTemplate,
+      BlogPostTemplateView,
       {
         template: {
           metadataTreatment: "eyebrow",
@@ -1206,6 +1210,7 @@ test("BlogPostTemplate keeps edit and comments affordances across placements", (
         canEdit: true,
         editHref: "/dashboard/content/post-id/edit",
         comments: createElement("section", { id: "comments" }, "Comments"),
+        t: testTranslate,
       },
       createElement("article", { className: "cms-content" }, "Body"),
     ),
@@ -1243,10 +1248,11 @@ test("BlogCategoryTemplate renders category variants", () => {
     },
   ];
   const html = renderToStaticMarkup(
-    createElement(BlogCategoryTemplate, {
+    createElement(BlogCategoryTemplateView, {
       template: { variant: "featured-first" },
       categoryName: "News",
       posts,
+      t: testTranslate,
     }),
   );
 

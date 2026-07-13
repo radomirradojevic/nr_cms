@@ -23,6 +23,8 @@ import {
 } from "@/lib/file-storage";
 import { getClientIp, hashIp } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { publicMessage, type PublicMessage } from "@/lib/i18n/public-message";
+import type { TranslationValues } from "@/lib/i18n/types";
 import {
   FORM_UPLOAD_DAY_WINDOW_MAX,
   FORM_UPLOAD_DAY_WINDOW_MS,
@@ -39,9 +41,14 @@ const GENERIC_ERROR = "Upload failed.";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function err(status: number, message = GENERIC_ERROR) {
+function err(
+  status: number,
+  code: PublicMessage["code"] = "public.forms.errors.uploadFailed",
+  message = GENERIC_ERROR,
+  values?: TranslationValues,
+) {
   return NextResponse.json(
-    { error: message },
+    { error: publicMessage(code, message, values) },
     { status, headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -65,27 +72,49 @@ export async function POST(
 ) {
   try {
     const { id } = await ctx.params;
-    if (!UUID_RE.test(id)) return err(404, "Form not found.");
-    if (!(await isSameOrigin())) return err(403, "Invalid request origin.");
+    if (!UUID_RE.test(id)) {
+      return err(404, "public.forms.errors.formNotFound", "Form not found.");
+    }
+    if (!(await isSameOrigin())) {
+      return err(
+        403,
+        "public.forms.errors.invalidOrigin",
+        "Invalid request origin.",
+      );
+    }
 
     const detail = await getPublishedFormById(id);
-    if (!detail) return err(404, "Form not found.");
+    if (!detail) {
+      return err(404, "public.forms.errors.formNotFound", "Form not found.");
+    }
 
     let form: FormData;
     try {
       form = await req.formData();
     } catch {
-      return err(400, "Invalid form data.");
+      return err(
+        400,
+        "public.forms.errors.invalidFormData",
+        "Invalid form data.",
+      );
     }
     const fieldKey = String(form.get("fieldKey") ?? "");
     const file = form.get("file");
-    if (!(file instanceof File)) return err(400, "No file provided.");
+    if (!(file instanceof File)) {
+      return err(
+        400,
+        "public.forms.errors.noFileProvided",
+        "No file provided.",
+      );
+    }
 
     const fieldDef = detail.fields.find(
       (f: (typeof detail.fields)[number]) =>
         f.fieldKey === fieldKey && f.fieldType === "file",
     );
-    if (!fieldDef) return err(400, "Unknown field.");
+    if (!fieldDef) {
+      return err(400, "public.forms.errors.unknownField", "Unknown field.");
+    }
 
     const validation = (fieldDef.validation ?? {}) as {
       accept?: string[];
@@ -105,7 +134,9 @@ export async function POST(
           : "";
       return err(
         413,
+        "public.forms.errors.fileExceedsLimit",
         `File exceeds ${formatBytes(effectiveMax)} limit${hint}.`,
+        { limit: formatBytes(effectiveMax), hint },
       );
     }
 
@@ -115,9 +146,21 @@ export async function POST(
 
     if (detail.settings.enableTurnstile) {
       const tok = String(form.get("turnstileToken") ?? "");
-      if (!tok) return err(400, "Captcha required before uploading files.");
+      if (!tok) {
+        return err(
+          400,
+          "public.forms.errors.captchaRequiredBeforeUpload",
+          "Captcha required before uploading files.",
+        );
+      }
       const ok = await verifyTurnstile(tok, ip);
-      if (!ok) return err(400, "Captcha verification failed.");
+      if (!ok) {
+        return err(
+          400,
+          "public.forms.errors.captchaVerificationFailed",
+          "Captcha verification failed.",
+        );
+      }
     }
 
     const now = Date.now();
@@ -126,14 +169,22 @@ export async function POST(
       new Date(now - FORM_UPLOAD_SHORT_WINDOW_MS),
     );
     if (recentCount >= FORM_UPLOAD_SHORT_WINDOW_MAX) {
-      return err(429, "Too many uploads. Please wait a few minutes.");
+      return err(
+        429,
+        "public.forms.errors.tooManyUploads",
+        "Too many uploads. Please wait a few minutes.",
+      );
     }
     const dayCount = await countFilesByUploaderSince(
       uploadOwner,
       new Date(now - FORM_UPLOAD_DAY_WINDOW_MS),
     );
     if (dayCount >= FORM_UPLOAD_DAY_WINDOW_MAX) {
-      return err(429, "Daily upload limit reached.");
+      return err(
+        429,
+        "public.forms.errors.dailyUploadLimit",
+        "Daily upload limit reached.",
+      );
     }
 
     const original = sanitizeFilename(file.name || "file");
@@ -151,14 +202,24 @@ export async function POST(
       }
     }
     if (!mime || !isMimeAllowed(mime)) {
-      return err(400, `File type ${mime ?? "unknown"} is not allowed.`);
+      const type = mime ?? "unknown";
+      return err(
+        400,
+        "public.forms.errors.fileTypeNotAllowedNamed",
+        `File type ${type} is not allowed.`,
+        { type },
+      );
     }
     if (
       Array.isArray(validation.accept) &&
       validation.accept.length > 0 &&
       !validation.accept.includes(mime)
     ) {
-      return err(400, "File type not allowed for this field.");
+      return err(
+        400,
+        "public.forms.errors.fileTypeNotAllowedForField",
+        "File type not allowed for this field.",
+      );
     }
 
     if (mime === "image/svg+xml") {
@@ -167,7 +228,13 @@ export async function POST(
     }
 
     const kind = kindFromMime(mime);
-    if (!kind) return err(400, "File type not allowed.");
+    if (!kind) {
+      return err(
+        400,
+        "public.forms.errors.fileTypeNotAllowed",
+        "File type not allowed.",
+      );
+    }
 
     const fileId = randomUUID();
     const ext = extFromMime(mime);

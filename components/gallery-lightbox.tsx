@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useSourceTranslations } from "@/components/source-translations";
 import { cn } from "@/lib/utils";
 
 export type LightboxImage = { src: string; alt: string };
@@ -27,6 +28,7 @@ export function GalleryLightbox({
   onClose,
   onChangeIndex,
 }: Props) {
+  const st = useSourceTranslations();
   const total = images.length;
   const safeIndex = ((currentIndex % total) + total) % total;
   const current = images[safeIndex];
@@ -72,7 +74,7 @@ export function GalleryLightbox({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Image viewer"
+      aria-label={st("Image viewer")}
       className={cn(
         "fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-sm",
         "animate-in fade-in duration-200",
@@ -84,7 +86,7 @@ export function GalleryLightbox({
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close"
+        aria-label={st("Close")}
         className={cn(
           "absolute top-4 right-4 z-10 rounded-full bg-white/10 p-2 text-white",
           "hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50",
@@ -98,7 +100,7 @@ export function GalleryLightbox({
           <button
             type="button"
             onClick={goPrev}
-            aria-label="Previous image"
+            aria-label={st("Previous image")}
             className={cn(
               "absolute left-2 sm:left-4 z-10 rounded-full bg-white/10 p-2 text-white",
               "hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50",
@@ -109,7 +111,7 @@ export function GalleryLightbox({
           <button
             type="button"
             onClick={goNext}
-            aria-label="Next image"
+            aria-label={st("Next image")}
             className={cn(
               "absolute right-2 sm:right-4 z-10 rounded-full bg-white/10 p-2 text-white",
               "hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50",

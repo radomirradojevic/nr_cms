@@ -25,6 +25,7 @@ import {
 } from "../style/tokens";
 import { ImagePickerDialog } from "../image-picker-dialog";
 import { useViewport } from "./viewport-context";
+import { useSourceTranslations } from "@/components/source-translations";
 
 /* ===================== Field wrapper ===================== */
 
@@ -37,13 +38,19 @@ export function Field({
   hint?: string;
   children: React.ReactNode;
 }) {
+  const t = useSourceTranslations();
+  const labelMatch = /^(.*?)\s+—\s+(.+)$/u.exec(label);
+  const translatedLabel = labelMatch
+    ? `${t(labelMatch[1])} — ${labelMatch[2]}`
+    : t(label);
+
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1">
-        <Label className="text-xs">{label}</Label>
+        <Label className="text-xs">{translatedLabel}</Label>
         {hint ? (
-          <HelpInfo className="size-4" side="right" title={label}>
-            {hint}
+          <HelpInfo className="size-4" side="right" title={translatedLabel}>
+            {t(hint)}
           </HelpInfo>
         ) : null}
       </div>
@@ -125,6 +132,7 @@ export function SidesInput({
   value: Sides<string> | undefined;
   onChange: (v: Sides<string> | undefined) => void;
 }) {
+  const t = useSourceTranslations();
   const [linked, setLinked] = React.useState(false);
   const v = value ?? {};
   const update = (side: keyof Sides<string>, next: string | undefined) => {
@@ -173,7 +181,7 @@ export function SidesInput({
         variant="outline"
         size="icon"
         className="h-8 w-8 shrink-0"
-        title={linked ? "Unlink sides" : "Link all sides"}
+        title={linked ? t("Unlink sides") : t("Link all sides")}
         onClick={() => setLinked((s) => !s)}
       >
         {linked ? (
@@ -226,6 +234,7 @@ export function ColorTokenPicker({
   onChange: (v: string | undefined) => void;
   allowCustom?: boolean;
 }) {
+  const t = useSourceTranslations();
   const isToken = value
     ? (COLOR_TOKEN_IDS as readonly string[]).includes(value)
     : false;
@@ -251,17 +260,17 @@ export function ColorTokenPicker({
         }}
       >
         <SelectTrigger className="h-8">
-          <SelectValue placeholder="Choose color" />
+          <SelectValue placeholder={t("Choose color")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="__unset">Unset</SelectItem>
+          <SelectItem value="__unset">{t("Unset")}</SelectItem>
           {COLOR_TOKEN_IDS.map((id) => (
             <SelectItem key={id} value={id}>
               {id}
             </SelectItem>
           ))}
           {allowCustom ? (
-            <SelectItem value="__custom">Custom…</SelectItem>
+            <SelectItem value="__custom">{t("Custom…")}</SelectItem>
           ) : null}
         </SelectContent>
       </Select>
@@ -270,7 +279,7 @@ export function ColorTokenPicker({
           {/* Native color picker: visual selection, emits #rrggbb. */}
           <label
             className="relative h-8 w-10 shrink-0 cursor-pointer overflow-hidden rounded border bg-background"
-            title="Pick color"
+            title={t("Pick color")}
             style={{ backgroundColor: value }}
           >
             <input
@@ -278,7 +287,7 @@ export function ColorTokenPicker({
               value={swatchHex}
               onChange={(e) => onChange(e.target.value)}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              aria-label="Pick custom color"
+              aria-label={t("Pick custom color")}
             />
           </label>
           {/* Free-form CSS color: hex / rgb / rgba / hsl / oklch / etc. */}
@@ -307,16 +316,18 @@ export function FontFamilyPicker({
   value: string | undefined;
   onChange: (v: string | undefined) => void;
 }) {
+  const t = useSourceTranslations();
+
   return (
     <Select
       value={value ?? "__unset"}
       onValueChange={(v) => onChange(v === "__unset" ? undefined : v)}
     >
       <SelectTrigger className="h-8">
-        <SelectValue placeholder="Default" />
+        <SelectValue placeholder={t("Default")} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="__unset">Default</SelectItem>
+        <SelectItem value="__unset">{t("Default")}</SelectItem>
         {Object.keys(FONT_TOKENS).map((id) => (
           <SelectItem key={id} value={id}>
             {id}
@@ -330,6 +341,7 @@ export function FontFamilyPicker({
 /* ===================== ResponsiveTabs ===================== */
 
 export function ResponsiveTabs() {
+  const t = useSourceTranslations();
   const { viewport, setViewport } = useViewport();
   return (
     <Tabs
@@ -338,9 +350,9 @@ export function ResponsiveTabs() {
       className="mb-2"
     >
       <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="desktop">Desktop</TabsTrigger>
-        <TabsTrigger value="tablet">Tablet</TabsTrigger>
-        <TabsTrigger value="mobile">Mobile</TabsTrigger>
+        <TabsTrigger value="desktop">{t("Desktop")}</TabsTrigger>
+        <TabsTrigger value="tablet">{t("Tablet")}</TabsTrigger>
+        <TabsTrigger value="mobile">{t("Mobile")}</TabsTrigger>
       </TabsList>
     </Tabs>
   );
@@ -355,13 +367,14 @@ export function ImagePickerField({
   value: string | undefined;
   onChange: (v: string | undefined) => void;
 }) {
+  const t = useSourceTranslations();
   const [open, setOpen] = React.useState(false);
   return (
     <div className="space-y-1">
       <Input
         value={value ?? ""}
         readOnly
-        placeholder="No image"
+        placeholder={t("No image")}
         className="h-8 font-mono text-xs"
       />
       <div className="flex gap-1">
@@ -372,7 +385,7 @@ export function ImagePickerField({
           className="h-7 flex-1 text-xs"
           onClick={() => setOpen(true)}
         >
-          Choose image
+          {t("Choose image")}
         </Button>
         {value ? (
           <Button
@@ -382,7 +395,7 @@ export function ImagePickerField({
             className="h-7 text-xs"
             onClick={() => onChange(undefined)}
           >
-            Clear
+            {t("Clear")}
           </Button>
         ) : null}
       </div>
@@ -404,10 +417,12 @@ export function InheritedHint({
   show: boolean;
   className?: string;
 }) {
+  const t = useSourceTranslations();
+
   if (!show) return null;
   return (
     <p className={cn("text-[10px] text-muted-foreground italic", className)}>
-      Inherited from desktop
+      {t("Inherited from desktop")}
     </p>
   );
 }

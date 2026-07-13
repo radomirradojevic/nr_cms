@@ -5,6 +5,13 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 import pg from "pg";
 
+import { resolveTestDatabaseUrl } from "./database-test-safety.mjs";
+import {
+  assertExpectedMigrationList,
+  assertProductionMigrationTarget,
+  shouldHonorAutoMigrateDisable,
+} from "./migration-production-safety.mjs";
+
 const { Client } = pg;
 
 try {
@@ -68,6 +75,13 @@ const LEGACY_MIGRATION_HASHES = new Map([
 const args = new Set(process.argv.slice(2));
 const checkOnly = args.has("--check");
 const dryRun = args.has("--dry-run");
+const testMode = args.has("--test");
+const testBootstrapLedger = args.has("--test-bootstrap-ledger");
+const productionMode = args.has("--production") || process.env.NR_MIGRATION_TARGET === "production";
+const expectedMigrationArgument = process.argv.find((arg) => arg.startsWith("--expected-migrations="));
+const expectedMigrationList = expectedMigrationArgument?.slice("--expected-migrations=".length) ?? process.env.NR_MIGRATION_EXPECTED_LIST;
+const throughArgument = process.argv.find((arg) => arg.startsWith("--through="));
+const throughMigration = throughArgument?.slice("--through=".length) ?? null;
 
 function log(message) {
   console.log(`[migrations] ${message}`);
@@ -77,17 +91,22 @@ function fail(message) {
   throw new Error(`[migrations] ${message}`);
 }
 
-function isDisabled() {
-  const value = process.env.DRIZZLE_AUTO_MIGRATE?.toLowerCase();
-  return value === "0" || value === "false" || value === "off";
-}
-
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function normalizeLineEndings(value) {
+  return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
+function lineEndingHashVariants(value) {
+  const lf = normalizeLineEndings(value);
+  const crlf = lf.replace(/\n/g, "\r\n");
+  return new Set([sha256(lf), sha256(crlf)]);
 }
 
 function normalizeSql(value) {
@@ -231,6 +250,38 @@ function webshopPaymentProviderConstraintsInclude(schemaState, providers) {
     const literals = new Set(extractSqlStringLiterals(definition));
     return providers.every((provider) => literals.has(provider));
   });
+}
+
+function isWebshopPaymentV2SchemaComplete(schemaState) {
+  const paymentColumns = schemaState.tableColumns.get("webshop_payments");
+  const eventColumns = schemaState.tableColumns.get("webshop_payment_events");
+  return (
+    schemaState.tables.has("webshop_payment_provider_references") &&
+    schemaState.tables.has("webshop_payment_attempts") &&
+    [
+      "captured_amount_minor",
+      "refunded_amount_minor",
+      "disputed_amount_minor",
+      "state_version",
+      "last_provider_event_at",
+      "last_provider_event_id",
+    ].every((column) => paymentColumns?.has(column)) &&
+    [
+      "normalized_version",
+      "normalized_type",
+      "payment_reference",
+      "payload_hash",
+      "processing_status",
+      "processed_state_version",
+    ].every((column) => eventColumns?.has(column)) &&
+    [
+      "webshop_payments_captured_amount_check",
+      "webshop_payments_refunded_amount_check",
+      "webshop_payments_disputed_amount_check",
+      "webshop_payments_state_version_check",
+      "webshop_payment_events_processing_status_check",
+    ].every((constraint) => constraintExists(schemaState, constraint))
+  );
 }
 
 function splitTopLevelCommaList(value) {
@@ -434,7 +485,8 @@ function loadMigrations() {
       idx: entry.idx,
       tag: entry.tag,
       when: entry.when,
-      hash: sha256(sql),
+      hash: sha256(normalizeLineEndings(sql)),
+      hashVariants: lineEndingHashVariants(sql),
       sql,
       statements: splitStatements(sql),
     };
@@ -459,7 +511,10 @@ function loadMigrations() {
     );
   }
 
-  return migrations;
+  if (!throughMigration) return migrations;
+  const index = migrations.findIndex((migration) => migration.tag === throughMigration);
+  if (index === -1) fail(`unknown --through migration ${throughMigration}`);
+  return migrations.slice(0, index + 1);
 }
 
 function shouldUseTransaction(migration) {
@@ -787,6 +842,12 @@ function isSplitAppearanceSchema(schemaState) {
 
 function supersededMigrationReason(migration, schemaState) {
   if (
+    migration.tag === "0080_webshop_payment_state_v2" &&
+    isWebshopPaymentV2SchemaComplete(schemaState)
+  ) {
+    return "payment V2 schema already satisfies the additive migration";
+  }
+  if (
     SUPERSEDED_BY_CMS_SCHEMA.has(migration.tag) &&
     schemaState.tables.has("content_categories")
   ) {
@@ -875,7 +936,9 @@ export const __migrationRunnerTesting = {
 };
 
 function createClient() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = testMode
+    ? resolveTestDatabaseUrl()
+    : process.env.DATABASE_URL;
   if (!connectionString) {
     fail("DATABASE_URL is required to apply migrations");
   }
@@ -957,11 +1020,10 @@ async function loadAppliedRowsReadOnly(client) {
   return result.rows;
 }
 
-function findAppliedRow(rows, migration, options = {}) {
-  const { tolerateHashMismatch = false } = options;
+function findAppliedRow(rows, migration) {
   const hashMatches = (hash) =>
-    hash === migration.hash ||
-    (LEGACY_MIGRATION_HASHES.get(migration.tag)?.has(hash) ?? false);
+    migration.hashVariants.has(hash) ||
+    (!productionMode && (LEGACY_MIGRATION_HASHES.get(migration.tag)?.has(hash) ?? false));
 
   const byTag = rows.find((row) => row.tag === migration.tag);
   if (byTag) {
@@ -969,9 +1031,6 @@ function findAppliedRow(rows, migration, options = {}) {
       !hashMatches(byTag.hash) ||
       Number(byTag.created_at) !== migration.when
     ) {
-      if (tolerateHashMismatch && Number(byTag.created_at) === migration.when) {
-        return byTag;
-      }
       fail(
         `${migration.tag} was changed after it was recorded in the database. Restore the applied SQL or create a new migration.`,
       );
@@ -988,45 +1047,12 @@ function findAppliedRow(rows, migration, options = {}) {
     (row) => Number(row.created_at) === migration.when,
   );
   if (byCreated) {
-    if (tolerateHashMismatch) return byCreated;
     fail(
       `${migration.tag} has the same created_at as an applied migration but a different hash.`,
     );
   }
 
   return null;
-}
-
-async function backfillTag(client, row, migration) {
-  if (row.tag) return;
-  await client.query(
-    `
-      UPDATE ${MIGRATIONS_SCHEMA}.${MIGRATIONS_TABLE}
-      SET tag = $1, statements = COALESCE(statements, $2)
-      WHERE id = $3
-    `,
-    [migration.tag, migration.statements.length, row.id],
-  );
-}
-
-async function repairMigrationRecord(client, row, migration) {
-  await client.query(
-    `
-      UPDATE ${MIGRATIONS_SCHEMA}.${MIGRATIONS_TABLE}
-      SET hash = $1,
-          created_at = $2,
-          tag = $3,
-          statements = COALESCE(statements, $4)
-      WHERE id = $5
-    `,
-    [
-      migration.hash,
-      migration.when,
-      migration.tag,
-      migration.statements.length,
-      row.id,
-    ],
-  );
 }
 
 async function recordMigration(client, migration) {
@@ -1043,16 +1069,6 @@ async function recordMigration(client, migration) {
       migration.statements.length,
     ],
   );
-}
-
-async function adoptMigration(client, migration, reason) {
-  log(`adopting ${migration.tag} (${reason})`);
-  await recordMigration(client, migration);
-}
-
-async function adoptExistingMigrationRecord(client, row, migration, reason) {
-  log(`adopting ${migration.tag} (${reason}; repairing existing history row)`);
-  await repairMigrationRecord(client, row, migration);
 }
 
 async function applyMigration(client, migration, options = {}) {
@@ -1087,9 +1103,7 @@ async function applyMigration(client, migration, options = {}) {
 
       await client.query(statement);
     }
-    if (existingRow) {
-      await repairMigrationRecord(client, existingRow, migration);
-    } else {
+    if (!existingRow) {
       await recordMigration(client, migration);
     }
 
@@ -1107,12 +1121,21 @@ async function applyMigration(client, migration, options = {}) {
 async function main() {
   const migrations = loadMigrations();
 
+  if (testBootstrapLedger && !testMode) {
+    fail("--test-bootstrap-ledger is available only together with --test.");
+  }
+
   if (checkOnly) {
     log(`validated ${migrations.length} migration files`);
     return;
   }
 
-  if (isDisabled()) {
+  if (productionMode) {
+    if (!args.has("--production")) fail("production target requires the explicit --production flag.");
+    assertProductionMigrationTarget(process.env, "cms");
+  }
+
+  if (shouldHonorAutoMigrateDisable(process.env, { dryRun })) {
     log("DRIZZLE_AUTO_MIGRATE disables automatic migration; skipping");
     return;
   }
@@ -1125,25 +1148,13 @@ async function main() {
     await client.query("SET statement_timeout = '5min'");
     if (dryRun) {
       const appliedRows = await loadAppliedRowsReadOnly(client);
-      const schemaState = await loadSchemaState(client);
       const pending = migrations
-        .filter(
-          (migration) =>
-            !findAppliedRow(appliedRows, migration, {
-              tolerateHashMismatch: migrationEndStateStatus(
-                migration,
-                schemaState,
-              ).satisfied,
-            }),
-        )
-        .map((migration) => {
-          const status = migrationEndStateStatus(migration, schemaState);
-          return `${migration.tag}:${status.satisfied ? "adopt" : "apply"}`;
-        });
+        .filter((migration) => !findAppliedRow(appliedRows, migration))
+        .map((migration) => migration.tag);
       log(
         pending.length === 0
           ? "database is already up to date"
-          : `pending: ${pending.join(", ")}`,
+          : `pending: ${pending.map((tag) => `${tag}:apply`).join(", ")}`,
       );
       return;
     }
@@ -1153,15 +1164,17 @@ async function main() {
 
     try {
       const appliedRows = await loadAppliedRows(client);
-      let adopted = 0;
       let applied = 0;
 
       for (const migration of migrations) {
-        const appliedRow = findAppliedRow(appliedRows, migration, {
-          tolerateHashMismatch: true,
-        });
-        if (appliedRow) await backfillTag(client, appliedRow, migration);
+        const appliedRow = findAppliedRow(appliedRows, migration);
+        if (productionMode && appliedRow && !appliedRow.tag) {
+          fail(`${migration.tag} has legacy ledger data without a tag; production adopt/repair is forbidden.`);
+        }
       }
+
+      const pendingTags = migrations.filter((migration) => !findAppliedRow(appliedRows, migration)).map((migration) => migration.tag);
+      if (productionMode) assertExpectedMigrationList(pendingTags, expectedMigrationList);
 
       for (const migration of migrations) {
         const schemaState = await loadSchemaState(client);
@@ -1169,9 +1182,6 @@ async function main() {
         const appliedRow = findAppliedRow(
           await loadAppliedRows(client),
           migration,
-          {
-            tolerateHashMismatch: true,
-          },
         );
 
         if (appliedRow) {
@@ -1179,20 +1189,6 @@ async function main() {
             continue;
           }
 
-          if (
-            status.satisfied &&
-            (appliedRow.hash !== migration.hash ||
-              Number(appliedRow.created_at) !== migration.when ||
-              appliedRow.tag !== migration.tag)
-          ) {
-            await adoptExistingMigrationRecord(
-              client,
-              appliedRow,
-              migration,
-              status.reason,
-            );
-            adopted += 1;
-          }
           if (!status.satisfied) {
             await applyMigration(client, migration, {
               existingRow: appliedRow,
@@ -1203,8 +1199,11 @@ async function main() {
         }
 
         if (status.satisfied) {
-          await adoptMigration(client, migration, status.reason);
-          adopted += 1;
+          if (!testBootstrapLedger) {
+            fail(`${migration.tag} schema state exists without a matching ledger record; automatic adoption is forbidden.`);
+          }
+          log(`test bootstrap records ${migration.tag} after verified schema equivalence`);
+          await recordMigration(client, migration);
           continue;
         }
 
@@ -1212,14 +1211,13 @@ async function main() {
         applied += 1;
       }
 
-      if (adopted === 0 && applied === 0) {
+      if (applied === 0) {
         log("database is already up to date");
         return;
       }
 
       log(
-        `applied ${applied} migration${applied === 1 ? "" : "s"}` +
-          `, adopted ${adopted}`,
+        `applied ${applied} migration${applied === 1 ? "" : "s"}`,
       );
     } finally {
       await releaseLock(client);

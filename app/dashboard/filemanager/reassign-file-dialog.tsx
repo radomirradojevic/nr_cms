@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { BackendUserCombobox } from "@/app/dashboard/_components/backend-user-combobox";
 import type { BackendUserOption } from "@/lib/backend-user-types";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export function ReassignFileDialog({
   onOpenChange,
   onReassigned,
 }: Props) {
+  const t = useTranslations();
   const [selectedUser, setSelectedUser] = useState<BackendUserOption | null>(
     null,
   );
@@ -64,7 +66,7 @@ export function ReassignFileDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedUser) {
-      setError("Please select a user.");
+      setError(t("dashboard.files.reassign.selectUser"));
       return;
     }
 
@@ -90,16 +92,19 @@ export function ReassignFileDialog({
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Reassign file owner</DialogTitle>
+            <DialogTitle>{t("dashboard.files.reassign.title")}</DialogTitle>
             <DialogDescription>
-              Transfer ownership of &quot;{file.filename}&quot; to another CMS
-              user.
+              {t("dashboard.files.reassign.description", {
+                name: file.filename,
+              })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="py-4 space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="new-owner">New owner</Label>
+              <Label htmlFor="new-owner">
+                {t("dashboard.files.reassign.newOwner")}
+              </Label>
               <BackendUserCombobox
                 value={selectedUser?.id ?? ""}
                 selectedUser={selectedUser}
@@ -118,11 +123,11 @@ export function ReassignFileDialog({
               onClick={() => handleOpenChange(false)}
               disabled={saving}
             >
-              Cancel
+              {t("dashboard.common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={saving || !selectedUser}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Reassign
+              {t("dashboard.common.actions.reassign")}
             </Button>
           </DialogFooter>
         </form>

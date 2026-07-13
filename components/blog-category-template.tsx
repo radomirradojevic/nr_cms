@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { BlogCategoryTemplateV1 } from "@/lib/appearance-recipe";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 import { sanitizeMediaSrc } from "@/lib/url-safety";
 
@@ -28,10 +29,22 @@ type BlogCategoryTemplateProps = {
   };
 };
 
-function PostMeta({ post }: { post: BlogCategoryTemplatePost }) {
+type BlogCategoryTemplateViewProps = BlogCategoryTemplateProps & {
+  t: TranslateFn;
+};
+
+function PostMeta({
+  post,
+  t,
+}: {
+  post: BlogCategoryTemplatePost;
+  t: TranslateFn;
+}) {
   return (
     <p className="text-sm text-muted-foreground">
-      {post.authorName ? <>Created by {post.authorName}</> : <>Created</>}
+      {post.authorName
+        ? t("public.blog.category.createdBy", { name: post.authorName })
+        : t("public.blog.category.created")}
       {post.formattedDate && (
         <>
           <span aria-hidden="true"> . </span>
@@ -68,18 +81,24 @@ function PostCover({
   );
 }
 
-function ReadMore({ slug }: { slug: string }) {
+function ReadMore({ slug, t }: { slug: string; t: TranslateFn }) {
   return (
     <Link
       href={`/${slug}`}
       className="text-sm font-medium text-primary hover:underline"
     >
-      Read more
+      {t("public.blog.category.readMore")}
     </Link>
   );
 }
 
-function ListPost({ post }: { post: BlogCategoryTemplatePost }) {
+function ListPost({
+  post,
+  t,
+}: {
+  post: BlogCategoryTemplatePost;
+  t: TranslateFn;
+}) {
   return (
     <li className="space-y-3 py-6">
       <div className="space-y-1">
@@ -88,14 +107,14 @@ function ListPost({ post }: { post: BlogCategoryTemplatePost }) {
             {post.title}
           </Link>
         </h2>
-        <PostMeta post={post} />
+        <PostMeta post={post} t={t} />
       </div>
       <PostCover post={post} />
       {post.excerpt && (
         <p className="text-base text-foreground/90">{post.excerpt}</p>
       )}
       <div>
-        <ReadMore slug={post.slug} />
+        <ReadMore slug={post.slug} t={t} />
       </div>
     </li>
   );
@@ -103,9 +122,11 @@ function ListPost({ post }: { post: BlogCategoryTemplatePost }) {
 
 function CardPost({
   post,
+  t,
   featured = false,
 }: {
   post: BlogCategoryTemplatePost;
+  t: TranslateFn;
   featured?: boolean;
 }) {
   return (
@@ -123,13 +144,13 @@ function CardPost({
               {post.title}
             </Link>
           </h2>
-          <PostMeta post={post} />
+          <PostMeta post={post} t={t} />
         </div>
         {post.excerpt && (
           <p className="text-sm text-muted-foreground">{post.excerpt}</p>
         )}
         <div className="mt-auto pt-1">
-          <ReadMore slug={post.slug} />
+          <ReadMore slug={post.slug} t={t} />
         </div>
       </div>
     </article>
@@ -163,17 +184,23 @@ function CompactPost({ post }: { post: BlogCategoryTemplatePost }) {
   );
 }
 
-function FeaturedFirstPosts({ posts }: { posts: BlogCategoryTemplatePost[] }) {
+function FeaturedFirstPosts({
+  posts,
+  t,
+}: {
+  posts: BlogCategoryTemplatePost[];
+  t: TranslateFn;
+}) {
   const [featuredPost, ...restPosts] = posts;
   if (!featuredPost) return null;
 
   return (
     <div className="space-y-6">
-      <CardPost post={featuredPost} featured />
+      <CardPost post={featuredPost} t={t} featured />
       {restPosts.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {restPosts.map((post) => (
-            <CardPost key={post.id} post={post} />
+            <CardPost key={post.id} post={post} t={t} />
           ))}
         </div>
       )}
@@ -181,12 +208,13 @@ function FeaturedFirstPosts({ posts }: { posts: BlogCategoryTemplatePost[] }) {
   );
 }
 
-export function BlogCategoryTemplate({
+export function BlogCategoryTemplateView({
   template,
   categoryName,
   posts,
   pagination,
-}: BlogCategoryTemplateProps) {
+  t,
+}: BlogCategoryTemplateViewProps) {
   const variant = template.variant;
 
   return (
@@ -197,19 +225,19 @@ export function BlogCategoryTemplate({
       <div className="space-y-8">
         <header className="space-y-2">
           <p className="text-sm uppercase tracking-wide text-muted-foreground">
-            Blog category
+            {t("public.blog.category.eyebrow")}
           </p>
           <h1 className="text-4xl font-bold tracking-tight">{categoryName}</h1>
         </header>
 
         {posts.length === 0 ? (
           <p className="text-muted-foreground">
-            No published posts in this category yet.
+            {t("public.blog.category.empty")}
           </p>
         ) : variant === "list" ? (
           <ul className="space-y-6">
             {posts.map((post) => (
-              <ListPost key={post.id} post={post} />
+              <ListPost key={post.id} post={post} t={t} />
             ))}
           </ul>
         ) : variant === "compact-archive" ? (
@@ -219,7 +247,7 @@ export function BlogCategoryTemplate({
             ))}
           </ol>
         ) : variant === "featured-first" ? (
-          <FeaturedFirstPosts posts={posts} />
+          <FeaturedFirstPosts posts={posts} t={t} />
         ) : (
           <div
             className={cn(
@@ -238,6 +266,7 @@ export function BlogCategoryTemplate({
               >
                 <CardPost
                   post={post}
+                  t={t}
                   featured={variant === "magazine-grid" && index === 0}
                 />
               </div>
@@ -247,12 +276,15 @@ export function BlogCategoryTemplate({
 
         {pagination && pagination.totalPages > 1 && (
           <nav
-            aria-label="Category pagination"
+            aria-label={t("public.blog.category.pagination")}
             className="flex flex-col gap-3 border-t pt-6 text-sm sm:flex-row sm:items-center sm:justify-between"
           >
             <p className="text-muted-foreground">
-              Page {pagination.page} of {pagination.totalPages} -{" "}
-              {pagination.total} total
+              {t("public.blog.category.pageOfTotal", {
+                page: pagination.page,
+                totalPages: pagination.totalPages,
+                total: pagination.total,
+              })}
             </p>
             <div className="flex gap-2">
               {pagination.previousHref ? (
@@ -260,11 +292,11 @@ export function BlogCategoryTemplate({
                   href={pagination.previousHref}
                   className="rounded-md border px-3 py-2 hover:bg-muted"
                 >
-                  Previous
+                  {t("public.blog.category.previous")}
                 </Link>
               ) : (
                 <span className="rounded-md border px-3 py-2 text-muted-foreground opacity-50">
-                  Previous
+                  {t("public.blog.category.previous")}
                 </span>
               )}
               {pagination.nextHref ? (
@@ -272,11 +304,11 @@ export function BlogCategoryTemplate({
                   href={pagination.nextHref}
                   className="rounded-md border px-3 py-2 hover:bg-muted"
                 >
-                  Next
+                  {t("public.blog.category.next")}
                 </Link>
               ) : (
                 <span className="rounded-md border px-3 py-2 text-muted-foreground opacity-50">
-                  Next
+                  {t("public.blog.category.next")}
                 </span>
               )}
             </div>
@@ -285,4 +317,11 @@ export function BlogCategoryTemplate({
       </div>
     </section>
   );
+}
+
+export async function BlogCategoryTemplate(props: BlogCategoryTemplateProps) {
+  const { getTranslations } = await import("@/lib/i18n/server");
+  const t = await getTranslations("frontend");
+
+  return <BlogCategoryTemplateView {...props} t={t} />;
 }

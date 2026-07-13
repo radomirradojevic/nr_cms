@@ -5,6 +5,7 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getDistinctFormCreatorIds, listForms } from "@/data/forms";
 import { listActiveLocksForFormIds } from "@/data/form-locks";
+import { getTranslations } from "@/lib/i18n/server";
 import { FormsList } from "./forms-list";
 import { CreateFormDialog } from "./create-form-dialog";
 
@@ -16,6 +17,7 @@ type FormCreatorInfo = {
 };
 
 export default async function FormBuilderPage() {
+  const t = await getTranslations("backend");
   const { userId } = await auth();
   if (!userId) redirect("/");
   const user = await getOptionalCurrentUser();
@@ -69,10 +71,11 @@ export default async function FormBuilderPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Form Builder</h1>
+          <h1 className="text-2xl font-semibold">
+            {t("dashboard.forms.title")}
+          </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Build reusable forms and embed them in pages or blog posts. Admin
-            access only.
+            {t("dashboard.forms.description")}
           </p>
         </div>
         <CreateFormDialog />

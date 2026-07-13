@@ -7,12 +7,21 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles } from "@/lib/roles";
 import { canViewContent } from "@/lib/content-visibility";
 import { isContentLive } from "@/lib/content-schedule";
+import { getAddonI18nContext } from "@/lib/i18n/addon-server";
+import { getTranslations } from "@/lib/i18n/server";
 import { getWebshopRuntimeConfig } from "@/lib/webshop-addon/config";
+import { resolveWebshopAddonState } from "@/lib/webshop-addon/license";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+export async function generateMetadata({
+  params,
+  searchParams,
+}: Props): Promise<Metadata> {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
   const row = await getContentBySlug(slug);
   if (!row) return {};
   if (
@@ -26,7 +35,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const me = await getOptionalCurrentUser(true);
   const viewerRoles = me ? getRoles(me.publicMetadata) : null;
   if (!canViewContent(row.visibility, viewerRoles)) {
-    return { title: "Restricted" };
+    const t = await getTranslations("frontend");
+    return { title: t("public.errors.accessRestricted.metadataTitle") };
+  }
+  if (row.contentType === "webshop") {
+    const addonState = await resolveWebshopAddonState();
+    if (
+      (addonState.status === "ready" ||
+        addonState.status === "license_expired") &&
+      addonState.addon.generateStorefrontMetadata
+    ) {
+      const i18n = await getAddonI18nContext();
+
+      return addonState.addon.generateStorefrontMetadata({
+        contentId: row.id,
+        i18n,
+        licenseMode:
+          addonState.status === "ready" ? "ready" : "edit_existing_only",
+        path: [],
+        searchParams: query,
+        slug: row.slug,
+      });
+    }
   }
   return {
     title: row.metaTitle ?? row.title,
@@ -34,8 +64,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function PublicContentPage({ params }: Props) {
-  const { slug } = await params;
+export default async function PublicContentPage({
+  params,
+  searchParams,
+}: Props) {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
   const row = await getContentBySlug(slug);
   if (!row) notFound();
   if (
@@ -61,6 +94,7 @@ export default async function PublicContentPage({ params }: Props) {
     <ContentPublicRenderer
       row={row}
       currentUserId={me?.id}
+      searchParams={query}
       viewerRoles={viewerRoles}
     />
   );

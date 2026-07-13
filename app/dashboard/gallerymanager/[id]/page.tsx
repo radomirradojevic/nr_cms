@@ -7,12 +7,16 @@ import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { getGalleryById, type GalleryDetail } from "@/data/galleries";
 import { listFiles } from "@/data/files";
+import { getTranslations } from "@/lib/i18n/server";
 import {
   getWebshopGalleryProductHref,
   isLockedGallery,
   isWebshopGalleryOrigin,
 } from "@/lib/gallery-origin";
 import { resolveWebshopAddonState } from "@/lib/webshop-addon/license";
+import type { CmsLanguage } from "@/lib/i18n/languages";
+import { localizeSourceString } from "@/lib/i18n/messages/localized";
+import { getI18nSettings } from "@/lib/i18n/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +24,8 @@ import { GalleryEditor } from "./gallery-editor";
 
 const ALLOWED_ROLES = ["admin", "publisher", "author"] as const;
 const PICKER_PAGE_SIZE = 60;
+type LocalizedLanguage = Exclude<CmsLanguage, "en">;
+type SourceTranslateFn = (source: string) => string;
 
 export default async function GalleryEditorPage({
   params,
@@ -27,6 +33,7 @@ export default async function GalleryEditorPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await getTranslations("backend");
 
   const { userId } = await auth();
   if (!userId) redirect("/");
@@ -43,8 +50,17 @@ export default async function GalleryEditorPage({
 
   if (isLockedGallery(gallery)) {
     const addonState = await resolveWebshopAddonState();
+    const { backendLanguage } = await getI18nSettings();
+    const st: SourceTranslateFn = (source) =>
+      backendLanguage === "en"
+        ? source
+        : localizeSourceString(source, backendLanguage as LocalizedLanguage);
     return (
-      <LockedGalleryView addonStatus={addonState.status} gallery={gallery} />
+      <LockedGalleryView
+        addonStatus={addonState.status}
+        gallery={gallery}
+        st={st}
+      />
     );
   }
 
@@ -61,7 +77,8 @@ export default async function GalleryEditorPage({
         <div className="space-y-1">
           <Button variant="ghost" size="sm" asChild className="-ml-2">
             <Link href="/dashboard/gallerymanager">
-              <ChevronLeft className="mr-1 h-4 w-4" /> Back to galleries
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              {t("dashboard.galleries.detail.backToGalleries")}
             </Link>
           </Button>
           <h1 className="text-2xl font-semibold">{gallery.name}</h1>
@@ -87,9 +104,11 @@ export default async function GalleryEditorPage({
 function LockedGalleryView({
   addonStatus,
   gallery,
+  st,
 }: {
   addonStatus: Awaited<ReturnType<typeof resolveWebshopAddonState>>["status"];
   gallery: GalleryDetail;
+  st: SourceTranslateFn;
 }) {
   const productHref = getWebshopGalleryProductHref(gallery);
   const canOpenProduct =
@@ -103,15 +122,15 @@ function LockedGalleryView({
         <div className="space-y-2">
           <Button variant="ghost" size="sm" asChild className="-ml-2">
             <Link href="/dashboard/gallerymanager">
-              <ChevronLeft className="mr-1 h-4 w-4" /> Back to galleries
+              <ChevronLeft className="mr-1 h-4 w-4" /> {st("Back to galleries")}
             </Link>
           </Button>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold">{gallery.name}</h1>
             {webshopGallery ? (
-              <Badge variant="secondary">Webshop gallery</Badge>
+              <Badge variant="secondary">{st("Webshop gallery")}</Badge>
             ) : null}
-            <Badge variant="outline">Read-only</Badge>
+            <Badge variant="outline">{st("Read-only")}</Badge>
           </div>
           {gallery.description && (
             <p className="text-muted-foreground text-sm">
@@ -123,7 +142,7 @@ function LockedGalleryView({
           <Button asChild>
             <Link href={productHref}>
               <LockKeyhole className="h-4 w-4" />
-              Product media
+              {st("Product media")}
             </Link>
           </Button>
         ) : null}
@@ -133,15 +152,20 @@ function LockedGalleryView({
         <CardContent className="p-4">
           <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <div>
-              This gallery is managed outside the public Gallery Manager.
+              {st(
+                "This gallery is managed outside the public Gallery Manager.",
+              )}
             </div>
             {!canOpenProduct ? (
               <div>
-                Webshop editor is unavailable for this deployment state:{" "}
-                {addonStatus.replaceAll("_", " ")}.
+                {st(
+                  "Webshop editor is unavailable for this deployment state: {status}.",
+                ).replace("{status}", addonStatus.replaceAll("_", " "))}
               </div>
             ) : addonStatus === "license_expired" ? (
-              <div>Existing product media can be edited while expired.</div>
+              <div>
+                {st("Existing product media can be edited while expired.")}
+              </div>
             ) : null}
           </div>
         </CardContent>
@@ -150,7 +174,7 @@ function LockedGalleryView({
       {gallery.images.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
           <ImageIcon className="mx-auto mb-3 h-8 w-8" />
-          No images are linked to this gallery.
+          {st("No images are linked to this gallery.")}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">

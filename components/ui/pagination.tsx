@@ -1,7 +1,10 @@
+"use client";
+
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -9,10 +12,12 @@ import {
 } from "lucide-react";
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
+  const st = useSourceTranslations();
+
   return (
     <nav
       role="navigation"
-      aria-label="pagination"
+      aria-label={st("pagination")}
       data-slot="pagination"
       className={cn("mx-auto flex w-full justify-center", className)}
       {...props}
@@ -70,15 +75,17 @@ function PaginationPrevious({
   text = "Previous",
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+  const st = useSourceTranslations();
+
   return (
     <PaginationLink
-      aria-label="Go to previous page"
+      aria-label={st("Go to previous page")}
       size="default"
       className={cn("pl-1.5!", className)}
       {...props}
     >
       <ChevronLeftIcon data-icon="inline-start" />
-      <span className="hidden sm:block">{text}</span>
+      <span className="hidden sm:block">{st(text)}</span>
     </PaginationLink>
   );
 }
@@ -88,14 +95,16 @@ function PaginationNext({
   text = "Next",
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+  const st = useSourceTranslations();
+
   return (
     <PaginationLink
-      aria-label="Go to next page"
+      aria-label={st("Go to next page")}
       size="default"
       className={cn("pr-1.5!", className)}
       {...props}
     >
-      <span className="hidden sm:block">{text}</span>
+      <span className="hidden sm:block">{st(text)}</span>
       <ChevronRightIcon data-icon="inline-end" />
     </PaginationLink>
   );
@@ -105,6 +114,8 @@ function PaginationEllipsis({
   className,
   ...props
 }: React.ComponentProps<"span">) {
+  const st = useSourceTranslations();
+
   return (
     <span
       aria-hidden
@@ -116,7 +127,7 @@ function PaginationEllipsis({
       {...props}
     >
       <MoreHorizontalIcon />
-      <span className="sr-only">More pages</span>
+      <span className="sr-only">{st("More pages")}</span>
     </span>
   );
 }

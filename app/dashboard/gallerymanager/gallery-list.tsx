@@ -14,6 +14,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -58,6 +59,7 @@ export function GalleryList({
   isAdmin,
   creators,
 }: Props) {
+  const t = useTranslations();
   const { formatDate } = useRegionalSettings();
   const [rows, setRows] = useState<GalleryListItem[]>(initialRows);
   const [total, setTotal] = useState(initialTotal);
@@ -115,17 +117,21 @@ export function GalleryList({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search galleries…"
+            placeholder={t("dashboard.galleries.searchPlaceholder")}
             className="pl-9"
           />
         </div>
         {isAdmin && creators.length > 0 && (
           <Select value={createdBy} onValueChange={setCreatedBy}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by user" />
+              <SelectValue
+                placeholder={t("dashboard.galleries.filterByUser")}
+              />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All users</SelectItem>
+              <SelectItem value="all">
+                {t("dashboard.filters.allUsers")}
+              </SelectItem>
               {creators.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.name}
@@ -144,7 +150,7 @@ export function GalleryList({
         </div>
       ) : rows.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          No galleries yet.
+          {t("dashboard.galleries.noGalleries")}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -188,30 +194,34 @@ export function GalleryList({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={href}>Open</Link>
+                          <Link href={href}>
+                            {t("dashboard.common.actions.open")}
+                          </Link>
                         </DropdownMenuItem>
                         {locked ? (
                           <DropdownMenuItem disabled>
-                            Managed in Webshop
+                            {t("dashboard.galleries.managedInWebshop")}
                           </DropdownMenuItem>
                         ) : (
                           <>
                             <DropdownMenuItem onSelect={() => setEditTarget(g)}>
-                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                              <Pencil className="mr-2 h-4 w-4" />
+                              {t("dashboard.common.actions.edit")}
                             </DropdownMenuItem>
                             {isAdmin && (
                               <DropdownMenuItem
                                 onSelect={() => setReassignTarget(g)}
                               >
                                 <UserRoundCog className="mr-2 h-4 w-4" />{" "}
-                                Reassign Owner
+                                {t("dashboard.common.actions.reassignOwner")}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
                               onSelect={() => setDeleteTarget(g)}
                               className="text-destructive focus:text-destructive"
                             >
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {t("dashboard.common.actions.delete")}
                             </DropdownMenuItem>
                           </>
                         )}
@@ -220,7 +230,7 @@ export function GalleryList({
                   </div>
                   {webshopGallery && (
                     <Badge className="w-fit" variant="secondary">
-                      Webshop gallery
+                      {t("dashboard.galleries.webshopGallery")}
                     </Badge>
                   )}
                   {g.description && (
@@ -240,7 +250,7 @@ export function GalleryList({
                 </CardContent>
                 <CardFooter className="mt-auto px-3 pb-3 pt-0 flex items-center justify-between text-xs text-muted-foreground">
                   <span>
-                    {g.imageCount} image{g.imageCount === 1 ? "" : "s"}
+                    {t.plural("dashboard.galleries.imageCount", g.imageCount)}
                   </span>
                   <span>{formatDate(g.created)}</span>
                 </CardFooter>
@@ -252,11 +262,16 @@ export function GalleryList({
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Showing {rows.length} of {total}
+          {t("dashboard.pagination.showingOfTotal", {
+            count: rows.length,
+            total,
+          })}
         </p>
         {hasMore && (
           <Button variant="outline" onClick={loadMore} disabled={pending}>
-            {pending ? "Loading…" : "Load more"}
+            {pending
+              ? t("dashboard.common.actions.loading")
+              : t("dashboard.common.actions.loadMore")}
           </Button>
         )}
       </div>

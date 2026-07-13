@@ -18,20 +18,32 @@ import { Button } from "@/components/ui/button";
 import { WebshopAddonRequired } from "@/components/webshop-addon-required";
 import { WebshopLicenseActivation } from "@/components/webshop-license-activation";
 import { listContent } from "@/data/content";
+import { getAddonI18nContext } from "@/lib/i18n/addon-server";
+import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
+import { buildWebshopLicenseBuyUrl } from "@/lib/webshop-addon/buy-link";
 import { resolveWebshopAddonState } from "@/lib/webshop-addon/license";
 import { activateWebshopAddonAction } from "./actions";
 
 const PLACEHOLDER_SECTIONS = [
-  { label: "Products", icon: Package },
-  { label: "Categories", icon: Tags },
-  { label: "Orders", icon: ShoppingCart },
-  { label: "Payments", icon: CreditCard },
-  { label: "Storefront", icon: Store },
-  { label: "Coupons", icon: TicketPercent },
-  { label: "Settings", icon: Settings },
-];
+  { labelKey: "addons.webshop.placeholderSections.products", icon: Package },
+  { labelKey: "addons.webshop.placeholderSections.categories", icon: Tags },
+  {
+    labelKey: "addons.webshop.placeholderSections.orders",
+    icon: ShoppingCart,
+  },
+  {
+    labelKey: "addons.webshop.placeholderSections.payments",
+    icon: CreditCard,
+  },
+  { labelKey: "addons.webshop.placeholderSections.storefront", icon: Store },
+  {
+    labelKey: "addons.webshop.placeholderSections.coupons",
+    icon: TicketPercent,
+  },
+  { labelKey: "addons.webshop.placeholderSections.settings", icon: Settings },
+] as const;
 
 export default async function WebshopDashboardPage() {
   const user = await getOptionalCurrentUser();
@@ -39,8 +51,12 @@ export default async function WebshopDashboardPage() {
   if (!hasRole(roles, "admin")) redirect("/dashboard");
 
   const addonState = await resolveWebshopAddonState();
+  const buyUrl = await buildWebshopLicenseBuyUrl();
+  const t = await getTranslations("backend");
+  const i18n = await getAddonI18nContext();
   if (addonState.status === "ready") {
     return addonState.addon.renderDashboard({
+      i18n,
       licenseMode: "ready",
       path: [],
       userId: user!.id,
@@ -48,6 +64,7 @@ export default async function WebshopDashboardPage() {
   }
   if (addonState.status === "license_expired") {
     return addonState.addon.renderDashboard({
+      i18n,
       licenseMode: "edit_existing_only",
       path: [],
       userId: user!.id,
@@ -66,9 +83,11 @@ export default async function WebshopDashboardPage() {
     <div className="mx-auto w-full max-w-[var(--backend-content-max-width)] space-y-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Webshop</h1>
+          <h1 className="text-2xl font-semibold">
+            {t("addons.webshop.title")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Paid commerce add-on foundation and CMS shell.
+            {t("addons.webshop.description")}
           </p>
         </div>
         {webshop ? (
@@ -76,7 +95,7 @@ export default async function WebshopDashboardPage() {
             <Button asChild variant="outline">
               <Link href={`/dashboard/content/${webshop.id}/edit`}>
                 <Pencil className="h-4 w-4" />
-                Edit shell
+                {t("addons.webshop.editShell")}
               </Link>
             </Button>
             <Button asChild variant="outline">
@@ -86,7 +105,7 @@ export default async function WebshopDashboardPage() {
                 rel="noopener noreferrer"
               >
                 <ExternalLink className="h-4 w-4" />
-                View storefront
+                {t("addons.webshop.viewStorefront")}
               </Link>
             </Button>
           </div>
@@ -94,7 +113,7 @@ export default async function WebshopDashboardPage() {
           <Button asChild>
             <Link href="/dashboard/content/new/webshop">
               <Plus className="h-4 w-4" />
-              Set up Webshop
+              {t("addons.webshop.setUp")}
             </Link>
           </Button>
         )}
@@ -103,7 +122,10 @@ export default async function WebshopDashboardPage() {
       {addonState.status === "license_required" ||
       addonState.status === "not_installed" ||
       addonState.status === "license_invalid" ? (
-        <WebshopLicenseActivation action={activateWebshopAddonAction} />
+        <WebshopLicenseActivation
+          action={activateWebshopAddonAction}
+          buyUrl={buyUrl}
+        />
       ) : null}
 
       <WebshopAddonRequired state={addonState} />
@@ -116,16 +138,17 @@ export default async function WebshopDashboardPage() {
             </div>
             <div className="space-y-3">
               <div>
-                <h2 className="text-lg font-semibold">No Webshop shell yet</h2>
+                <h2 className="text-lg font-semibold">
+                  {t("addons.webshop.noShellTitle")}
+                </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Create the CMS entry that owns the shop slug, SEO, status,
-                  visibility, and routing.
+                  {t("addons.webshop.noShellDescription")}
                 </p>
               </div>
               <Button asChild>
                 <Link href="/dashboard/content/new/webshop">
                   <Plus className="h-4 w-4" />
-                  Create CMS shell
+                  {t("addons.webshop.createCmsShell")}
                 </Link>
               </Button>
             </div>
@@ -135,24 +158,41 @@ export default async function WebshopDashboardPage() {
         <>
           <div className="rounded-lg border bg-background p-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Meta label="Title" value={webshop.title} />
-              <Meta label="Slug" value={`/${webshop.slug}`} />
-              <Meta label="Status" value={webshop.status} />
-              <Meta label="Category" value={webshop.categoryName} />
+              <Meta
+                label={t("addons.webshop.meta.title")}
+                value={webshop.title}
+              />
+              <Meta
+                label={t("addons.webshop.meta.slug")}
+                value={`/${webshop.slug}`}
+              />
+              <Meta
+                label={t("addons.webshop.meta.status")}
+                value={webshop.status}
+              />
+              <Meta
+                label={t("addons.webshop.meta.category")}
+                value={webshop.categoryName}
+              />
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {PLACEHOLDER_SECTIONS.map(({ label, icon: Icon }) => (
-              <div key={label} className="rounded-lg border bg-background p-4">
+            {PLACEHOLDER_SECTIONS.map(({ labelKey, icon: Icon }) => (
+              <div
+                key={labelKey}
+                className="rounded-lg border bg-background p-4"
+              >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted/40">
                     <Icon className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="min-w-0">
-                    <h2 className="truncate text-sm font-medium">{label}</h2>
+                    <h2 className="truncate text-sm font-medium">
+                      {t(labelKey)}
+                    </h2>
                     <p className="text-xs text-muted-foreground">
-                      Available after add-on activation.
+                      {t("addons.common.availableAfterActivation")}
                     </p>
                   </div>
                 </div>
@@ -165,10 +205,10 @@ export default async function WebshopDashboardPage() {
                 </div>
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-medium">
-                    Public Preview
+                    {t("addons.webshop.publicPreview")}
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    Uses the CMS shell renderer.
+                    {t("addons.webshop.usesCmsShellRenderer")}
                   </p>
                 </div>
               </div>
