@@ -22,7 +22,7 @@ import { getAddonI18nContext } from "@/lib/i18n/addon-server";
 import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
-import { buildWebshopLicenseBuyUrl } from "@/lib/webshop-addon/buy-link";
+import { tryBuildWebshopLicenseBuyUrl } from "@/lib/webshop-addon/buy-link";
 import { resolveWebshopAddonState } from "@/lib/webshop-addon/license";
 import { activateWebshopAddonAction } from "./actions";
 
@@ -51,7 +51,13 @@ export default async function WebshopDashboardPage() {
   if (!hasRole(roles, "admin")) redirect("/dashboard");
 
   const addonState = await resolveWebshopAddonState();
-  const buyUrl = await buildWebshopLicenseBuyUrl();
+  const needsLicenseActivation =
+    addonState.status === "license_required" ||
+    addonState.status === "not_installed" ||
+    addonState.status === "license_invalid";
+  const buyUrl = needsLicenseActivation
+    ? await tryBuildWebshopLicenseBuyUrl()
+    : null;
   const t = await getTranslations("backend");
   const i18n = await getAddonI18nContext();
   if (addonState.status === "ready") {
@@ -119,9 +125,7 @@ export default async function WebshopDashboardPage() {
         )}
       </div>
 
-      {addonState.status === "license_required" ||
-      addonState.status === "not_installed" ||
-      addonState.status === "license_invalid" ? (
+      {needsLicenseActivation ? (
         <WebshopLicenseActivation
           action={activateWebshopAddonAction}
           buyUrl={buyUrl}

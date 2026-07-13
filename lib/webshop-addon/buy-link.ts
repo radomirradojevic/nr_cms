@@ -20,6 +20,16 @@ export function canonicalWebshopActivationDomain(value: string) {
 }
 
 export async function buildWebshopLicenseBuyUrl() {
+  return buildWebshopLicenseBuyUrlWithSecret(requiredBuyLinkSecret());
+}
+
+export async function tryBuildWebshopLicenseBuyUrl() {
+  const secret = optionalBuyLinkSecret();
+  if (!secret) return null;
+  return buildWebshopLicenseBuyUrlWithSecret(secret);
+}
+
+async function buildWebshopLicenseBuyUrlWithSecret(secret: string) {
   const settings = await getGlobalSettings();
   const siteDomain =
     settings.publicSiteUrl ??
@@ -33,7 +43,6 @@ export async function buildWebshopLicenseBuyUrl() {
   const payload = Buffer.from(
     JSON.stringify({ addon: "webshop", domain, expiresAt, v: 1 }),
   ).toString("base64url");
-  const secret = requiredBuyLinkSecret();
   const signature = createHmac("sha256", secret)
     .update(payload)
     .digest("base64url");
@@ -44,7 +53,11 @@ export async function buildWebshopLicenseBuyUrl() {
 }
 
 function requiredBuyLinkSecret() {
-  const secret = process.env.WEBSHOP_BUY_LINK_SECRET?.trim();
+  const secret = optionalBuyLinkSecret();
   if (!secret) throw new Error("WEBSHOP_BUY_LINK_SECRET must be configured.");
   return secret;
+}
+
+function optionalBuyLinkSecret() {
+  return process.env.WEBSHOP_BUY_LINK_SECRET?.trim() || null;
 }

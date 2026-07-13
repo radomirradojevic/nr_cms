@@ -33,7 +33,7 @@ export function WebshopLicenseActivation({
 }: {
   action: ActivationAction;
   buyLabel?: string;
-  buyUrl: string;
+  buyUrl?: string | null;
   description?: string;
   inputId?: string;
   submitLabel?: string;
@@ -65,14 +65,16 @@ export function WebshopLicenseActivation({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <a href={buyUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-4 w-4" />
-              {resolvedBuyLabel}
-            </a>
-          </Button>
-        </div>
+        {buyUrl ? (
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <a href={buyUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4" />
+                {resolvedBuyLabel}
+              </a>
+            </Button>
+          </div>
+        ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
