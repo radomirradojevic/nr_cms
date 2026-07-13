@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   Popover,
   PopoverContent,
@@ -32,9 +34,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  getContentStatusLabel,
+  getContentStatusLabelKey,
   type ContentStatus,
 } from "@/lib/content-status";
+import type { TranslationKey } from "@/lib/i18n/keys";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { listContentRevisionHistory, restoreContentRevision } from "./actions";
 
 export type ContentHistoryRevision = {
@@ -78,30 +82,11 @@ type Props = {
 
 const HISTORY_PAGE_SIZE = 3;
 
-const HISTORY_FILTERS: Array<{ value: ContentHistoryFilter; label: string }> = [
-  { value: "all", label: "All" },
-  { value: "saved", label: "Edits" },
-  { value: "workflow", label: "Publishing" },
-  { value: "restored", label: "Restores" },
-];
-
-const HISTORY_FILTER_HELP: Array<{ label: string; description: string }> = [
-  {
-    label: "All",
-    description: "Shows every saved revision and workflow event.",
-  },
-  {
-    label: "Edits",
-    description: "Shows content creation and manual saves.",
-  },
-  {
-    label: "Publishing",
-    description: "Shows status, publish, archive, and schedule changes.",
-  },
-  {
-    label: "Restores",
-    description: "Shows when an older revision was restored.",
-  },
+const HISTORY_FILTERS: ContentHistoryFilter[] = [
+  "all",
+  "saved",
+  "workflow",
+  "restored",
 ];
 
 export function ContentHistoryPanel({
@@ -116,6 +101,8 @@ export function ContentHistoryPanel({
   onRestored,
   onStaleVersion,
 }: Props) {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const historyRequestIdRef = useRef(0);
   const [items, setItems] = useState(revisions);
@@ -135,11 +122,18 @@ export function ContentHistoryPanel({
   const empty = items.length === 0;
   const canLoadMore = items.length < totalCount;
 
-  const groups = useMemo(() => groupRevisionsByDate(items), [items]);
+  const groups = useMemo(() => groupRevisionsByDate(items, t), [items, t]);
   const visibleCountLabel = useMemo(() => {
-    if (totalCount <= items.length) return `${items.length}`;
-    return `${items.length} of ${totalCount}`;
-  }, [items.length, totalCount]);
+    if (totalCount <= items.length) {
+      return t("dashboard.content.history.visibleRevisionsCount", {
+        count: items.length,
+      });
+    }
+    return t("dashboard.content.history.visibleOfTotalRevisions", {
+      count: items.length,
+      total: totalCount,
+    });
+  }, [items.length, t, totalCount]);
 
   function loadHistory(input: {
     nextFilter: ContentHistoryFilter;
@@ -174,7 +168,7 @@ export function ContentHistoryPanel({
         setPage(result.page);
         setFilter(input.nextFilter);
       } catch {
-        toast.error("History could not be loaded.");
+        toast.error(t("dashboard.content.history.loadFailed"));
       } finally {
         if (requestId === historyRequestIdRef.current) {
           setHistoryRequest(null);
@@ -210,14 +204,18 @@ export function ContentHistoryPanel({
         if (typeof result.version === "number") {
           onRestored?.(result.version);
         }
-        toast.success(`Revision #${revision.revisionNumber} restored.`);
+        toast.success(
+          t("dashboard.content.history.restoredToast", {
+            revision: revision.revisionNumber,
+          }),
+        );
         for (const warning of result.warnings ?? []) {
-          toast.warning(warning);
+          toast.warning(st(warning));
         }
         preserveHistoryInspectorTab();
         router.refresh();
       } catch {
-        toast.error("Restore failed. Please try again.");
+        toast.error(t("dashboard.content.history.restoreFailed"));
       } finally {
         setPendingRevisionId(null);
       }
@@ -230,10 +228,10 @@ export function ContentHistoryPanel({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-sm font-medium">
-              History{" "}
+              {t("dashboard.content.history.title")}{" "}
               {!contentHistoryEnabled && (
                 <span className="inline-flex items-center gap-1 text-amber-500">
-                  (disabled)
+                  {t("dashboard.content.history.disabledBadge")}
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -241,7 +239,7 @@ export function ContentHistoryPanel({
                         variant="ghost"
                         size="icon"
                         className="size-5 text-amber-500 hover:text-amber-600"
-                        aria-label="Content history is disabled"
+                        aria-label={t("dashboard.content.history.disabled")}
                       >
                         <Info aria-hidden className="size-3.5" />
                       </Button>
@@ -249,12 +247,11 @@ export function ContentHistoryPanel({
                     <PopoverContent align="start" className="w-72 text-sm">
                       <div className="space-y-2">
                         <p className="text-xs text-muted-foreground">
-                          Versioning is disabled globally. New content changes
-                          will not create revision snapshots.
+                          {t("dashboard.content.history.disabledDescription")}
                         </p>
                         <Button asChild variant="outline" size="sm">
                           <Link href="/dashboard/global-settings?tab=system">
-                            Open System settings
+                            {t("dashboard.content.history.openSystemSettings")}
                           </Link>
                         </Button>
                       </div>
@@ -264,12 +261,14 @@ export function ContentHistoryPanel({
               )}
             </h2>
             <p className="text-xs text-muted-foreground">
-              {empty ? "No revisions" : `${visibleCountLabel} revisions`}
+              {empty
+                ? t("dashboard.content.history.noRevisions")
+                : visibleCountLabel}
             </p>
           </div>
           {loadingHistory && (
             <Loader2
-              aria-label="Loading history"
+              aria-label={t("dashboard.content.history.loading")}
               className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-muted-foreground"
             />
           )}
@@ -292,8 +291,8 @@ export function ContentHistoryPanel({
             </SelectTrigger>
             <SelectContent>
               {HISTORY_FILTERS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                <SelectItem key={option} value={option}>
+                  {t(`dashboard.content.history.filters.${option}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -305,7 +304,7 @@ export function ContentHistoryPanel({
                 variant="outline"
                 size="icon"
                 className="h-8 w-8 shrink-0"
-                aria-label="Explain history filters"
+                aria-label={t("dashboard.content.history.filtersHelp")}
               >
                 <Info className="h-4 w-4" />
               </Button>
@@ -313,17 +312,21 @@ export function ContentHistoryPanel({
             <PopoverContent align="end" className="w-72 text-sm">
               <div className="space-y-3">
                 <div>
-                  <h3 className="font-medium">History filters</h3>
+                  <h3 className="font-medium">
+                    {t("dashboard.content.history.filtersTitle")}
+                  </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Use these when the revision list gets long.
+                    {t("dashboard.content.history.filtersDescription")}
                   </p>
                 </div>
                 <dl className="space-y-2">
-                  {HISTORY_FILTER_HELP.map((item) => (
-                    <div key={item.label} className="space-y-0.5">
-                      <dt className="text-xs font-medium">{item.label}</dt>
+                  {HISTORY_FILTERS.map((item) => (
+                    <div key={item} className="space-y-0.5">
+                      <dt className="text-xs font-medium">
+                        {t(`dashboard.content.history.filters.${item}`)}
+                      </dt>
                       <dd className="text-xs text-muted-foreground">
-                        {item.description}
+                        {t(`dashboard.content.history.filterHelp.${item}`)}
                       </dd>
                     </div>
                   ))}
@@ -337,8 +340,8 @@ export function ContentHistoryPanel({
       {empty ? (
         <p className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
           {filter === "all"
-            ? "Revisions will appear after the next save or workflow change."
-            : "No revisions match this filter."}
+            ? t("dashboard.content.history.emptyAll")
+            : t("dashboard.content.history.emptyFilter")}
         </p>
       ) : (
         <div className="space-y-4">
@@ -363,10 +366,10 @@ export function ContentHistoryPanel({
                           #{revision.revisionNumber}
                         </Badge>
                         <Badge variant="secondary" className="h-5 px-1.5">
-                          {formatChangeType(revision.changeType)}
+                          {formatChangeType(revision.changeType, t)}
                         </Badge>
                         <Badge variant="outline" className="h-5 px-1.5">
-                          {getContentStatusLabel(revision.status)}
+                          {t(getContentStatusLabelKey(revision.status))}
                         </Badge>
                       </div>
                       <p className="truncate text-sm font-medium">
@@ -379,8 +382,10 @@ export function ContentHistoryPanel({
                         className="truncate text-[11px] text-muted-foreground"
                         title={revision.createdBy}
                       >
-                        {formatTime(revision.createdAt)} by{" "}
-                        {revision.createdByName}
+                        {t("dashboard.content.history.byAuthor", {
+                          time: formatTime(revision.createdAt),
+                          name: revision.createdByName,
+                        })}
                       </p>
                     </div>
 
@@ -395,7 +400,7 @@ export function ContentHistoryPanel({
                           href={`/dashboard/content/${contentId}/history/${revision.id}`}
                         >
                           <Eye className="h-4 w-4" />
-                          View
+                          {t("dashboard.content.history.view")}
                         </Link>
                       </Button>
                       <AlertDialog>
@@ -412,27 +417,30 @@ export function ContentHistoryPanel({
                             ) : (
                               <RotateCcw className="h-4 w-4" />
                             )}
-                            Restore
+                            {t("dashboard.content.history.restore")}
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>
-                              Restore revision #{revision.revisionNumber}?
+                              {t("dashboard.content.history.restoreTitle", {
+                                revision: revision.revisionNumber,
+                              })}
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              This replaces the saved content with the revision
-                              snapshot and creates a new revision of the current
-                              state first.
+                              {t(
+                                "dashboard.content.history.restoreDescription",
+                              )}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <RestoreWarnings
                             current={current}
                             revision={revision}
+                            t={t}
                           />
                           <AlertDialogFooter>
                             <AlertDialogCancel disabled={restorePending}>
-                              Cancel
+                              {t("dashboard.common.actions.cancel")}
                             </AlertDialogCancel>
                             <AlertDialogAction
                               disabled={restorePending}
@@ -441,7 +449,7 @@ export function ContentHistoryPanel({
                                 restoreRevision(revision);
                               }}
                             >
-                              Restore
+                              {t("dashboard.content.history.restore")}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -471,7 +479,7 @@ export function ContentHistoryPanel({
               {historyRequest === "older" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}
-              Load older
+              {t("dashboard.content.history.loadOlder")}
             </Button>
           )}
         </div>
@@ -493,28 +501,32 @@ function preserveHistoryInspectorTab() {
 function RestoreWarnings({
   current,
   revision,
+  t,
 }: {
   current: CurrentSnapshot;
   revision: ContentHistoryRevision;
+  t: TranslateFn;
 }) {
   const warnings = [
     current.slug !== revision.slug
-      ? `Slug changes to /${revision.slug}.`
+      ? t("dashboard.content.history.slugChanges", { slug: revision.slug })
       : null,
     current.status !== revision.status
-      ? `Status changes to ${revision.status}.`
+      ? t("dashboard.content.history.statusChanges", {
+          status: t(getContentStatusLabelKey(revision.status)),
+        })
       : null,
     current.homepage !== revision.homepage
       ? revision.homepage
-        ? "Revision was marked as homepage."
-        : "Revision was not marked as homepage."
+        ? t("dashboard.content.history.revisionWasHomepage")
+        : t("dashboard.content.history.revisionWasNotHomepage")
       : null,
     current.publishAt !== revision.publishAt ||
     current.unpublishAt !== revision.unpublishAt
-      ? "Schedule fields change."
+      ? t("dashboard.content.history.scheduleFieldsChange")
       : null,
     hasExpiredRestoreSchedule(revision)
-      ? "Expired schedule dates will be cleared."
+      ? t("dashboard.content.history.expiredScheduleCleared")
       : null,
   ].filter((warning): warning is string => Boolean(warning));
 
@@ -522,7 +534,9 @@ function RestoreWarnings({
 
   return (
     <div className="rounded-md border bg-muted/30 p-3 text-xs">
-      <p className="mb-2 font-medium">Restore impact</p>
+      <p className="mb-2 font-medium">
+        {t("dashboard.content.history.restoreImpact")}
+      </p>
       <ul className="space-y-1 text-muted-foreground">
         {warnings.map((warning) => (
           <li key={warning}>{warning}</li>
@@ -560,12 +574,15 @@ function mergeRevisionPages(
   });
 }
 
-function groupRevisionsByDate(revisions: ContentHistoryRevision[]) {
+function groupRevisionsByDate(
+  revisions: ContentHistoryRevision[],
+  t: TranslateFn,
+) {
   const groups: Array<{ label: string; revisions: ContentHistoryRevision[] }> =
     [];
 
   for (const revision of revisions) {
-    const label = formatDateGroup(revision.createdAt);
+    const label = formatDateGroup(revision.createdAt, t);
     const lastGroup = groups[groups.length - 1];
     if (lastGroup?.label === label) {
       lastGroup.revisions.push(revision);
@@ -577,9 +594,11 @@ function groupRevisionsByDate(revisions: ContentHistoryRevision[]) {
   return groups;
 }
 
-function formatDateGroup(value: string): string {
+function formatDateGroup(value: string, t: TranslateFn): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown date";
+  if (Number.isNaN(date.getTime())) {
+    return t("dashboard.content.history.unknownDate");
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -589,12 +608,16 @@ function formatDateGroup(value: string): string {
     (today.getTime() - target.getTime()) / (24 * 60 * 60 * 1000),
   );
 
-  if (daysAgo === 0) return "Today";
-  if (daysAgo === 1) return "Yesterday";
+  if (daysAgo === 0) return t("dashboard.content.history.today");
+  if (daysAgo === 1) return t("dashboard.content.history.yesterday");
   return date.toLocaleDateString();
 }
 
-function formatChangeType(value: string): string {
+function formatChangeType(value: string, t: TranslateFn): string {
+  const key = `dashboard.content.history.changeType.${value}` as TranslationKey;
+  const translated = t(key);
+  if (translated !== key) return translated;
+
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

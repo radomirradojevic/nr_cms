@@ -31,6 +31,7 @@ import {
   setCommentStatus,
   deleteComment,
 } from "@/app/dashboard/content/comment-actions";
+import { useTranslations } from "@/components/i18n-provider";
 
 type Props = {
   commentId: string;
@@ -42,6 +43,7 @@ export function CommentRowActions({ commentId, status, onMutated }: Props) {
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslations();
 
   function run(fn: () => Promise<{ error?: string; success?: boolean }>) {
     setError(null);
@@ -62,11 +64,15 @@ export function CommentRowActions({ commentId, status, onMutated }: Props) {
             ) : (
               <MoreHorizontal className="h-4 w-4" />
             )}
-            <span className="sr-only">Actions</span>
+            <span className="sr-only">
+              {t("dashboard.content.commentsModeration.table.actions")}
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {t("dashboard.content.commentsModeration.table.actions")}
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {status !== "published" && (
             <DropdownMenuItem
@@ -77,7 +83,7 @@ export function CommentRowActions({ commentId, status, onMutated }: Props) {
               }
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              Publish
+              {t("dashboard.content.commentsModeration.actions.publish")}
             </DropdownMenuItem>
           )}
           {status === "published" && (
@@ -89,7 +95,7 @@ export function CommentRowActions({ commentId, status, onMutated }: Props) {
               }
             >
               <EyeOff className="mr-2 h-4 w-4" />
-              Unpublish
+              {t("dashboard.content.commentsModeration.actions.unpublish")}
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
@@ -98,7 +104,7 @@ export function CommentRowActions({ commentId, status, onMutated }: Props) {
             onClick={() => setConfirmDelete(true)}
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            Delete
+            {t("dashboard.content.commentsModeration.actions.delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -118,15 +124,20 @@ export function CommentRowActions({ commentId, status, onMutated }: Props) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this comment?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("dashboard.content.commentsModeration.dialogs.deleteTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              The comment and all replies to it will be permanently deleted.
-              This cannot be undone.
+              {t(
+                "dashboard.content.commentsModeration.dialogs.deleteDescription",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {error && <p className="text-sm text-destructive px-1">{error}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>
+              {t("dashboard.content.commentsModeration.dialogs.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={pending}
               onClick={(e) => {
@@ -140,7 +151,7 @@ export function CommentRowActions({ commentId, status, onMutated }: Props) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Delete
+              {t("dashboard.content.commentsModeration.actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

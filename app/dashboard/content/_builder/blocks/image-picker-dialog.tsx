@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSourceTranslations } from "@/components/source-translations";
 import { fetchFiles } from "@/app/dashboard/filemanager/actions";
 import type { FileRow } from "@/data/files";
 
@@ -32,6 +33,7 @@ const PAGE_SIZE = 24;
  * image to the caller via `onSelect`.
  */
 export function ImagePickerDialog({ open, onOpenChange, onSelect }: Props) {
+  const st = useSourceTranslations();
   const [search, setSearch] = useState("");
   const [files, setFiles] = useState<FileRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -99,9 +101,9 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Choose image from File Manager</DialogTitle>
+          <DialogTitle>{st("Choose image from File Manager")}</DialogTitle>
           <DialogDescription>
-            Pick an uploaded image to use for this block.
+            {st("Pick an uploaded image to use for this block.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -112,12 +114,15 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect }: Props) {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search images…"
+                placeholder={st("Search images...")}
                 className="pl-9"
               />
             </div>
             <p className="text-xs text-muted-foreground whitespace-nowrap">
-              Showing {files.length} of {total}
+              {st("Showing {count} of {total}", {
+                count: files.length,
+                total,
+              })}
             </p>
           </div>
 
@@ -129,7 +134,7 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect }: Props) {
             </div>
           ) : files.length === 0 ? (
             <p className="text-center py-8 text-sm text-muted-foreground">
-              No images found.
+              {st("No images found.")}
             </p>
           ) : (
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-[320px] overflow-y-auto p-1">
@@ -166,7 +171,7 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect }: Props) {
                 onClick={() => runFetch(offset, false, search)}
                 disabled={pending}
               >
-                {pending ? "Loading…" : "Load more"}
+                {pending ? st("Loading...") : st("Load more")}
               </Button>
             </div>
           )}
@@ -174,7 +179,7 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect }: Props) {
           {selected ? (
             <div className="rounded-md border p-3 space-y-2">
               <Label className="text-xs uppercase text-muted-foreground">
-                Preview
+                {st("Preview")}
               </Label>
               <div className="flex gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -205,10 +210,10 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect }: Props) {
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {st("Cancel")}
           </Button>
           <Button type="button" onClick={handleSelect} disabled={!selected}>
-            Use selected image
+            {st("Use selected image")}
           </Button>
         </DialogFooter>
       </DialogContent>

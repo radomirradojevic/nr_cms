@@ -11,6 +11,8 @@ import {
   UserRoundCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +55,8 @@ export function ContentRowActions({
   currentUserRoles,
   onMutated,
 }: Props) {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
@@ -83,7 +87,9 @@ export function ContentRowActions({
   const canSetHome = isAdmin && row.contentType === "page";
   const rowIsLive = isContentLive(row);
   const lockError = row.editLock
-    ? `Currently being edited by ${row.editLock.userDisplayName}. Wait until the current editor closes the page.`
+    ? t("dashboard.content.errors.rowLocked", {
+        name: row.editLock.userDisplayName,
+      })
     : null;
   const actionDisabled = pending || Boolean(lockError);
 
@@ -107,7 +113,7 @@ export function ContentRowActions({
   async function openPreview() {
     setError(null);
     if (row.status === "archived") {
-      setError("Archived content cannot be previewed.");
+      setError(t("dashboard.content.errors.archivedPreviewUnavailable"));
       return;
     }
 
@@ -128,7 +134,7 @@ export function ContentRowActions({
         setError(
           typeof data?.error === "string"
             ? data.error
-            : "Preview link could not be created.",
+            : t("dashboard.content.errors.previewLinkFailed"),
         );
         return;
       }
@@ -136,13 +142,13 @@ export function ContentRowActions({
       const previewUrl =
         typeof data?.previewUrl === "string" ? data.previewUrl : "";
       if (!previewUrl) {
-        setError("Preview link could not be created.");
+        setError(t("dashboard.content.errors.previewLinkFailed"));
         return;
       }
 
       window.open(previewUrl, "_blank", "noopener,noreferrer");
     } catch {
-      setError("Preview link could not be created.");
+      setError(t("dashboard.content.errors.previewLinkFailed"));
     } finally {
       setPreviewPending(false);
     }
@@ -176,11 +182,15 @@ export function ContentRowActions({
             ) : (
               <MoreHorizontal className="h-4 w-4" />
             )}
-            <span className="sr-only">Actions</span>
+            <span className="sr-only">
+              {t("dashboard.common.table.actions")}
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {t("dashboard.common.table.actions")}
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {row.editLock && (
             <>
@@ -189,7 +199,9 @@ export function ContentRowActions({
                 className="whitespace-normal text-muted-foreground"
               >
                 <Lock className="mr-2 h-4 w-4 shrink-0" />
-                Locked by {row.editLock.userDisplayName}
+                {t("dashboard.content.table.lockBadge", {
+                  name: row.editLock.userDisplayName,
+                })}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
@@ -204,7 +216,7 @@ export function ContentRowActions({
               ) : (
                 <Eye className="mr-2 h-4 w-4" />
               )}
-              Preview
+              {t("dashboard.content.actions.preview")}
             </DropdownMenuItem>
           )}
           {(canReviewStatus || canSubmitOwnDraft) && row.status === "draft" && (
@@ -212,7 +224,7 @@ export function ContentRowActions({
               disabled={actionDisabled}
               onClick={() => changeStatus("in_review")}
             >
-              Submit for review
+              {t("dashboard.content.actions.submitForReview")}
             </DropdownMenuItem>
           )}
           {(canReviewStatus || canSubmitOwnDraft) &&
@@ -221,7 +233,7 @@ export function ContentRowActions({
                 disabled={actionDisabled}
                 onClick={() => changeStatus("draft")}
               >
-                Return to draft
+                {t("dashboard.content.actions.returnToDraft")}
               </DropdownMenuItem>
             )}
           {canReviewStatus &&
@@ -230,7 +242,7 @@ export function ContentRowActions({
                 disabled={actionDisabled}
                 onClick={() => changeStatus("draft")}
               >
-                Move to draft
+                {t("dashboard.content.actions.moveToDraft")}
               </DropdownMenuItem>
             )}
           {canReviewStatus &&
@@ -239,7 +251,7 @@ export function ContentRowActions({
                 disabled={actionDisabled}
                 onClick={() => changeStatus("approved")}
               >
-                Approve
+                {t("dashboard.content.actions.approve")}
               </DropdownMenuItem>
             )}
           {canReviewStatus && row.status !== "published" && (
@@ -247,7 +259,7 @@ export function ContentRowActions({
               disabled={actionDisabled}
               onClick={() => changeStatus("published")}
             >
-              Publish now
+              {t("dashboard.content.actions.publishNow")}
             </DropdownMenuItem>
           )}
           {canReviewStatus && row.status === "published" && (
@@ -255,7 +267,7 @@ export function ContentRowActions({
               disabled={actionDisabled}
               onClick={() => changeStatus("draft")}
             >
-              Unpublish to draft
+              {t("dashboard.content.actions.unpublishToDraft")}
             </DropdownMenuItem>
           )}
           {canReviewStatus && row.status !== "archived" && (
@@ -263,7 +275,7 @@ export function ContentRowActions({
               disabled={actionDisabled}
               onClick={() => changeStatus("archived")}
             >
-              Archive
+              {t("dashboard.content.actions.archive")}
             </DropdownMenuItem>
           )}
           {canSetHome && !row.homepage && rowIsLive && (
@@ -272,7 +284,7 @@ export function ContentRowActions({
               onClick={() => run(() => setHomepage({ id: row.id }))}
             >
               <Star className="mr-2 h-4 w-4" />
-              Set as homepage
+              {t("dashboard.content.actions.setHomepage")}
             </DropdownMenuItem>
           )}
           {isAdmin && (
@@ -281,7 +293,7 @@ export function ContentRowActions({
               onClick={openReassignDialog}
             >
               <UserRoundCog className="mr-2 h-4 w-4" />
-              Reassign author
+              {t("dashboard.content.actions.reassignAuthor")}
             </DropdownMenuItem>
           )}
           {canDelete && (
@@ -293,7 +305,7 @@ export function ContentRowActions({
                 onClick={openDeleteDialog}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Move to Deleted content
+                {t("dashboard.content.actions.moveToDeleted")}
               </DropdownMenuItem>
             </>
           )}
@@ -302,7 +314,7 @@ export function ContentRowActions({
 
       {error && (
         <p className="text-xs text-destructive mt-1 max-w-[240px] text-right">
-          {error}
+          {st(error)}
         </p>
       )}
 
@@ -322,15 +334,22 @@ export function ContentRowActions({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this content?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("dashboard.content.dialogs.deleteTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-medium">{row.title}</span> will be moved to
-              Deleted content with its revision history.
+              {t("dashboard.content.dialogs.deleteDescription", {
+                title: row.title,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {error && <p className="text-sm text-destructive px-1">{error}</p>}
+          {error && (
+            <p className="text-sm text-destructive px-1">{st(error)}</p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>
+              {t("dashboard.common.actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={actionDisabled}
               onClick={(e) => {
@@ -344,7 +363,7 @@ export function ContentRowActions({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Move to Deleted content
+              {t("dashboard.content.actions.moveToDeleted")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

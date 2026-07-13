@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { useRegionalSettings } from "@/components/regional-settings-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   HEARTBEAT_INTERVAL_SECONDS,
   LEASE_TTL_SECONDS,
@@ -385,6 +386,7 @@ function AdminSectionLockNoticeContent({
   state: LockState;
 }) {
   const { formatTime } = useRegionalSettings();
+  const st = useSourceTranslations();
 
   if (state.kind === "owner") {
     return (
@@ -394,7 +396,7 @@ function AdminSectionLockNoticeContent({
           className,
         )}
       >
-        Editing — your changes are protected by an edit lock.
+        {st("Editing — your changes are protected by an edit lock.")}
       </div>
     );
   }
@@ -406,7 +408,7 @@ function AdminSectionLockNoticeContent({
           className,
         )}
       >
-        Acquiring edit lock…
+        {st("Acquiring edit lock...")}
       </div>
     );
   }
@@ -418,11 +420,14 @@ function AdminSectionLockNoticeContent({
           className,
         )}
       >
-        Currently being edited by{" "}
-        <strong>{state.holder.userDisplayName}</strong> ({state.holder.userRole}
-        ). Last activity {formatTime(state.holder.lastHeartbeatAt)}. You can
-        view but not save changes. Another admin is editing — contact them to
-        release the lock, or wait until they close the page.
+        {st(
+          "Currently being edited by {name} ({role}). Last activity {time}. You can view but not save changes. Another admin is editing - contact them to release the lock, or wait until they close the page.",
+          {
+            name: state.holder.userDisplayName,
+            role: state.holder.userRole,
+            time: formatTime(state.holder.lastHeartbeatAt),
+          },
+        )}
       </div>
     );
   }

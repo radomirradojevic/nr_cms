@@ -13,6 +13,7 @@ import { getGlobalSettings } from "@/data/global-settings";
 import { canViewContent } from "@/lib/content-visibility";
 import { resolveAppearanceContentTemplates } from "@/lib/appearance-recipe";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { getRoles } from "@/lib/roles";
 
 export default async function Home() {
@@ -56,23 +57,22 @@ export default async function Home() {
     );
   }
 
+  const t = await getTranslations("frontend");
+
   return (
     <div className="flex flex-1 items-center justify-center px-6 py-16">
       <main className="w-full max-w-2xl rounded-lg border bg-card p-8 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">
-          No homepage configured
+          {t("public.home.noHomepage.title")}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          This site does not yet have a page assigned as its homepage. To set
-          one up, open the dashboard, create or pick a published{" "}
-          <span className="font-medium">page</span>, and use the row action{" "}
-          <span className="font-medium">&ldquo;Set as homepage&rdquo;</span>.
-          Only users with the <span className="font-medium">admin</span> role
-          can assign the homepage.
+          {t("public.home.noHomepage.description")}
         </p>
         <div className="mt-6 flex justify-center">
           <Button asChild>
-            <Link href="/dashboard/content">Go to content dashboard</Link>
+            <Link href="/dashboard/content">
+              {t("public.home.noHomepage.goToContentDashboard")}
+            </Link>
           </Button>
         </div>
       </main>

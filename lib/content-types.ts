@@ -1,3 +1,5 @@
+import type { TranslationKey } from "@/lib/i18n/keys";
+
 export const CMS_CONTENT_TYPES = [
   "page",
   "blog_post",
@@ -39,4 +41,16 @@ export function getContentTypeLabel(contentType: ContentType): string {
     case "webshop":
       return "Webshop";
   }
+}
+
+export function getContentTypeLabelKey(
+  contentType: ContentType,
+): TranslationKey {
+  return `dashboard.content.type.${contentType}` as TranslationKey;
+}
+
+export function getContentTypeDescriptionKey(
+  contentType: ContentType,
+): TranslationKey {
+  return `dashboard.content.typeDescription.${contentType}` as TranslationKey;
 }

@@ -13,6 +13,7 @@ import { UserButtonClient } from "@/components/user-button-client";
 import type { AppearanceSlotV1, HeaderRegionV1 } from "@/lib/appearance-recipe";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 import type { HeaderSettings, ResolvedSiteLogo } from "@/lib/global-settings";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 
 type SlotOf<T extends AppearanceSlotV1["type"]> = Extract<
@@ -29,12 +30,18 @@ type SiteHeaderProps = {
   isBackendUser: boolean;
   isAdmin: boolean;
   isLoggedIn: boolean;
+  hasLicenseServerShell: boolean;
   hasWebshopShell: boolean;
+  t: TranslateFn;
 };
 
 type HeaderContext = Pick<
   SiteHeaderProps,
-  "isBackendUser" | "isAdmin" | "isLoggedIn" | "hasWebshopShell"
+  | "isBackendUser"
+  | "isAdmin"
+  | "isLoggedIn"
+  | "hasLicenseServerShell"
+  | "hasWebshopShell"
 >;
 
 function slotIsVisible(
@@ -278,6 +285,7 @@ function renderSiteMenuSlot({
   isLoggedIn,
   showMobileAuthControls,
   showMobileBackendMenu,
+  hasLicenseServerShell,
   hasWebshopShell,
 }: {
   slot: SlotOf<"SiteMenu"> | null;
@@ -287,6 +295,7 @@ function renderSiteMenuSlot({
   isLoggedIn: boolean;
   showMobileAuthControls: boolean;
   showMobileBackendMenu: boolean;
+  hasLicenseServerShell: boolean;
   hasWebshopShell: boolean;
 }) {
   const menuId = slot ? navigationMenuId : null;
@@ -303,6 +312,7 @@ function renderSiteMenuSlot({
       isLoggedIn={isLoggedIn}
       showMobileAuthControls={showMobileAuthControls}
       showMobileBackendMenu={showMobileBackendMenu}
+      hasLicenseServerShell={hasLicenseServerShell}
       hasWebshopShell={hasWebshopShell}
     />
   );
@@ -312,11 +322,13 @@ function renderAdminMenuSlot({
   slot,
   isBackendUser,
   isAdmin,
+  hasLicenseServerShell,
   hasWebshopShell,
 }: {
   slot: SlotOf<"AdminMenu"> | null;
   isBackendUser: boolean;
   isAdmin: boolean;
+  hasLicenseServerShell: boolean;
   hasWebshopShell: boolean;
 }) {
   if (!slot) return null;
@@ -325,6 +337,7 @@ function renderAdminMenuSlot({
     <SiteAdminMenu
       fallbackIsBackendUser={isBackendUser}
       fallbackIsAdmin={isAdmin}
+      hasLicenseServerShell={hasLicenseServerShell}
       hasWebshopShell={hasWebshopShell}
     />
   );
@@ -332,6 +345,7 @@ function renderAdminMenuSlot({
 
 function renderAuthControlsSlot({
   slot,
+  t,
   className,
   buttonSize = "lg",
   signInClassName,
@@ -339,6 +353,7 @@ function renderAuthControlsSlot({
 }: {
   slot: SlotOf<"AuthControls"> | null;
   isLoggedIn: boolean;
+  t: TranslateFn;
   className?: string;
   buttonSize?: ComponentProps<typeof Button>["size"];
   signInClassName?: string;
@@ -356,7 +371,7 @@ function renderAuthControlsSlot({
               size={buttonSize}
               className={cn("cursor-pointer", signInClassName)}
             >
-              Sign in
+              {t("common.auth.signIn")}
             </Button>
           </SignInButton>
           <SignUpButton mode="modal">
@@ -365,7 +380,7 @@ function renderAuthControlsSlot({
               size={buttonSize}
               className={cn("cursor-pointer", signUpClassName)}
             >
-              Sign up
+              {t("common.auth.signUp")}
             </Button>
           </SignUpButton>
         </>
@@ -377,8 +392,18 @@ function renderAuthControlsSlot({
   );
 }
 
+function localizeDefaultSlotText(
+  value: string,
+  defaultValue: string,
+  localizedValue: string,
+) {
+  const trimmed = value.trim();
+  return !trimmed || trimmed === defaultValue ? localizedValue : value;
+}
+
 function renderSearchSlot(
   slot: SlotOf<"Search"> | null,
+  t: TranslateFn,
   className?: string,
   inputClassName?: string,
   resultsAlign?: ComponentProps<typeof SiteSearch>["resultsAlign"],
@@ -387,8 +412,12 @@ function renderSearchSlot(
 
   return (
     <SiteSearch
-      label={slot.label}
-      placeholder={slot.placeholder}
+      label={localizeDefaultSlotText(slot.label, "Search", t("search.title"))}
+      placeholder={localizeDefaultSlotText(
+        slot.placeholder,
+        "Search",
+        t("search.placeholder"),
+      )}
       contentTypes={slot.contentTypes}
       className={className}
       inputClassName={inputClassName}
@@ -423,7 +452,9 @@ export function SiteHeader({
   isBackendUser,
   isAdmin,
   isLoggedIn,
+  hasLicenseServerShell,
   hasWebshopShell,
+  t,
 }: SiteHeaderProps) {
   const launcher = (
     <div data-shell-header-launcher>
@@ -431,6 +462,7 @@ export function SiteHeader({
         fallbackIsBackendUser={isBackendUser}
         fallbackIsAdmin={isAdmin}
         fallbackIsLoggedIn={isLoggedIn}
+        hasLicenseServerShell={hasLicenseServerShell}
         hasWebshopShell={hasWebshopShell}
       />
     </div>
@@ -440,7 +472,13 @@ export function SiteHeader({
     return launcher;
   }
 
-  const context = { isBackendUser, isAdmin, isLoggedIn, hasWebshopShell };
+  const context = {
+    isBackendUser,
+    isAdmin,
+    isLoggedIn,
+    hasLicenseServerShell,
+    hasWebshopShell,
+  };
   const brandSlot = findEnabledSlot(region.slots, "Brand", context);
   const customHtmlSlot = findEnabledSlot(region.slots, "CustomHtml", context);
   const richTextSlot = findEnabledSlot(region.slots, "RichText", context);
@@ -470,19 +508,22 @@ export function SiteHeader({
     isLoggedIn,
     showMobileAuthControls: Boolean(authControlsSlot),
     showMobileBackendMenu: Boolean(adminMenuSlot),
+    hasLicenseServerShell,
     hasWebshopShell,
   });
   const adminMenu = renderAdminMenuSlot({
     slot: adminMenuSlot,
     isBackendUser,
     isAdmin,
+    hasLicenseServerShell,
     hasWebshopShell,
   });
   const authControls = renderAuthControlsSlot({
     slot: authControlsSlot,
     isLoggedIn,
+    t,
   });
-  const search = renderSearchSlot(searchSlot, undefined, undefined, "right");
+  const search = renderSearchSlot(searchSlot, t, undefined, undefined, "right");
   const cta = renderCtaSlot(ctaSlot);
   const stickyClass = region.sticky && "sticky top-0 z-50";
   const headerStyle = resolveHeaderStyle(region, headerH, "height");
@@ -542,7 +583,7 @@ export function SiteHeader({
         <div className="flex min-w-0 flex-wrap items-center justify-center gap-3">
           {siteMenu}
           {adminMenu}
-          {renderSearchSlot(searchSlot, undefined, undefined, "left")}
+          {renderSearchSlot(searchSlot, t, undefined, undefined, "left")}
           {cta}
           {authControls}
         </div>
@@ -616,6 +657,7 @@ export function SiteHeader({
           <div className="hidden min-w-0 justify-self-start lg:block">
             {renderSearchSlot(
               searchSlot,
+              t,
               "flex",
               "w-56 rounded-full border-border/80 bg-background/70 px-3",
               "left",
@@ -633,6 +675,7 @@ export function SiteHeader({
           {renderAuthControlsSlot({
             slot: authControlsSlot,
             isLoggedIn,
+            t,
             className: "justify-self-end gap-1.5",
             buttonSize: "sm",
             signInClassName:
@@ -648,7 +691,7 @@ export function SiteHeader({
         <div className="flex min-w-0 flex-wrap items-center justify-center gap-3 border-t pt-2">
           {siteMenu}
           {adminMenu}
-          {renderSearchSlot(searchSlot, "lg:hidden", undefined, "left")}
+          {renderSearchSlot(searchSlot, t, "lg:hidden", undefined, "left")}
           {cta}
         </div>
       </header>,

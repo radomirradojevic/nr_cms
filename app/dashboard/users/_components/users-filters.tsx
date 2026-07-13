@@ -11,10 +11,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search } from "lucide-react";
-
-const ROLES = ["viewer", "author", "publisher", "admin"] as const;
+import { useTranslations } from "@/components/i18n-provider";
+import { getRoleLabelKey, ROLES } from "@/lib/roles";
 
 export function UsersFilters() {
+  const t = useTranslations();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -59,7 +60,7 @@ export function UsersFilters() {
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
           className="pl-8"
-          placeholder="Search by username or email…"
+          placeholder={t("dashboard.users.searchPlaceholder")}
           defaultValue={search}
           onChange={(e) => {
             const value = e.target.value;
@@ -73,24 +74,30 @@ export function UsersFilters() {
         onValueChange={(val) => updateFilter({ status: val })}
       >
         <SelectTrigger className="w-36">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder={t("dashboard.filters.status")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All statuses</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="locked">Locked</SelectItem>
+          <SelectItem value="all">
+            {t("dashboard.filters.allStatuses")}
+          </SelectItem>
+          <SelectItem value="active">
+            {t("dashboard.users.status.active")}
+          </SelectItem>
+          <SelectItem value="locked">
+            {t("dashboard.users.status.locked")}
+          </SelectItem>
         </SelectContent>
       </Select>
 
       <Select value={role} onValueChange={(val) => updateFilter({ role: val })}>
         <SelectTrigger className="w-36">
-          <SelectValue placeholder="Role" />
+          <SelectValue placeholder={t("dashboard.filters.role")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All roles</SelectItem>
+          <SelectItem value="all">{t("dashboard.filters.allRoles")}</SelectItem>
           {ROLES.map((r) => (
             <SelectItem key={r} value={r}>
-              {r.charAt(0).toUpperCase() + r.slice(1)}
+              {t(getRoleLabelKey(r))}
             </SelectItem>
           ))}
         </SelectContent>
@@ -101,12 +108,16 @@ export function UsersFilters() {
         onValueChange={(val) => updateFilter({ presence: val })}
       >
         <SelectTrigger className="w-36">
-          <SelectValue placeholder="Presence" />
+          <SelectValue placeholder={t("dashboard.filters.presence")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All users</SelectItem>
-          <SelectItem value="online">Online</SelectItem>
-          <SelectItem value="offline">Offline</SelectItem>
+          <SelectItem value="all">{t("dashboard.filters.allUsers")}</SelectItem>
+          <SelectItem value="online">
+            {t("dashboard.users.presence.online")}
+          </SelectItem>
+          <SelectItem value="offline">
+            {t("dashboard.users.presence.offline")}
+          </SelectItem>
         </SelectContent>
       </Select>
     </div>

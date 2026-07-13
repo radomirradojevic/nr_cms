@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/tooltip";
 import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 import type { AIProviderId, AiProviderOption } from "@/lib/global-settings";
+import { useSourceTranslations } from "@/components/source-translations";
 
 type Props = {
   /**
@@ -250,6 +251,7 @@ function Inner({
   aiModelId?: string;
   onAiModelIdChange?: (modelId: string) => void;
 }) {
+  const t = useSourceTranslations();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [sourceMode, setSourceMode] = useState(false);
   const [sourceHtml, setSourceHtml] = useState("");
@@ -300,8 +302,9 @@ function Inner({
   function exitSourceMode() {
     if (
       !window.confirm(
-        "Exit source view? The page will be replaced with a single Raw HTML block. " +
-          "The original block structure cannot be restored automatically.",
+        t(
+          "Exit source view? The page will be replaced with a single Raw HTML block. The original block structure cannot be restored automatically.",
+        ),
       )
     ) {
       return;
@@ -374,8 +377,9 @@ function Inner({
         <div className="p-3">
           <HtmlSourceEditor value={sourceHtml} onChange={setSourceHtml} />
           <p className="mt-2 text-xs text-muted-foreground">
-            Edit raw HTML and click <strong>Visual</strong> to commit. The page
-            will be replaced with one Raw HTML block.
+            {t(
+              "Edit raw HTML and click Visual to commit. The page will be replaced with one Raw HTML block.",
+            )}
           </p>
         </div>
       ) : (
@@ -402,7 +406,7 @@ function Inner({
                 onClick={() => setViewport("desktop")}
               >
                 <Monitor className="h-4 w-4" />
-                Desktop
+                {t("Desktop")}
               </Button>
               <Button
                 type="button"
@@ -411,7 +415,7 @@ function Inner({
                 onClick={() => setViewport("tablet")}
               >
                 <Tablet className="h-4 w-4" />
-                Tablet
+                {t("Tablet")}
               </Button>
               <Button
                 type="button"
@@ -420,7 +424,7 @@ function Inner({
                 onClick={() => setViewport("mobile")}
               >
                 <Smartphone className="h-4 w-4" />
-                Mobile
+                {t("Mobile")}
               </Button>
             </div>
             <div
@@ -478,6 +482,7 @@ function RightEditorSidebar({
   onCollapsedChange: (collapsed: boolean) => void;
   settingsPanels?: PageEditorSettingsPanels;
 }) {
+  const t = useSourceTranslations();
   const { selectedId } = useEditor((state) => {
     return {
       selectedId: (Array.from(state.events.selected) as string[])[0] ?? null,
@@ -566,10 +571,10 @@ function RightEditorSidebar({
               onClick={() => onCollapsedChange(!collapsed)}
               aria-label={
                 collapsed
-                  ? "Expand settings sidebar"
-                  : "Collapse settings sidebar"
+                  ? t("Expand settings sidebar")
+                  : t("Collapse settings sidebar")
               }
-              title={collapsed ? "Expand settings" : "Collapse settings"}
+              title={collapsed ? t("Expand settings") : t("Collapse settings")}
             >
               {collapsed ? (
                 <PanelRightOpen className="h-4 w-4" />
@@ -583,7 +588,7 @@ function RightEditorSidebar({
                 collapsed && "pointer-events-none opacity-0",
               )}
             >
-              Inspector
+              {t("Inspector")}
             </span>
           </div>
 
@@ -612,11 +617,11 @@ function RightEditorSidebar({
                       "min-w-0 px-2 text-xs",
                       collapsed && "h-8 px-0",
                     )}
-                    aria-label={tab.label}
+                    aria-label={t(tab.label)}
                   >
                     {tab.icon}
                     <span className={cn(collapsed && "sr-only")}>
-                      {tab.label}
+                      {t(tab.label)}
                     </span>
                   </TabsTrigger>
                 );
@@ -624,7 +629,7 @@ function RightEditorSidebar({
                 return collapsed ? (
                   <Tooltip key={tab.value}>
                     <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-                    <TooltipContent side="left">{tab.label}</TooltipContent>
+                    <TooltipContent side="left">{t(tab.label)}</TooltipContent>
                   </Tooltip>
                 ) : (
                   trigger
@@ -642,7 +647,7 @@ function RightEditorSidebar({
                 <TabsContent key={tab.value} value={tab.value} className="m-0">
                   {tab.content ?? (
                     <p className="p-3 text-xs text-muted-foreground">
-                      No settings available.
+                      {t("No settings available.")}
                     </p>
                   )}
                 </TabsContent>

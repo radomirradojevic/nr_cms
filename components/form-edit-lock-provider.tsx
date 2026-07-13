@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { useRegionalSettings } from "@/components/regional-settings-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import {
   HEARTBEAT_INTERVAL_SECONDS,
   LEASE_TTL_SECONDS,
@@ -214,7 +215,7 @@ export function FormEditLockProvider({
       }
       setState({
         kind: "error",
-        message: json.error ?? `Failed to acquire lock (HTTP ${res.status}).`,
+        message: json.error ?? "Failed to acquire edit lock.",
       });
     } catch (err) {
       setState({
@@ -338,35 +339,38 @@ export function FormEditLockProvider({
 function FormEditLockBanner() {
   const { state } = useFormEditLock();
   const { formatTime } = useRegionalSettings();
+  const st = useSourceTranslations();
   if (state.kind === "owner") {
     return (
       <div className="mb-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-200">
-        Editing — your changes are protected by an edit lock.
+        {st("Editing — your changes are protected by an edit lock.")}
       </div>
     );
   }
   if (state.kind === "loading") {
     return (
       <div className="mb-3 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        Acquiring edit lock...
+        {st("Acquiring edit lock...")}
       </div>
     );
   }
   if (state.kind === "locked") {
     return (
       <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
-        Currently being edited by{" "}
-        <strong>{state.holder.userDisplayName}</strong> ({state.holder.userRole}
-        ). Last activity {formatTime(state.holder.lastHeartbeatAt)}. You can
-        view but not save changes. Another admin is editing — contact them to
-        release the lock, or wait until they close the page.
+        {st(
+          "This form is currently being edited by {name}. Wait until the current editor closes the page.",
+          { name: state.holder.userDisplayName },
+        )}
+        <span className="ml-1 text-xs opacity-80">
+          ({state.holder.userRole}, {formatTime(state.holder.lastHeartbeatAt)})
+        </span>
       </div>
     );
   }
   if (state.kind === "error") {
     return (
       <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-        {state.message}
+        {st(state.message)}
       </div>
     );
   }

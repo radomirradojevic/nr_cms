@@ -19,7 +19,14 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@nr-cms/addon-sdk/manifest": ["./packages/addon-sdk/src/manifest-v1.ts"],
+      "@nr-cms/addon-sdk/runtime": ["./packages/addon-sdk/src/runtime-v1.ts"],
+      "@nr-cms/addon-sdk/host-services": ["./packages/addon-sdk/src/host-services-v1.ts"],
+      "@nr-cms/addon-sdk/routing": ["./packages/addon-sdk/src/routing-v1.ts"],
+      "@nr-cms/addon-sdk/migrations": ["./packages/addon-sdk/src/migrations-v1.ts"],
+      "@nr-cms/addon-sdk/testing": ["./packages/addon-sdk/src/testing.ts"],
+      "@nr-cms/addon-sdk/customer-license-issuer": ["./packages/addon-sdk/src/customer-license-issuer-v1.ts"]
     }
   },
   "include": [

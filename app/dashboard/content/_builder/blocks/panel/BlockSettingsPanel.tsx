@@ -40,6 +40,7 @@ import type {
   SpacingStyle,
   TypographyStyle,
 } from "../style/types";
+import { useSourceTranslations } from "@/components/source-translations";
 
 export type BlockName =
   | "Section"
@@ -70,6 +71,19 @@ type Capabilities = {
   /** When true, Layout section exposes gap/flexDirection/justify/align controls. */
   flexContainer?: boolean;
 };
+
+function TranslatedSelectItem({
+  children,
+  ...props
+}: React.ComponentProps<typeof SelectItem>) {
+  const t = useSourceTranslations();
+
+  return (
+    <SelectItem {...props}>
+      {typeof children === "string" ? t(children) : children}
+    </SelectItem>
+  );
+}
 
 export const blockStyleCapabilities: Record<BlockName, Capabilities> = {
   Section: {
@@ -272,7 +286,9 @@ function TypographySection() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__unset">Default</SelectItem>
+              <TranslatedSelectItem value="__unset">
+                Default
+              </TranslatedSelectItem>
               {(
                 [
                   "100",
@@ -326,11 +342,15 @@ function TypographySection() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__unset">Default</SelectItem>
-              <SelectItem value="left">Left</SelectItem>
-              <SelectItem value="center">Center</SelectItem>
-              <SelectItem value="right">Right</SelectItem>
-              <SelectItem value="justify">Justify</SelectItem>
+              <TranslatedSelectItem value="__unset">
+                Default
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="left">Left</TranslatedSelectItem>
+              <TranslatedSelectItem value="center">Center</TranslatedSelectItem>
+              <TranslatedSelectItem value="right">Right</TranslatedSelectItem>
+              <TranslatedSelectItem value="justify">
+                Justify
+              </TranslatedSelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -350,11 +370,19 @@ function TypographySection() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__unset">Default</SelectItem>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="uppercase">UPPER</SelectItem>
-              <SelectItem value="lowercase">lower</SelectItem>
-              <SelectItem value="capitalize">Capitalize</SelectItem>
+              <TranslatedSelectItem value="__unset">
+                Default
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="none">None</TranslatedSelectItem>
+              <TranslatedSelectItem value="uppercase">
+                UPPER
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="lowercase">
+                lower
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="capitalize">
+                Capitalize
+              </TranslatedSelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -376,9 +404,11 @@ function TypographySection() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__unset">Default</SelectItem>
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="italic">Italic</SelectItem>
+              <TranslatedSelectItem value="__unset">
+                Default
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="normal">Normal</TranslatedSelectItem>
+              <TranslatedSelectItem value="italic">Italic</TranslatedSelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -398,10 +428,16 @@ function TypographySection() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__unset">Default</SelectItem>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="underline">Underline</SelectItem>
-              <SelectItem value="line-through">Line-through</SelectItem>
+              <TranslatedSelectItem value="__unset">
+                Default
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="none">None</TranslatedSelectItem>
+              <TranslatedSelectItem value="underline">
+                Underline
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="line-through">
+                Line-through
+              </TranslatedSelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -479,6 +515,7 @@ function SpacingSection({ flexContainer }: { flexContainer?: boolean }) {
 }
 
 function LayoutSection({ flexContainer }: { flexContainer?: boolean }) {
+  const t = useSourceTranslations();
   const sp = useStyleProp();
   const v = sp.get<LayoutStyle>(["layout"]) ?? {};
   const set = <K extends keyof LayoutStyle>(
@@ -515,16 +552,20 @@ function LayoutSection({ flexContainer }: { flexContainer?: boolean }) {
           }
         >
           <SelectTrigger className="h-8">
-            <SelectValue placeholder="Default" />
+            <SelectValue placeholder={t("Default")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__unset">Default</SelectItem>
-            <SelectItem value="block">Block</SelectItem>
-            <SelectItem value="inline-block">Inline-block</SelectItem>
-            <SelectItem value="flex">Flex</SelectItem>
-            <SelectItem value="inline-flex">Inline-flex</SelectItem>
-            <SelectItem value="grid">Grid</SelectItem>
-            <SelectItem value="none">None</SelectItem>
+            <TranslatedSelectItem value="__unset">Default</TranslatedSelectItem>
+            <TranslatedSelectItem value="block">Block</TranslatedSelectItem>
+            <TranslatedSelectItem value="inline-block">
+              Inline-block
+            </TranslatedSelectItem>
+            <TranslatedSelectItem value="flex">Flex</TranslatedSelectItem>
+            <TranslatedSelectItem value="inline-flex">
+              Inline-flex
+            </TranslatedSelectItem>
+            <TranslatedSelectItem value="grid">Grid</TranslatedSelectItem>
+            <TranslatedSelectItem value="none">None</TranslatedSelectItem>
           </SelectContent>
         </Select>
       </Field>
@@ -547,11 +588,19 @@ function LayoutSection({ flexContainer }: { flexContainer?: boolean }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__unset">Default</SelectItem>
-                  <SelectItem value="row">Row</SelectItem>
-                  <SelectItem value="row-reverse">Row reverse</SelectItem>
-                  <SelectItem value="column">Column</SelectItem>
-                  <SelectItem value="column-reverse">Column reverse</SelectItem>
+                  <TranslatedSelectItem value="__unset">
+                    Default
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="row">Row</TranslatedSelectItem>
+                  <TranslatedSelectItem value="row-reverse">
+                    Row reverse
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="column">
+                    Column
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="column-reverse">
+                    Column reverse
+                  </TranslatedSelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -571,12 +620,24 @@ function LayoutSection({ flexContainer }: { flexContainer?: boolean }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__unset">Default</SelectItem>
-                  <SelectItem value="stretch">Stretch</SelectItem>
-                  <SelectItem value="flex-start">Start</SelectItem>
-                  <SelectItem value="center">Center</SelectItem>
-                  <SelectItem value="flex-end">End</SelectItem>
-                  <SelectItem value="baseline">Baseline</SelectItem>
+                  <TranslatedSelectItem value="__unset">
+                    Default
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="stretch">
+                    Stretch
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="flex-start">
+                    Start
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="center">
+                    Center
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="flex-end">
+                    End
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="baseline">
+                    Baseline
+                  </TranslatedSelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -597,13 +658,27 @@ function LayoutSection({ flexContainer }: { flexContainer?: boolean }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__unset">Default</SelectItem>
-                <SelectItem value="flex-start">Start</SelectItem>
-                <SelectItem value="center">Center</SelectItem>
-                <SelectItem value="flex-end">End</SelectItem>
-                <SelectItem value="space-between">Space between</SelectItem>
-                <SelectItem value="space-around">Space around</SelectItem>
-                <SelectItem value="space-evenly">Space evenly</SelectItem>
+                <TranslatedSelectItem value="__unset">
+                  Default
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="flex-start">
+                  Start
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="center">
+                  Center
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="flex-end">
+                  End
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="space-between">
+                  Space between
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="space-around">
+                  Space around
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="space-evenly">
+                  Space evenly
+                </TranslatedSelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -624,11 +699,15 @@ function LayoutSection({ flexContainer }: { flexContainer?: boolean }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__unset">Default</SelectItem>
-              <SelectItem value="visible">Visible</SelectItem>
-              <SelectItem value="hidden">Hidden</SelectItem>
-              <SelectItem value="auto">Auto</SelectItem>
-              <SelectItem value="scroll">Scroll</SelectItem>
+              <TranslatedSelectItem value="__unset">
+                Default
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="visible">
+                Visible
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="hidden">Hidden</TranslatedSelectItem>
+              <TranslatedSelectItem value="auto">Auto</TranslatedSelectItem>
+              <TranslatedSelectItem value="scroll">Scroll</TranslatedSelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -684,10 +763,12 @@ function EffectsSection() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__unset">Default</SelectItem>
-              <SelectItem value="solid">Solid</SelectItem>
-              <SelectItem value="dashed">Dashed</SelectItem>
-              <SelectItem value="dotted">Dotted</SelectItem>
+              <TranslatedSelectItem value="__unset">
+                Default
+              </TranslatedSelectItem>
+              <TranslatedSelectItem value="solid">Solid</TranslatedSelectItem>
+              <TranslatedSelectItem value="dashed">Dashed</TranslatedSelectItem>
+              <TranslatedSelectItem value="dotted">Dotted</TranslatedSelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -720,13 +801,13 @@ function EffectsSection() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__unset">Default</SelectItem>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="xs">XS</SelectItem>
-            <SelectItem value="sm">SM</SelectItem>
-            <SelectItem value="md">MD</SelectItem>
-            <SelectItem value="lg">LG</SelectItem>
-            <SelectItem value="custom">Custom…</SelectItem>
+            <TranslatedSelectItem value="__unset">Default</TranslatedSelectItem>
+            <TranslatedSelectItem value="none">None</TranslatedSelectItem>
+            <TranslatedSelectItem value="xs">XS</TranslatedSelectItem>
+            <TranslatedSelectItem value="sm">SM</TranslatedSelectItem>
+            <TranslatedSelectItem value="md">MD</TranslatedSelectItem>
+            <TranslatedSelectItem value="lg">LG</TranslatedSelectItem>
+            <TranslatedSelectItem value="custom">Custom…</TranslatedSelectItem>
           </SelectContent>
         </Select>
         {v.boxShadow === "custom" ? (
@@ -779,10 +860,16 @@ function BackgroundSection({ allowImage }: { allowImage: boolean }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__unset">Default</SelectItem>
-                  <SelectItem value="auto">Auto</SelectItem>
-                  <SelectItem value="cover">Cover</SelectItem>
-                  <SelectItem value="contain">Contain</SelectItem>
+                  <TranslatedSelectItem value="__unset">
+                    Default
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="auto">Auto</TranslatedSelectItem>
+                  <TranslatedSelectItem value="cover">
+                    Cover
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="contain">
+                    Contain
+                  </TranslatedSelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -802,11 +889,21 @@ function BackgroundSection({ allowImage }: { allowImage: boolean }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__unset">Default</SelectItem>
-                  <SelectItem value="no-repeat">No repeat</SelectItem>
-                  <SelectItem value="repeat">Repeat</SelectItem>
-                  <SelectItem value="repeat-x">Repeat-X</SelectItem>
-                  <SelectItem value="repeat-y">Repeat-Y</SelectItem>
+                  <TranslatedSelectItem value="__unset">
+                    Default
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="no-repeat">
+                    No repeat
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="repeat">
+                    Repeat
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="repeat-x">
+                    Repeat-X
+                  </TranslatedSelectItem>
+                  <TranslatedSelectItem value="repeat-y">
+                    Repeat-Y
+                  </TranslatedSelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -827,16 +924,30 @@ function BackgroundSection({ allowImage }: { allowImage: boolean }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__unset">Default</SelectItem>
-                <SelectItem value="center">Center</SelectItem>
-                <SelectItem value="top">Top</SelectItem>
-                <SelectItem value="bottom">Bottom</SelectItem>
-                <SelectItem value="left">Left</SelectItem>
-                <SelectItem value="right">Right</SelectItem>
-                <SelectItem value="top left">Top left</SelectItem>
-                <SelectItem value="top right">Top right</SelectItem>
-                <SelectItem value="bottom left">Bottom left</SelectItem>
-                <SelectItem value="bottom right">Bottom right</SelectItem>
+                <TranslatedSelectItem value="__unset">
+                  Default
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="center">
+                  Center
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="top">Top</TranslatedSelectItem>
+                <TranslatedSelectItem value="bottom">
+                  Bottom
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="left">Left</TranslatedSelectItem>
+                <TranslatedSelectItem value="right">Right</TranslatedSelectItem>
+                <TranslatedSelectItem value="top left">
+                  Top left
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="top right">
+                  Top right
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="bottom left">
+                  Bottom left
+                </TranslatedSelectItem>
+                <TranslatedSelectItem value="bottom right">
+                  Bottom right
+                </TranslatedSelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -847,31 +958,32 @@ function BackgroundSection({ allowImage }: { allowImage: boolean }) {
 }
 
 function ResponsiveSection() {
+  const t = useSourceTranslations();
   const sp = useStyleProp();
   const hide = sp.style?.responsive?.hide ?? {};
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-muted-foreground">
-        Toggle visibility per viewport. Other responsive overrides are set by
-        switching the tabs at the top of the Settings panel and editing sections
-        — those edits apply only to the active viewport.
+        {t(
+          "Toggle visibility per viewport. Other responsive overrides are set by switching the tabs at the top of the Settings panel and editing sections — those edits apply only to the active viewport.",
+        )}
       </p>
       <div className="flex items-center justify-between rounded border px-2 py-1.5">
-        <span className="text-xs">Hide on desktop</span>
+        <span className="text-xs">{t("Hide on desktop")}</span>
         <Switch
           checked={!!hide.desktop}
           onCheckedChange={(v) => sp.setHide("desktop", v)}
         />
       </div>
       <div className="flex items-center justify-between rounded border px-2 py-1.5">
-        <span className="text-xs">Hide on tablet</span>
+        <span className="text-xs">{t("Hide on tablet")}</span>
         <Switch
           checked={!!hide.tablet}
           onCheckedChange={(v) => sp.setHide("tablet", v)}
         />
       </div>
       <div className="flex items-center justify-between rounded border px-2 py-1.5">
-        <span className="text-xs">Hide on mobile</span>
+        <span className="text-xs">{t("Hide on mobile")}</span>
         <Switch
           checked={!!hide.mobile}
           onCheckedChange={(v) => sp.setHide("mobile", v)}
@@ -882,6 +994,7 @@ function ResponsiveSection() {
 }
 
 function AnimationSection() {
+  const t = useSourceTranslations();
   const sp = useStyleProp();
   const a = (sp.style?.animation ?? {}) as AnimationStyle;
   const setKey = <K extends keyof AnimationStyle>(
@@ -902,7 +1015,9 @@ function AnimationSection() {
   if (!isDesktop) {
     return (
       <p className="text-xs text-muted-foreground">
-        Animation is configured globally — switch to the Desktop tab to edit.
+        {t(
+          "Animation is configured globally — switch to the Desktop tab to edit.",
+        )}
       </p>
     );
   }
@@ -919,12 +1034,20 @@ function AnimationSection() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="fade">Fade</SelectItem>
-            <SelectItem value="slide-up">Slide up</SelectItem>
-            <SelectItem value="slide-down">Slide down</SelectItem>
-            <SelectItem value="slide-left">Slide left</SelectItem>
-            <SelectItem value="slide-right">Slide right</SelectItem>
+            <TranslatedSelectItem value="none">None</TranslatedSelectItem>
+            <TranslatedSelectItem value="fade">Fade</TranslatedSelectItem>
+            <TranslatedSelectItem value="slide-up">
+              Slide up
+            </TranslatedSelectItem>
+            <TranslatedSelectItem value="slide-down">
+              Slide down
+            </TranslatedSelectItem>
+            <TranslatedSelectItem value="slide-left">
+              Slide left
+            </TranslatedSelectItem>
+            <TranslatedSelectItem value="slide-right">
+              Slide right
+            </TranslatedSelectItem>
           </SelectContent>
         </Select>
       </Field>
@@ -951,7 +1074,7 @@ function AnimationSection() {
         />
       </Field>
       <p className="text-[10px] text-muted-foreground">
-        Animations honor user reduced-motion preferences.
+        {t("Animations honor user reduced-motion preferences.")}
       </p>
     </div>
   );
@@ -960,6 +1083,7 @@ function AnimationSection() {
 /* ===================== Main panel ===================== */
 
 export function BlockSettingsPanel({ blockName }: { blockName: BlockName }) {
+  const t = useSourceTranslations();
   const caps = blockStyleCapabilities[blockName];
   return (
     <div className="space-y-2">
@@ -967,7 +1091,7 @@ export function BlockSettingsPanel({ blockName }: { blockName: BlockName }) {
       <Accordion type="multiple" className="border-t">
         {caps.typography ? (
           <AccordionItem value="typography">
-            <AccordionTrigger>Typography</AccordionTrigger>
+            <AccordionTrigger>{t("Typography")}</AccordionTrigger>
             <AccordionContent>
               <TypographySection />
             </AccordionContent>
@@ -975,7 +1099,7 @@ export function BlockSettingsPanel({ blockName }: { blockName: BlockName }) {
         ) : null}
         {caps.colors ? (
           <AccordionItem value="colors">
-            <AccordionTrigger>Colors</AccordionTrigger>
+            <AccordionTrigger>{t("Colors")}</AccordionTrigger>
             <AccordionContent>
               <ColorsSection />
             </AccordionContent>
@@ -983,7 +1107,7 @@ export function BlockSettingsPanel({ blockName }: { blockName: BlockName }) {
         ) : null}
         {caps.spacing ? (
           <AccordionItem value="spacing">
-            <AccordionTrigger>Spacing</AccordionTrigger>
+            <AccordionTrigger>{t("Spacing")}</AccordionTrigger>
             <AccordionContent>
               <SpacingSection flexContainer={caps.flexContainer} />
             </AccordionContent>
@@ -991,7 +1115,7 @@ export function BlockSettingsPanel({ blockName }: { blockName: BlockName }) {
         ) : null}
         {caps.layout ? (
           <AccordionItem value="layout">
-            <AccordionTrigger>Layout</AccordionTrigger>
+            <AccordionTrigger>{t("Layout")}</AccordionTrigger>
             <AccordionContent>
               <LayoutSection flexContainer={caps.flexContainer} />
             </AccordionContent>
@@ -999,7 +1123,7 @@ export function BlockSettingsPanel({ blockName }: { blockName: BlockName }) {
         ) : null}
         {caps.effects ? (
           <AccordionItem value="effects">
-            <AccordionTrigger>Borders &amp; Effects</AccordionTrigger>
+            <AccordionTrigger>{t("Borders & Effects")}</AccordionTrigger>
             <AccordionContent>
               <EffectsSection />
             </AccordionContent>
@@ -1007,7 +1131,7 @@ export function BlockSettingsPanel({ blockName }: { blockName: BlockName }) {
         ) : null}
         {caps.background ? (
           <AccordionItem value="background">
-            <AccordionTrigger>Background</AccordionTrigger>
+            <AccordionTrigger>{t("Background")}</AccordionTrigger>
             <AccordionContent>
               <BackgroundSection allowImage={caps.background} />
             </AccordionContent>
@@ -1015,7 +1139,7 @@ export function BlockSettingsPanel({ blockName }: { blockName: BlockName }) {
         ) : null}
         {caps.responsive ? (
           <AccordionItem value="responsive">
-            <AccordionTrigger>Responsive</AccordionTrigger>
+            <AccordionTrigger>{t("Responsive")}</AccordionTrigger>
             <AccordionContent>
               <ResponsiveSection />
             </AccordionContent>
@@ -1023,7 +1147,7 @@ export function BlockSettingsPanel({ blockName }: { blockName: BlockName }) {
         ) : null}
         {caps.animation ? (
           <AccordionItem value="animation">
-            <AccordionTrigger>Animation</AccordionTrigger>
+            <AccordionTrigger>{t("Animation")}</AccordionTrigger>
             <AccordionContent>
               <AnimationSection />
             </AccordionContent>

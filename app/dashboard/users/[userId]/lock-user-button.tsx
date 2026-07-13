@@ -13,6 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
 import { lockUser, unlockUser } from "@/app/dashboard/users/[userId]/actions";
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export function LockUserButton({ userId, isLocked }: Props) {
+  const t = useTranslations();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -45,24 +47,32 @@ export function LockUserButton({ userId, isLocked }: Props) {
             size="sm"
             disabled={isPending}
           >
-            {isLocked ? "Unlock User" : "Lock User"}
+            {isLocked
+              ? t("dashboard.users.unlockUser")
+              : t("dashboard.users.lockUser")}
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isLocked ? "Unlock this user?" : "Lock this user?"}
+              {isLocked
+                ? t("dashboard.users.unlockTitle")
+                : t("dashboard.users.lockTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isLocked
-                ? "This will remove the sign-in lock and restore the user's access immediately."
-                : "This will prevent the user from signing in until the lock expires (1 hour by default, configurable in Clerk Attack Protection settings). You can unlock them at any time."}
+                ? t("dashboard.users.unlockDescription")
+                : t("dashboard.users.lockDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("dashboard.common.actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirm} disabled={isPending}>
-              {isLocked ? "Unlock" : "Lock"}
+              {isLocked
+                ? t("dashboard.users.unlock")
+                : t("dashboard.users.lock")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

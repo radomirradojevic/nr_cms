@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { useTranslations } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { PageSizeSelector } from "./page-size-selector";
 
@@ -26,12 +27,18 @@ export function TablePagination({
   total,
   totalPages,
 }: TablePaginationProps) {
+  const t = useTranslations();
+
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
       <p className="text-sm text-muted-foreground">
         {label ?? (
           <>
-            Page {page} of {totalPages} &mdash; {total} total
+            {t("dashboard.pagination.pageOfTotal", {
+              page,
+              totalPages,
+              total,
+            })}
           </>
         )}
       </p>
@@ -48,7 +55,7 @@ export function TablePagination({
             disabled={disabled || page <= 1}
             onClick={() => onPageChange(page - 1)}
           >
-            Previous
+            {t("dashboard.pagination.previous")}
           </Button>
           <Button
             variant="outline"
@@ -56,7 +63,7 @@ export function TablePagination({
             disabled={disabled || page >= totalPages}
             onClick={() => onPageChange(page + 1)}
           >
-            Next
+            {t("dashboard.pagination.next")}
           </Button>
         </div>
       </div>

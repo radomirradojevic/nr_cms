@@ -1,0 +1,40 @@
+import type { CmsLanguage } from "@/lib/i18n/languages";
+import type { Messages } from "@/lib/i18n/types";
+
+type MessageLoader = () => Promise<Messages>;
+
+export const MESSAGE_LOADERS = {
+  en: () => import("./en").then((module) => module.en),
+  "sr-Latn": () => import("./sr-Latn").then((module) => module.srLatn),
+  "sr-Cyrl": () => import("./sr-Cyrl").then((module) => module.srCyrl),
+  hr: () => import("./hr").then((module) => module.hr),
+  de: () => import("./de").then((module) => module.de),
+  fr: () => import("./fr").then((module) => module.fr),
+  es: () => import("./es").then((module) => module.es),
+  it: () => import("./it").then((module) => module.it),
+  pt: () => import("./pt").then((module) => module.pt),
+  "pt-BR": () => import("./pt-BR").then((module) => module.ptBR),
+  nl: () => import("./nl").then((module) => module.nl),
+  pl: () => import("./pl").then((module) => module.pl),
+  tr: () => import("./tr").then((module) => module.tr),
+  mk: () => import("./mk").then((module) => module.mk),
+  bs: () => import("./bs").then((module) => module.bs),
+  sl: () => import("./sl").then((module) => module.sl),
+  ru: () => import("./ru").then((module) => module.ru),
+  hu: () => import("./hu").then((module) => module.hu),
+  bg: () => import("./bg").then((module) => module.bg),
+  ja: () => import("./ja").then((module) => module.ja),
+  "zh-Hans": () => import("./zh-Hans").then((module) => module.zhHans),
+  "zh-Hant": () => import("./zh-Hant").then((module) => module.zhHant),
+  ar: () => import("./ar").then((module) => module.ar),
+  id: () => import("./id").then((module) => module.id),
+  cs: () => import("./cs").then((module) => module.cs),
+  ro: () => import("./ro").then((module) => module.ro),
+  el: () => import("./el").then((module) => module.el),
+  da: () => import("./da").then((module) => module.da),
+  sv: () => import("./sv").then((module) => module.sv),
+  nb: () => import("./nb").then((module) => module.nb),
+  nn: () => import("./nn").then((module) => module.nn),
+  fi: () => import("./fi").then((module) => module.fi),
+  is: () => import("./is").then((module) => module.is),
+} satisfies Record<CmsLanguage, MessageLoader>;

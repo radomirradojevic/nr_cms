@@ -4,6 +4,7 @@ import { AdminSectionLockProvider } from "@/components/admin-section-lock-provid
 import { getAdminGlobalSettings } from "@/data/global-settings";
 import { listMenuCreators, listMenusWithItemCounts } from "@/data/top-menu";
 import { HeaderSettingsSchema } from "@/lib/global-settings";
+import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { CreateMenuDialog } from "./create-menu-dialog";
@@ -12,6 +13,7 @@ import { MenusList } from "./menus-list";
 const PAGE_SIZE = 20;
 
 export default async function MenusPage() {
+  const t = await getTranslations("backend");
   const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) {
@@ -36,9 +38,11 @@ export default async function MenusPage() {
       <AdminSectionLockProvider sectionKey="menus" currentUserId={user!.id}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Menus</h1>
+            <h1 className="text-2xl font-semibold">
+              {t("dashboard.menus.title")}
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Create and manage reusable navigation menus. Admin access only.
+              {t("dashboard.menus.description")}
             </p>
           </div>
           <CreateMenuDialog />

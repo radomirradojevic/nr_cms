@@ -1,3 +1,4 @@
+import type { TranslationKey } from "@/lib/i18n/keys";
 import type { Role } from "@/lib/roles";
 
 export const CONTENT_STATUSES = [
@@ -41,6 +42,12 @@ export function isContentStatus(value: unknown): value is ContentStatus {
 
 export function getContentStatusLabel(status: string): string {
   return isContentStatus(status) ? CONTENT_STATUS_LABELS[status] : status;
+}
+
+export function getContentStatusLabelKey(
+  status: ContentStatus,
+): TranslationKey {
+  return `dashboard.content.status.${status}` as TranslationKey;
 }
 
 export function hasElevatedContentWorkflowRole(

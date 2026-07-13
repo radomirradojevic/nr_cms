@@ -8,6 +8,8 @@ import { z } from "zod";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,19 +31,28 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createForm } from "./actions";
 
-const schema = z.object({
-  name: z.string().min(1, "Name is required.").max(120),
-  description: z.string().max(1000).optional(),
-});
-type Values = z.infer<typeof schema>;
+type Values = {
+  name: string;
+  description?: string;
+};
 
 export function CreateFormDialog() {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<Values>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(
+      z.object({
+        name: z
+          .string()
+          .min(1, t("dashboard.validation.nameRequired"))
+          .max(120),
+        description: z.string().max(1000).optional(),
+      }),
+    ),
     defaultValues: { name: "", description: "" },
   });
 
@@ -55,7 +66,7 @@ export function CreateFormDialog() {
       setServerError(res.error);
       return;
     }
-    toast.success("Form created.");
+    toast.success(t("dashboard.toasts.formCreated"));
     form.reset();
     setOpen(false);
     if ("id" in res && res.id) {
@@ -78,15 +89,16 @@ export function CreateFormDialog() {
     >
       <DialogTrigger asChild>
         <Button>
-          <Plus className="mr-2 h-4 w-4" /> New Form
+          <Plus className="mr-2 h-4 w-4" />
+          {t("dashboard.forms.newForm")}
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create form</DialogTitle>
+          <DialogTitle>{t("dashboard.forms.createTitle")}</DialogTitle>
           <DialogDescription>
-            Give it a name. You can add fields and settings after creating it.
+            {t("dashboard.forms.createDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -97,9 +109,12 @@ export function CreateFormDialog() {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>{t("dashboard.forms.name")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Contact form" {...field} />
+                    <Input
+                      placeholder={t("dashboard.forms.namePlaceholder")}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -110,7 +125,7 @@ export function CreateFormDialog() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>{t("dashboard.forms.descriptionLabel")}</FormLabel>
                   <FormControl>
                     <Textarea rows={3} {...field} />
                   </FormControl>
@@ -119,7 +134,7 @@ export function CreateFormDialog() {
               )}
             />
             {serverError && (
-              <p className="text-sm text-destructive">{serverError}</p>
+              <p className="text-sm text-destructive">{st(serverError)}</p>
             )}
             <div className="flex justify-end gap-2">
               <Button
@@ -127,13 +142,13 @@ export function CreateFormDialog() {
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t("dashboard.common.actions.cancel")}
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Create
+                {t("dashboard.common.actions.create")}
               </Button>
             </div>
           </form>

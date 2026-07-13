@@ -6,11 +6,13 @@ import { Loader2, Send, EyeOff, Save, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/i18n-provider";
+import { useSourceTranslations } from "@/components/source-translations";
 import { useFormEditLock } from "@/components/form-edit-lock-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import type { FormFieldRow, FormRow, FormSettingsRow } from "@/lib/form-types";
 import { publishForm, unpublishForm, updateForm } from "../actions";
 import { FieldBuilder } from "./field-builder";
@@ -25,6 +27,8 @@ type Props = {
 type Tab = "meta" | "fields" | "settings" | "embed";
 
 export function FormEditor({ form, fields, settings }: Props) {
+  const t = useTranslations();
+  const st = useSourceTranslations();
   const router = useRouter();
   const lock = useFormEditLock();
   const [tab, setTab] = useState<Tab>("fields");
@@ -46,22 +50,25 @@ export function FormEditor({ form, fields, settings }: Props) {
         lockClientId: lock.clientId,
       });
       if ("error" in res && res.error) {
-        toast.error(res.error);
+        toast.error(st(res.error));
         return;
       }
-      toast.success("Saved.");
+      toast.success(t("dashboard.forms.editor.saved"));
       router.refresh();
     });
   }
 
   function handlePublish() {
     startBusy(async () => {
-      const res = await publishForm({ id: form.id, lockClientId: lock.clientId });
+      const res = await publishForm({
+        id: form.id,
+        lockClientId: lock.clientId,
+      });
       if ("error" in res && res.error) {
-        toast.error(res.error);
+        toast.error(st(res.error));
         return;
       }
-      toast.success("Form published.");
+      toast.success(t("dashboard.forms.editor.published"));
       router.refresh();
     });
   }
@@ -73,48 +80,44 @@ export function FormEditor({ form, fields, settings }: Props) {
         lockClientId: lock.clientId,
       });
       if ("error" in res && res.error) {
-        toast.error(res.error);
+        toast.error(st(res.error));
         return;
       }
-      toast.success("Form unpublished.");
+      toast.success(t("dashboard.forms.editor.unpublished"));
       router.refresh();
     });
   }
 
   function copyEmbed(html: string) {
     void navigator.clipboard.writeText(html).then(
-      () => toast.success("Copied to clipboard."),
-      () => toast.error("Could not copy."),
+      () => toast.success(t("dashboard.forms.editor.copied")),
+      () => toast.error(t("dashboard.forms.editor.copyFailed")),
     );
   }
 
   const embedDiv = `<div data-cms-form-id="${form.id}"></div>`;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-        {(["meta", "fields", "settings", "embed"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              tab === t
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent",
-            )}
-          >
-            {t === "meta"
-              ? "General"
-              : t === "fields"
-                ? "Fields"
-                : t === "settings"
-                  ? "Settings"
-                  : "Embed"}
-          </button>
-        ))}
-        <div className="ml-auto flex items-center gap-2">
+    <Tabs
+      value={tab}
+      onValueChange={(value) => setTab(value as Tab)}
+      className="space-y-4"
+    >
+      <div className="flex flex-wrap items-center gap-3 border-b">
+        <TabsList className="w-auto flex-1 flex-wrap overflow-x-visible border-b-0">
+          {(["meta", "fields", "settings", "embed"] as Tab[]).map((tabId) => (
+            <TabsTrigger key={tabId} value={tabId}>
+              {tabId === "meta"
+                ? t("dashboard.forms.general")
+                : tabId === "fields"
+                  ? t("dashboard.forms.fields")
+                  : tabId === "settings"
+                    ? t("dashboard.forms.settings")
+                    : t("dashboard.forms.embed")}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <div className="ml-auto flex items-center gap-2 pb-2">
           {form.status === "published" ? (
             <Button
               variant="outline"
@@ -122,21 +125,23 @@ export function FormEditor({ form, fields, settings }: Props) {
               disabled={busy || !lock.isEditor}
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <EyeOff className="mr-2 h-4 w-4" /> Unpublish
+              <EyeOff className="mr-2 h-4 w-4" />{" "}
+              {t("dashboard.forms.editor.unpublish")}
             </Button>
           ) : (
             <Button onClick={handlePublish} disabled={busy || !lock.isEditor}>
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Send className="mr-2 h-4 w-4" /> Publish
+              <Send className="mr-2 h-4 w-4" />{" "}
+              {t("dashboard.forms.editor.publish")}
             </Button>
           )}
         </div>
       </div>
 
-      {tab === "meta" && (
+      <TabsContent value="meta" className="m-0">
         <div className="space-y-4 max-w-2xl">
           <div className="space-y-1">
-            <Label>Name</Label>
+            <Label>{t("dashboard.forms.name")}</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -145,7 +150,7 @@ export function FormEditor({ form, fields, settings }: Props) {
             />
           </div>
           <div className="space-y-1">
-            <Label>Description</Label>
+            <Label>{t("dashboard.common.table.description")}</Label>
             <Textarea
               rows={3}
               value={description}
@@ -156,7 +161,7 @@ export function FormEditor({ form, fields, settings }: Props) {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Submit button label</Label>
+              <Label>{t("dashboard.forms.editor.submitButtonLabel")}</Label>
               <Input
                 value={submitLabel}
                 onChange={(e) => setSubmitLabel(e.target.value)}
@@ -165,7 +170,7 @@ export function FormEditor({ form, fields, settings }: Props) {
               />
             </div>
             <div className="space-y-1">
-              <Label>Success message</Label>
+              <Label>{t("dashboard.forms.editor.successMessage")}</Label>
               <Input
                 value={successMessage}
                 onChange={(e) => setSuccessMessage(e.target.value)}
@@ -177,33 +182,32 @@ export function FormEditor({ form, fields, settings }: Props) {
           <div>
             <Button onClick={saveMeta} disabled={savingMeta || !lock.isEditor}>
               {savingMeta && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Save className="mr-2 h-4 w-4" /> Save
+              <Save className="mr-2 h-4 w-4" />{" "}
+              {t("dashboard.common.actions.save")}
             </Button>
           </div>
         </div>
-      )}
+      </TabsContent>
 
-      {tab === "fields" && (
+      <TabsContent value="fields" className="m-0">
         <FieldBuilder formId={form.id} initialFields={fields} />
-      )}
+      </TabsContent>
 
-      {tab === "settings" && (
+      <TabsContent value="settings" className="m-0">
         <FormSettingsForm
           formId={form.id}
           initialSettings={settings}
           fields={fields}
         />
-      )}
+      </TabsContent>
 
-      {tab === "embed" && (
+      <TabsContent value="embed" className="m-0">
         <div className="space-y-4 max-w-2xl">
           <p className="text-sm text-muted-foreground">
-            Use the page builder &ldquo;Form&rdquo; block, the blog
-            editor&rsquo;s form picker, or paste the snippet below into a Raw
-            HTML block.
+            {t("dashboard.forms.editor.embedHelp")}
           </p>
           <div className="space-y-2">
-            <Label>Embed placeholder (Raw HTML / blog post)</Label>
+            <Label>{t("dashboard.forms.editor.embedPlaceholder")}</Label>
             <div className="flex gap-2">
               <Input
                 readOnly
@@ -221,7 +225,7 @@ export function FormEditor({ form, fields, settings }: Props) {
             </div>
           </div>
         </div>
-      )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

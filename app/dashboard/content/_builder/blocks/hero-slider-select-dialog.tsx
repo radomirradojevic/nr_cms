@@ -13,11 +13,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useTranslations } from "@/components/i18n-provider";
 import {
   fetchHeroSliderPickerItems,
   type HeroSliderPickerItem,
 } from "@/app/dashboard/content/_builder/hero-slider-actions";
-import { getContentStatusLabel } from "@/lib/content-status";
+import {
+  getContentStatusLabelKey,
+  isContentStatus,
+} from "@/lib/content-status";
 import { getContentScheduleState } from "@/lib/content-schedule";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +36,7 @@ export function HeroSliderSelectDialog({
   onOpenChange,
   onSelect,
 }: Props) {
+  const t = useTranslations();
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<HeroSliderPickerItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -84,9 +89,11 @@ export function HeroSliderSelectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Select Hero Slider</DialogTitle>
+          <DialogTitle>
+            {t("dashboard.content.heroSliderPicker.title")}
+          </DialogTitle>
           <DialogDescription>
-            Choose an existing hero slider to render in this page.
+            {t("dashboard.content.heroSliderPicker.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -96,7 +103,9 @@ export function HeroSliderSelectDialog({
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search hero sliders..."
+              placeholder={t(
+                "dashboard.content.heroSliderPicker.searchPlaceholder",
+              )}
               className="pl-9"
             />
           </div>
@@ -106,11 +115,11 @@ export function HeroSliderSelectDialog({
           <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
             {pending && rows.length === 0 ? (
               <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Loading hero sliders...
+                {t("dashboard.content.heroSliderPicker.loading")}
               </p>
             ) : rows.length === 0 ? (
               <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                No hero sliders found.
+                {t("dashboard.content.heroSliderPicker.empty")}
               </p>
             ) : (
               rows.map((row) => {
@@ -137,7 +146,9 @@ export function HeroSliderSelectDialog({
                         row.status === "published" ? "default" : "outline"
                       }
                     >
-                      {getContentStatusLabel(row.status)}
+                      {isContentStatus(row.status)
+                        ? t(getContentStatusLabelKey(row.status))
+                        : row.status}
                     </Badge>
                     {scheduleState && (
                       <Badge
@@ -148,10 +159,10 @@ export function HeroSliderSelectDialog({
                         }
                       >
                         {scheduleState === "scheduled"
-                          ? "Scheduled"
+                          ? t("dashboard.content.schedule.scheduled")
                           : scheduleState === "live_until"
-                            ? "Live until"
-                            : "Expired"}
+                            ? t("dashboard.content.schedule.liveUntil")
+                            : t("dashboard.content.schedule.expired")}
                       </Badge>
                     )}
                   </button>
@@ -167,7 +178,7 @@ export function HeroSliderSelectDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t("dashboard.common.actions.cancel")}
           </Button>
           <Button
             type="button"
@@ -178,7 +189,7 @@ export function HeroSliderSelectDialog({
               onOpenChange(false);
             }}
           >
-            Use Hero Slider
+            {t("dashboard.content.heroSliderPicker.useHeroSlider")}
           </Button>
         </DialogFooter>
       </DialogContent>

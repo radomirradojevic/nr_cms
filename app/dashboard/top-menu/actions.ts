@@ -461,10 +461,10 @@ export async function reorderMenu(input: ReorderMenuInput, clientId?: string) {
   const pendingParent = new Map<string, string | null>();
   for (const u of updates) {
     if (!byId.has(u.id)) {
-      return { error: `Menu item ${u.id} does not exist.` };
+      return { error: "Selected menu item does not exist." };
     }
     if (u.parentId && !byId.has(u.parentId)) {
-      return { error: `Parent ${u.parentId} does not exist.` };
+      return { error: "Selected parent menu item does not exist." };
     }
     if (u.parentId === u.id) {
       return { error: "An item cannot be its own parent." };

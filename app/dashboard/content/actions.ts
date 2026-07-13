@@ -1169,7 +1169,7 @@ export async function restoreContentRevision(
 
   const warnings = [
     revisionStatus !== restoredStatus
-      ? `Status restored as ${restoredStatus} instead of ${revisionStatus}.`
+      ? "Status was adjusted during restore."
       : null,
     revision.homepage && !restoredHomepage
       ? "Homepage flag was not restored."

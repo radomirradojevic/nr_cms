@@ -1,10 +1,21 @@
 import { clerkClient } from "@clerk/nextjs/server";
+import {
+  Activity,
+  ArrowLeft,
+  CalendarDays,
+  Mail,
+  ShieldCheck,
+  User,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
-import { hasRole, getRoles, type Role } from "@/lib/roles";
+import { getRoleLabelKey, hasRole, getRoles, type Role } from "@/lib/roles";
+import { getTranslations } from "@/lib/i18n/server";
 import { EditUserDialog } from "@/app/dashboard/users/[userId]/edit-user-dialog";
 import { LockUserButton } from "@/app/dashboard/users/[userId]/lock-user-button";
 import { ForceSignOutButton } from "@/app/dashboard/users/[userId]/force-signout-button";
@@ -27,6 +38,7 @@ type Props = {
 };
 
 export default async function UserDetailPage({ params }: Props) {
+  const t = await getTranslations("backend");
   const { userId: targetUserId } = await params;
   const caller = await getOptionalCurrentUser();
 
@@ -64,74 +76,151 @@ export default async function UserDetailPage({ params }: Props) {
     month: "long",
     day: "numeric",
   }).format(new Date(user.createdAt));
+  const statusLabel = user.locked
+    ? t("dashboard.users.status.locked")
+    : t("dashboard.users.status.active");
+  const presenceLabel = isOnline
+    ? t("dashboard.users.presence.online")
+    : t("dashboard.users.presence.offline");
+  const headerSummaryParts = [
+    displayName !== "—" ? displayName : null,
+    email !== "—" ? email : null,
+  ].filter(Boolean);
+  const headerSummary = headerSummaryParts.length
+    ? headerSummaryParts.join(" - ")
+    : user.id;
 
   return (
-    <div className="max-w-xl space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <Button variant="ghost" size="sm" asChild className="mb-2 -ml-2">
-            <Link href="/dashboard/users">← Back to Users</Link>
-          </Button>
-          <h1 className="text-2xl font-semibold">User Details</h1>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end [&_button]:w-full sm:[&_button]:w-auto">
-          <ForceSignOutButton
-            userId={user.id}
-            disabled={user.id === caller?.id || !isOnline}
-          />
-          <LockUserButton userId={user.id} isLocked={user.locked ?? false} />
-          <EditUserDialog userId={user.id} currentRoles={roles} />
-          <DeleteUserButton userId={user.id} />
-        </div>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <Button variant="outline" size="sm" asChild className="w-fit">
+          <Link href="/dashboard/users">
+            <ArrowLeft aria-hidden className="size-4" />
+            {t("dashboard.users.backToUsers")}
+          </Link>
+        </Button>
 
-      <div className="border rounded-lg divide-y">
-        <Row label="Username" value={displayName} />
-        <Row label="Email" value={email} />
-        <Row label="Member since" value={createdAt} />
-        <Row
-          label="Status"
-          value={
-            <Badge variant={user.locked ? "destructive" : "secondary"}>
-              {user.locked ? "Locked" : "Active"}
-            </Badge>
-          }
-        />
-        <Row
-          label="Presence"
-          value={
-            <span className="flex items-center gap-1.5">
-              <span
-                className={`h-2 w-2 rounded-full shrink-0 ${
-                  isOnline ? "bg-green-500" : "bg-muted-foreground/40"
-                }`}
-              />
-              <span className="text-sm">{isOnline ? "Online" : "Offline"}</span>
-            </span>
-          }
-        />
-        <Row
-          label="Roles"
-          value={
-            <div className="flex flex-wrap gap-1">
-              {roles.map((role) => (
-                <Badge key={role} variant={roleBadgeVariant[role]}>
-                  {role}
-                </Badge>
-              ))}
+        <div className="flex flex-col gap-4 border-b pb-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-3">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                {t("dashboard.users.detailsTitle")}
+              </h1>
+              <p className="mt-1 break-words text-sm text-muted-foreground">
+                {headerSummary}
+              </p>
             </div>
-          }
-        />
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={user.locked ? "destructive" : "secondary"}>
+                {statusLabel}
+              </Badge>
+              <span className="inline-flex h-5 items-center gap-1.5 rounded-full border border-border px-2 text-xs font-medium">
+                <span
+                  className={`size-2 shrink-0 rounded-full ${
+                    isOnline ? "bg-green-500" : "bg-muted-foreground/40"
+                  }`}
+                />
+                {presenceLabel}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 min-[460px]:grid-cols-2 lg:flex lg:flex-wrap lg:justify-end [&_[data-slot=button]]:w-full lg:[&_[data-slot=button]]:w-auto">
+            <EditUserDialog userId={user.id} currentRoles={roles} />
+            <ForceSignOutButton
+              userId={user.id}
+              disabled={user.id === caller?.id || !isOnline}
+            />
+            <LockUserButton userId={user.id} isLocked={user.locked ?? false} />
+            <DeleteUserButton userId={user.id} />
+          </div>
+        </div>
+
+        <section
+          aria-label={t("dashboard.users.detailsTitle")}
+          className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm"
+        >
+          <dl className="grid gap-px bg-border sm:grid-cols-2">
+            <DetailItem
+              icon={User}
+              label={t("dashboard.users.labels.username")}
+              value={displayName}
+            />
+            <DetailItem
+              icon={Mail}
+              label={t("dashboard.users.labels.email")}
+              value={email}
+            />
+            <DetailItem
+              icon={CalendarDays}
+              label={t("dashboard.users.labels.memberSince")}
+              value={createdAt}
+            />
+            <DetailItem
+              icon={ShieldCheck}
+              label={t("dashboard.users.labels.status")}
+              value={
+                <Badge variant={user.locked ? "destructive" : "secondary"}>
+                  {statusLabel}
+                </Badge>
+              }
+            />
+            <DetailItem
+              icon={Activity}
+              label={t("dashboard.users.labels.presence")}
+              value={
+                <span className="flex items-center gap-2">
+                  <span
+                    className={`size-2 shrink-0 rounded-full ${
+                      isOnline ? "bg-green-500" : "bg-muted-foreground/40"
+                    }`}
+                  />
+                  <span>{presenceLabel}</span>
+                </span>
+              }
+            />
+            <DetailItem
+              icon={Users}
+              label={t("dashboard.users.labels.roles")}
+              value={
+                <div className="flex flex-wrap gap-1.5">
+                  {roles.map((role) => (
+                    <Badge key={role} variant={roleBadgeVariant[role]}>
+                      {t(getRoleLabelKey(role))}
+                    </Badge>
+                  ))}
+                </div>
+              }
+            />
+          </dl>
+        </section>
       </div>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+function DetailItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
-    <div className="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-center sm:gap-4">
-      <span className="text-sm text-muted-foreground sm:shrink-0">{label}</span>
-      <div className="min-w-0 break-words text-sm">{value}</div>
+    <div className="flex min-h-24 gap-3 bg-card p-4 sm:p-5">
+      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background text-muted-foreground">
+        <Icon aria-hidden className="size-4" />
+      </span>
+      <div className="min-w-0 space-y-1">
+        <dt className="text-xs font-medium uppercase text-muted-foreground">
+          {label}
+        </dt>
+        <dd className="min-w-0 break-words text-sm font-medium leading-6">
+          {value}
+        </dd>
+      </div>
     </div>
   );
 }

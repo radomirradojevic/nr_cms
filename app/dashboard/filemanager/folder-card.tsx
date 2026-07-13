@@ -1,6 +1,7 @@
 "use client";
 
 import { Folder, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { useTranslations } from "@/components/i18n-provider";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,8 @@ export function FolderCard({
   onRename,
   onDelete,
 }: Props) {
+  const t = useTranslations();
+
   return (
     <Card className="overflow-hidden p-0 group relative flex flex-col">
       {canManage && (
@@ -43,13 +46,15 @@ export function FolderCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => onRename(folder)}>
-                <Pencil className="mr-2 h-4 w-4" /> Rename
+                <Pencil className="mr-2 h-4 w-4" />
+                {t("dashboard.files.actions.rename")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => onDelete(folder)}
                 className="text-destructive focus:text-destructive"
               >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t("dashboard.common.actions.delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -68,7 +73,9 @@ export function FolderCard({
           <p className="text-sm font-medium truncate" title={folder.name}>
             {folder.name}
           </p>
-          <p className="text-xs text-muted-foreground">Folder</p>
+          <p className="text-xs text-muted-foreground">
+            {t("dashboard.files.folder.folderLabel")}
+          </p>
         </div>
       </button>
     </Card>

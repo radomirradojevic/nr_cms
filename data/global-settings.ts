@@ -28,6 +28,7 @@ import {
   type SessionSecuritySettings,
   type UpdateGlobalSettingsInput,
 } from "@/lib/global-settings";
+import { normalizeCmsLanguageSettings } from "@/lib/i18n/languages";
 import { normalizeRegionalSettings } from "@/lib/regional-settings";
 import {
   parseAppearanceRecipe,
@@ -121,6 +122,26 @@ function isMissingRegionalSettingsColumns(err: unknown): boolean {
   );
 }
 
+function isMissingCmsLanguageColumns(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : "";
+  const cause =
+    typeof err === "object" && err !== null && "cause" in err
+      ? (err as { cause?: unknown }).cause
+      : null;
+  const causeCode =
+    typeof cause === "object" && cause !== null && "code" in cause
+      ? (cause as { code?: unknown }).code
+      : null;
+  const causeMessage = cause instanceof Error ? cause.message : "";
+  return (
+    causeCode === "42703" &&
+    (message.includes("frontend_language") ||
+      message.includes("backend_language") ||
+      causeMessage.includes("frontend_language") ||
+      causeMessage.includes("backend_language"))
+  );
+}
+
 function isMissingAiWritingAssistantColumns(err: unknown): boolean {
   const message = err instanceof Error ? err.message : "";
   const cause =
@@ -170,6 +191,7 @@ function isMissingContentHistoryColumn(err: unknown): boolean {
 async function loadGlobalSettingsRows(
   includeAppearanceRecipe: boolean,
   includeRegionalSettings: boolean,
+  includeCmsLanguages: boolean,
   includeAiWritingAssistant: boolean,
   includeAiWebshopAssistant: boolean,
   includeContentHistory: boolean,
@@ -182,6 +204,12 @@ async function loadGlobalSettingsRows(
         ? {
             defaultLanguage: globalSettings.defaultLanguage,
             timezone: globalSettings.timezone,
+          }
+        : {}),
+      ...(includeCmsLanguages
+        ? {
+            frontendLanguage: globalSettings.frontendLanguage,
+            backendLanguage: globalSettings.backendLanguage,
           }
         : {}),
       siteLogoFileId: globalSettings.siteLogoFileId,
@@ -239,6 +267,7 @@ async function loadGlobalSettingsRows(
 async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
   let includeAppearanceRecipe = true;
   let includeRegionalSettings = true;
+  let includeCmsLanguages = true;
   let includeAiWritingAssistant = true;
   let includeAiWebshopAssistant = true;
   let includeContentHistory = true;
@@ -249,6 +278,7 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
       rows = await loadGlobalSettingsRows(
         includeAppearanceRecipe,
         includeRegionalSettings,
+        includeCmsLanguages,
         includeAiWritingAssistant,
         includeAiWebshopAssistant,
         includeContentHistory,
@@ -261,6 +291,10 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
       }
       if (includeRegionalSettings && isMissingRegionalSettingsColumns(err)) {
         includeRegionalSettings = false;
+        continue;
+      }
+      if (includeCmsLanguages && isMissingCmsLanguageColumns(err)) {
+        includeCmsLanguages = false;
         continue;
       }
       if (
@@ -301,6 +335,12 @@ async function loadResolvedGlobalSettings(): Promise<ResolvedGlobalSettings> {
   return {
     siteName: row.siteName,
     publicSiteUrl: row.publicSiteUrl,
+    languages: normalizeCmsLanguageSettings({
+      frontendLanguage:
+        "frontendLanguage" in row ? row.frontendLanguage : undefined,
+      backendLanguage:
+        "backendLanguage" in row ? row.backendLanguage : undefined,
+    }),
     regional: normalizeRegionalSettings({
       defaultLanguage:
         "defaultLanguage" in row ? row.defaultLanguage : undefined,
@@ -409,11 +449,12 @@ export const getGlobalSettings = unstable_cache(
       return normalizeResolvedGlobalSettings(DEFAULT_RESOLVED_GLOBAL_SETTINGS);
     }
   },
-  ["global-settings:resolved:v15"],
+  ["global-settings:resolved:v16"],
   { tags: [GLOBAL_SETTINGS_TAG] },
 );
 
 async function loadRawGlobalSettingsRows(
+  includeCmsLanguages: boolean,
   includeAiProviderSettings: boolean,
   includeAiPageBuilderAssistant: boolean,
   includeAiWebshopAssistant: boolean,
@@ -424,6 +465,12 @@ async function loadRawGlobalSettingsRows(
       id: globalSettings.id,
       siteName: globalSettings.siteName,
       publicSiteUrl: globalSettings.publicSiteUrl,
+      ...(includeCmsLanguages
+        ? {
+            frontendLanguage: globalSettings.frontendLanguage,
+            backendLanguage: globalSettings.backendLanguage,
+          }
+        : {}),
       defaultLanguage: globalSettings.defaultLanguage,
       timezone: globalSettings.timezone,
       siteLogoFileId: globalSettings.siteLogoFileId,
@@ -481,6 +528,7 @@ async function loadRawGlobalSettingsRows(
 
 export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> {
   let rows: Awaited<ReturnType<typeof loadRawGlobalSettingsRows>>;
+  let includeCmsLanguages = true;
   let includeAiProviderSettings = true;
   let includeAiPageBuilderAssistant = true;
   let includeAiWebshopAssistant = true;
@@ -489,6 +537,7 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       rows = await loadRawGlobalSettingsRows(
+        includeCmsLanguages,
         includeAiProviderSettings,
         includeAiPageBuilderAssistant,
         includeAiWebshopAssistant,
@@ -496,6 +545,10 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
       );
       break;
     } catch (err) {
+      if (includeCmsLanguages && isMissingCmsLanguageColumns(err)) {
+        includeCmsLanguages = false;
+        continue;
+      }
       if (includeContentHistory && isMissingContentHistoryColumn(err)) {
         includeContentHistory = false;
         continue;
@@ -525,10 +578,18 @@ export async function getRawGlobalSettings(): Promise<GlobalSettingsRow | null> 
     aiDefaultProvider?: GlobalSettingsRow["aiDefaultProvider"];
     aiProviderSettings?: GlobalSettingsRow["aiProviderSettings"];
     contentHistoryEnabled?: boolean;
+    frontendLanguage?: GlobalSettingsRow["frontendLanguage"];
+    backendLanguage?: GlobalSettingsRow["backendLanguage"];
   };
 
   return {
     ...row,
+    frontendLanguage:
+      rowWithOptionalAi.frontendLanguage ??
+      DEFAULT_RESOLVED_GLOBAL_SETTINGS.languages.frontendLanguage,
+    backendLanguage:
+      rowWithOptionalAi.backendLanguage ??
+      DEFAULT_RESOLVED_GLOBAL_SETTINGS.languages.backendLanguage,
     aiPageBuilderAssistantEnabled:
       rowWithOptionalAi.aiPageBuilderAssistantEnabled ?? false,
     aiWebshopAssistantEnabled:
@@ -708,6 +769,8 @@ export async function updateGlobalSettings(
   const values = {
     siteName: input.siteName,
     publicSiteUrl: input.publicSiteUrl,
+    frontendLanguage: input.frontendLanguage,
+    backendLanguage: input.backendLanguage,
     defaultLanguage: input.defaultLanguage,
     timezone: input.timezone,
     siteLogoFileId: input.siteLogoFileId,
@@ -748,28 +811,38 @@ export async function updateGlobalSettings(
     idleLogoutMinutes: input.idleLogoutMinutes,
     updatedBy: userId,
   };
-  const insertValues = {
-    id: SINGLETON_ID,
-    ...values,
-  };
+  let includeCmsLanguages = true;
+  let includeContentHistory = true;
 
-  try {
-    await db.insert(globalSettings).values(insertValues).onConflictDoUpdate({
-      target: globalSettings.id,
-      set: values,
-    });
-  } catch (err) {
-    if (!isMissingContentHistoryColumn(err)) throw err;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const valuesForWrite: Partial<typeof values> = { ...values };
+    if (!includeCmsLanguages) {
+      delete valuesForWrite.frontendLanguage;
+      delete valuesForWrite.backendLanguage;
+    }
+    if (!includeContentHistory) {
+      delete valuesForWrite.contentHistoryEnabled;
+    }
 
-    const { contentHistoryEnabled, ...valuesWithoutContentHistory } = values;
-    void contentHistoryEnabled;
-
-    await db
-      .insert(globalSettings)
-      .values({ id: SINGLETON_ID, ...valuesWithoutContentHistory })
-      .onConflictDoUpdate({
-        target: globalSettings.id,
-        set: valuesWithoutContentHistory,
-      });
+    try {
+      await db
+        .insert(globalSettings)
+        .values({ id: SINGLETON_ID, ...valuesForWrite })
+        .onConflictDoUpdate({
+          target: globalSettings.id,
+          set: valuesForWrite,
+        });
+      return;
+    } catch (err) {
+      if (includeCmsLanguages && isMissingCmsLanguageColumns(err)) {
+        includeCmsLanguages = false;
+        continue;
+      }
+      if (includeContentHistory && isMissingContentHistoryColumn(err)) {
+        includeContentHistory = false;
+        continue;
+      }
+      throw err;
+    }
   }
 }

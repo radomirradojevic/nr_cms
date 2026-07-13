@@ -9,9 +9,15 @@ import {
   useTransition,
 } from "react";
 import Script from "next/script";
+import { useTranslations } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { CmsFormField, type FieldValue } from "./cms-form-field";
 import type { FormDetail, FormFieldRow } from "@/lib/form-types";
+import {
+  getPublicMessageTextFromUnknown,
+  publicMessage,
+} from "@/lib/i18n/public-message";
+import type { TranslateFn } from "@/lib/i18n/translate";
 
 declare global {
   interface Window {
@@ -36,6 +42,31 @@ export type CmsFormRendererProps = {
   form: FormDetail;
 };
 
+function translateApiMessage(
+  value: unknown,
+  t: TranslateFn,
+  fallback: ReturnType<typeof publicMessage>,
+): string {
+  return getPublicMessageTextFromUnknown(value, t, fallback);
+}
+
+function translateFieldErrors(
+  value: unknown,
+  t: TranslateFn,
+): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  const fallback = publicMessage(
+    "public.forms.errors.invalidFieldValue",
+    "Invalid field value.",
+  );
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key.length > 0)
+      .map(([key, error]) => [key, translateApiMessage(error, t, fallback)]),
+  );
+}
+
 function initialValueFor(f: FormFieldRow): FieldValue {
   if (f.fieldType === "checkbox") {
     const opts = (f.options ?? {}) as {
@@ -47,6 +78,7 @@ function initialValueFor(f: FormFieldRow): FieldValue {
 }
 
 export function CmsFormRenderer({ form }: CmsFormRendererProps) {
+  const t = useTranslations();
   const titleId = useId();
   const [pending, startTransition] = useTransition();
   const [values, setValues] = useState<Record<string, FieldValue>>(() => {
@@ -138,7 +170,7 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
     if (enableTurnstile && !siteKey) {
       setErrors((p) => ({
         ...p,
-        [field.fieldKey]: "Captcha is not configured.",
+        [field.fieldKey]: t("public.forms.errors.captchaNotConfigured"),
       }));
       return;
     }
@@ -146,7 +178,7 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
       setArmed(true);
       setErrors((p) => ({
         ...p,
-        [field.fieldKey]: "Please complete the captcha before uploading.",
+        [field.fieldKey]: t("public.forms.errors.completeCaptchaBeforeUpload"),
       }));
       return;
     }
@@ -169,10 +201,13 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
       });
       const data: unknown = await res.json().catch(() => ({}));
       if (!res.ok || !data || typeof data !== "object" || !("fileId" in data)) {
-        const msg =
+        const msg = translateApiMessage(
           data && typeof data === "object" && "error" in data
-            ? String((data as { error: unknown }).error)
-            : "Upload failed.";
+            ? (data as { error: unknown }).error
+            : undefined,
+          t,
+          publicMessage("public.forms.errors.uploadFailed", "Upload failed."),
+        );
         setErrors((p) => ({ ...p, [field.fieldKey]: msg }));
         return;
       }
@@ -189,7 +224,10 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
         size: d.size,
       });
     } catch {
-      setErrors((p) => ({ ...p, [field.fieldKey]: "Upload failed." }));
+      setErrors((p) => ({
+        ...p,
+        [field.fieldKey]: t("public.forms.errors.uploadFailed"),
+      }));
     } finally {
       setUploadingFor((s) => {
         const next = new Set(s);
@@ -217,23 +255,23 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
         f.fieldType === "radio"
       ) {
         if (!v || (typeof v === "string" && v.trim() === "")) {
-          errs[f.fieldKey] = "This field is required.";
+          errs[f.fieldKey] = t("public.forms.errors.requiredField");
         }
       } else if (f.fieldType === "number") {
         if (v === "" || v === null || v === undefined) {
-          errs[f.fieldKey] = "This field is required.";
+          errs[f.fieldKey] = t("public.forms.errors.requiredField");
         }
       } else if (f.fieldType === "checkbox") {
         if (Array.isArray(opts.choices) && opts.choices.length > 0) {
           if (!Array.isArray(v) || (v as string[]).length === 0) {
-            errs[f.fieldKey] = "This field is required.";
+            errs[f.fieldKey] = t("public.forms.errors.requiredField");
           }
         } else if (!v) {
-          errs[f.fieldKey] = "This field is required.";
+          errs[f.fieldKey] = t("public.forms.errors.requiredField");
         }
       } else if (f.fieldType === "file") {
         if (!v || typeof v !== "object") {
-          errs[f.fieldKey] = "This field is required.";
+          errs[f.fieldKey] = t("public.forms.errors.requiredField");
         }
       }
     }
@@ -248,15 +286,15 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
     const fieldErrs = validateRequired();
     if (Object.keys(fieldErrs).length > 0) {
       setErrors(fieldErrs);
-      setTopError("Please fill in all required fields.");
+      setTopError(t("public.forms.errors.fillRequiredFields"));
       return;
     }
     if (enableTurnstile && !token) {
-      setTopError("Please complete the captcha.");
+      setTopError(t("public.forms.errors.completeCaptcha"));
       return;
     }
     if (uploadingFor.size > 0) {
-      setTopError("Please wait for file uploads to finish.");
+      setTopError(t("public.forms.errors.waitForUploads"));
       return;
     }
     const payload = {
@@ -280,12 +318,18 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
             data.fieldErrors &&
             typeof data.fieldErrors === "object"
           ) {
-            setErrors(data.fieldErrors as Record<string, string>);
+            setErrors(translateFieldErrors(data.fieldErrors, t));
           }
-          const msg =
+          const msg = translateApiMessage(
             data && typeof data === "object" && "error" in data
-              ? String((data as { error: unknown }).error)
-              : "Submission failed. Please try again.";
+              ? (data as { error: unknown }).error
+              : undefined,
+            t,
+            publicMessage(
+              "public.forms.errors.submissionFailed",
+              "Submission failed. Please try again.",
+            ),
+          );
           setTopError(msg);
           resetWidget();
           return;
@@ -306,7 +350,7 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
         setValues(fresh);
         resetWidget();
       } catch {
-        setTopError("Submission failed. Please try again.");
+        setTopError(t("public.forms.errors.submissionFailed"));
         resetWidget();
       }
     });
@@ -363,7 +407,9 @@ export function CmsFormRenderer({ form }: CmsFormRendererProps) {
           </p>
         )}
         <Button type="submit" disabled={pending || uploadingFor.size > 0}>
-          {pending ? "Submitting…" : form.form.submitLabel}
+          {pending
+            ? t("public.forms.states.submitting")
+            : form.form.submitLabel}
         </Button>
       </form>
     </>

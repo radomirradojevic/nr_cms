@@ -9,9 +9,14 @@ import {
   insertSubmission,
   updateSubmissionEmailStatus,
 } from "@/data/forms";
-import { buildFormValuesSchema, normalizeValues } from "@/lib/form-validation";
+import {
+  buildFormValuesSchema,
+  getPublicFormValidationError,
+  normalizeValues,
+} from "@/lib/form-validation";
 import { getClientIp, hashIp } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { publicMessage, type PublicMessage } from "@/lib/i18n/public-message";
 import {
   interpolateTemplate,
   sendEmail,
@@ -39,11 +44,32 @@ const GENERIC_ERROR = "We could not submit your form. Please try again.";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function genericResponse(status: number, message = GENERIC_ERROR) {
+function genericResponse(
+  status: number,
+  error: PublicMessage = publicMessage(
+    "public.forms.errors.couldNotSubmit",
+    GENERIC_ERROR,
+  ),
+) {
   return NextResponse.json(
-    { error: message },
+    { error },
     { status, headers: { "Cache-Control": "no-store" } },
   );
+}
+
+function submissionRateLimitError(reason: string): PublicMessage {
+  switch (reason) {
+    case "Too many submissions. Slow down.":
+      return publicMessage("public.forms.errors.tooManySubmissions", reason);
+    case "Hourly submission limit reached.":
+      return publicMessage("public.forms.errors.hourlySubmissionLimit", reason);
+    case "Daily submission limit reached.":
+      return publicMessage("public.forms.errors.dailySubmissionLimit", reason);
+    case "Duplicate submission detected.":
+      return publicMessage("public.forms.errors.duplicateSubmission", reason);
+    default:
+      return publicMessage("public.forms.errors.rateLimited", reason);
+  }
 }
 
 async function isSameOrigin(): Promise<boolean> {
@@ -66,30 +92,63 @@ export async function POST(
   try {
     const { id } = await ctx.params;
     if (!UUID_RE.test(id)) {
-      return genericResponse(404, "Form not found.");
+      return genericResponse(
+        404,
+        publicMessage("public.forms.errors.formNotFound", "Form not found."),
+      );
     }
 
     if (!(await isSameOrigin())) {
-      return genericResponse(403, "Invalid request origin.");
+      return genericResponse(
+        403,
+        publicMessage(
+          "public.forms.errors.invalidOrigin",
+          "Invalid request origin.",
+        ),
+      );
     }
 
     const lengthHeader = req.headers.get("content-length");
     if (lengthHeader && Number(lengthHeader) > MAX_BODY) {
-      return genericResponse(413, "Payload too large.");
+      return genericResponse(
+        413,
+        publicMessage(
+          "public.forms.errors.payloadTooLarge",
+          "Payload too large.",
+        ),
+      );
     }
     const text = await req.text();
     if (text.length > MAX_BODY) {
-      return genericResponse(413, "Payload too large.");
+      return genericResponse(
+        413,
+        publicMessage(
+          "public.forms.errors.payloadTooLarge",
+          "Payload too large.",
+        ),
+      );
     }
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
     } catch {
-      return genericResponse(400, "Malformed request.");
+      return genericResponse(
+        400,
+        publicMessage(
+          "public.forms.errors.malformedRequest",
+          "Malformed request.",
+        ),
+      );
     }
     if (!parsed || typeof parsed !== "object") {
-      return genericResponse(400, "Malformed request.");
+      return genericResponse(
+        400,
+        publicMessage(
+          "public.forms.errors.malformedRequest",
+          "Malformed request.",
+        ),
+      );
     }
     const body = parsed as {
       values?: Record<string, unknown>;
@@ -97,29 +156,45 @@ export async function POST(
     };
 
     const detail = await getPublishedFormById(id);
-    if (!detail) return genericResponse(404, "Form not found.");
+    if (!detail) {
+      return genericResponse(
+        404,
+        publicMessage("public.forms.errors.formNotFound", "Form not found."),
+      );
+    }
 
     const schema = buildFormValuesSchema(detail.fields);
     const result = schema.safeParse(body.values ?? {});
     if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
+      const fieldErrors: Record<string, PublicMessage> = {};
       for (const issue of result.error.issues) {
         const k = String(issue.path[0] ?? "");
-        if (k && !fieldErrors[k]) fieldErrors[k] = issue.message;
+        if (k && !fieldErrors[k]) {
+          fieldErrors[k] = getPublicFormValidationError(issue.message);
+        }
       }
       return NextResponse.json(
-        { error: "Please fix the highlighted fields.", fieldErrors },
+        {
+          error: publicMessage(
+            "public.forms.errors.fixHighlightedFields",
+            "Please fix the highlighted fields.",
+          ),
+          fieldErrors,
+        },
         { status: 400, headers: { "Cache-Control": "no-store" } },
       );
     }
     const values = normalizeValues(result.data, detail.fields);
-    const fileErrors: Record<string, string> = {};
+    const fileErrors: Record<string, PublicMessage> = {};
     for (const field of detail.fields) {
       if (field.fieldType !== "file") continue;
       const value = values[field.fieldKey];
       if (value === undefined || value === null) continue;
       if (typeof value !== "object" || Array.isArray(value)) {
-        fileErrors[field.fieldKey] = "Invalid file upload.";
+        fileErrors[field.fieldKey] = publicMessage(
+          "public.forms.errors.invalidFileUpload",
+          "Invalid file upload.",
+        );
         continue;
       }
       const fileValue = value as {
@@ -128,19 +203,28 @@ export async function POST(
         size?: unknown;
       };
       if (typeof fileValue.fileId !== "string") {
-        fileErrors[field.fieldKey] = "Invalid file upload.";
+        fileErrors[field.fieldKey] = publicMessage(
+          "public.forms.errors.invalidFileUpload",
+          "Invalid file upload.",
+        );
         continue;
       }
       const fileRow = await getFileByIdUnchecked(fileValue.fileId);
       if (!fileRow || !isFormUploadOwner(fileRow.uploadedBy, id)) {
-        fileErrors[field.fieldKey] = "Invalid file upload.";
+        fileErrors[field.fieldKey] = publicMessage(
+          "public.forms.errors.invalidFileUpload",
+          "Invalid file upload.",
+        );
         continue;
       }
       if (
         fileRow.mimeType !== fileValue.mime ||
         fileRow.sizeBytes !== fileValue.size
       ) {
-        fileErrors[field.fieldKey] = "Invalid file upload metadata.";
+        fileErrors[field.fieldKey] = publicMessage(
+          "public.forms.errors.invalidFileUploadMetadata",
+          "Invalid file upload metadata.",
+        );
         continue;
       }
       const validation = (field.validation ?? {}) as {
@@ -152,19 +236,28 @@ export async function POST(
         validation.accept.length > 0 &&
         !validation.accept.includes(fileRow.mimeType)
       ) {
-        fileErrors[field.fieldKey] = "File type not allowed.";
+        fileErrors[field.fieldKey] = publicMessage(
+          "public.forms.errors.fileTypeNotAllowed",
+          "File type not allowed.",
+        );
       }
       if (
         validation.maxFileSizeKb &&
         fileRow.sizeBytes > validation.maxFileSizeKb * 1024
       ) {
-        fileErrors[field.fieldKey] = "File exceeds the field size limit.";
+        fileErrors[field.fieldKey] = publicMessage(
+          "public.forms.errors.fileExceedsFieldLimit",
+          "File exceeds the field size limit.",
+        );
       }
     }
     if (Object.keys(fileErrors).length > 0) {
       return NextResponse.json(
         {
-          error: "Please fix the highlighted fields.",
+          error: publicMessage(
+            "public.forms.errors.fixHighlightedFields",
+            "Please fix the highlighted fields.",
+          ),
           fieldErrors: fileErrors,
         },
         { status: 400, headers: { "Cache-Control": "no-store" } },
@@ -177,10 +270,24 @@ export async function POST(
     if (detail.settings.enableTurnstile) {
       const tok = body.turnstileToken;
       if (!tok || typeof tok !== "string") {
-        return genericResponse(400, "Captcha required.");
+        return genericResponse(
+          400,
+          publicMessage(
+            "public.forms.errors.captchaRequired",
+            "Captcha required.",
+          ),
+        );
       }
       const ok = await verifyTurnstile(tok, ip);
-      if (!ok) return genericResponse(400, "Captcha verification failed.");
+      if (!ok) {
+        return genericResponse(
+          400,
+          publicMessage(
+            "public.forms.errors.captchaVerificationFailed",
+            "Captcha verification failed.",
+          ),
+        );
+      }
     }
 
     const payloadHash = createHash("md5")
@@ -192,7 +299,9 @@ export async function POST(
       ipHash,
       payloadHash,
     });
-    if (!rl.allowed) return genericResponse(429, rl.reason);
+    if (!rl.allowed) {
+      return genericResponse(429, submissionRateLimitError(rl.reason));
+    }
 
     const h = await headers();
     const submission = await insertSubmission({
