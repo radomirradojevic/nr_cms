@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { safeFetch } from "@/lib/security/outbound-url";
 
 import type {
   LicenseServerAddonState,
@@ -14,11 +15,16 @@ import {
   type LicenseServerAddonLoadResult,
 } from "@/lib/license-server-addon/loader";
 import { verifyLicenseServerDeploymentPlatform } from "@/lib/license-server-addon/platform";
+import { verifyVendorAddonEntitlement } from "@/lib/vendor-addon-entitlements/verified-entitlement";
+import { getOrCreateVendorAddonInstallationIdentity, signVendorAddonActivationPayload } from "@/lib/vendor-addon-installation";
 
 const ActivationResponseSchema = z.object({
+  activationId: z.string().uuid(),
   entitlementToken: z.string().min(1),
   expiresAt: z.string().datetime(),
   features: z.array(z.string()).default([]),
+  installationId: z.string().uuid().optional(),
+  installationKeyFingerprint: z.string().optional(),
   licenseKeyRef: z.string().min(1),
   packageInstallToken: z.string().optional(),
   packageInstallTokenExpiresAt: z.string().datetime().optional(),
@@ -27,7 +33,12 @@ const ActivationResponseSchema = z.object({
 });
 
 const RevalidationResponseSchema = z.object({
+  activationId: z.string().uuid(),
   checkedAt: z.string().datetime().optional(),
+  entitlementToken: z.string().min(1),
+  installationId: z.string().uuid(),
+  installationKeyFingerprint: z.string(),
+  signingKid: z.string().min(1),
   existingLicenseValidationPolicy: z
     .enum(["allow_existing", "disabled"])
     .default("allow_existing"),
@@ -39,6 +50,7 @@ const RevalidationResponseSchema = z.object({
   packageVersion: z.string().optional(),
   status: z.enum(["ready", "expired", "revoked", "invalid"]),
 });
+const ActivationChallengeSchema = z.object({ challengeId: z.string().uuid(), expiresAt: z.string().datetime(), ok: z.literal(true), signaturePayload: z.string().min(1) });
 
 export type LicenseServerActivationResponse = z.infer<
   typeof ActivationResponseSchema
@@ -54,6 +66,8 @@ export const LICENSE_SERVER_ENTITLEMENT_REVALIDATION_INTERVAL_MS =
 export type LicenseServerEntitlementState = {
   deploymentEnvironment?: string | null;
   entitlementToken?: string | null;
+  installationId?: string | null;
+  installationKeyFingerprint?: string | null;
   expiresAt?: Date | null;
   features?: unknown;
   licenseKeyRef?: string | null;
@@ -66,6 +80,18 @@ export type LicenseServerEntitlementState = {
   providerProjectId?: string | null;
   status: string;
 };
+
+export function verifyLicenseServerSignedEntitlement(entitlement: LicenseServerEntitlementState, canonicalDomain: string, now = new Date()) {
+  if (!entitlement.entitlementToken || !entitlement.installationId || !entitlement.installationKeyFingerprint) throw new Error("License Server signed entitlement cache is incomplete.");
+  return verifyVendorAddonEntitlement(entitlement.entitlementToken, {
+    addonKey: "license-server",
+    canonicalDomain,
+    installationId: entitlement.installationId,
+    installationKeyFingerprint: entitlement.installationKeyFingerprint,
+    now,
+    publicKeysByKid: configuredVendorPublicKeys(),
+  });
+}
 
 export type InstalledLicenseServerLicenseModeResult =
   | { status: "ready"; mode: "ready" }
@@ -137,6 +163,17 @@ export function resolveLicenseServerAddonStateFromInputs({
     };
   }
 
+  if (
+    process.env.NODE_ENV === "production" ||
+    process.env.VENDOR_SIGNED_ENTITLEMENTS_V1 === "true"
+  ) {
+    try {
+      verifyLicenseServerSignedEntitlement(entitlement, expectedDomain());
+    } catch (error) {
+      return { status: "license_invalid", reason: error instanceof Error ? error.message : "License Server entitlement signature is invalid." };
+    }
+  }
+
   if (entitlement.status === "expired") {
     return {
       status: "license_expired",
@@ -162,6 +199,17 @@ export function resolveLicenseServerAddonStateFromInputs({
   return { status: "ready", addon: loadResult.addon };
 }
 
+function configuredVendorPublicKeys() {
+  const raw = process.env.NR_VENDOR_ENTITLEMENT_PUBLIC_KEYS_JSON;
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+  } catch { return {}; }
+}
+function expectedDomain() { return process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL ?? "unknown"; }
+
 export async function resolveLicenseServerAddonState(): Promise<LicenseServerAddonState> {
   const runtimeConfig = getLicenseServerRuntimeConfig();
   const disabledMessage = getLicenseServerDisabledMessage(runtimeConfig);
@@ -171,7 +219,7 @@ export async function resolveLicenseServerAddonState(): Promise<LicenseServerAdd
 
   const { getLicenseServerAddonEntitlement } =
     await import("@/data/license-server-addon-entitlement");
-  const loadResult = await loadLicenseServerAddon(runtimeConfig.addonModule);
+  const loadResult = await loadLicenseServerAddon();
 
   if (loadResult.status === "not_installed") {
     const entitlement = await maybeRevalidateLicenseServerAddonEntitlement(
@@ -253,7 +301,7 @@ export async function requestLicenseServerLicenseActivation({
   deploymentPlatform,
   licenseKey,
   siteDomain,
-  siteId,
+  siteId: _siteId,
 }: {
   deploymentPlatform: Extract<
     LicenseServerDeploymentPlatform,
@@ -266,27 +314,22 @@ export async function requestLicenseServerLicenseActivation({
   | { ok: true; entitlement: LicenseServerActivationResponse }
   | { ok: false; error: string }
 > {
+  void _siteId;
   const licenseServerUrl = getLicenseServerRuntimeConfig().licenseApiUrl;
   if (!licenseServerUrl) {
     return { ok: false, error: "Master license server is not configured." };
   }
 
-  const response = await fetch(
-    joinUrl(licenseServerUrl, "/api/addons/licenses/activate"),
-    {
-      body: JSON.stringify({
-        addonKey: "license-server",
-        deploymentPlatform,
-        licenseKey,
-        siteDomain,
-        siteId,
-      }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    },
-  );
+  const deploymentMode = deploymentPlatform.provider === "vercel" ? "vercel" : "self_hosted";
+  let identity: Awaited<ReturnType<typeof getOrCreateVendorAddonInstallationIdentity>>;
+  try { identity = await getOrCreateVendorAddonInstallationIdentity({ canonicalDomain: siteDomain, deploymentMode }); } catch { return { ok: false, error: "Server-only installation identity is not configured." }; }
+  const challengeResponse = await safeFetch(joinUrl(licenseServerUrl, "/api/addons/licenses/activate"), { allowFirstParty: true, body: JSON.stringify({ action: "challenge", addonKey: "license-server", canonicalDomain: siteDomain, deploymentMode, installationId: identity.installationId, installationKeyFingerprint: identity.installationKeyFingerprint, installationPublicKey: identity.installationPublicKey, licenseKey, platformSubject: deploymentPlatform.ownerId }), headers: { "content-type": "application/json" }, method: "POST", purpose: "License Server activation challenge", timeoutMs: 5000 }).catch(() => null);
+  if (!challengeResponse?.ok) return { ok: false, error: "License Server activation challenge was rejected by the master license server." };
+  const challenge = ActivationChallengeSchema.safeParse(await challengeResponse.json());
+  if (!challenge.success) return { ok: false, error: "Master license server returned an invalid activation challenge." };
+  const response = await safeFetch(joinUrl(licenseServerUrl, "/api/addons/licenses/activate"), { allowFirstParty: true, body: JSON.stringify({ action: "complete", challengeId: challenge.data.challengeId, challengeSignature: signVendorAddonActivationPayload(identity, challenge.data.signaturePayload) }), headers: { "content-type": "application/json" }, method: "POST", purpose: "License Server activation completion", timeoutMs: 5000 }).catch(() => null);
 
-  if (!response.ok) {
+  if (!response?.ok) {
     return {
       ok: false,
       error:
@@ -307,15 +350,9 @@ export async function requestLicenseServerLicenseActivation({
 }
 
 export async function requestLicenseServerLicenseRevalidation({
-  deploymentPlatform,
-  entitlementToken,
-  siteDomain,
-  siteId,
+  activationId,
 }: {
-  deploymentPlatform: LicenseServerDeploymentPlatform;
-  entitlementToken: string;
-  siteDomain: string;
-  siteId: string;
+  activationId: string;
 }): Promise<
   | { ok: true; entitlement: LicenseServerRevalidationResponse }
   | { ok: false; error: string; statusCode?: number }
@@ -327,18 +364,15 @@ export async function requestLicenseServerLicenseRevalidation({
 
   let response: Response;
   try {
-    response = await fetch(
+    response = await safeFetch(
       joinUrl(licenseServerUrl, "/api/addons/licenses/revalidate"),
       {
-        body: JSON.stringify({
-          addonKey: "license-server",
-          deploymentPlatform,
-          entitlementToken,
-          siteDomain,
-          siteId,
-        }),
+        body: JSON.stringify({ activationId }),
         headers: { "content-type": "application/json" },
+        allowFirstParty: true,
         method: "POST",
+        purpose: "License Server entitlement revalidation",
+        timeoutMs: 5000,
       },
     );
   } catch {
@@ -448,12 +482,10 @@ export async function revalidateLicenseServerAddonEntitlement({
     };
   }
 
-  const context = await getLicenseServerRevalidationContext(entitlement);
+  const activationId = stringValue(asRecord(entitlement.metadata).activationId);
+  if (!activationId) return { entitlement, error: "Stored License Server activation reference is missing.", ok: false };
   const revalidation = await requestLicenseServerLicenseRevalidation({
-    deploymentPlatform: context.deploymentPlatform,
-    entitlementToken: storedEntitlementToken,
-    siteDomain: context.siteDomain,
-    siteId: context.siteId,
+    activationId,
   });
 
   const checkedAt = new Date().toISOString();
@@ -505,7 +537,11 @@ export async function revalidateLicenseServerAddonEntitlement({
     expiresAt: new Date(revalidation.entitlement.expiresAt),
     features: revalidation.entitlement.features,
     licenseKeyRef: revalidation.entitlement.licenseKeyRef,
+    entitlementToken: revalidation.entitlement.entitlementToken,
+    installationId: revalidation.entitlement.installationId,
+    installationKeyFingerprint: revalidation.entitlement.installationKeyFingerprint,
     metadata: mergeMetadata(entitlement.metadata, {
+      activationId: revalidation.entitlement.activationId,
       existingLicenseValidationPolicy:
         revalidation.entitlement.existingLicenseValidationPolicy,
       lastRevalidatedAt: revalidation.entitlement.checkedAt ?? checkedAt,
@@ -523,7 +559,7 @@ export async function revalidateLicenseServerAddonEntitlement({
 
   await saveLicenseServerAddonEntitlement({
     deploymentEnvironment: nextEntitlement.deploymentEnvironment,
-    entitlementToken: storedEntitlementToken,
+    entitlementToken: revalidation.entitlement.entitlementToken,
     expiresAt: nextEntitlement.expiresAt,
     features: nextEntitlement.features,
     licenseKeyRef: nextEntitlement.licenseKeyRef,
@@ -561,32 +597,6 @@ async function maybeRevalidateLicenseServerAddonEntitlement(
   return result.entitlement ?? entitlement;
 }
 
-async function getLicenseServerRevalidationContext(
-  entitlement: LicenseServerEntitlementState,
-) {
-  const runtimeConfig = getLicenseServerRuntimeConfig();
-  const { getGlobalSettings } = await import("@/data/global-settings");
-  const settings = await getGlobalSettings();
-  const siteDomain =
-    settings.publicSiteUrl ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.APP_URL ??
-    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
-    process.env.VERCEL_URL ??
-    "unknown";
-  const deploymentPlatform = await verifyLicenseServerDeploymentPlatform({
-    selfHostedSiteId:
-      runtimeConfig.selfHostedSiteId ??
-      entitlement.providerProjectId ??
-      siteDomain,
-  });
-
-  return {
-    deploymentPlatform,
-    siteDomain,
-    siteId: entitlement.providerProjectId ?? deploymentPlatform.projectId,
-  };
-}
 
 function shouldFailClosedForRevalidationError(statusCode: number | undefined) {
   return statusCode === 401 || statusCode === 403 || statusCode === 404;

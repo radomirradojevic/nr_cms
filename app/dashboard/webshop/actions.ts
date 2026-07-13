@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { saveWebshopAddonEntitlement } from "@/data/webshop-addon-entitlement";
 import { getGlobalSettings } from "@/data/global-settings";
+import { buildRedeployCallbackRequest } from "@/lib/addon-runtime/redeploy-callback";
+import { safeFetch } from "@/lib/security/outbound-url";
 import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
@@ -72,6 +74,9 @@ export async function activateWebshopAddonAction(
   const deploymentPlatform = await verifyWebshopDeploymentPlatform({
     selfHostedSiteId: runtimeConfig.selfHostedSiteId ?? siteDomain,
   });
+  if (deploymentPlatform.status !== "supported") {
+    return { status: "error", message: deploymentPlatform.message };
+  }
 
   const activation = await requestWebshopLicenseActivation({
     deploymentPlatform,
@@ -84,21 +89,28 @@ export async function activateWebshopAddonAction(
     return { status: "error", message: activation.error };
   }
 
-  const loadResult = await loadWebshopAddon(runtimeConfig.addonModule);
+  const loadResult = await loadWebshopAddon();
   if (
     runtimeConfig.redeployWebhookUrl &&
-    activation.entitlement.packageInstallToken
+    runtimeConfig.redeployAuthKid &&
+    runtimeConfig.redeployAuthSecret
   ) {
-    await fetch(runtimeConfig.redeployWebhookUrl, {
-      body: JSON.stringify({
-        packageInstallToken: activation.entitlement.packageInstallToken,
-        packageInstallTokenExpiresAt:
-          activation.entitlement.packageInstallTokenExpiresAt ?? null,
-        packageName: activation.entitlement.packageName ?? null,
-        packageVersion: activation.entitlement.packageVersion ?? null,
-      }),
-      headers: { "content-type": "application/json" },
+    const callback = buildRedeployCallbackRequest({
+      auth: {
+        kid: runtimeConfig.redeployAuthKid,
+        secret: runtimeConfig.redeployAuthSecret,
+      },
+      packageName: activation.entitlement.packageName ?? null,
+      packageVersion: activation.entitlement.packageVersion ?? null,
+      url: runtimeConfig.redeployWebhookUrl,
+    });
+    await safeFetch(callback.url, {
+      allowFirstParty: true,
+      body: callback.body,
+      headers: callback.headers,
       method: "POST",
+      purpose: "Webshop redeploy callback",
+      timeoutMs: 10_000,
     }).catch(() => null);
   }
   const entitlementStatus =
@@ -109,7 +121,13 @@ export async function activateWebshopAddonAction(
     entitlementToken: activation.entitlement.entitlementToken,
     expiresAt: new Date(activation.entitlement.expiresAt),
     features: activation.entitlement.features,
+    installationId: activation.entitlement.installationId ?? null,
+    installationKeyFingerprint: activation.entitlement.installationKeyFingerprint ?? null,
     licenseKeyRef: activation.entitlement.licenseKeyRef,
+    metadata: {
+      activationId: activation.entitlement.activationId,
+      lastRevalidationSuccessAt: new Date().toISOString(),
+    },
     packageName: activation.entitlement.packageName ?? null,
     packageVersion: activation.entitlement.packageVersion ?? null,
     provider: deploymentPlatform.provider,

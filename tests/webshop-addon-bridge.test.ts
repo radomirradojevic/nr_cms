@@ -22,10 +22,7 @@ import {
   resolveInstalledWebshopLicenseModeFromEntitlement,
   resolveWebshopAddonStateFromInputs,
 } from "@/lib/webshop-addon/license";
-import {
-  LOCAL_PRIVATE_WEBSHOP_MODULE,
-  loadWebshopAddon,
-} from "@/lib/webshop-addon/loader";
+import { loadWebshopAddon } from "@/lib/webshop-addon/loader";
 import {
   getSelfHostedDeploymentPlatform,
   getUnsupportedPlatformFromHint,
@@ -61,72 +58,19 @@ function createTestAddonI18nContext() {
   });
 }
 
-test("optional webshop add-on loader returns not_installed without module config", async () => {
-  const result = await loadWebshopAddon("");
+test("empty build-time registry returns not_installed", async () => {
+  const result = await loadWebshopAddon();
   assert.equal(result.status, "not_installed");
 });
 
-test("local private webshop alias requires explicit dev opt-in", async () => {
-  const originalValue = process.env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL;
-  delete process.env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL;
-  const result = await loadWebshopAddon(LOCAL_PRIVATE_WEBSHOP_MODULE);
-  if (originalValue === undefined) {
-    delete process.env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL;
-  } else {
-    process.env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL = originalValue;
-  }
-
+test("arbitrary runtime module paths are rejected", async () => {
+  const result = await loadWebshopAddon("C:/untrusted/addon.js");
   assert.equal(result.status, "invalid");
-  assert.match(result.reason, /WEBSHOP_ALLOW_LOCAL_DEV_INSTALL=true/);
-});
-
-test("local private webshop alias is restricted to localhost development", async () => {
-  const env = process.env as Record<string, string | undefined>;
-  const originalAllow = env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL;
-  const originalNodeEnv = env.NODE_ENV;
-  const originalAppUrl = env.APP_URL;
-
-  try {
-    env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL = "true";
-    env.NODE_ENV = "production";
-    delete env.APP_URL;
-
-    const productionResult = await loadWebshopAddon(
-      LOCAL_PRIVATE_WEBSHOP_MODULE,
-    );
-    assert.equal(productionResult.status, "invalid");
-    assert.match(productionResult.reason, /NODE_ENV=development/);
-
-    env.NODE_ENV = "development";
-    env.APP_URL = "https://cms.example.com";
-
-    const publicUrlResult = await loadWebshopAddon(
-      LOCAL_PRIVATE_WEBSHOP_MODULE,
-    );
-    assert.equal(publicUrlResult.status, "invalid");
-    assert.match(publicUrlResult.reason, /localhost/);
-  } finally {
-    if (originalAllow === undefined) {
-      delete env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL;
-    } else {
-      env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL = originalAllow;
-    }
-    if (originalNodeEnv === undefined) {
-      delete env.NODE_ENV;
-    } else {
-      env.NODE_ENV = originalNodeEnv;
-    }
-    if (originalAppUrl === undefined) {
-      delete env.APP_URL;
-    } else {
-      env.APP_URL = originalAppUrl;
-    }
-  }
+  assert.match(result.reason, /allowlisted/);
 });
 
 test("webshop rollout config parses explicit feature flags", () => {
   const config = getWebshopRuntimeConfig({
-    WEBSHOP_ADDON_MODULE: " @nr-cms/webshop ",
     WEBSHOP_CHECKOUT_ENABLED: "off",
     WEBSHOP_ENABLED: "true",
     WEBSHOP_INSTALL_MODE: "disabled",
@@ -136,13 +80,21 @@ test("webshop rollout config parses explicit feature flags", () => {
   });
 
   assert.equal(parseWebshopBoolean("yes", false), true);
-  assert.equal(config.addonModule, "@nr-cms/webshop");
   assert.equal(config.checkoutEnabled, false);
   assert.equal(config.enabled, true);
   assert.equal(config.installMode, "disabled");
   assert.equal(config.paymentsMode, "live");
   assert.equal(config.selfHostedSiteId, "nr-cms.example.com");
   assert.equal(config.storefrontEnabled, false);
+});
+
+test("Webshop production defaults are disabled until explicitly enabled", () => {
+  const config = getWebshopRuntimeConfig({ NODE_ENV: "production" });
+  assert.equal(config.enabled, false);
+  assert.equal(config.checkoutEnabled, false);
+  assert.equal(config.storefrontEnabled, false);
+  assert.equal(config.installMode, "disabled");
+  assert.equal(config.paymentsMode, "test");
 });
 
 test("webshop install gate blocks disabled rollout states", () => {
@@ -375,22 +327,19 @@ test("self-hosted platform identity uses stable install id fallbacks", () => {
   );
 });
 
-test("platform verification allows local deployment before package token flow", async () => {
+test("platform verification requires an explicit self-hosted deployment mode", async () => {
   const result = await verifyWebshopDeploymentPlatform({ env: {} });
 
   assert.deepEqual(result, {
-    deploymentEnvironment: "self_hosted",
-    mode: "standalone",
-    ownerId: "self_hosted",
-    projectId: "self_hosted",
-    provider: "self_hosted",
-    status: "supported",
+    status: "unsupported",
+    reason: "self_hosted",
+    message: "Self-hosted activation requires explicit WEBSHOP_DEPLOYMENT_MODE=self_hosted.",
   });
 });
 
 test("platform verification treats non-vercel managed providers as self-hosted installs", async () => {
   const result = await verifyWebshopDeploymentPlatform({
-    env: { NETLIFY: "true", WEBSHOP_SELF_HOSTED_SITE_ID: "netlify-site" },
+    env: { NETLIFY: "true", WEBSHOP_DEPLOYMENT_MODE: "self_hosted", WEBSHOP_SELF_HOSTED_SITE_ID: "netlify-site" },
   });
 
   assert.deepEqual(result, {
@@ -403,7 +352,7 @@ test("platform verification treats non-vercel managed providers as self-hosted i
   });
 });
 
-test("platform verification falls back to self-hosted when OIDC is rejected", async () => {
+test("platform verification rejects failed Vercel attestation without self-hosted fallback", async () => {
   const result = await verifyWebshopDeploymentPlatform({
     env: {
       VERCEL: "1",
@@ -415,14 +364,7 @@ test("platform verification falls back to self-hosted when OIDC is rejected", as
     fetcher: async () => new Response(null, { status: 401 }),
   });
 
-  assert.deepEqual(result, {
-    deploymentEnvironment: "self_hosted",
-    mode: "standalone",
-    ownerId: "self_hosted",
-    projectId: "vercel-fallback",
-    provider: "self_hosted",
-    status: "supported",
-  });
+  assert.deepEqual(result, { status: "unsupported", reason: "invalid_attestation", message: "Vercel deployment attestation could not be verified; self-hosted fallback is forbidden." });
 });
 
 test("platform verification accepts license-server verified vercel production OIDC", async () => {
@@ -553,6 +495,37 @@ test("license state maps loaded add-on entitlement cases", () => {
     }).status,
     "ready",
   );
+});
+
+test("production Webshop state always rejects an unsigned entitlement", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const previousNodeEnv = env.NODE_ENV;
+  const previousFlag = env.VENDOR_SIGNED_ENTITLEMENTS_V1;
+  env.NODE_ENV = "production";
+  env.VENDOR_SIGNED_ENTITLEMENTS_V1 = "false";
+  try {
+    const state = resolveWebshopAddonStateFromInputs({
+      entitlement: {
+        status: "ready",
+        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+      },
+      loadResult: { status: "loaded", addon: fakeAddon },
+      runtimeConfig: getWebshopRuntimeConfig({
+        NODE_ENV: "production",
+        WEBSHOP_ENABLED: "true",
+        WEBSHOP_CHECKOUT_ENABLED: "true",
+        WEBSHOP_STOREFRONT_ENABLED: "true",
+        WEBSHOP_INSTALL_MODE: "managed_redeploy",
+      }),
+    });
+    assert.equal(state.status, "license_invalid");
+  } finally {
+    if (previousNodeEnv === undefined) delete env.NODE_ENV;
+    else env.NODE_ENV = previousNodeEnv;
+    if (previousFlag === undefined)
+      delete env.VENDOR_SIGNED_ENTITLEMENTS_V1;
+    else env.VENDOR_SIGNED_ENTITLEMENTS_V1 = previousFlag;
+  }
 });
 
 test("installed webshop license mode gates create versus edit modes", () => {

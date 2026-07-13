@@ -17,12 +17,9 @@ export type ClientUploadTicketPayload = {
 };
 
 function getTicketSecret(): string {
-  const secret =
-    process.env.BLOB_READ_WRITE_TOKEN ?? process.env.CLERK_SECRET_KEY;
+  const secret = process.env.BLOB_READ_WRITE_TOKEN?.trim();
   if (!secret) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN or CLERK_SECRET_KEY is required for upload tickets.",
-    );
+    throw new Error("BLOB_READ_WRITE_TOKEN is required for upload tickets.");
   }
   return secret;
 }

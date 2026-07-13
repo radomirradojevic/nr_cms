@@ -19,10 +19,7 @@ export async function buildLicenseServerLicenseBuyUrl() {
   const payload = Buffer.from(
     JSON.stringify({ addon: "license-server", domain, expiresAt, v: 1 }),
   ).toString("base64url");
-  const secret =
-    process.env.LICENSE_SERVER_BUY_LINK_SECRET ??
-    process.env.AUTH_SECRET ??
-    "development-license-server-buy-link-secret";
+  const secret = requiredBuyLinkSecret();
   const signature = createHmac("sha256", secret)
     .update(payload)
     .digest("base64url");
@@ -32,4 +29,10 @@ export async function buildLicenseServerLicenseBuyUrl() {
   url.searchParams.set("addon", "license-server");
   url.searchParams.set("domain", `${payload}.${signature}`);
   return url.toString();
+}
+
+function requiredBuyLinkSecret() {
+  const secret = process.env.LICENSE_SERVER_BUY_LINK_SECRET?.trim();
+  if (!secret) throw new Error("LICENSE_SERVER_BUY_LINK_SECRET must be configured.");
+  return secret;
 }

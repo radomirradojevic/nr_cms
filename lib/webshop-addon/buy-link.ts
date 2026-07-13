@@ -33,10 +33,7 @@ export async function buildWebshopLicenseBuyUrl() {
   const payload = Buffer.from(
     JSON.stringify({ addon: "webshop", domain, expiresAt, v: 1 }),
   ).toString("base64url");
-  const secret =
-    process.env.WEBSHOP_BUY_LINK_SECRET ??
-    process.env.AUTH_SECRET ??
-    "development-webshop-buy-link-secret";
+  const secret = requiredBuyLinkSecret();
   const signature = createHmac("sha256", secret)
     .update(payload)
     .digest("base64url");
@@ -44,4 +41,10 @@ export async function buildWebshopLicenseBuyUrl() {
   url.searchParams.set("addon", "webshop");
   url.searchParams.set("domain", `${payload}.${signature}`);
   return url.toString();
+}
+
+function requiredBuyLinkSecret() {
+  const secret = process.env.WEBSHOP_BUY_LINK_SECRET?.trim();
+  if (!secret) throw new Error("WEBSHOP_BUY_LINK_SECRET must be configured.");
+  return secret;
 }

@@ -98,6 +98,11 @@ export type WebshopAddon = {
     input: WebshopContentCategoriesBridgeInput,
   ): Promise<ReactNode>;
   listMigrations?(): Promise<WebshopMigration[]>;
+  jobs?: {
+    webshopLicenseFulfillment?(input: { limit: number; policy: "settle_existing_obligations" }): Promise<{
+      claimed: number; deadLettered: number; retried: number; succeeded: number;
+    }>;
+  };
 };
 
 export type WebshopAddonState =

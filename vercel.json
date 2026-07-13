@@ -4,6 +4,14 @@
     {
       "path": "/api/cron/content-publishing",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/webshop-license-issues",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/webshop-entitlement",
+      "schedule": "17 3 * * *"
     }
   ]
 }

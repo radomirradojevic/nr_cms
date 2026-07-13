@@ -84,6 +84,41 @@ test("license server add-on state maps loaded entitlement cases", () => {
   );
 });
 
+test("License Server production defaults are disabled until explicitly enabled", () => {
+  const config = getLicenseServerRuntimeConfig({ NODE_ENV: "production" });
+  assert.equal(config.enabled, false);
+  assert.equal(config.installMode, "disabled");
+});
+
+test("production License Server state always rejects an unsigned entitlement", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const previousNodeEnv = env.NODE_ENV;
+  const previousFlag = env.VENDOR_SIGNED_ENTITLEMENTS_V1;
+  env.NODE_ENV = "production";
+  env.VENDOR_SIGNED_ENTITLEMENTS_V1 = "false";
+  try {
+    const state = resolveLicenseServerAddonStateFromInputs({
+      entitlement: {
+        status: "ready",
+        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+      },
+      loadResult: { status: "loaded", addon: fakeAddon },
+      runtimeConfig: getLicenseServerRuntimeConfig({
+        NODE_ENV: "production",
+        LICENSE_SERVER_ENABLED: "true",
+        LICENSE_SERVER_INSTALL_MODE: "managed_redeploy",
+      }),
+    });
+    assert.equal(state.status, "license_invalid");
+  } finally {
+    if (previousNodeEnv === undefined) delete env.NODE_ENV;
+    else env.NODE_ENV = previousNodeEnv;
+    if (previousFlag === undefined)
+      delete env.VENDOR_SIGNED_ENTITLEMENTS_V1;
+    else env.VENDOR_SIGNED_ENTITLEMENTS_V1 = previousFlag;
+  }
+});
+
 test("installed license server mode blocks new issue after expiry or revocation", () => {
   const now = new Date("2026-06-07T00:00:00.000Z");
 

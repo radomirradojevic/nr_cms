@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { saveLicenseServerAddonEntitlement } from "@/data/license-server-addon-entitlement";
 import { getGlobalSettings } from "@/data/global-settings";
+import { buildRedeployCallbackRequest } from "@/lib/addon-runtime/redeploy-callback";
+import { safeFetch } from "@/lib/security/outbound-url";
 import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
@@ -72,6 +74,9 @@ export async function activateLicenseServerAddonAction(
   const deploymentPlatform = await verifyLicenseServerDeploymentPlatform({
     selfHostedSiteId: runtimeConfig.selfHostedSiteId ?? siteDomain,
   });
+  if (deploymentPlatform.status !== "supported") {
+    return { status: "error", message: deploymentPlatform.message };
+  }
 
   const activation = await requestLicenseServerLicenseActivation({
     deploymentPlatform,
@@ -84,21 +89,28 @@ export async function activateLicenseServerAddonAction(
     return { status: "error", message: activation.error };
   }
 
-  const loadResult = await loadLicenseServerAddon(runtimeConfig.addonModule);
+  const loadResult = await loadLicenseServerAddon();
   if (
     runtimeConfig.redeployWebhookUrl &&
-    activation.entitlement.packageInstallToken
+    runtimeConfig.redeployAuthKid &&
+    runtimeConfig.redeployAuthSecret
   ) {
-    await fetch(runtimeConfig.redeployWebhookUrl, {
-      body: JSON.stringify({
-        packageInstallToken: activation.entitlement.packageInstallToken,
-        packageInstallTokenExpiresAt:
-          activation.entitlement.packageInstallTokenExpiresAt ?? null,
-        packageName: activation.entitlement.packageName ?? null,
-        packageVersion: activation.entitlement.packageVersion ?? null,
-      }),
-      headers: { "content-type": "application/json" },
+    const callback = buildRedeployCallbackRequest({
+      auth: {
+        kid: runtimeConfig.redeployAuthKid,
+        secret: runtimeConfig.redeployAuthSecret,
+      },
+      packageName: activation.entitlement.packageName ?? null,
+      packageVersion: activation.entitlement.packageVersion ?? null,
+      url: runtimeConfig.redeployWebhookUrl,
+    });
+    await safeFetch(callback.url, {
+      allowFirstParty: true,
+      body: callback.body,
+      headers: callback.headers,
       method: "POST",
+      purpose: "License Server redeploy callback",
+      timeoutMs: 10_000,
     }).catch(() => null);
   }
   const entitlementStatus =
@@ -110,8 +122,11 @@ export async function activateLicenseServerAddonAction(
     entitlementToken: activation.entitlement.entitlementToken,
     expiresAt: new Date(activation.entitlement.expiresAt),
     features: activation.entitlement.features,
+    installationId: activation.entitlement.installationId ?? null,
+    installationKeyFingerprint: activation.entitlement.installationKeyFingerprint ?? null,
     licenseKeyRef: activation.entitlement.licenseKeyRef,
     metadata: {
+      activationId: activation.entitlement.activationId,
       existingLicenseValidationPolicy: "allow_existing",
       lastRevalidatedAt: checkedAt,
       lastRevalidationMessage: "Add-on entitlement was activated.",
