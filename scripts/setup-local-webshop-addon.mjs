@@ -21,15 +21,14 @@ await run("node", ["scripts/build-release.mjs"], {
   cwd: webshopRoot,
   env: authority.env,
 });
-await run("npm", ["install", "./.private/webshop", "--ignore-scripts", "--no-save", "--no-package-lock"], {
-  cwd: root,
-});
-
 const manifest = JSON.parse(
   await readFile(join(webshopRoot, "release-manifest.json"), "utf8"),
 );
 await writeLocalWebshopRegistryEntry(manifest);
 await ensureRootEnv();
+await run("npm", ["install", "./.private/webshop", "--ignore-scripts", "--no-save", "--no-package-lock"], {
+  cwd: root,
+});
 await run("node", ["scripts/generate-addon-registry.mjs"], {
   cwd: root,
   env: {
@@ -144,6 +143,14 @@ async function ensureRootEnv() {
 
   ensure("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
   ensure("APP_URL", "http://localhost:3000");
+  ensure(
+    "NR_ADDONS_REGISTRY_FILE",
+    ".tmp/addons.registry.local.json",
+  );
+  ensure(
+    "NR_ADDON_RELEASE_PUBLIC_KEYS_FILE",
+    ".tmp/local-addon-release-authority/public-keys.json",
+  );
   ensure("WEBSHOP_LICENSE_API_URL", "http://localhost:3001");
   ensure("WEBSHOP_SELF_HOSTED_SITE_ID", "local-nr-cms");
   ensure(

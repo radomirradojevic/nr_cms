@@ -214,6 +214,16 @@ export function resolveWebshopAddonStateFromInputs({
   return { status: "ready", addon: loadResult.addon };
 }
 
+export function shouldForceWebshopInstallReconciliation(
+  entitlement: WebshopEntitlementState | null,
+  loadResult: WebshopAddonLoadResult,
+) {
+  return (
+    loadResult.status === "loaded" &&
+    entitlement?.status === "install_pending"
+  );
+}
+
 function configuredVendorPublicKeys() {
   const raw = process.env.NR_VENDOR_ENTITLEMENT_PUBLIC_KEYS_JSON;
   if (!raw) return {};
@@ -256,7 +266,14 @@ export async function resolveWebshopAddonState(): Promise<WebshopAddonState> {
     });
   }
 
-  const entitlement = await maybeRevalidateWebshopAddonEntitlement(await getWebshopAddonEntitlement());
+  const storedEntitlement = await getWebshopAddonEntitlement();
+  const entitlement = shouldForceWebshopInstallReconciliation(
+    storedEntitlement,
+    loadResult,
+  )
+    ? (await revalidateWebshopAddonEntitlement({ force: true })).entitlement ??
+      storedEntitlement
+    : await maybeRevalidateWebshopAddonEntitlement(storedEntitlement);
   return resolveWebshopAddonStateFromInputs({
     entitlement,
     loadResult,

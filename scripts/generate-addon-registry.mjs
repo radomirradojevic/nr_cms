@@ -1,8 +1,11 @@
 import { createHash, createPublicKey, verify } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import nextEnv from "@next/env";
 
 const root = process.cwd();
+const { loadEnvConfig } = nextEnv;
+loadEnvConfig(root);
 const configPath = resolve(root, process.env.NR_ADDONS_REGISTRY_FILE ?? "addons.registry.json");
 const outputPath = resolve(root, ".generated", "addon-registry.ts");
 const allowlist = new Map([
