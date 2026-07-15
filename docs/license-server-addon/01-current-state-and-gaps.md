@@ -1,5 +1,7 @@
 # Current State And Gaps
 
+> Historical implementation note: references to `/api/v1/licenses` are superseded. The legacy routes were removed; current integrations use `/api/v1/entitlements`.
+
 ## Current Master License Server
 
 The standalone master license server already has the correct foundation for

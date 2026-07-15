@@ -1,5 +1,7 @@
 # Implementation Phases
 
+> Historical implementation note: this plan includes a removed legacy `/api/v1/licenses` route. Current integrations use the entitlement API.
+
 ## Phase 0 - Stabilize Current State
 
 Goal:

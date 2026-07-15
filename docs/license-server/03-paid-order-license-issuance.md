@@ -1,5 +1,7 @@
 # Phase 3 - Paid Order License Issuance Pipeline
 
+> Historical implementation note: the legacy `/api/v1/licenses` API was removed. New integrations use the entitlement API.
+
 ## Goal
 
 When an order becomes paid, issue license keys from the selected external

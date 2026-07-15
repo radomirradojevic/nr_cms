@@ -1,5 +1,7 @@
 # Webshop Integration
 
+> Historical implementation note: this document describes a removed legacy `/api/v1/licenses` flow. Current Webshop activation uses the add-on entitlement API.
+
 ## Existing Integration
 
 The private Webshop already supports digital license delivery policies:

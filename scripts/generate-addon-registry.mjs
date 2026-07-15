@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 const root = process.cwd();
-const configPath = resolve(root, "addons.registry.json");
+const configPath = resolve(root, process.env.NR_ADDONS_REGISTRY_FILE ?? "addons.registry.json");
 const outputPath = resolve(root, ".generated", "addon-registry.ts");
 const allowlist = new Map([
   ["webshop", "@nr-cms/webshop/server"],

@@ -30,6 +30,17 @@ test("outbound guard rejects HTTP, loopback and credential URLs", () => {
   assert.equal(assertSafeOutboundUrl("https://license-server.nrcms.com/api/v1", { allowFirstParty: true, allowSelfHosted: false, purpose: "test" }).hostname, "license-server.nrcms.com");
 });
 
+test("outbound guard permits explicit non-production localhost HTTP", () => {
+  assert.equal(
+    assertSafeOutboundUrl("http://localhost:3001/api", {
+      allowLocalHttp: true,
+      allowSelfHosted: true,
+      purpose: "test",
+    }).hostname,
+    "localhost",
+  );
+});
+
 test("outbound guard rejects a public hostname that resolves to a private address", async () => {
   await assert.rejects(
     assertResolvedOutboundHost(

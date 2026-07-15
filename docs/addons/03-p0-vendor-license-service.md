@@ -1,5 +1,7 @@
 # Faza 03 — P0 Night Raven Vendor License Service
 
+> Istorijska beleška: legacy `/api/v1/licenses` i `/api/v1/licenses/validate` rute su uklonjene nakon nulte upotrebe. Aktuelni ugovor je `/api/v1/entitlements`.
+
 > Finalna verifikacija 2026-07-12: **centralni contract i PostgreSQL testovi prolaze, faza nije produkciono zatvorena**. Centralni production-like build prolazi sa test identitetima; staging scope/provisioning, E2E i rollout dokaz nedostaju. Videti [11-final-verification-report.md](./11-final-verification-report.md).
 
 ## Cilj
@@ -440,10 +442,9 @@ hash i enkriptovana vrednost za bezbedan idempotency replay; postojeći `NRLS-`
 ključevi ostaju `legacy-1` i validni su tokom compatibility perioda. Završni
 activation/JWS tok nije implementiran.
 
-Legacy `/api/v1/licenses` i `/validate` sada su eksplicitni V1 compatibility
-adapteri iza server-side `VENDOR_LICENSE_V1_COMPAT=false` podrazumevane vrednosti.
-Kada se kontrolisano uključe, delegiraju na V2 scope/validation granice umesto
-starog neograničenog issue/lookup puta. V2 ostaje iza
+Legacy `/api/v1/licenses` i `/validate` compatibility adapteri su uklonjeni
+nakon potvrđene nulte upotrebe. Aktuelne integracije koriste V2 scope/validation
+granice. V2 ostaje iza
 `VENDOR_LICENSE_API_V2=false` dok staging rollout ne bude odobren.
 
 Lokalni centralni PostgreSQL harness koristi samo `nrls_dev_test`; odbija

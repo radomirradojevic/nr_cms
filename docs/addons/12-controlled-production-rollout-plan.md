@@ -601,7 +601,7 @@ Checklist beleži samo `present/absent`, secret version, `kid`, owner, expiry i 
 - [ ] `NRLS_RATE_LIMIT_STORE` i dokaz da runtime zaista koristi distribuirani store
 - [ ] `NRLS_NONCE_CLEANUP_CRON_SECRET`
 - [ ] opciono `NRLS_SESSION_COOKIE`, sa production cookie policy
-- [ ] `VENDOR_LICENSE_API_V2`, `VENDOR_LICENSE_V1_COMPAT`, `VENDOR_SIGNED_ENTITLEMENTS_V1` eksplicitni i usklađeni sa gate-om
+- [ ] `VENDOR_LICENSE_API_V2` i `VENDOR_SIGNED_ENTITLEMENTS_V1` eksplicitni i usklađeni sa gate-om
 - [ ] production API client-i imaju tačan environment/product/action scope i versioned HMAC secret
 - [ ] `NRLS_TEST_DATABASE_URL` i svi development placeholder-i odsutni
 

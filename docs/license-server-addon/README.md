@@ -37,8 +37,8 @@ Master license server:
 - `.private/license-server/src/db/schema.ts`
 - `.private/license-server/src/data/licenses.ts`
 - `.private/license-server/src/data/addon-activation.ts`
-- `.private/license-server/app/api/v1/licenses/route.ts`
-- `.private/license-server/app/api/v1/licenses/validate/route.ts`
+- `.private/license-server/app/api/v1/entitlements/route.ts`
+- `.private/license-server/app/api/v1/entitlements/validate/route.ts`
 - `.private/license-server/app/api/addons/licenses/activate/route.ts`
 
 CMS bridge for the client add-on:

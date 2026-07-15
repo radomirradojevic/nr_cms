@@ -1,5 +1,7 @@
 # Phase 4 - Night Raven License Server MVP
 
+> Historical implementation note: the legacy `/api/v1/licenses` and `/api/v1/licenses/validate` APIs were removed. New integrations use the entitlement API.
+
 ## Goal
 
 Create the standalone paid addon/service named `Night Raven License Server`.
