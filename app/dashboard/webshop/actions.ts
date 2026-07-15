@@ -116,6 +116,7 @@ export async function activateWebshopAddonAction(
   const entitlementStatus =
     loadResult.status === "loaded" ? "ready" : "install_pending";
 
+  const now = new Date().toISOString();
   await saveWebshopAddonEntitlement({
     deploymentEnvironment: deploymentPlatform.deploymentEnvironment,
     entitlementToken: activation.entitlement.entitlementToken,
@@ -126,7 +127,8 @@ export async function activateWebshopAddonAction(
     licenseKeyRef: activation.entitlement.licenseKeyRef,
     metadata: {
       activationId: activation.entitlement.activationId,
-      lastRevalidationSuccessAt: new Date().toISOString(),
+      lastRevalidationAttemptAt: now,
+      lastRevalidationSuccessAt: now,
     },
     packageName: activation.entitlement.packageName ?? null,
     packageVersion: activation.entitlement.packageVersion ?? null,

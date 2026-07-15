@@ -6,10 +6,15 @@ type OutboundAddressResolver = (
 const PRIVATE_HOST = /^(localhost|.*\.local)$/i;
 const PRIVATE_IP = /^(127\.|0\.0\.0\.0$|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|fc|fd)/i;
 
-export function assertSafeOutboundUrl(raw: string, input: { allowFirstParty?: boolean; allowSelfHosted?: boolean; purpose: string }) {
+export function assertSafeOutboundUrl(raw: string, input: { allowFirstParty?: boolean; allowLocalHttp?: boolean; allowSelfHosted?: boolean; purpose: string }) {
   const url = new URL(raw);
-  if (url.protocol !== "https:") throw new Error(`${input.purpose} must use HTTPS.`);
   const production = process.env.NODE_ENV === "production";
+  const localHttp =
+    !production &&
+    input.allowLocalHttp === true &&
+    url.protocol === "http:" &&
+    (PRIVATE_HOST.test(url.hostname) || url.hostname === "127.0.0.1" || url.hostname === "::1");
+  if (url.protocol !== "https:" && !localHttp) throw new Error(`${input.purpose} must use HTTPS.`);
   const firstParty = url.hostname === "license-server.nrcms.com";
   if (production && input.allowFirstParty && !firstParty && process.env.NRLS_ALLOWED_OUTBOUND_HOSTS?.split(",").map((item) => item.trim()).includes(url.hostname) !== true) throw new Error(`${input.purpose} host is not allowlisted.`);
   if (!input.allowSelfHosted && (PRIVATE_HOST.test(url.hostname) || PRIVATE_IP.test(url.hostname))) throw new Error(`${input.purpose} cannot target private network hosts.`);
@@ -40,9 +45,10 @@ export async function assertResolvedOutboundHost(
   return vetted;
 }
 
-export async function safeFetch(url: string | URL, init: RequestInit & { allowFirstParty?: boolean; allowSelfHosted?: boolean; purpose?: string; timeoutMs?: number; maxResponseBytes?: number } = {}) {
+export async function safeFetch(url: string | URL, init: RequestInit & { allowFirstParty?: boolean; allowLocalHttp?: boolean; allowSelfHosted?: boolean; purpose?: string; timeoutMs?: number; maxResponseBytes?: number } = {}) {
   const {
     allowFirstParty,
+    allowLocalHttp,
     allowSelfHosted: allowSelfHostedOption,
     maxResponseBytes = 64 * 1024,
     purpose = "Outbound request",
@@ -52,7 +58,7 @@ export async function safeFetch(url: string | URL, init: RequestInit & { allowFi
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("Outbound request timeout must be positive.");
   const deadlineAt = Date.now() + timeoutMs;
   const allowSelfHosted = allowSelfHostedOption ?? process.env.NRLS_ALLOW_SELF_HOSTED_OUTBOUND === "true";
-  const parsed = assertSafeOutboundUrl(String(url), { allowFirstParty, allowSelfHosted, purpose });
+  const parsed = assertSafeOutboundUrl(String(url), { allowFirstParty, allowLocalHttp, allowSelfHosted, purpose });
   const addresses = await assertResolvedOutboundHost(parsed, { allowSelfHosted, purpose }, lookup, deadlineAt);
   const remainingMs = deadlineAt - Date.now();
   if (remainingMs <= 0) throw new Error(`${purpose} timed out.`);

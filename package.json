@@ -11,6 +11,7 @@
     "dev": "next dev --turbopack",
     "build": "npm run addons:registry && next build",
     "addons:registry": "node scripts/generate-addon-registry.mjs",
+    "addons:webshop:local": "node scripts/setup-local-webshop-addon.mjs",
     "deploy:verify": "npm run db:migrate:check && npm run addons:registry && npm run typecheck",
     "start": "next start",
     "lint": "eslint",
