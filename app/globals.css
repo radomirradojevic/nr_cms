@@ -3,6 +3,11 @@
 @import "shadcn/tailwind.css";
 @import "../node_modules/@clerk/themes/dist/themes/shadcn.css";
 
+/* The paid Webshop add-on is loaded from a package at runtime. Tailwind v4
+   ignores node_modules during automatic source detection, so its responsive
+   and arbitrary utilities must be registered explicitly. */
+@source "../node_modules/@nr-cms/webshop/dist";
+
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));

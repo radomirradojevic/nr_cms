@@ -17,8 +17,11 @@ import { loadWebshopAddon } from "@/lib/webshop-addon/loader";
 
 const manifest = { addonKey: "webshop", artifact: { files: [{ path: "server.js", sha256: "a".repeat(64), size: 1 }], sha256: "a".repeat(64), size: 1 }, capabilities: ["routes.webshop"], cmsVersionRange: "^0.1.0", entrypoints: { server: "./server.js" }, manifestVersion: 1, migrations: [], packageName: "@nr-cms/webshop", packageVersion: "1.0.0", releasedAt: "2026-07-12T00:00:00.000Z", runtimeContractVersion: "1", schemaVersion: 1, signature: "a".repeat(86), signingKid: "fixture" } as const;
 
-test("public registry is empty and CMS loaders remain controlled", async () => {
-  assert.equal((await loadWebshopAddon()).status, "not_installed");
+test("empty registry lookups and uninstalled add-ons remain controlled", async () => {
+  assert.equal(
+    (await loadWebshopAddon("webshop", () => null)).status,
+    "not_installed",
+  );
   assert.equal((await loadLicenseServerAddon()).status, "not_installed");
 });
 

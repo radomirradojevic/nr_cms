@@ -18,9 +18,12 @@ async function resolveAddon(moduleValue: WebshopAddonModule): Promise<WebshopAdd
 }
 
 /** Only the build-time generated allowlist may select a production addon. */
-export async function loadWebshopAddon(addonKey = "webshop"): Promise<WebshopAddonLoadResult> {
+export async function loadWebshopAddon(
+  addonKey = "webshop",
+  registryLookup: typeof getAddonLoader = getAddonLoader,
+): Promise<WebshopAddonLoadResult> {
   if (addonKey !== "webshop") return { status: "invalid", reason: "Webshop addon key is not allowlisted." };
-  const loader = getAddonLoader("webshop");
+  const loader = registryLookup("webshop");
   if (!loader) return { status: "not_installed" };
   try {
     const addon = await resolveAddon(await loader() as WebshopAddonModule);

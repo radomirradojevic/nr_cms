@@ -21,6 +21,7 @@ import {
 import {
   resolveInstalledWebshopLicenseModeFromEntitlement,
   resolveWebshopAddonStateFromInputs,
+  shouldForceWebshopInstallReconciliation,
 } from "@/lib/webshop-addon/license";
 import { loadWebshopAddon } from "@/lib/webshop-addon/loader";
 import {
@@ -59,7 +60,7 @@ function createTestAddonI18nContext() {
 }
 
 test("empty build-time registry returns not_installed", async () => {
-  const result = await loadWebshopAddon();
+  const result = await loadWebshopAddon("webshop", () => null);
   assert.equal(result.status, "not_installed");
 });
 
@@ -449,6 +450,30 @@ test("license state maps install pending without requiring installed module", ()
   });
 
   assert.equal(state.status, "install_pending");
+});
+
+test("loaded webshop package forces pending entitlement reconciliation", () => {
+  assert.equal(
+    shouldForceWebshopInstallReconciliation(
+      { status: "install_pending" },
+      { status: "loaded", addon: fakeAddon },
+    ),
+    true,
+  );
+  assert.equal(
+    shouldForceWebshopInstallReconciliation(
+      { status: "install_pending" },
+      { status: "not_installed" },
+    ),
+    false,
+  );
+  assert.equal(
+    shouldForceWebshopInstallReconciliation(
+      { status: "ready" },
+      { status: "loaded", addon: fakeAddon },
+    ),
+    false,
+  );
 });
 
 test("license state maps loaded add-on entitlement cases", () => {
