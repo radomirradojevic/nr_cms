@@ -43,6 +43,10 @@ yarn-error.log*
 # private add-ons and services
 .private/
 
+# Internal architecture, operations, and package documentation.
+# Keep out of the public nr_cms repository.
+/docs/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
