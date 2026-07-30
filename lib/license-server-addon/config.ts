@@ -7,16 +7,11 @@ export type LicenseServerInstallMode =
   (typeof LICENSE_SERVER_INSTALL_MODES)[number];
 
 export type LicenseServerRuntimeConfig = {
-  allowLocalDevInstall: boolean;
   enabled: boolean;
   installMode: LicenseServerInstallMode;
-  licenseApiUrl: string | null;
-  licenseKey: string | null;
-  packageToken: string | null;
   redeployAuthKid: string | null;
   redeployAuthSecret: string | null;
   redeployWebhookUrl: string | null;
-  selfHostedSiteId: string | null;
 };
 
 type EnvLike = Record<string, string | undefined>;
@@ -42,7 +37,7 @@ export function parseLicenseServerBoolean(
 
 export function parseLicenseServerInstallMode(
   value: string | undefined,
-  defaultValue: LicenseServerInstallMode = "managed_redeploy",
+  defaultValue: LicenseServerInstallMode = "disabled",
 ): LicenseServerInstallMode {
   const normalized = value?.trim().toLowerCase();
   if (normalized === "disabled" || normalized === "managed_redeploy")
@@ -53,32 +48,20 @@ export function parseLicenseServerInstallMode(
 export function getLicenseServerRuntimeConfig(
   env: EnvLike = process.env,
 ): LicenseServerRuntimeConfig {
-  const production = env.NODE_ENV === "production";
   return {
-    allowLocalDevInstall: parseLicenseServerBoolean(
-      env.LICENSE_SERVER_ALLOW_LOCAL_DEV_INSTALL,
-      false,
-    ),
-    enabled: parseLicenseServerBoolean(
-      env.LICENSE_SERVER_ENABLED,
-      !production,
-    ),
+    enabled: parseLicenseServerBoolean(env.LICENSE_SERVER_ENABLED, false),
     installMode: parseLicenseServerInstallMode(
       env.LICENSE_SERVER_INSTALL_MODE,
-      production ? "disabled" : "managed_redeploy",
+      "disabled",
     ),
-    licenseApiUrl: readOptionalEnv(env, "LICENSE_SERVER_LICENSE_API_URL"),
-    licenseKey: readOptionalEnv(env, "LICENSE_SERVER_LICENSE_KEY"),
-    packageToken: readOptionalEnv(env, "LICENSE_SERVER_PACKAGE_TOKEN"),
     redeployAuthKid: readOptionalEnv(env, "LICENSE_SERVER_REDEPLOY_AUTH_KID"),
-    redeployAuthSecret: readOptionalEnv(env, "LICENSE_SERVER_REDEPLOY_AUTH_SECRET"),
+    redeployAuthSecret: readOptionalEnv(
+      env,
+      "LICENSE_SERVER_REDEPLOY_AUTH_SECRET",
+    ),
     redeployWebhookUrl: readOptionalEnv(
       env,
       "LICENSE_SERVER_REDEPLOY_WEBHOOK_URL",
-    ),
-    selfHostedSiteId: readOptionalEnv(
-      env,
-      "LICENSE_SERVER_SELF_HOSTED_SITE_ID",
     ),
   };
 }

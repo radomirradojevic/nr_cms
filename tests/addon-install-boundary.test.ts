@@ -22,7 +22,10 @@ test("empty registry lookups and uninstalled add-ons remain controlled", async (
     (await loadWebshopAddon("webshop", () => null)).status,
     "not_installed",
   );
-  assert.equal((await loadLicenseServerAddon()).status, "not_installed");
+  assert.equal(
+    (await loadLicenseServerAddon("license-server", () => null)).status,
+    "not_installed",
+  );
 });
 
 test("registry generator creates its output directory in a clean public checkout", () => {
@@ -36,7 +39,7 @@ test("registry generator creates its output directory in a clean public checkout
     execFileSync(
       process.execPath,
       [resolve(process.cwd(), "scripts/generate-addon-registry.mjs")],
-      { cwd: cleanRoot, stdio: "pipe" },
+      { cwd: cleanRoot, env: process.env, stdio: "pipe" },
     );
     assert.match(
       readFileSync(join(cleanRoot, ".generated", "addon-registry.ts"), "utf8"),
@@ -129,7 +132,7 @@ test("registry generator verifies signed package identity and artifact bytes", (
     const command = [process.execPath, [resolve(process.cwd(), "scripts/generate-addon-registry.mjs")]] as const;
     execFileSync(command[0], command[1], {
       cwd: cleanRoot,
-      env: { ...process.env, NR_ADDON_RELEASE_PUBLIC_KEYS_FILE: publicKeysPath },
+      env: process.env,
       stdio: "pipe",
     });
 
@@ -138,7 +141,7 @@ test("registry generator verifies signed package identity and artifact bytes", (
       () =>
         execFileSync(command[0], command[1], {
           cwd: cleanRoot,
-          env: { ...process.env, NR_ADDON_RELEASE_PUBLIC_KEYS_FILE: publicKeysPath },
+          env: process.env,
           stdio: "pipe",
         }),
       /Command failed/,

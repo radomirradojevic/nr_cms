@@ -5,19 +5,13 @@ export type WebshopInstallMode = (typeof WEBSHOP_INSTALL_MODES)[number];
 export type WebshopPaymentsMode = "live" | "test";
 
 export type WebshopRuntimeConfig = {
-  allowLocalDevInstall: boolean;
   checkoutEnabled: boolean;
   enabled: boolean;
   installMode: WebshopInstallMode;
-  licenseApiUrl: string | null;
-  licenseKey: string | null;
-  licensePublicKey: string | null;
-  packageToken: string | null;
   paymentsMode: WebshopPaymentsMode;
   redeployAuthKid: string | null;
   redeployAuthSecret: string | null;
   redeployWebhookUrl: string | null;
-  selfHostedSiteId: string | null;
   storefrontEnabled: boolean;
 };
 
@@ -44,7 +38,7 @@ export function parseWebshopBoolean(
 
 export function parseWebshopInstallMode(
   value: string | undefined,
-  defaultValue: WebshopInstallMode = "managed_redeploy",
+  defaultValue: WebshopInstallMode = "disabled",
 ): WebshopInstallMode {
   const normalized = value?.trim().toLowerCase();
   if (normalized === "disabled" || normalized === "managed_redeploy")
@@ -61,33 +55,17 @@ export function parseWebshopPaymentsMode(
 export function getWebshopRuntimeConfig(
   env: EnvLike = process.env,
 ): WebshopRuntimeConfig {
-  const production = env.NODE_ENV === "production";
   return {
-    allowLocalDevInstall: parseWebshopBoolean(
-      env.WEBSHOP_ALLOW_LOCAL_DEV_INSTALL,
-      false,
-    ),
-    checkoutEnabled: parseWebshopBoolean(
-      env.WEBSHOP_CHECKOUT_ENABLED,
-      !production,
-    ),
-    enabled: parseWebshopBoolean(env.WEBSHOP_ENABLED, !production),
-    installMode: parseWebshopInstallMode(
-      env.WEBSHOP_INSTALL_MODE,
-      production ? "disabled" : "managed_redeploy",
-    ),
-    licenseApiUrl: readOptionalEnv(env, "WEBSHOP_LICENSE_API_URL"),
-    licenseKey: readOptionalEnv(env, "WEBSHOP_LICENSE_KEY"),
-    licensePublicKey: readOptionalEnv(env, "WEBSHOP_LICENSE_PUBLIC_KEY"),
-    packageToken: readOptionalEnv(env, "WEBSHOP_PACKAGE_TOKEN"),
+    checkoutEnabled: parseWebshopBoolean(env.WEBSHOP_CHECKOUT_ENABLED, false),
+    enabled: parseWebshopBoolean(env.WEBSHOP_ENABLED, false),
+    installMode: parseWebshopInstallMode(env.WEBSHOP_INSTALL_MODE, "disabled"),
     paymentsMode: parseWebshopPaymentsMode(env.WEBSHOP_PAYMENTS_MODE),
     redeployAuthKid: readOptionalEnv(env, "WEBSHOP_REDEPLOY_AUTH_KID"),
     redeployAuthSecret: readOptionalEnv(env, "WEBSHOP_REDEPLOY_AUTH_SECRET"),
     redeployWebhookUrl: readOptionalEnv(env, "WEBSHOP_REDEPLOY_WEBHOOK_URL"),
-    selfHostedSiteId: readOptionalEnv(env, "WEBSHOP_SELF_HOSTED_SITE_ID"),
     storefrontEnabled: parseWebshopBoolean(
       env.WEBSHOP_STOREFRONT_ENABLED,
-      !production,
+      false,
     ),
   };
 }

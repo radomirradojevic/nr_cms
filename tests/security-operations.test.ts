@@ -5,13 +5,20 @@ import {
   assertResolvedOutboundHost,
   assertSafeOutboundUrl,
   createPinnedLookup,
+  isExplicitlyAllowedLoopbackHttpUrl,
   safeFetch,
 } from "@/lib/security/outbound-url";
 
 const SENTINEL = "nr-secret-sentinel-do-not-log";
 
 test("structured redaction removes a sentinel from nested log fields", () => {
-  const output = JSON.stringify(redactForLog({ authorization: `Bearer ${SENTINEL}`, nested: { licenseKey: SENTINEL }, safe: "ok" }));
+  const output = JSON.stringify(
+    redactForLog({
+      authorization: `Bearer ${SENTINEL}`,
+      nested: { licenseKey: SENTINEL },
+      safe: "ok",
+    }),
+  );
   assert.equal(output.includes(SENTINEL), false);
   assert.match(output, /REDACTED/);
 });
@@ -24,13 +31,30 @@ test("structured redaction keeps a sentinel out of error objects", () => {
 });
 
 test("outbound guard rejects HTTP, loopback and credential URLs", () => {
-  for (const value of ["http://license-server.nrcms.com", "https://127.0.0.1/internal", "https://user:pass@example.com"]) {
-    assert.throws(() => assertSafeOutboundUrl(value, { allowFirstParty: false, allowSelfHosted: false, purpose: "test" }));
+  for (const value of [
+    "http://license-server.nrcms.com",
+    "https://127.0.0.1/internal",
+    "https://user:pass@example.com",
+  ]) {
+    assert.throws(() =>
+      assertSafeOutboundUrl(value, {
+        allowFirstParty: false,
+        allowSelfHosted: false,
+        purpose: "test",
+      }),
+    );
   }
-  assert.equal(assertSafeOutboundUrl("https://license-server.nrcms.com/api/v1", { allowFirstParty: true, allowSelfHosted: false, purpose: "test" }).hostname, "license-server.nrcms.com");
+  assert.equal(
+    assertSafeOutboundUrl("https://license-server.nrcms.com/api/v1", {
+      allowFirstParty: true,
+      allowSelfHosted: false,
+      purpose: "test",
+    }).hostname,
+    "license-server.nrcms.com",
+  );
 });
 
-test("outbound guard permits explicit non-production localhost HTTP", () => {
+test("outbound guard permits a caller-approved loopback HTTP transport", () => {
   assert.equal(
     assertSafeOutboundUrl("http://localhost:3001/api", {
       allowLocalHttp: true,
@@ -38,6 +62,54 @@ test("outbound guard permits explicit non-production localhost HTTP", () => {
       purpose: "test",
     }).hostname,
     "localhost",
+  );
+});
+
+test("loopback HTTP transport requires an explicit env exception in every mode", () => {
+  assert.equal(
+    isExplicitlyAllowedLoopbackHttpUrl("http://localhost:3001", {
+      NODE_ENV: "development",
+    }),
+    false,
+  );
+  assert.equal(
+    isExplicitlyAllowedLoopbackHttpUrl("http://localhost:3001", {
+      NODE_ENV: "production",
+      NR_ALLOW_INSECURE_LOOPBACK_HTTP: "true",
+    }),
+    true,
+  );
+  assert.equal(
+    isExplicitlyAllowedLoopbackHttpUrl("https://localhost:3001", {
+      NR_ALLOW_INSECURE_LOOPBACK_HTTP: "true",
+    }),
+    false,
+  );
+  assert.equal(
+    isExplicitlyAllowedLoopbackHttpUrl("http://license-server.local:3001", {
+      NR_ALLOW_INSECURE_LOOPBACK_HTTP: "true",
+    }),
+    false,
+  );
+});
+
+test("outbound allowlisting is enforced independently of NODE_ENV", () => {
+  assert.throws(
+    () =>
+      assertSafeOutboundUrl("https://untrusted.example/api", {
+        allowFirstParty: true,
+        allowSelfHosted: false,
+        purpose: "test",
+      }),
+    /allowlisted/,
+  );
+  assert.equal(
+    assertSafeOutboundUrl("https://ls.nrcms.com/api", {
+      allowFirstParty: true,
+      allowSelfHosted: false,
+      purpose: "test",
+    }).hostname,
+    "ls.nrcms.com",
   );
 });
 
@@ -94,9 +166,14 @@ test("outbound fetch pins the preflight DNS result for the connection", async ()
       allowSelfHosted: true,
       purpose: "test",
     });
-    assert.ok(dispatcher, "guarded fetch must connect through a DNS-pinned dispatcher");
+    assert.ok(
+      dispatcher,
+      "guarded fetch must connect through a DNS-pinned dispatcher",
+    );
     assert.equal(nativeInit?.allowSelfHosted, undefined);
-    const lookup = createPinnedLookup([{ address: "93.184.216.34", family: 4 }]);
+    const lookup = createPinnedLookup([
+      { address: "93.184.216.34", family: 4 },
+    ]);
     const resolved: unknown[] = [];
     for (const hostname of ["first.example", "rebound.example"]) {
       lookup(hostname, { all: false }, (error, address, family) => {
@@ -116,10 +193,15 @@ test("outbound fetch pins the preflight DNS result for the connection", async ()
 test("outbound fetch cancels a rejected response body before closing its dispatcher", async () => {
   const originalFetch = globalThis.fetch;
   let canceled = false;
-  globalThis.fetch = async () => new Response(
-    new ReadableStream({ cancel: () => { canceled = true; } }),
-    { headers: { location: "https://example.test/redirected" }, status: 302 },
-  );
+  globalThis.fetch = async () =>
+    new Response(
+      new ReadableStream({
+        cancel: () => {
+          canceled = true;
+        },
+      }),
+      { headers: { location: "https://example.test/redirected" }, status: 302 },
+    );
   try {
     await assert.rejects(
       safeFetch("https://127.0.0.1/fixture", {
@@ -141,8 +223,14 @@ test("outbound DNS preflight obeys the request deadline", async () => {
       { allowSelfHosted: false, purpose: "test" },
       async () => new Promise(() => undefined),
       Date.now() + 20,
-    ).then(() => "resolved", (error: unknown) => error instanceof Error ? error.message : String(error)),
-    new Promise<string>((resolve) => setTimeout(() => resolve("external test timeout"), 100)),
+    ).then(
+      () => "resolved",
+      (error: unknown) =>
+        error instanceof Error ? error.message : String(error),
+    ),
+    new Promise<string>((resolve) =>
+      setTimeout(() => resolve("external test timeout"), 100),
+    ),
   ]);
   assert.match(outcome, /timed out/i);
 });

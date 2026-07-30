@@ -17,10 +17,13 @@ async function resolveAddon(moduleValue: LicenseServerAddonModule): Promise<Lice
   return null;
 }
 
-/** Filesystem paths and env-provided modules are never executable production configuration. */
-export async function loadLicenseServerAddon(addonKey = "license-server"): Promise<LicenseServerAddonLoadResult> {
+/** Filesystem paths and env-provided modules are never executable runtime configuration. */
+export async function loadLicenseServerAddon(
+  addonKey = "license-server",
+  registryLookup: typeof getAddonLoader = getAddonLoader,
+): Promise<LicenseServerAddonLoadResult> {
   if (addonKey !== "license-server") return { status: "invalid", reason: "License Server addon key is not allowlisted." };
-  const loader = getAddonLoader("license-server");
+  const loader = registryLookup("license-server");
   if (!loader) return { status: "not_installed" };
   try {
     const addon = await resolveAddon(await loader() as LicenseServerAddonModule);

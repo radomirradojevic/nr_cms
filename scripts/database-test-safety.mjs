@@ -9,9 +9,8 @@ function fail(message) {
  * Validates a test-only PostgreSQL connection string without ever echoing it.
  * A database name containing a standalone `test` marker is intentionally
  * required so an inherited development or production DATABASE_URL cannot be
- * used by accident. The host is additionally rejected when it is explicitly
- * marked as development or production; a separate cloned test database may
- * legitimately retain `dev` in its database name (for example `*_dev_test`).
+ * used by accident. A local CMS development URL may derive `nr_cms_test`;
+ * production/remote URLs never derive a test target.
  */
 export function assertSafeTestDatabaseUrl(value, variableName = "TEST_DATABASE_URL") {
   if (!value?.trim()) {
@@ -42,5 +41,32 @@ export function assertSafeTestDatabaseUrl(value, variableName = "TEST_DATABASE_U
 }
 
 export function resolveTestDatabaseUrl(env = process.env) {
-  return assertSafeTestDatabaseUrl(env.TEST_DATABASE_URL, "TEST_DATABASE_URL");
+  const explicit = env.TEST_DATABASE_URL?.trim();
+  const value =
+    explicit || deriveLocalTestDatabaseUrl(env.DATABASE_URL, env.CI);
+  if (!value) {
+    fail(
+      "TEST_DATABASE_URL is required unless DATABASE_URL targets a local development database.",
+    );
+  }
+  return assertSafeTestDatabaseUrl(value, "TEST_DATABASE_URL");
+}
+
+function deriveLocalTestDatabaseUrl(value, ci) {
+  if (ci || !value?.trim()) return null;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    const databaseName = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+    if (
+      !["localhost", "127.0.0.1", "::1"].includes(host) ||
+      !/(?:^|[._-])dev(?:$|[._-])/i.test(databaseName)
+    ) {
+      return null;
+    }
+    url.pathname = "/nr_cms_test";
+    return url.toString();
+  } catch {
+    return null;
+  }
 }

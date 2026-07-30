@@ -46,21 +46,13 @@ function resolveEndpoint() {
   const baseUrl =
     process.env.CONTENT_PUBLISHING_BASE_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.APP_URL ??
     `http://localhost:${process.env.PORT ?? "3000"}`;
 
   return `${normalizeBaseUrl(baseUrl)}/api/cron/content-publishing`;
 }
 
 function resolveSecret() {
-  const secrets = [
-    process.env.CONTENT_PUBLISHING_CRON_SECRET,
-    process.env.CRON_SECRET,
-  ].flatMap((value) => {
-    const secret = value?.trim();
-    return secret ? [secret] : [];
-  });
-  return secrets[0] ?? "";
+  return process.env.CRON_SECRET?.trim() ?? "";
 }
 
 async function runOnce({ endpoint, secret, timeoutMs }) {
@@ -117,9 +109,7 @@ async function main() {
   const endpoint = resolveEndpoint();
   const secret = resolveSecret();
   if (!secret) {
-    throw new Error(
-      "Set CRON_SECRET or CONTENT_PUBLISHING_CRON_SECRET before running the scheduler.",
-    );
+    throw new Error("Set CRON_SECRET before running the scheduler.");
   }
 
   const timeoutMs = positiveInteger(

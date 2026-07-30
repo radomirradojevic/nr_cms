@@ -3,6 +3,7 @@ import {
   type WebshopDeploymentPlatform,
 } from "@/lib/webshop-addon/contract";
 import type { LicenseServerDeploymentPlatform } from "@/lib/license-server-addon/contract";
+import { getMasterLicenseServerUrl } from "@/lib/master-license-server";
 
 type EnvLike = Record<string, string | undefined>;
 
@@ -76,9 +77,7 @@ export function getSelfHostedLicenseServerDeploymentPlatform({
 } = {}): SelfHostedLicenseServerDeploymentPlatform {
   const projectId =
     normalizeSiteId(siteId) ??
-    readOptionalEnv(env, "LICENSE_SERVER_SELF_HOSTED_SITE_ID") ??
     readOptionalEnv(env, "NEXT_PUBLIC_APP_URL") ??
-    readOptionalEnv(env, "APP_URL") ??
     readOptionalEnv(env, "VERCEL_PROJECT_PRODUCTION_URL") ??
     readOptionalEnv(env, "VERCEL_URL") ??
     SELF_HOSTED_SITE_ID_FALLBACK;
@@ -107,7 +106,7 @@ export async function verifyLicenseServerDeploymentPlatform({
   selfHostedSiteId?: string | null;
 } = {}): Promise<LicenseServerDeploymentPlatform> {
   const hint = getLicenseServerDeploymentHint(env);
-  const licenseServerUrl = env.LICENSE_SERVER_LICENSE_API_URL?.trim();
+  const licenseServerUrl = getMasterLicenseServerUrl(env);
 
   if (
     hint.providerHint === "vercel" &&
@@ -134,11 +133,29 @@ export async function verifyLicenseServerDeploymentPlatform({
           (await response.json()) as SupportedLicenseServerDeploymentPlatform;
         if (payload.status === "supported") return payload;
       }
-    } catch { /* fail closed below */ }
-    return { status: "unsupported", reason: "invalid_attestation", message: "Vercel deployment attestation could not be verified; self-hosted fallback is forbidden." };
+    } catch {
+      /* fail closed below */
+    }
+    return {
+      status: "unsupported",
+      reason: "invalid_attestation",
+      message:
+        "Vercel deployment attestation could not be verified; self-hosted fallback is forbidden.",
+    };
   }
-  if (hint.providerHint === "vercel") return { status: "unsupported", reason: "missing_attestation", message: "Vercel deployment requires a verified platform attestation." };
-  if (env.LICENSE_SERVER_DEPLOYMENT_MODE !== "self_hosted") return { status: "unsupported", reason: "self_hosted", message: "Self-hosted activation requires explicit LICENSE_SERVER_DEPLOYMENT_MODE=self_hosted." };
+  if (hint.providerHint === "vercel")
+    return {
+      status: "unsupported",
+      reason: "missing_attestation",
+      message: "Vercel deployment requires a verified platform attestation.",
+    };
+  if (env.LICENSE_SERVER_DEPLOYMENT_MODE !== "self_hosted")
+    return {
+      status: "unsupported",
+      reason: "self_hosted",
+      message:
+        "Self-hosted activation requires explicit LICENSE_SERVER_DEPLOYMENT_MODE=self_hosted.",
+    };
   return getSelfHostedLicenseServerDeploymentPlatform({
     env,
     siteId: selfHostedSiteId,

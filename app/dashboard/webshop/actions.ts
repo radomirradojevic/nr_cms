@@ -67,12 +67,11 @@ export async function activateWebshopAddonAction(
   const siteDomain =
     settings.publicSiteUrl ??
     process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.APP_URL ??
     process.env.VERCEL_PROJECT_PRODUCTION_URL ??
     process.env.VERCEL_URL ??
     "unknown";
   const deploymentPlatform = await verifyWebshopDeploymentPlatform({
-    selfHostedSiteId: runtimeConfig.selfHostedSiteId ?? siteDomain,
+    selfHostedSiteId: siteDomain,
   });
   if (deploymentPlatform.status !== "supported") {
     return { status: "error", message: deploymentPlatform.message };
@@ -123,7 +122,8 @@ export async function activateWebshopAddonAction(
     expiresAt: new Date(activation.entitlement.expiresAt),
     features: activation.entitlement.features,
     installationId: activation.entitlement.installationId ?? null,
-    installationKeyFingerprint: activation.entitlement.installationKeyFingerprint ?? null,
+    installationKeyFingerprint:
+      activation.entitlement.installationKeyFingerprint ?? null,
     licenseKeyRef: activation.entitlement.licenseKeyRef,
     metadata: {
       activationId: activation.entitlement.activationId,

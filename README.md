@@ -30,32 +30,31 @@ npm run content:scheduler:dev
 
 ## Environment Variables
 
-| Variable                                                              | Description                                                                                                                                                                                                   | Required                    |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `DATABASE_URL`                                                        | Normal Postgres connection string. Neon's pooled TCP string works, as does any regular Postgres database.                                                                                                     | ✅                          |
-| `DRIZZLE_AUTO_MIGRATE`                                                | Optional opt-out for build-time migrations. Set to `0`, `false`, or `off` only if a separate deployment step runs `npm run db:migrate`.                                                                       | optional                    |
-| `CRON_SECRET`                                                         | Secret for `/api/cron/content-publishing`. Vercel Cron sends it automatically as `Authorization: Bearer ...`; local/self-hosted callers use it too.                                                           | ✅ for scheduled publishing |
-| `CONTENT_PUBLISHING_CRON_SECRET`                                      | Optional separate secret accepted by the publishing cron endpoint. Useful when self-hosted callers should not share Vercel's `CRON_SECRET`.                                                                   | optional                    |
-| `CONTENT_PUBLISHING_CRON_URL`                                         | Optional full URL used by `npm run content:scheduler:run`, `npm run content:scheduler:dev`, and `npm run content:scheduler:worker`. Defaults to `http://localhost:${PORT:-3000}/api/cron/content-publishing`. | optional                    |
-| `CONTENT_PUBLISHING_SCHEDULER_INTERVAL_SECONDS`                       | Interval for the local/self-hosted scheduler worker. Defaults to `60`. Vercel uses `vercel.json` instead.                                                                                                     | optional                    |
-| `CONTENT_PUBLISHING_SCHEDULER_ENABLED`                                | Set to `0`, `false`, or `off` to disable the local/self-hosted scheduler worker without removing the script from process management.                                                                          | optional                    |
-| `CONTENT_PUBLISHING_SCHEDULER_TIMEOUT_MS`                             | HTTP timeout for one local/self-hosted scheduler tick. Defaults to `30000`.                                                                                                                                   | optional                    |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`                                   | Clerk frontend key (use a production instance for prod, a dev instance for previews).                                                                                                                         | ✅                          |
-| `CLERK_SECRET_KEY`                                                    | Clerk backend key.                                                                                                                                                                                            | ✅                          |
-| `CLERK_WEBHOOK_SECRET`                                                | Svix signing secret for `/api/webhooks/clerk`.                                                                                                                                                                | ✅                          |
-| `STORAGE_PROVIDER`                                                    | `local` (default, writes to disk) or `vercel-blob` (uses Vercel Blob). Auto-detects `vercel-blob` on Vercel when `BLOB_READ_WRITE_TOKEN` is set.                                                              | optional                    |
-| `UPLOADS_DIR`                                                         | Directory the local provider writes to. Defaults to `./storage/uploads`. Ignored when `STORAGE_PROVIDER=vercel-blob`.                                                                                         | self-hosted only            |
-| `BLOB_READ_WRITE_TOKEN`                                               | Vercel Blob read/write token. Auto-injected by Vercel when a Blob store is attached. Required when `STORAGE_PROVIDER=vercel-blob`.                                                                            | Vercel only                 |
-| `VERCEL_FLUID_COMPUTE`                                                | Set to `1` when Fluid Compute is enabled to raise the per-request upload cap from ~4.5 MB to ~200 MB.                                                                                                         | optional                    |
-| `VERCEL_BLOB_MAX_UPLOAD_BYTES`                                        | Explicit override for the Vercel upload cap, in bytes. Takes precedence over `VERCEL_FLUID_COMPUTE`.                                                                                                          | optional                    |
-| `EMAIL_FROM`                                                          | Default `From` address for transactional email.                                                                                                                                                               | ✅ for email                |
-| `EMAIL_PROVIDER`                                                      | `resend` (default) or `smtp`.                                                                                                                                                                                 | optional                    |
-| `RESEND_API_KEY`                                                      | Resend API key.                                                                                                                                                                                               | ✅ if Resend                |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_SECURE` | SMTP credentials.                                                                                                                                                                                             | ✅ if SMTP                  |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`                                      | Cloudflare Turnstile site key (public). Required for the blog comment form and public forms.                                                                                                                  | ✅                          |
-| `TURNSTILE_SECRET_KEY`                                                | Cloudflare Turnstile secret key. Verifies submissions server-side.                                                                                                                                            | ✅                          |
-| `IP_HASH_SALT`                                                        | ≥32-char random string used to SHA-256-hash visitor IPs for rate limiting. Raw IPs are never stored.                                                                                                          | ✅                          |
-| `WEBSHOP_SELF_HOSTED_SITE_ID`                                         | Optional stable install identifier for paid Webshop activation on self-hosted or non-Vercel deployments. Defaults to the configured public URL/env URL when available.                                        | optional                    |
+| Variable                                                              | Description                                                                                                                                                                                                   | Required              |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `DATABASE_URL`                                                        | Normal Postgres connection string. Neon's pooled TCP string works, as does any regular Postgres database.                                                                                                     | ✅                    |
+| `DRIZZLE_AUTO_MIGRATE`                                                | Optional opt-out for build-time migrations. Set to `0`, `false`, or `off` only if a separate deployment step runs `npm run db:migrate`.                                                                       | optional              |
+| `CRON_SECRET`                                                         | One shared secret for every CMS cron route. Vercel Cron sends it automatically as `Authorization: Bearer ...`; local/self-hosted callers use it too.                                                          | ✅ for scheduled jobs |
+| `CONTENT_PUBLISHING_CRON_URL`                                         | Optional full URL used by `npm run content:scheduler:run`, `npm run content:scheduler:dev`, and `npm run content:scheduler:worker`. Defaults to `http://localhost:${PORT:-3000}/api/cron/content-publishing`. | optional              |
+| `CONTENT_PUBLISHING_SCHEDULER_INTERVAL_SECONDS`                       | Interval for the local/self-hosted scheduler worker. Defaults to `60`. Vercel uses `vercel.json` instead.                                                                                                     | optional              |
+| `CONTENT_PUBLISHING_SCHEDULER_ENABLED`                                | Set to `0`, `false`, or `off` to disable the local/self-hosted scheduler worker without removing the script from process management.                                                                          | optional              |
+| `CONTENT_PUBLISHING_SCHEDULER_TIMEOUT_MS`                             | HTTP timeout for one local/self-hosted scheduler tick. Defaults to `30000`.                                                                                                                                   | optional              |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`                                   | Clerk frontend key (use a production instance for prod, a dev instance for previews).                                                                                                                         | ✅                    |
+| `CLERK_SECRET_KEY`                                                    | Clerk backend key.                                                                                                                                                                                            | ✅                    |
+| `CLERK_WEBHOOK_SECRET`                                                | Optional Svix signing secret for `/api/webhooks/clerk`; required only when the Clerk webhook is configured.                                                                                                   | optional              |
+| `STORAGE_PROVIDER`                                                    | `local` (default, writes to disk) or `vercel-blob` (uses Vercel Blob). Auto-detects `vercel-blob` on Vercel when `BLOB_READ_WRITE_TOKEN` is set.                                                              | optional              |
+| `UPLOADS_DIR`                                                         | Directory the local provider writes to. Defaults to `./storage/uploads`. Ignored when `STORAGE_PROVIDER=vercel-blob`.                                                                                         | self-hosted only      |
+| `BLOB_READ_WRITE_TOKEN`                                               | Vercel Blob read/write token. Auto-injected by Vercel when a Blob store is attached. Required when `STORAGE_PROVIDER=vercel-blob`.                                                                            | Vercel only           |
+| `VERCEL_FLUID_COMPUTE`                                                | Set to `1` when Fluid Compute is enabled to raise the per-request upload cap from ~4.5 MB to ~200 MB.                                                                                                         | optional              |
+| `VERCEL_BLOB_MAX_UPLOAD_BYTES`                                        | Explicit override for the Vercel upload cap, in bytes. Takes precedence over `VERCEL_FLUID_COMPUTE`.                                                                                                          | optional              |
+| `EMAIL_FROM`                                                          | Default `From` address for transactional email.                                                                                                                                                               | ✅ for email          |
+| `EMAIL_PROVIDER`                                                      | `resend` (default) or `smtp`.                                                                                                                                                                                 | optional              |
+| `RESEND_API_KEY`                                                      | Resend API key.                                                                                                                                                                                               | ✅ if Resend          |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_SECURE` | SMTP credentials.                                                                                                                                                                                             | ✅ if SMTP            |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`                                      | Cloudflare Turnstile site key (public). Required for the blog comment form and public forms.                                                                                                                  | ✅                    |
+| `TURNSTILE_SECRET_KEY`                                                | Cloudflare Turnstile secret key. Verifies submissions server-side.                                                                                                                                            | ✅                    |
+| `IP_HASH_SALT`                                                        | ≥32-char random string used to SHA-256-hash visitor IPs for rate limiting. Raw IPs are never stored.                                                                                                          | ✅                    |
+| `NR_MASTER_LICENSE_URL`                                               | Shared public endpoint for Webshop and License Server add-on activation/revalidation. No request is made until a license is activated or due for revalidation. Production uses `https://ls.nrcms.com`.        | required              |
 
 The `storage/` directory is gitignored. Files are streamed through the auth-gated route `app/api/files/[id]/route.ts`. When `STORAGE_PROVIDER=vercel-blob` that route 307-redirects to the public Blob URL instead of streaming bytes through the function.
 
@@ -452,8 +451,97 @@ Recommended setup:
 - Run `npm run content:scheduler:worker` as a second managed process, or call `/api/cron/content-publishing` every minute from system cron with `Authorization: Bearer $CRON_SECRET`.
 - Point `DATABASE_URL` at any Postgres (managed or self-hosted).
 - All other env vars (Clerk, Turnstile, email, `CRON_SECRET`, `IP_HASH_SALT`) are the same as on Vercel.
-- Paid Webshop activation works on self-hosted deployments. Set `WEBSHOP_SELF_HOSTED_SITE_ID` to a stable domain or install ID if the public URL can change, install the private Webshop package, and point `WEBSHOP_ADDON_MODULE` at its entrypoint.
-- Do not use `WEBSHOP_ADDON_MODULE=local-private-webshop` for self-hosted production. That alias is only a localhost development shortcut for `npm run dev`.
+- Paid add-on activation derives its domain identity from the configured public
+  CMS URL. Clients do not copy a license key or package token into env.
+- Private add-ons are selected only through the signed build-time add-on
+  registry. Runtime module paths and development-only aliases are not used.
+
+### Local/production runtime parity
+
+Application and security policy does not branch on `NODE_ENV`. Webshop and
+License Server enablement, storefront, checkout, installation mode, entitlement
+signature verification, domain binding, rate limiting, outbound allowlists, and
+webhook error responses follow the same rules in local and production runtimes.
+If an enablement variable is omitted, the corresponding capability fails
+closed in both environments.
+
+With all three `.private` projects present, `npm run dev` automatically runs
+`npm run addons:local`. That command builds and signs both private add-ons,
+installs them into the CMS, generates the local signed registry and ignored
+build inputs, and writes explicit local runtime values to both runtime `.env`
+files.
+
+The committed CMS `.env.example` is the public client contract and contains no
+vendor-only rollout or payment callback variables. The private
+`.env.example.vendor` is gitignored and defines the additional nrcms.com vendor
+contract. `npm run env:validate` selects the vendor contract when that private
+template is present; public client checkouts use `.env.example`. Within the
+selected contract, the ignored local `.env` must contain every active key while
+documented optional variables may be added as needed. Test database URLs are
+injected by the test command into a dedicated database and are not runtime
+`.env` variables.
+
+Production must set the same capability policy explicitly, with only public
+origins changed:
+
+```dotenv
+NEXT_PUBLIC_APP_URL=https://nrcms.com
+NR_MASTER_LICENSE_URL=https://ls.nrcms.com
+WEBSHOP_ENABLED=true
+WEBSHOP_STOREFRONT_ENABLED=true
+WEBSHOP_CHECKOUT_ENABLED=true
+WEBSHOP_INSTALL_MODE=managed_redeploy
+LICENSE_SERVER_ENABLED=true
+LICENSE_SERVER_INSTALL_MODE=managed_redeploy
+LICENSE_SERVER_CUSTOMER_ENVIRONMENT=production
+NR_ALLOW_INSECURE_LOOPBACK_HTTP=false
+```
+
+The only intentional localhost-specific value difference is transport:
+`NR_ALLOW_INSECURE_LOOPBACK_HTTP=true` permits the CMS at
+`http://localhost:3000` to contact the master license server at
+`http://localhost:3001`. It does not bypass license domain binding or signature
+verification. A local paid license must therefore be issued for `localhost`;
+the production license remains bound to `nrcms.com`.
+
+### Client add-on activation
+
+A base CMS installation makes no request to the master License Server merely
+because `NR_MASTER_LICENSE_URL` is configured. Communication begins only when
+an administrator enters a purchased Webshop or License Server add-on key, or
+when an already activated entitlement becomes due for revalidation.
+
+The client setup is:
+
+1. Open **Dashboard → Webshop** or **Dashboard → License Server**.
+2. Enter the purchased `NRLS-...` key.
+3. Activate the add-on.
+
+Those are the only client licensing steps once the vendor deployment pipeline
+is connected. If the signed private package is not already in the deployed
+build, activation remains in `install_pending` until the vendor-managed
+registry/redeploy integration supplies that package. Package distribution is a
+deployment responsibility, not a client license env setting; the CMS never
+downloads or executes an arbitrary package path returned by the license server.
+
+The CMS creates its installation identity, activates against
+`NR_MASTER_LICENSE_URL`, downloads the public entitlement key set from
+`/.well-known/nr-license-keys.json`, verifies the signed entitlement, and stores
+only the activation reference and signed entitlement in PostgreSQL. The entered
+license key is not stored in env or persisted as plaintext. Public keys are
+cached for five minutes with a bounded stale fallback, and entitlements are
+revalidated at most once per 24 hours with the existing grace policy.
+
+Both paid add-ons share `NR_MASTER_LICENSE_URL`. The historical per-add-on API
+URL, license-key, public-key, package-token, registry-path, and release-key-path
+env variables are rejected. Signed registry inputs are an internal
+build/deployment artifact; local development writes an ignored build descriptor
+automatically, so clients do not configure file paths.
+
+The License Server add-on remains a customer-owned local issuer after its own
+vendor entitlement is validated. Licenses that a customer creates for their
+products stay in that customer's CMS database and are not issued by the Night
+Raven master License Server.
 
 The `proxyClientMaxBodySize: "2gb"` setting in `next.config.ts` is active in this mode, so large uploads up to `MAX_FILE_SIZE` (300 MB) work end-to-end.
 

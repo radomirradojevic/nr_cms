@@ -10,7 +10,6 @@ export async function buildLicenseServerLicenseBuyUrl() {
   const siteDomain =
     settings.publicSiteUrl ??
     process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.APP_URL ??
     process.env.VERCEL_PROJECT_PRODUCTION_URL ??
     process.env.VERCEL_URL ??
     "unknown";
@@ -33,6 +32,7 @@ export async function buildLicenseServerLicenseBuyUrl() {
 
 function requiredBuyLinkSecret() {
   const secret = process.env.LICENSE_SERVER_BUY_LINK_SECRET?.trim();
-  if (!secret) throw new Error("LICENSE_SERVER_BUY_LINK_SECRET must be configured.");
+  if (!secret)
+    throw new Error("LICENSE_SERVER_BUY_LINK_SECRET must be configured.");
   return secret;
 }

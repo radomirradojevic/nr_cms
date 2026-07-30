@@ -1,12 +1,18 @@
 import { createHash, createPublicKey, verify } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
-import nextEnv from "@next/env";
 
 const root = process.cwd();
-const { loadEnvConfig } = nextEnv;
-loadEnvConfig(root);
-const configPath = resolve(root, process.env.NR_ADDONS_REGISTRY_FILE ?? "addons.registry.json");
+const buildInputs = await readBuildInputs();
+const configPath = resolveBuildPath(
+  buildInputs.registryFile,
+  "addons.registry.json",
+);
+const releasePublicKeysPath = resolveBuildPath(
+  buildInputs.releasePublicKeysFile,
+  "addon-release-public-keys.json",
+);
 const outputPath = resolve(root, ".generated", "addon-registry.ts");
 const allowlist = new Map([
   ["webshop", "@nr-cms/webshop/server"],
@@ -28,13 +34,11 @@ await mkdir(resolve(root, ".generated"), { recursive: true });
 await writeFile(outputPath, output, "utf8");
 
 async function readReleasePublicKeys() {
-  const configuredPath = process.env.NR_ADDON_RELEASE_PUBLIC_KEYS_FILE;
-  if (!configuredPath) throw new Error("NR_ADDON_RELEASE_PUBLIC_KEYS_FILE is required for a non-empty addon registry.");
   let parsed;
   try {
-    parsed = JSON.parse(await readFile(resolve(configuredPath), "utf8"));
+    parsed = JSON.parse(await readFile(releasePublicKeysPath, "utf8"));
   } catch {
-    throw new Error("NR_ADDON_RELEASE_PUBLIC_KEYS_FILE must point to readable JSON.");
+    throw new Error("The add-on release public-key file is missing or invalid.");
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Addon release public key set must be an object.");
   for (const [kid, pem] of Object.entries(parsed)) {
@@ -48,6 +52,29 @@ async function readReleasePublicKeys() {
     if (key.asymmetricKeyType !== "ed25519") throw new Error("Addon release authority keys must be Ed25519 public keys.");
   }
   return parsed;
+}
+
+async function readBuildInputs() {
+  const path = resolve(root, ".tmp", "addon-build-inputs.json");
+  if (!existsSync(path)) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    throw new Error("Local add-on build inputs are invalid.");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Local add-on build inputs must be an object.");
+  }
+  return parsed;
+}
+
+function resolveBuildPath(value, fallback) {
+  const path = resolve(root, typeof value === "string" && value ? value : fallback);
+  if (!isWithin(root, path)) {
+    throw new Error("Add-on build input paths must stay inside the CMS workspace.");
+  }
+  return path;
 }
 
 async function verifyInstalledRelease(expected, publicKeys) {

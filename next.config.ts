@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
-const isDev = process.env.NODE_ENV !== "production";
+// Next's development compiler requires unsafe-eval. This is a framework
+// compiler exception only; application policy must not branch on NODE_ENV.
+const isDevelopmentCompiler = process.env.NODE_ENV !== "production";
+const secureTransport = usesSecurePublicOrigin();
 const webshopPublicBaseHost = publicBaseHost(
   process.env.WEBSHOP_PUBLIC_BASE_URL,
 );
@@ -26,7 +29,7 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com https://cdn.paddle.com https://*.paddle.com https://js.stripe.com`,
+      `script-src 'self' 'unsafe-inline'${isDevelopmentCompiler ? " 'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com https://cdn.paddle.com https://*.paddle.com https://js.stripe.com`,
       "style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com",
       "img-src 'self' blob: data: https:",
       "font-src 'self' https://rsms.me https://fonts.gstatic.com",
@@ -38,7 +41,7 @@ const securityHeaders = [
       "base-uri 'self'",
       "form-action 'self' https://*.paddle.com https://*.paypal.com https://*.stripe.com",
       "frame-ancestors 'none'",
-      ...(isDev ? [] : ["upgrade-insecure-requests"]),
+      ...(secureTransport ? ["upgrade-insecure-requests"] : []),
     ].join("; "),
   },
 ];
@@ -75,5 +78,19 @@ function publicBaseHost(value: string | undefined) {
     return new URL(value).host;
   } catch {
     return null;
+  }
+}
+
+function usesSecurePublicOrigin() {
+  const value =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+    process.env.VERCEL_URL;
+  if (!value) return Boolean(process.env.VERCEL);
+  try {
+    const normalized = value.includes("://") ? value : `https://${value}`;
+    return new URL(normalized).protocol === "https:";
+  } catch {
+    return false;
   }
 }

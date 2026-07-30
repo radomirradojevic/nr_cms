@@ -25,6 +25,11 @@ const fakeAddon: LicenseServerAddon = {
   },
 };
 
+const enabledLicenseServerRuntimeConfig = getLicenseServerRuntimeConfig({
+  LICENSE_SERVER_ENABLED: "true",
+  LICENSE_SERVER_INSTALL_MODE: "managed_redeploy",
+});
+
 function createTestAddonI18nContext() {
   return buildAddonI18nContext({
     languages: {
@@ -45,6 +50,7 @@ test("license server add-on state maps loaded entitlement cases", () => {
       entitlement: null,
       loadResult: { status: "loaded", addon: fakeAddon },
       now,
+      runtimeConfig: enabledLicenseServerRuntimeConfig,
     }).status,
     "license_required",
   );
@@ -59,6 +65,8 @@ test("license server add-on state maps loaded entitlement cases", () => {
       },
       loadResult: { status: "loaded", addon: fakeAddon },
       now,
+      runtimeConfig: enabledLicenseServerRuntimeConfig,
+      verifySignedEntitlement: false,
     }),
     {
       reason: "Add-on entitlement was revoked.",
@@ -74,6 +82,8 @@ test("license server add-on state maps loaded entitlement cases", () => {
       },
       loadResult: { status: "loaded", addon: fakeAddon },
       now,
+      runtimeConfig: enabledLicenseServerRuntimeConfig,
+      verifySignedEntitlement: false,
     }),
     {
       addon: fakeAddon,
@@ -84,39 +94,30 @@ test("license server add-on state maps loaded entitlement cases", () => {
   );
 });
 
-test("License Server production defaults are disabled until explicitly enabled", () => {
-  const config = getLicenseServerRuntimeConfig({ NODE_ENV: "production" });
-  assert.equal(config.enabled, false);
-  assert.equal(config.installMode, "disabled");
+test("License Server defaults fail closed identically in development and production", () => {
+  const development = getLicenseServerRuntimeConfig({
+    NODE_ENV: "development",
+  });
+  const production = getLicenseServerRuntimeConfig({ NODE_ENV: "production" });
+  assert.deepEqual(development, production);
+  assert.equal(production.enabled, false);
+  assert.equal(production.installMode, "disabled");
 });
 
-test("production License Server state always rejects an unsigned entitlement", () => {
-  const env = process.env as Record<string, string | undefined>;
-  const previousNodeEnv = env.NODE_ENV;
-  const previousFlag = env.VENDOR_SIGNED_ENTITLEMENTS_V1;
-  env.NODE_ENV = "production";
-  env.VENDOR_SIGNED_ENTITLEMENTS_V1 = "false";
-  try {
-    const state = resolveLicenseServerAddonStateFromInputs({
-      entitlement: {
-        status: "ready",
-        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
-      },
-      loadResult: { status: "loaded", addon: fakeAddon },
-      runtimeConfig: getLicenseServerRuntimeConfig({
-        NODE_ENV: "production",
-        LICENSE_SERVER_ENABLED: "true",
-        LICENSE_SERVER_INSTALL_MODE: "managed_redeploy",
-      }),
-    });
-    assert.equal(state.status, "license_invalid");
-  } finally {
-    if (previousNodeEnv === undefined) delete env.NODE_ENV;
-    else env.NODE_ENV = previousNodeEnv;
-    if (previousFlag === undefined)
-      delete env.VENDOR_SIGNED_ENTITLEMENTS_V1;
-    else env.VENDOR_SIGNED_ENTITLEMENTS_V1 = previousFlag;
-  }
+test("every runtime mode rejects an unsigned License Server entitlement", () => {
+  const state = resolveLicenseServerAddonStateFromInputs({
+    entitlement: {
+      status: "ready",
+      expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+    },
+    loadResult: { status: "loaded", addon: fakeAddon },
+    runtimeConfig: getLicenseServerRuntimeConfig({
+      NODE_ENV: "development",
+      LICENSE_SERVER_ENABLED: "true",
+      LICENSE_SERVER_INSTALL_MODE: "managed_redeploy",
+    }),
+  });
+  assert.equal(state.status, "license_invalid");
 });
 
 test("installed license server mode blocks new issue after expiry or revocation", () => {
@@ -129,6 +130,7 @@ test("installed license server mode blocks new issue after expiry or revocation"
         status: "ready",
       },
       now,
+      enabledLicenseServerRuntimeConfig,
     ),
     { status: "ready", mode: "ready" },
   );
@@ -140,6 +142,7 @@ test("installed license server mode blocks new issue after expiry or revocation"
         status: "ready",
       },
       now,
+      enabledLicenseServerRuntimeConfig,
     ),
     { status: "license_expired", mode: "edit_existing_only" },
   );
@@ -148,6 +151,7 @@ test("installed license server mode blocks new issue after expiry or revocation"
     resolveInstalledLicenseServerLicenseModeFromEntitlement(
       { status: "invalid" },
       now,
+      enabledLicenseServerRuntimeConfig,
     ).status,
     "forbidden",
   );
@@ -273,7 +277,7 @@ test("license server entitlement revalidation uses a 24 hour stale window", () =
 
 test("master revalidation statuses map to local entitlement states", () => {
   assert.equal(
-    mapLicenseServerRevalidationStatusToEntitlementStatus("ready"),
+    mapLicenseServerRevalidationStatusToEntitlementStatus("active"),
     "ready",
   );
   assert.equal(
@@ -285,7 +289,7 @@ test("master revalidation statuses map to local entitlement states", () => {
     "invalid",
   );
   assert.equal(
-    mapLicenseServerRevalidationStatusToEntitlementStatus("invalid"),
+    mapLicenseServerRevalidationStatusToEntitlementStatus("suspended"),
     "invalid",
   );
 });

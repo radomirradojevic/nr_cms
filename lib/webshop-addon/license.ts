@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { safeFetch } from "@/lib/security/outbound-url";
+import { getMasterLicenseServerUrl } from "@/lib/master-license-server";
+import {
+  isExplicitlyAllowedLoopbackHttpUrl,
+  safeFetch,
+} from "@/lib/security/outbound-url";
 
 import {
   WEBSHOP_SUPPORTED_PROVIDERS,
@@ -15,17 +19,20 @@ import {
   loadWebshopAddon,
   type WebshopAddonLoadResult,
 } from "@/lib/webshop-addon/loader";
-import { verifyWebshopDeploymentPlatform } from "@/lib/webshop-addon/platform";
 import { verifyVendorAddonEntitlement } from "@/lib/vendor-addon-entitlements/verified-entitlement";
-import { getOrCreateVendorAddonInstallationIdentity, signVendorAddonActivationPayload } from "@/lib/vendor-addon-installation";
+import { getVendorAddonEntitlementPublicKeys } from "@/lib/vendor-addon-entitlements/public-keys";
+import {
+  getOrCreateVendorAddonInstallationIdentity,
+  signVendorAddonActivationPayload,
+} from "@/lib/vendor-addon-installation";
 
 const ActivationResponseSchema = z.object({
   activationId: z.string().uuid(),
   entitlementToken: z.string().min(1),
   expiresAt: z.string().datetime(),
   features: z.array(z.string()).default([]),
-  installationId: z.string().uuid().optional(),
-  installationKeyFingerprint: z.string().optional(),
+  installationId: z.string().uuid(),
+  installationKeyFingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/),
   licenseKeyRef: z.string().min(1),
   packageInstallToken: z.string().optional(),
   packageInstallTokenExpiresAt: z.string().datetime().optional(),
@@ -73,15 +80,25 @@ export type WebshopEntitlementState = {
   status: string;
 };
 
-export function verifyWebshopSignedEntitlement(entitlement: WebshopEntitlementState, canonicalDomain: string, now = new Date()) {
-  if (!entitlement.entitlementToken || !entitlement.installationId || !entitlement.installationKeyFingerprint) throw new Error("Webshop signed entitlement cache is incomplete.");
+export function verifyWebshopSignedEntitlement(
+  entitlement: WebshopEntitlementState,
+  canonicalDomain: string,
+  now = new Date(),
+  publicKeysByKid: Record<string, string> = {},
+) {
+  if (
+    !entitlement.entitlementToken ||
+    !entitlement.installationId ||
+    !entitlement.installationKeyFingerprint
+  )
+    throw new Error("Webshop signed entitlement cache is incomplete.");
   return verifyVendorAddonEntitlement(entitlement.entitlementToken, {
     addonKey: "webshop",
     canonicalDomain,
     installationId: entitlement.installationId,
     installationKeyFingerprint: entitlement.installationKeyFingerprint,
     now,
-    publicKeysByKid: configuredVendorPublicKeys(),
+    publicKeysByKid,
   });
 }
 
@@ -94,22 +111,10 @@ function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
-function isLocalHttpLicenseServer(baseUrl: string | null) {
-  if (!baseUrl || process.env.NODE_ENV === "production") return false;
-  try {
-    const url = new URL(baseUrl);
-    return (
-      url.protocol === "http:" &&
-      (url.hostname === "localhost" ||
-        url.hostname === "127.0.0.1" ||
-        url.hostname === "::1")
-    );
-  } catch {
-    return false;
-  }
-}
-
-async function readLicenseServerError(response: Response | null, fallback: string) {
+async function readLicenseServerError(
+  response: Response | null,
+  fallback: string,
+) {
   if (!response) return fallback;
   try {
     const body = (await response.json()) as { error?: unknown };
@@ -128,12 +133,16 @@ export function resolveWebshopAddonStateFromInputs({
   now = new Date(),
   platform,
   runtimeConfig = getWebshopRuntimeConfig(),
+  publicKeysByKid = {},
+  verifySignedEntitlement = true,
 }: {
   entitlement: WebshopEntitlementState | null;
   loadResult: WebshopAddonLoadResult;
   now?: Date;
   platform?: WebshopDeploymentPlatform;
   runtimeConfig?: WebshopRuntimeConfig;
+  publicKeysByKid?: Record<string, string>;
+  verifySignedEntitlement?: boolean;
 }): WebshopAddonState {
   const disabledMessage = getWebshopDisabledMessage(runtimeConfig);
   if (disabledMessage) {
@@ -181,11 +190,22 @@ export function resolveWebshopAddonStateFromInputs({
     };
   }
 
-  if (shouldVerifyWebshopSignedEntitlements()) {
+  if (verifySignedEntitlement) {
     try {
-      verifyWebshopSignedEntitlement(entitlement, expectedDomain());
+      verifyWebshopSignedEntitlement(
+        entitlement,
+        expectedDomain(),
+        now,
+        publicKeysByKid,
+      );
     } catch (error) {
-      return { status: "license_invalid", reason: error instanceof Error ? error.message : "Webshop entitlement signature is invalid." };
+      return {
+        status: "license_invalid",
+        reason:
+          error instanceof Error
+            ? error.message
+            : "Webshop entitlement signature is invalid.",
+      };
     }
   }
 
@@ -219,27 +239,18 @@ export function shouldForceWebshopInstallReconciliation(
   loadResult: WebshopAddonLoadResult,
 ) {
   return (
-    loadResult.status === "loaded" &&
-    entitlement?.status === "install_pending"
+    loadResult.status === "loaded" && entitlement?.status === "install_pending"
   );
 }
 
-function configuredVendorPublicKeys() {
-  const raw = process.env.NR_VENDOR_ENTITLEMENT_PUBLIC_KEYS_JSON;
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
-  } catch { return {}; }
-}
-function shouldVerifyWebshopSignedEntitlements() {
+function expectedDomain() {
   return (
-    process.env.NODE_ENV === "production" ||
-    process.env.VENDOR_SIGNED_ENTITLEMENTS_V1 === "true"
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+    process.env.VERCEL_URL ??
+    "unknown"
   );
 }
-function expectedDomain() { return process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL ?? "unknown"; }
 
 export async function resolveWebshopAddonState(): Promise<WebshopAddonState> {
   const runtimeConfig = getWebshopRuntimeConfig();
@@ -254,14 +265,9 @@ export async function resolveWebshopAddonState(): Promise<WebshopAddonState> {
 
   if (loadResult.status === "not_installed") {
     const entitlement = await getWebshopAddonEntitlement();
-    const platform =
-      entitlement?.status === "install_pending"
-        ? undefined
-        : await verifyWebshopDeploymentPlatform();
     return resolveWebshopAddonStateFromInputs({
       entitlement,
       loadResult,
-      platform,
       runtimeConfig,
     });
   }
@@ -271,52 +277,225 @@ export async function resolveWebshopAddonState(): Promise<WebshopAddonState> {
     storedEntitlement,
     loadResult,
   )
-    ? (await revalidateWebshopAddonEntitlement({ force: true })).entitlement ??
-      storedEntitlement
+    ? ((await revalidateWebshopAddonEntitlement({ force: true })).entitlement ??
+      storedEntitlement)
     : await maybeRevalidateWebshopAddonEntitlement(storedEntitlement);
+  const publicKeysByKid = entitlement?.entitlementToken
+    ? await getVendorAddonEntitlementPublicKeys().catch(() => ({}))
+    : {};
   return resolveWebshopAddonStateFromInputs({
     entitlement,
     loadResult,
+    publicKeysByKid,
     runtimeConfig,
   });
 }
 
-export async function revalidateWebshopAddonEntitlement({ force = true }: { force?: boolean } = {}) {
-  const { getWebshopAddonEntitlement, saveWebshopAddonEntitlement } = await import("@/data/webshop-addon-entitlement");
+export async function revalidateWebshopAddonEntitlement({
+  force = true,
+}: { force?: boolean } = {}) {
+  const { getWebshopAddonEntitlement, saveWebshopAddonEntitlement } =
+    await import("@/data/webshop-addon-entitlement");
   const entitlement = await getWebshopAddonEntitlement();
-  if (!entitlement || !entitlement.entitlementToken) return { entitlement, ok: false as const, error: "Webshop entitlement is missing." };
-  if (!force && !shouldRevalidateWebshopEntitlement(entitlement)) return { entitlement, ok: true as const, skipped: true as const };
+  if (!entitlement || !entitlement.entitlementToken)
+    return {
+      entitlement,
+      ok: false as const,
+      error: "Webshop entitlement is missing.",
+    };
+  if (!force && !shouldRevalidateWebshopEntitlement(entitlement))
+    return { entitlement, ok: true as const, skipped: true as const };
   const activationId = metadataString(entitlement.metadata, "activationId");
-  if (!activationId) return { entitlement, ok: false as const, error: "Webshop activation reference is missing." };
-  const url = getWebshopRuntimeConfig().licenseApiUrl;
-  if (!url) return { entitlement, ok: false as const, error: "Webshop license server is not configured." };
+  if (!activationId)
+    return {
+      entitlement,
+      ok: false as const,
+      error: "Webshop activation reference is missing.",
+    };
+  const url = getMasterLicenseServerUrl();
   let response: Response;
-  const localHttp = isLocalHttpLicenseServer(url);
-  try { response = await safeFetch(joinUrl(url, "/api/addons/licenses/revalidate"), { allowFirstParty: true, allowLocalHttp: localHttp, allowSelfHosted: localHttp, body: JSON.stringify({ activationId }), headers: { "content-type": "application/json" }, method: "POST", purpose: "Webshop entitlement revalidation", timeoutMs: 5000 }); } catch { return persistWebshopRevalidationFailure(entitlement, "central_unreachable"); }
-  if (!response.ok) return persistWebshopRevalidationFailure(entitlement, `central_${response.status}`, response.status);
+  const localHttp = isExplicitlyAllowedLoopbackHttpUrl(url);
+  try {
+    response = await safeFetch(
+      joinUrl(url, "/api/addons/licenses/revalidate"),
+      {
+        allowFirstParty: true,
+        allowLocalHttp: localHttp,
+        allowSelfHosted: localHttp,
+        body: JSON.stringify({ activationId }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+        purpose: "Webshop entitlement revalidation",
+        timeoutMs: 5000,
+      },
+    );
+  } catch {
+    return persistWebshopRevalidationFailure(
+      entitlement,
+      "central_unreachable",
+    );
+  }
+  if (!response.ok)
+    return persistWebshopRevalidationFailure(
+      entitlement,
+      `central_${response.status}`,
+      response.status,
+    );
   const parsed = RevalidationResponseSchema.safeParse(await response.json());
-  if (!parsed.success) return persistWebshopRevalidationFailure(entitlement, "invalid_central_response");
+  if (!parsed.success)
+    return persistWebshopRevalidationFailure(
+      entitlement,
+      "invalid_central_response",
+    );
   let remoteStatus = parsed.data.status;
-  if (shouldVerifyWebshopSignedEntitlements()) {
-    try {
-      const claims = verifyVendorAddonEntitlement(parsed.data.entitlementToken, { addonKey: "webshop", canonicalDomain: expectedDomain(), installationId: parsed.data.installationId, installationKeyFingerprint: parsed.data.installationKeyFingerprint, publicKeysByKid: configuredVendorPublicKeys() });
-      remoteStatus = claims.status;
-    } catch {
-      return persistWebshopRevalidationFailure(entitlement, "invalid_signature");
-    }
+  try {
+    const publicKeysByKid = await getVendorAddonEntitlementPublicKeys({
+      forceRefresh: true,
+    });
+    const claims = verifyVendorAddonEntitlement(parsed.data.entitlementToken, {
+      addonKey: "webshop",
+      canonicalDomain: expectedDomain(),
+      installationId: parsed.data.installationId,
+      installationKeyFingerprint: parsed.data.installationKeyFingerprint,
+      publicKeysByKid,
+    });
+    remoteStatus = claims.status;
+  } catch {
+    return persistWebshopRevalidationFailure(entitlement, "invalid_signature");
   }
   const now = new Date();
-  const status = remoteStatus === "active" ? "ready" : remoteStatus === "expired" ? "expired" : "invalid";
-  const next = { ...entitlement, entitlementToken: parsed.data.entitlementToken, expiresAt: new Date(parsed.data.expiresAt), features: parsed.data.features, installationId: parsed.data.installationId, installationKeyFingerprint: parsed.data.installationKeyFingerprint, licenseKeyRef: parsed.data.licenseKeyRef, metadata: { ...metadataRecord(entitlement.metadata), activationId: parsed.data.activationId, graceEndsAt: new Date(now.getTime() + 14 * 86400000).toISOString(), lastRevalidationAttemptAt: now.toISOString(), lastRevalidationSuccessAt: now.toISOString(), lastRevalidationStatus: parsed.data.status, signingKid: parsed.data.signingKid }, status };
-  await saveWebshopAddonEntitlement({ deploymentEnvironment: next.deploymentEnvironment, entitlementToken: next.entitlementToken!, expiresAt: next.expiresAt!, features: next.features, installationId: next.installationId, installationKeyFingerprint: next.installationKeyFingerprint, licenseKeyRef: next.licenseKeyRef!, metadata: next.metadata, packageName: next.packageName, packageVersion: next.packageVersion, provider: next.provider, providerMode: next.providerMode, providerOwnerId: next.providerOwnerId, providerProjectId: next.providerProjectId, status, updatedBy: "system" });
+  const status =
+    remoteStatus === "active"
+      ? "ready"
+      : remoteStatus === "expired"
+        ? "expired"
+        : "invalid";
+  const next = {
+    ...entitlement,
+    entitlementToken: parsed.data.entitlementToken,
+    expiresAt: new Date(parsed.data.expiresAt),
+    features: parsed.data.features,
+    installationId: parsed.data.installationId,
+    installationKeyFingerprint: parsed.data.installationKeyFingerprint,
+    licenseKeyRef: parsed.data.licenseKeyRef,
+    metadata: {
+      ...metadataRecord(entitlement.metadata),
+      activationId: parsed.data.activationId,
+      graceEndsAt: new Date(now.getTime() + 14 * 86400000).toISOString(),
+      lastRevalidationAttemptAt: now.toISOString(),
+      lastRevalidationSuccessAt: now.toISOString(),
+      lastRevalidationStatus: parsed.data.status,
+      signingKid: parsed.data.signingKid,
+    },
+    status,
+  };
+  await saveWebshopAddonEntitlement({
+    deploymentEnvironment: next.deploymentEnvironment,
+    entitlementToken: next.entitlementToken!,
+    expiresAt: next.expiresAt!,
+    features: next.features,
+    installationId: next.installationId,
+    installationKeyFingerprint: next.installationKeyFingerprint,
+    licenseKeyRef: next.licenseKeyRef!,
+    metadata: next.metadata,
+    packageName: next.packageName,
+    packageVersion: next.packageVersion,
+    provider: next.provider,
+    providerMode: next.providerMode,
+    providerOwnerId: next.providerOwnerId,
+    providerProjectId: next.providerProjectId,
+    status,
+    updatedBy: "system",
+  });
   return { entitlement: next, ok: true as const };
 }
 
-export function shouldRevalidateWebshopEntitlement(entitlement: WebshopEntitlementState | null, now = new Date()) { const last = metadataString(entitlement?.metadata, "lastRevalidationAttemptAt"); return Boolean(entitlement?.entitlementToken) && (!last || now.getTime() - new Date(last).getTime() >= 24 * 60 * 60 * 1000); }
-async function maybeRevalidateWebshopAddonEntitlement(entitlement: WebshopEntitlementState | null) { if (!shouldRevalidateWebshopEntitlement(entitlement)) return entitlement; return (await revalidateWebshopAddonEntitlement({ force: true })).entitlement ?? entitlement; }
-async function persistWebshopRevalidationFailure(entitlement: WebshopEntitlementState, error: string, statusCode?: number) { const { saveWebshopAddonEntitlement } = await import("@/data/webshop-addon-entitlement"); const now = new Date(); const lastSuccess = metadataString(entitlement.metadata, "lastRevalidationSuccessAt"); const hardFailure = Boolean(statusCode && [401, 403, 404].includes(statusCode)); const graceExpired = !lastSuccess || now.getTime() - new Date(lastSuccess).getTime() > 14 * 86400000; const nextStatus = hardFailure || graceExpired ? "invalid" : (entitlement.status as "ready" | "expired" | "invalid" | "install_pending"); const metadata = { ...metadataRecord(entitlement.metadata), lastErrorCode: error, lastRevalidationAttemptAt: now.toISOString() }; await saveWebshopAddonEntitlement({ deploymentEnvironment: entitlement.deploymentEnvironment, entitlementToken: entitlement.entitlementToken!, expiresAt: entitlement.expiresAt!, features: entitlement.features, installationId: entitlement.installationId, installationKeyFingerprint: entitlement.installationKeyFingerprint, licenseKeyRef: entitlement.licenseKeyRef!, metadata, packageName: entitlement.packageName, packageVersion: entitlement.packageVersion, provider: entitlement.provider, providerMode: entitlement.providerMode, providerOwnerId: entitlement.providerOwnerId, providerProjectId: entitlement.providerProjectId, status: nextStatus, updatedBy: "system" }); return { entitlement: { ...entitlement, metadata, status: nextStatus }, ok: false as const, error }; }
-function metadataRecord(value: unknown) { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
-function metadataString(value: unknown, key: string) { const found = metadataRecord(value)[key]; return typeof found === "string" ? found : null; }
+export function shouldRevalidateWebshopEntitlement(
+  entitlement: WebshopEntitlementState | null,
+  now = new Date(),
+) {
+  const last = metadataString(
+    entitlement?.metadata,
+    "lastRevalidationAttemptAt",
+  );
+  return (
+    Boolean(entitlement?.entitlementToken) &&
+    (!last || now.getTime() - new Date(last).getTime() >= 24 * 60 * 60 * 1000)
+  );
+}
+async function maybeRevalidateWebshopAddonEntitlement(
+  entitlement: WebshopEntitlementState | null,
+) {
+  if (!shouldRevalidateWebshopEntitlement(entitlement)) return entitlement;
+  return (
+    (await revalidateWebshopAddonEntitlement({ force: true })).entitlement ??
+    entitlement
+  );
+}
+async function persistWebshopRevalidationFailure(
+  entitlement: WebshopEntitlementState,
+  error: string,
+  statusCode?: number,
+) {
+  const { saveWebshopAddonEntitlement } =
+    await import("@/data/webshop-addon-entitlement");
+  const now = new Date();
+  const lastSuccess = metadataString(
+    entitlement.metadata,
+    "lastRevalidationSuccessAt",
+  );
+  const hardFailure = Boolean(
+    statusCode && [401, 403, 404].includes(statusCode),
+  );
+  const graceExpired =
+    !lastSuccess ||
+    now.getTime() - new Date(lastSuccess).getTime() > 14 * 86400000;
+  const nextStatus =
+    hardFailure || graceExpired
+      ? "invalid"
+      : (entitlement.status as
+          | "ready"
+          | "expired"
+          | "invalid"
+          | "install_pending");
+  const metadata = {
+    ...metadataRecord(entitlement.metadata),
+    lastErrorCode: error,
+    lastRevalidationAttemptAt: now.toISOString(),
+  };
+  await saveWebshopAddonEntitlement({
+    deploymentEnvironment: entitlement.deploymentEnvironment,
+    entitlementToken: entitlement.entitlementToken!,
+    expiresAt: entitlement.expiresAt!,
+    features: entitlement.features,
+    installationId: entitlement.installationId,
+    installationKeyFingerprint: entitlement.installationKeyFingerprint,
+    licenseKeyRef: entitlement.licenseKeyRef!,
+    metadata,
+    packageName: entitlement.packageName,
+    packageVersion: entitlement.packageVersion,
+    provider: entitlement.provider,
+    providerMode: entitlement.providerMode,
+    providerOwnerId: entitlement.providerOwnerId,
+    providerProjectId: entitlement.providerProjectId,
+    status: nextStatus,
+    updatedBy: "system",
+  });
+  return {
+    entitlement: { ...entitlement, metadata, status: nextStatus },
+    ok: false as const,
+    error,
+  };
+}
+function metadataRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+function metadataString(value: unknown, key: string) {
+  const found = metadataRecord(value)[key];
+  return typeof found === "string" ? found : null;
+}
 
 export function resolveInstalledWebshopLicenseModeFromEntitlement(
   entitlement: WebshopEntitlementState | null,
@@ -356,9 +535,23 @@ export function resolveInstalledWebshopLicenseModeFromEntitlement(
 export async function resolveInstalledWebshopLicenseMode(): Promise<InstalledWebshopLicenseModeResult> {
   const { getWebshopAddonEntitlement } =
     await import("@/data/webshop-addon-entitlement");
-  return resolveInstalledWebshopLicenseModeFromEntitlement(
-    await getWebshopAddonEntitlement(),
-  );
+  const entitlement = await getWebshopAddonEntitlement();
+  if (entitlement?.entitlementToken) {
+    try {
+      verifyWebshopSignedEntitlement(
+        entitlement,
+        expectedDomain(),
+        new Date(),
+        await getVendorAddonEntitlementPublicKeys(),
+      );
+    } catch {
+      return {
+        status: "forbidden",
+        reason: "Webshop entitlement signature is invalid.",
+      };
+    }
+  }
+  return resolveInstalledWebshopLicenseModeFromEntitlement(entitlement);
 }
 
 export async function requestWebshopLicenseActivation({
@@ -379,36 +572,48 @@ export async function requestWebshopLicenseActivation({
   | { ok: false; error: string }
 > {
   void _siteId;
-  const licenseServerUrl = getWebshopRuntimeConfig().licenseApiUrl;
-  if (!licenseServerUrl) {
-    return { ok: false, error: "Webshop license server is not configured." };
-  }
+  const licenseServerUrl = getMasterLicenseServerUrl();
 
-  const deploymentMode = deploymentPlatform.provider === "vercel" ? "vercel" : "self_hosted";
-  const localHttp = isLocalHttpLicenseServer(licenseServerUrl);
-  let identity: Awaited<ReturnType<typeof getOrCreateVendorAddonInstallationIdentity>>;
+  const deploymentMode =
+    deploymentPlatform.provider === "vercel" ? "vercel" : "self_hosted";
+  const localHttp = isExplicitlyAllowedLoopbackHttpUrl(licenseServerUrl);
+  let identity: Awaited<
+    ReturnType<typeof getOrCreateVendorAddonInstallationIdentity>
+  >;
   try {
-    identity = await getOrCreateVendorAddonInstallationIdentity({ canonicalDomain: siteDomain, deploymentMode });
-  } catch {
-    return { ok: false, error: "Server-only installation identity is not configured." };
-  }
-  const challengeResponse = await safeFetch(joinUrl(licenseServerUrl, "/api/addons/licenses/activate"), {
-    allowFirstParty: true,
-    allowLocalHttp: localHttp,
-    allowSelfHosted: localHttp,
-    body: JSON.stringify({
-      action: "challenge",
-      addonKey: "webshop",
+    identity = await getOrCreateVendorAddonInstallationIdentity({
       canonicalDomain: siteDomain,
       deploymentMode,
-      installationId: identity.installationId,
-      installationKeyFingerprint: identity.installationKeyFingerprint,
-      installationPublicKey: identity.installationPublicKey,
-      licenseKey,
-      platformSubject: deploymentPlatform.ownerId,
-    }),
-    headers: { "content-type": "application/json" }, method: "POST", purpose: "Webshop activation challenge", timeoutMs: 5000,
-  }).catch(() => null);
+    });
+  } catch {
+    return {
+      ok: false,
+      error: "Server-only installation identity is not configured.",
+    };
+  }
+  const challengeResponse = await safeFetch(
+    joinUrl(licenseServerUrl, "/api/addons/licenses/activate"),
+    {
+      allowFirstParty: true,
+      allowLocalHttp: localHttp,
+      allowSelfHosted: localHttp,
+      body: JSON.stringify({
+        action: "challenge",
+        addonKey: "webshop",
+        canonicalDomain: siteDomain,
+        deploymentMode,
+        installationId: identity.installationId,
+        installationKeyFingerprint: identity.installationKeyFingerprint,
+        installationPublicKey: identity.installationPublicKey,
+        licenseKey,
+        platformSubject: deploymentPlatform.ownerId,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+      purpose: "Webshop activation challenge",
+      timeoutMs: 5000,
+    },
+  ).catch(() => null);
   if (!challengeResponse?.ok) {
     return {
       ok: false,
@@ -418,16 +623,34 @@ export async function requestWebshopLicenseActivation({
       ),
     };
   }
-  const challenge = ActivationChallengeSchema.safeParse(await challengeResponse.json());
-  if (!challenge.success) return { ok: false, error: "Webshop license server returned an invalid activation challenge." };
-  const response = await safeFetch(joinUrl(licenseServerUrl, "/api/addons/licenses/activate"), {
+  const challenge = ActivationChallengeSchema.safeParse(
+    await challengeResponse.json(),
+  );
+  if (!challenge.success)
+    return {
+      ok: false,
+      error: "Webshop license server returned an invalid activation challenge.",
+    };
+  const response = await safeFetch(
+    joinUrl(licenseServerUrl, "/api/addons/licenses/activate"),
+    {
       allowFirstParty: true,
       allowLocalHttp: localHttp,
       allowSelfHosted: localHttp,
-      body: JSON.stringify({ action: "complete", challengeId: challenge.data.challengeId, challengeSignature: signVendorAddonActivationPayload(identity, challenge.data.signaturePayload) }),
+      body: JSON.stringify({
+        action: "complete",
+        challengeId: challenge.data.challengeId,
+        challengeSignature: signVendorAddonActivationPayload(
+          identity,
+          challenge.data.signaturePayload,
+        ),
+      }),
       headers: { "content-type": "application/json" },
-      method: "POST", purpose: "Webshop activation completion", timeoutMs: 5000,
-  }).catch(() => null);
+      method: "POST",
+      purpose: "Webshop activation completion",
+      timeoutMs: 5000,
+    },
+  ).catch(() => null);
 
   if (!response?.ok) {
     return {
@@ -444,6 +667,31 @@ export async function requestWebshopLicenseActivation({
     return {
       ok: false,
       error: "Webshop license server returned an invalid activation response.",
+    };
+  }
+
+  try {
+    const publicKeysByKid = await getVendorAddonEntitlementPublicKeys({
+      forceRefresh: true,
+    });
+    const claims = verifyVendorAddonEntitlement(parsed.data.entitlementToken, {
+      addonKey: "webshop",
+      canonicalDomain: siteDomain,
+      installationId: parsed.data.installationId,
+      installationKeyFingerprint: parsed.data.installationKeyFingerprint,
+      publicKeysByKid,
+    });
+    if (
+      claims.activationId !== parsed.data.activationId ||
+      claims.status !== "active"
+    ) {
+      throw new Error("Activation entitlement is not active.");
+    }
+  } catch {
+    return {
+      ok: false,
+      error:
+        "Webshop license server returned an untrusted activation entitlement.",
     };
   }
 

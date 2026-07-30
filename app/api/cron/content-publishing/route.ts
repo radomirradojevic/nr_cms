@@ -3,30 +3,13 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 import { runContentPublishingSchedule } from "@/data/content-publishing";
 import { TOP_MENU_TAG } from "@/data/top-menu";
+import { isCronRequestAuthorized } from "@/lib/cron-auth";
 import { securityLogger } from "@/lib/security/logger";
 
 export const dynamic = "force-dynamic";
 
-function getCronSecrets(): string[] {
-  return [process.env.CONTENT_PUBLISHING_CRON_SECRET].flatMap((value) => {
-    const secret = value?.trim();
-    return secret ? [secret] : [];
-  });
-}
-
-function isAuthorized(request: NextRequest): boolean {
-  const secrets = getCronSecrets();
-  if (secrets.length === 0) return false;
-
-  const bearer = request.headers.get("authorization");
-  const headerSecret = request.headers.get("x-cron-secret");
-  return secrets.some(
-    (secret) => bearer === `Bearer ${secret}` || headerSecret === secret,
-  );
-}
-
 async function handleContentPublishingCron(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isCronRequestAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

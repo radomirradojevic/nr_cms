@@ -76,9 +76,7 @@ const globalForPg = globalThis as GlobalWithPgPool;
 const pool =
   globalForPg.__nrCmsPgPool ?? new Pool(poolConfig);
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPg.__nrCmsPgPool = pool;
-}
+globalForPg.__nrCmsPgPool = pool;
 
 const db = drizzle(pool);
 

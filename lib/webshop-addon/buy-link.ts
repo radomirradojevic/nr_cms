@@ -15,7 +15,12 @@ export function canonicalWebshopActivationDomain(value: string) {
     );
     return parsed.hostname.toLowerCase();
   } catch {
-    return trimmed.toLowerCase().replace(/^https?:\/\//, "").split("/")[0] || "unknown";
+    return (
+      trimmed
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .split("/")[0] || "unknown"
+    );
   }
 }
 
@@ -34,7 +39,6 @@ async function buildWebshopLicenseBuyUrlWithSecret(secret: string) {
   const siteDomain =
     settings.publicSiteUrl ??
     process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.APP_URL ??
     process.env.VERCEL_PROJECT_PRODUCTION_URL ??
     process.env.VERCEL_URL ??
     "unknown";

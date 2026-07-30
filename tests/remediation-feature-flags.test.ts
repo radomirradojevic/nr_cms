@@ -13,12 +13,12 @@ test("Night Raven remediation flags default to false and parse only server env v
   }
 
   const flags = parseNightRavenRemediationFlags({
-    ADDON_SDK_V1: "on",
+    WEBSHOP_LICENSE_OUTBOX_V2: "on",
     VENDOR_LICENSE_API_V2: "true",
     WEBSHOP_PAYMENT_STATE_V2: "invalid",
   });
 
-  assert.equal(flags.ADDON_SDK_V1, true);
+  assert.equal(flags.WEBSHOP_LICENSE_OUTBOX_V2, true);
   assert.equal(flags.VENDOR_LICENSE_API_V2, true);
   assert.equal(flags.WEBSHOP_PAYMENT_STATE_V2, false);
 });
