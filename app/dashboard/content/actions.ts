@@ -66,6 +66,7 @@ import {
   categoryTypeForContentType,
 } from "@/lib/content-types";
 import { canCreateContentType } from "@/lib/content-type-permissions";
+import { isWebshopHardDeleteConfirmed } from "@/lib/webshop-hard-delete";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -642,6 +643,9 @@ export async function updateContent(input: UpdateContentInput) {
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
 const idSchema = z.object({ id: z.string().uuid() });
+const permanentlyDeleteSchema = idSchema.extend({
+  confirmation: z.string().max(100).optional(),
+});
 
 export async function deleteContent(input: { id: string }) {
   const actor = await loadActor();
@@ -729,12 +733,15 @@ export async function restoreDeletedContent(input: { id: string }) {
   return { success: true };
 }
 
-export async function permanentlyDeleteContent(input: { id: string }) {
+export async function permanentlyDeleteContent(input: {
+  id: string;
+  confirmation?: string;
+}) {
   const actor = await loadActor();
   if (!actor) return { error: "Forbidden." };
   if (!hasRole(actor.roles, "admin")) return { error: "Forbidden." };
 
-  const parsed = idSchema.safeParse(input);
+  const parsed = permanentlyDeleteSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid id." };
 
   const target = await getContentById(parsed.data.id, { includeDeleted: true });
@@ -742,33 +749,51 @@ export async function permanentlyDeleteContent(input: { id: string }) {
   if (!target.deletedAt) {
     return { error: "Only deleted content can be permanently deleted." };
   }
+  if (
+    target.contentType === "webshop" &&
+    !isWebshopHardDeleteConfirmed(parsed.data.confirmation)
+  ) {
+    return {
+      error:
+        "Type the required confirmation phrase to permanently delete all webshop data.",
+    };
+  }
 
   const lockError = await getListActionLockError(target.id);
   if (lockError) return { error: lockError };
 
-  // Mark dependent menu items as broken before the FK nulls out content_id.
+  // Read dependents for cache invalidation. The hard-delete transaction marks
+  // them as broken before the FK nulls out content_id.
   const dependents = await db
     .select({ id: topMenuItems.id, label: topMenuItems.label })
     .from(topMenuItems)
     .where(eq(topMenuItems.contentId, target.id));
-  if (dependents.length > 0) {
-    await Promise.all(
-      dependents.map((d) =>
-        db
-          .update(topMenuItems)
-          .set({
-            url: "#",
-            label: d.label.endsWith(" (broken)")
-              ? d.label
-              : `${d.label} (broken)`,
-          })
-          .where(eq(topMenuItems.id, d.id)),
-      ),
-    );
-  }
 
-  const result = await hardDeleteContentWithRevisions({ contentId: target.id });
-  if (!result.ok) return { error: "Content not found." };
+  let result: Awaited<ReturnType<typeof hardDeleteContentWithRevisions>>;
+  try {
+    result =
+      target.contentType === "webshop"
+        ? await hardDeleteContentWithRevisions({
+            contentId: target.id,
+            purgeWebshop: true,
+            actorId: actor.userId,
+          })
+        : await hardDeleteContentWithRevisions({ contentId: target.id });
+  } catch (error) {
+    console.error("[permanentlyDeleteContent] db error", error);
+    return {
+      error:
+        "The content could not be permanently deleted. No data was deleted.",
+    };
+  }
+  if (!result.ok) {
+    return {
+      error:
+        result.reason === "not_deleted"
+          ? "Only deleted content can be permanently deleted."
+          : "Content not found.",
+    };
+  }
 
   revalidatePath("/dashboard/content");
   if (target.contentType === "webshop") revalidatePath("/dashboard/webshop");

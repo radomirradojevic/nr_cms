@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 
 import { createElement } from "react";
@@ -15,6 +17,10 @@ import {
 import { canEditContent } from "@/lib/content-locks";
 import { canAccessContentPreview } from "@/lib/content-preview-auth";
 import { HeaderSettingsSchema } from "@/lib/global-settings";
+import {
+  isWebshopHardDeleteConfirmed,
+  WEBSHOP_HARD_DELETE_CONFIRMATION,
+} from "@/lib/webshop-hard-delete";
 import {
   resolveShellRenderTargetForPathname,
   shouldShowShellForTarget,
@@ -37,6 +43,42 @@ test("only admins can create webshop content", () => {
   assert.equal(canCreateContentType(author, "webshop"), false);
   assert.equal(canCreateContentType(publisher, "webshop"), false);
   assert.equal(canCreateContentType(author, "page"), true);
+});
+
+test("webshop hard delete requires the exact destructive confirmation phrase", () => {
+  assert.equal(
+    isWebshopHardDeleteConfirmed(WEBSHOP_HARD_DELETE_CONFIRMATION),
+    true,
+  );
+  assert.equal(
+    isWebshopHardDeleteConfirmed(`  ${WEBSHOP_HARD_DELETE_CONFIRMATION}  `),
+    true,
+  );
+  assert.equal(isWebshopHardDeleteConfirmed("DELETE WEBSHOP"), false);
+  assert.equal(isWebshopHardDeleteConfirmed(undefined), false);
+});
+
+test("webshop hard delete purge covers every webshop data table", () => {
+  const schemaSource = readFileSync(
+    resolve(process.cwd(), "db/schema.ts"),
+    "utf8",
+  );
+  const purgeSource = readFileSync(
+    resolve(process.cwd(), "data/webshop-purge.ts"),
+    "utf8",
+  );
+  const schemaTables = [
+    ...schemaSource.matchAll(/pgTable\(\s*"(webshop_[^"]+)"/g),
+  ]
+    .map((match) => match[1])
+    .filter((table) => table !== "webshop_addon_entitlements")
+    .sort();
+  const purgeTables = [...purgeSource.matchAll(/^\s{2}"(webshop_[^"]+)",$/gm)]
+    .map((match) => match[1])
+    .sort();
+
+  assert.deepEqual(purgeTables, schemaTables);
+  assert.match(purgeSource, /TRUNCATE TABLE/);
 });
 
 test("webshop edit locks are admin-only", () => {

@@ -14,9 +14,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useTranslations } from "@/components/i18n-provider";
 import { useSourceTranslations } from "@/components/source-translations";
 import { hasRole, type Role } from "@/lib/roles";
+import { WEBSHOP_HARD_DELETE_CONFIRMATION } from "@/lib/webshop-hard-delete";
 
 import { permanentlyDeleteContent, restoreDeletedContent } from "./actions";
 import type { ContentRow } from "./content-table";
@@ -36,10 +38,15 @@ export function DeletedContentRowActions({
   const st = useSourceTranslations();
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const isAdmin = hasRole(currentUserRoles, "admin");
+  const isWebshop = row.contentType === "webshop";
   const canRestore = isAdmin || row.contentType !== "webshop";
+  const deleteConfirmationMatches =
+    !isWebshop ||
+    deleteConfirmation.trim() === WEBSHOP_HARD_DELETE_CONFIRMATION;
 
   function run(action: () => Promise<{ error?: string; success?: boolean }>) {
     setError(null);
@@ -51,6 +58,7 @@ export function DeletedContentRowActions({
       }
       setRestoreOpen(false);
       setDeleteOpen(false);
+      setDeleteConfirmation("");
       onMutated();
     });
   }
@@ -79,6 +87,7 @@ export function DeletedContentRowActions({
             disabled={pending}
             onClick={() => {
               setError(null);
+              setDeleteConfirmation("");
               setDeleteOpen(true);
             }}
           >
@@ -134,20 +143,56 @@ export function DeletedContentRowActions({
         open={deleteOpen}
         onOpenChange={(open) => {
           setDeleteOpen(open);
-          if (!open) setError(null);
+          if (!open) {
+            setError(null);
+            setDeleteConfirmation("");
+          }
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("dashboard.content.dialogs.permanentlyDeleteTitle")}
+              {isWebshop
+                ? t("dashboard.content.dialogs.webshopPermanentlyDeleteTitle")
+                : t("dashboard.content.dialogs.permanentlyDeleteTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("dashboard.content.dialogs.permanentlyDeleteDescription", {
-                title: row.title,
-              })}
+              {isWebshop
+                ? t(
+                    "dashboard.content.dialogs.webshopPermanentlyDeleteDescription",
+                    { title: row.title },
+                  )
+                : t("dashboard.content.dialogs.permanentlyDeleteDescription", {
+                    title: row.title,
+                  })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {isWebshop && (
+            <div className="space-y-2">
+              <label
+                htmlFor={`webshop-delete-confirmation-${row.id}`}
+                className="text-sm font-medium"
+              >
+                {t(
+                  "dashboard.content.dialogs.webshopPermanentlyDeleteConfirmation",
+                  { phrase: WEBSHOP_HARD_DELETE_CONFIRMATION },
+                )}
+              </label>
+              <Input
+                id={`webshop-delete-confirmation-${row.id}`}
+                value={deleteConfirmation}
+                onChange={(event) =>
+                  setDeleteConfirmation(event.currentTarget.value)
+                }
+                autoComplete="off"
+                disabled={pending}
+                spellCheck={false}
+                aria-invalid={
+                  deleteConfirmation.length > 0 && !deleteConfirmationMatches
+                }
+              />
+            </div>
+          )}
           {error && (
             <p className="px-1 text-sm text-destructive">{st(error)}</p>
           )}
@@ -156,10 +201,15 @@ export function DeletedContentRowActions({
               {t("dashboard.common.actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={pending}
+              disabled={pending || !deleteConfirmationMatches}
               onClick={(event) => {
                 event.preventDefault();
-                run(() => permanentlyDeleteContent({ id: row.id }));
+                run(() =>
+                  permanentlyDeleteContent({
+                    id: row.id,
+                    confirmation: isWebshop ? deleteConfirmation : undefined,
+                  }),
+                );
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

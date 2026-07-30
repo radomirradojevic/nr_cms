@@ -15,9 +15,10 @@ import {
 } from "drizzle-orm";
 
 import { db } from "@/db";
-import { content, contentRevisions } from "@/db/schema";
+import { content, contentRevisions, topMenuItems } from "@/db/schema";
 import type { ContentRow } from "@/data/content";
 import { getGlobalSettings } from "@/data/global-settings";
+import { purgeWebshopData } from "@/data/webshop-purge";
 import { hasMeaningfulContentChanges } from "@/lib/content-change-detection";
 import { isContentLive } from "@/lib/content-schedule";
 import type { ContentStatus } from "@/lib/content-status";
@@ -73,7 +74,10 @@ export type SoftDeleteContentResult =
 
 export type HardDeleteContentResult =
   | { ok: true }
-  | { ok: false; reason: "not_found" };
+  | {
+      ok: false;
+      reason: "not_found" | "not_deleted" | "not_webshop";
+    };
 
 async function lockContentRow(
   client: RevisionClient,
@@ -364,11 +368,47 @@ export async function restoreDeletedContentWithRevision(input: {
   });
 }
 
-export async function hardDeleteContentWithRevisions(input: {
-  contentId: string;
-}): Promise<HardDeleteContentResult> {
+type HardDeleteContentInput = { contentId: string } & (
+  | { purgeWebshop: true; actorId: string }
+  | { purgeWebshop?: false; actorId?: never }
+);
+
+export async function hardDeleteContentWithRevisions(
+  input: HardDeleteContentInput,
+): Promise<HardDeleteContentResult> {
   return db.transaction(async (tx) => {
     await lockContentRow(tx, input.contentId);
+    const targetRows = await tx
+      .select({
+        contentType: content.contentType,
+        deletedAt: content.deletedAt,
+      })
+      .from(content)
+      .where(eq(content.id, input.contentId))
+      .limit(1);
+    const target = targetRows[0];
+    if (!target) return { ok: false, reason: "not_found" };
+    if (!target.deletedAt) return { ok: false, reason: "not_deleted" };
+
+    if (input.purgeWebshop) {
+      if (target.contentType !== "webshop") {
+        return { ok: false, reason: "not_webshop" };
+      }
+      await purgeWebshopData(tx, input.actorId);
+    }
+
+    await tx
+      .update(topMenuItems)
+      .set({
+        url: "#",
+        label: sql`CASE
+          WHEN ${topMenuItems.label} LIKE '% (broken)'
+            THEN ${topMenuItems.label}
+          ELSE ${topMenuItems.label} || ' (broken)'
+        END`,
+      })
+      .where(eq(topMenuItems.contentId, input.contentId));
+
     const rows = await tx
       .delete(content)
       .where(eq(content.id, input.contentId))

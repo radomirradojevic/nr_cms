@@ -512,6 +512,11 @@ export const en = {
         permanentlyDeleteTitle: "Permanently delete this content?",
         permanentlyDeleteDescription:
           "This will delete {title}, comments, and all revision history. This cannot be undone.",
+        webshopPermanentlyDeleteTitle:
+          "Permanently delete this webshop and all its data?",
+        webshopPermanentlyDeleteDescription:
+          "This will permanently delete {title} and every webshop-owned product, order, payment, cart, wishlist, integration, setting, and related database record in this CMS. Shared CMS files and the add-on license will be kept. This cannot be undone.",
+        webshopPermanentlyDeleteConfirmation: "To confirm, type {phrase}",
         reassignAuthorTitle: "Reassign author",
         reassignAuthorDescription:
           "Select a new author for {title}. Only admins can perform this action.",
