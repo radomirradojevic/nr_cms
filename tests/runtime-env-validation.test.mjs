@@ -11,7 +11,6 @@ const baseEnvironment = {
   EMAIL_FROM: "CMS <noreply@example.test>",
   EMAIL_PROVIDER: "resend",
   IP_HASH_SALT: "i".repeat(32),
-  NEXT_PUBLIC_APP_URL: "https://cms.example.test",
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_fixture",
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "turnstile-site-key",
   TURNSTILE_SECRET_KEY: "turnstile-secret-key",
@@ -21,6 +20,7 @@ const addonEncryptionKey = Buffer.alloc(32, 7).toString("base64url");
 
 function enabledWebshopEnvironment() {
   return {
+    NEXT_PUBLIC_APP_URL: "https://cms.example.test",
     NR_ADDON_INSTALLATION_ENCRYPTION_KEY: addonEncryptionKey,
     WEBSHOP_CART_TOKEN_SALT: "w".repeat(32),
     WEBSHOP_CHECKOUT_ENABLED: "false",
@@ -42,6 +42,7 @@ function enabledLicenseServerEnvironment() {
     LICENSE_SERVER_ENABLED: "true",
     LICENSE_SERVER_INSTALL_MODE: "disabled",
     LICENSE_SERVER_SECRET_KEY: "s".repeat(32),
+    NEXT_PUBLIC_APP_URL: "https://cms.example.test",
     NR_ADDON_INSTALLATION_ENCRYPTION_KEY: addonEncryptionKey,
   };
 }
@@ -68,7 +69,7 @@ test("enabled add-ons require their own settings and the shared encryption key",
         ...baseEnvironment,
         WEBSHOP_ENABLED: "true",
       }),
-    /WEBSHOP_CART_TOKEN_SALT.*NR_ADDON_INSTALLATION_ENCRYPTION_KEY/,
+    /WEBSHOP_CART_TOKEN_SALT.*NEXT_PUBLIC_APP_URL.*NR_ADDON_INSTALLATION_ENCRYPTION_KEY/,
   );
   assert.throws(
     () =>

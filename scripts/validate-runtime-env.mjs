@@ -13,7 +13,6 @@ const CORE_REQUIRED = [
   "EMAIL_FROM",
   "EMAIL_PROVIDER",
   "IP_HASH_SALT",
-  "NEXT_PUBLIC_APP_URL",
   "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
   "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
@@ -36,6 +35,11 @@ const LICENSE_SERVER_REQUIRED_WHEN_ENABLED = [
   "LICENSE_SERVER_DEPLOYMENT_MODE",
   "LICENSE_SERVER_INSTALL_MODE",
   "LICENSE_SERVER_SECRET_KEY",
+];
+
+const ADDON_SHARED_REQUIRED = [
+  "NEXT_PUBLIC_APP_URL",
+  "NR_ADDON_INSTALLATION_ENCRYPTION_KEY",
 ];
 
 const FORBIDDEN = [
@@ -79,14 +83,13 @@ export function validateRuntimeEnv(env = process.env) {
     "NR_ALLOW_INSECURE_LOOPBACK_HTTP",
     false,
   );
+  const addonEnabled = webshopEnabled || licenseServerEnabled;
 
   const required = [
     ...CORE_REQUIRED,
     ...(webshopEnabled ? WEBSHOP_REQUIRED_WHEN_ENABLED : []),
     ...(licenseServerEnabled ? LICENSE_SERVER_REQUIRED_WHEN_ENABLED : []),
-    ...(webshopEnabled || licenseServerEnabled
-      ? ["NR_ADDON_INSTALLATION_ENCRYPTION_KEY"]
-      : []),
+    ...(addonEnabled ? ADDON_SHARED_REQUIRED : []),
   ];
   const missing = required.filter((key) => !env[key]?.trim());
   if (missing.length) {
@@ -132,16 +135,20 @@ export function validateRuntimeEnv(env = process.env) {
   if (licenseServerEnabled) {
     for (const key of LICENSE_SERVER_SECRET_KEYS) assertSecret(env, key);
   }
-  if (webshopEnabled || licenseServerEnabled) {
+  if (addonEnabled) {
     assertAddonInstallationEncryptionKey(env);
   }
 
-  assertHttpOrigin("NEXT_PUBLIC_APP_URL", env.NEXT_PUBLIC_APP_URL);
-  assertLicenseServerUrl(
-    "NR_MASTER_LICENSE_URL",
-    env.NR_MASTER_LICENSE_URL?.trim() || DEFAULT_MASTER_LICENSE_SERVER_URL,
-    allowInsecureLoopbackHttp,
-  );
+  if (addonEnabled) {
+    assertHttpOrigin("NEXT_PUBLIC_APP_URL", env.NEXT_PUBLIC_APP_URL);
+  }
+  if (addonEnabled || env.NR_MASTER_LICENSE_URL?.trim()) {
+    assertLicenseServerUrl(
+      "NR_MASTER_LICENSE_URL",
+      env.NR_MASTER_LICENSE_URL?.trim() || DEFAULT_MASTER_LICENSE_SERVER_URL,
+      allowInsecureLoopbackHttp,
+    );
+  }
 
   return { allowInsecureLoopbackHttp, licenseServerEnabled, webshopEnabled };
 }

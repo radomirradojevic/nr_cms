@@ -483,18 +483,13 @@ injected by the test command into a dedicated database and are not runtime
 
 For a first base-CMS deployment, both add-ons may be omitted entirely: absent
 `WEBSHOP_ENABLED` and `LICENSE_SERVER_ENABLED` values default to `false`.
-The canonical CMS origin remains required, and should be set explicitly:
+When the vendor is ready to enable the Webshop or embedded License Server
+add-on, set its enablement flag to `true`, its canonical CMS origin, and that
+add-on's complete environment group. The build then rejects missing secrets or
+deployment settings rather than allowing a partially configured capability:
 
 ```dotenv
 NEXT_PUBLIC_APP_URL=https://nrcms.com
-```
-
-When the vendor is ready to enable the Webshop or embedded License Server
-add-on, set its enablement flag to `true` and provide that add-on's complete
-environment group. The build then rejects missing secrets or deployment
-settings rather than allowing a partially configured capability:
-
-```dotenv
 WEBSHOP_ENABLED=true
 WEBSHOP_STOREFRONT_ENABLED=true
 WEBSHOP_CHECKOUT_ENABLED=true
