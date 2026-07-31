@@ -481,12 +481,20 @@ documented optional variables may be added as needed. Test database URLs are
 injected by the test command into a dedicated database and are not runtime
 `.env` variables.
 
-Production must set the same capability policy explicitly, with only public
-origins changed:
+For a first base-CMS deployment, both add-ons may be omitted entirely: absent
+`WEBSHOP_ENABLED` and `LICENSE_SERVER_ENABLED` values default to `false`.
+The canonical CMS origin remains required, and should be set explicitly:
 
 ```dotenv
 NEXT_PUBLIC_APP_URL=https://nrcms.com
-NR_MASTER_LICENSE_URL=https://ls.nrcms.com
+```
+
+When the vendor is ready to enable the Webshop or embedded License Server
+add-on, set its enablement flag to `true` and provide that add-on's complete
+environment group. The build then rejects missing secrets or deployment
+settings rather than allowing a partially configured capability:
+
+```dotenv
 WEBSHOP_ENABLED=true
 WEBSHOP_STOREFRONT_ENABLED=true
 WEBSHOP_CHECKOUT_ENABLED=true
@@ -494,7 +502,6 @@ WEBSHOP_INSTALL_MODE=managed_redeploy
 LICENSE_SERVER_ENABLED=true
 LICENSE_SERVER_INSTALL_MODE=managed_redeploy
 LICENSE_SERVER_CUSTOMER_ENVIRONMENT=production
-NR_ALLOW_INSECURE_LOOPBACK_HTTP=false
 ```
 
 The only intentional localhost-specific value difference is transport:

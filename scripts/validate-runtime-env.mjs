@@ -2,38 +2,40 @@ import "dotenv/config";
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const localContractKeyCount = assertLocalEnvContractParity();
+const DEFAULT_MASTER_LICENSE_SERVER_URL = "https://ls.nrcms.com";
 
-const REQUIRED = [
+const CORE_REQUIRED = [
   "CLERK_SECRET_KEY",
   "CRON_SECRET",
   "DATABASE_URL",
   "EMAIL_FROM",
   "EMAIL_PROVIDER",
   "IP_HASH_SALT",
-  "LICENSE_SERVER_CUSTOMER_ENVIRONMENT",
-  "LICENSE_SERVER_DEPLOYMENT_MODE",
-  "LICENSE_SERVER_ENABLED",
-  "LICENSE_SERVER_INSTALL_MODE",
-  "LICENSE_SERVER_SECRET_KEY",
   "NEXT_PUBLIC_APP_URL",
   "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
   "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
-  "NR_ADDON_INSTALLATION_ENCRYPTION_KEY",
-  "NR_ALLOW_INSECURE_LOOPBACK_HTTP",
-  "NR_MASTER_LICENSE_URL",
   "TURNSTILE_SECRET_KEY",
+];
+
+const WEBSHOP_REQUIRED_WHEN_ENABLED = [
   "WEBSHOP_CART_TOKEN_SALT",
   "WEBSHOP_CHECKOUT_ENABLED",
   "WEBSHOP_DEPLOYMENT_MODE",
   "WEBSHOP_DOWNLOAD_EVENT_HASH_SECRET",
   "WEBSHOP_DOWNLOAD_TOKEN_SECRET",
-  "WEBSHOP_ENABLED",
   "WEBSHOP_INSTALL_MODE",
   "WEBSHOP_LICENSE_SERVER_SECRET_KEY",
   "WEBSHOP_PAYMENTS_MODE",
   "WEBSHOP_STOREFRONT_ENABLED",
+];
+
+const LICENSE_SERVER_REQUIRED_WHEN_ENABLED = [
+  "LICENSE_SERVER_CUSTOMER_ENVIRONMENT",
+  "LICENSE_SERVER_DEPLOYMENT_MODE",
+  "LICENSE_SERVER_INSTALL_MODE",
+  "LICENSE_SERVER_SECRET_KEY",
 ];
 
 const FORBIDDEN = [
@@ -54,96 +56,95 @@ const FORBIDDEN = [
   "WEBSHOP_SELF_HOSTED_SITE_ID",
 ];
 
-const BOOLEAN_KEYS = [
-  "LICENSE_SERVER_ENABLED",
-  "NR_ALLOW_INSECURE_LOOPBACK_HTTP",
-  "WEBSHOP_CHECKOUT_ENABLED",
-  "WEBSHOP_ENABLED",
-  "WEBSHOP_STOREFRONT_ENABLED",
-];
+const CORE_SECRET_KEYS = ["CRON_SECRET", "IP_HASH_SALT"];
 
-const SECRET_KEYS = [
-  "CRON_SECRET",
-  "IP_HASH_SALT",
-  "LICENSE_SERVER_SECRET_KEY",
-  "NR_ADDON_INSTALLATION_ENCRYPTION_KEY",
+const WEBSHOP_SECRET_KEYS = [
   "WEBSHOP_CART_TOKEN_SALT",
   "WEBSHOP_DOWNLOAD_EVENT_HASH_SECRET",
   "WEBSHOP_DOWNLOAD_TOKEN_SECRET",
   "WEBSHOP_LICENSE_SERVER_SECRET_KEY",
 ];
 
-const missing = REQUIRED.filter((key) => !process.env[key]?.trim());
-if (missing.length) {
-  fail(`missing required variables: ${missing.join(", ")}`);
-}
+const LICENSE_SERVER_SECRET_KEYS = ["LICENSE_SERVER_SECRET_KEY"];
 
-const forbidden = FORBIDDEN.filter((key) => process.env[key] !== undefined);
-if (forbidden.length) {
-  fail(`obsolete/local-only variables are forbidden: ${forbidden.join(", ")}`);
-}
-
-for (const key of BOOLEAN_KEYS) {
-  if (!["true", "false"].includes(process.env[key].trim().toLowerCase())) {
-    fail(`${key} must be explicitly true or false`);
-  }
-}
-
-for (const key of SECRET_KEYS) {
-  if (process.env[key].trim().length < 32) {
-    fail(`${key} must contain at least 32 characters`);
-  }
-}
-
-assertHttpOrigin("NEXT_PUBLIC_APP_URL", process.env.NEXT_PUBLIC_APP_URL);
-
-assertLicenseServerUrl(
-  "NR_MASTER_LICENSE_URL",
-  process.env.NR_MASTER_LICENSE_URL,
-);
-
-for (const key of [
-  "LICENSE_SERVER_DEPLOYMENT_MODE",
-  "WEBSHOP_DEPLOYMENT_MODE",
-]) {
-  if (!["self_hosted", "vercel"].includes(process.env[key])) {
-    fail(`${key} must be self_hosted or vercel`);
-  }
-}
-
-if (
-  !["development", "staging", "production"].includes(
-    process.env.LICENSE_SERVER_CUSTOMER_ENVIRONMENT,
-  )
-) {
-  fail(
-    "LICENSE_SERVER_CUSTOMER_ENVIRONMENT must be development, staging, or production",
+export function validateRuntimeEnv(env = process.env) {
+  const webshopEnabled = readBoolean(env, "WEBSHOP_ENABLED", false);
+  const licenseServerEnabled = readBoolean(
+    env,
+    "LICENSE_SERVER_ENABLED",
+    false,
   );
-}
+  const allowInsecureLoopbackHttp = readBoolean(
+    env,
+    "NR_ALLOW_INSECURE_LOOPBACK_HTTP",
+    false,
+  );
 
-if (
-  !["disabled", "managed_redeploy"].includes(process.env.WEBSHOP_INSTALL_MODE)
-) {
-  fail("WEBSHOP_INSTALL_MODE must be disabled or managed_redeploy");
-}
-if (
-  !["disabled", "managed_redeploy"].includes(
-    process.env.LICENSE_SERVER_INSTALL_MODE,
-  )
-) {
-  fail("LICENSE_SERVER_INSTALL_MODE must be disabled or managed_redeploy");
-}
-if (!["live", "test"].includes(process.env.WEBSHOP_PAYMENTS_MODE)) {
-  fail("WEBSHOP_PAYMENTS_MODE must be live or test");
-}
+  const required = [
+    ...CORE_REQUIRED,
+    ...(webshopEnabled ? WEBSHOP_REQUIRED_WHEN_ENABLED : []),
+    ...(licenseServerEnabled ? LICENSE_SERVER_REQUIRED_WHEN_ENABLED : []),
+    ...(webshopEnabled || licenseServerEnabled
+      ? ["NR_ADDON_INSTALLATION_ENCRYPTION_KEY"]
+      : []),
+  ];
+  const missing = required.filter((key) => !env[key]?.trim());
+  if (missing.length) {
+    fail(`missing required variables: ${missing.join(", ")}`);
+  }
 
-console.log(
-  `CMS runtime environment contract is valid${
-    localContractKeyCount === null
-      ? ""
-      : ` (${localContractKeyCount} local/production keys)`
-  }.`,
-);
+  const forbidden = FORBIDDEN.filter((key) => env[key] !== undefined);
+  if (forbidden.length) {
+    fail(
+      `obsolete/local-only variables are forbidden: ${forbidden.join(", ")}`,
+    );
+  }
+
+  // Keep malformed supplied values from silently changing a rollout, while an
+  // omitted add-on switch remains fail-closed for first CMS deployments.
+  readBoolean(env, "WEBSHOP_CHECKOUT_ENABLED", false);
+  readBoolean(env, "WEBSHOP_STOREFRONT_ENABLED", false);
+
+  assertOptionalEnum(env, "WEBSHOP_DEPLOYMENT_MODE", ["self_hosted", "vercel"]);
+  assertOptionalEnum(env, "LICENSE_SERVER_DEPLOYMENT_MODE", [
+    "self_hosted",
+    "vercel",
+  ]);
+  assertOptionalEnum(env, "LICENSE_SERVER_CUSTOMER_ENVIRONMENT", [
+    "development",
+    "staging",
+    "production",
+  ]);
+  assertOptionalEnum(env, "WEBSHOP_INSTALL_MODE", [
+    "disabled",
+    "managed_redeploy",
+  ]);
+  assertOptionalEnum(env, "LICENSE_SERVER_INSTALL_MODE", [
+    "disabled",
+    "managed_redeploy",
+  ]);
+  assertOptionalEnum(env, "WEBSHOP_PAYMENTS_MODE", ["live", "test"]);
+
+  for (const key of CORE_SECRET_KEYS) assertSecret(env, key);
+  if (webshopEnabled) {
+    for (const key of WEBSHOP_SECRET_KEYS) assertSecret(env, key);
+  }
+  if (licenseServerEnabled) {
+    for (const key of LICENSE_SERVER_SECRET_KEYS) assertSecret(env, key);
+  }
+  if (webshopEnabled || licenseServerEnabled) {
+    assertAddonInstallationEncryptionKey(env);
+  }
+
+  assertHttpOrigin("NEXT_PUBLIC_APP_URL", env.NEXT_PUBLIC_APP_URL);
+  assertLicenseServerUrl(
+    "NR_MASTER_LICENSE_URL",
+    env.NR_MASTER_LICENSE_URL?.trim() || DEFAULT_MASTER_LICENSE_SERVER_URL,
+    allowInsecureLoopbackHttp,
+  );
+
+  return { allowInsecureLoopbackHttp, licenseServerEnabled, webshopEnabled };
+}
 
 function assertLocalEnvContractParity() {
   const localPath = resolve(process.cwd(), ".env");
@@ -208,6 +209,37 @@ function readEnvKeys(path) {
   return new Set(keys);
 }
 
+function readBoolean(env, key, defaultValue) {
+  const value = env[key]?.trim().toLowerCase();
+  if (!value) return defaultValue;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  fail(`${key} must be explicitly true or false`);
+}
+
+function assertOptionalEnum(env, key, allowedValues) {
+  const value = env[key]?.trim();
+  if (!value) return;
+  if (!allowedValues.includes(value)) {
+    fail(`${key} must be ${allowedValues.join(" or ")}`);
+  }
+}
+
+function assertSecret(env, key) {
+  if ((env[key]?.trim().length ?? 0) < 32) {
+    fail(`${key} must contain at least 32 characters`);
+  }
+}
+
+function assertAddonInstallationEncryptionKey(env) {
+  const value = env.NR_ADDON_INSTALLATION_ENCRYPTION_KEY?.trim() ?? "";
+  if (Buffer.from(value, "base64url").length !== 32) {
+    fail(
+      "NR_ADDON_INSTALLATION_ENCRYPTION_KEY must be a 32-byte base64url value",
+    );
+  }
+}
+
 function assertHttpOrigin(key, value) {
   let url;
   try {
@@ -220,7 +252,7 @@ function assertHttpOrigin(key, value) {
   }
 }
 
-function assertLicenseServerUrl(key, value) {
+function assertLicenseServerUrl(key, value, insecureAllowed) {
   let url;
   try {
     url = new URL(value);
@@ -230,8 +262,6 @@ function assertLicenseServerUrl(key, value) {
   const loopback = ["localhost", "127.0.0.1", "::1"].includes(
     url.hostname.replace(/^\[|\]$/g, "").toLowerCase(),
   );
-  const insecureAllowed =
-    process.env.NR_ALLOW_INSECURE_LOOPBACK_HTTP.trim().toLowerCase() === "true";
   if (url.protocol === "http:" && !(loopback && insecureAllowed)) {
     fail(`${key} may use HTTP only for an explicitly allowed loopback origin`);
   }
@@ -246,6 +276,33 @@ function assertLicenseServerUrl(key, value) {
 }
 
 function fail(message) {
-  console.error(`[runtime-env] ${message}`);
-  process.exit(1);
+  throw new Error(`[runtime-env] ${message}`);
+}
+
+function main() {
+  try {
+    const localContractKeyCount = assertLocalEnvContractParity();
+    validateRuntimeEnv();
+    console.log(
+      `CMS runtime environment contract is valid${
+        localContractKeyCount === null
+          ? ""
+          : ` (${localContractKeyCount} local/production keys)`
+      }.`,
+    );
+  } catch (error) {
+    console.error(
+      error instanceof Error
+        ? error.message
+        : "[runtime-env] runtime environment validation failed.",
+    );
+    process.exitCode = 1;
+  }
+}
+
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main();
 }
