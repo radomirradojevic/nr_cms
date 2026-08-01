@@ -15,7 +15,7 @@ import {
 import { loadLicenseServerAddon } from "@/lib/license-server-addon/loader";
 import { loadWebshopAddon } from "@/lib/webshop-addon/loader";
 
-const manifest = { addonKey: "webshop", artifact: { files: [{ path: "server.js", sha256: "a".repeat(64), size: 1 }], sha256: "a".repeat(64), size: 1 }, capabilities: ["routes.webshop"], cmsVersionRange: "^0.1.0", entrypoints: { server: "./server.js" }, manifestVersion: 1, migrations: [], packageName: "@nr-cms/webshop", packageVersion: "1.0.0", releasedAt: "2026-07-12T00:00:00.000Z", runtimeContractVersion: "1", schemaVersion: 1, signature: "a".repeat(86), signingKid: "fixture" } as const;
+const manifest = { addonKey: "webshop", artifact: { files: [{ path: "server.js", sha256: "a".repeat(64), size: 1 }], sha256: "a".repeat(64), size: 1 }, capabilities: ["routes.webshop"], cmsVersionRange: "^0.1.0", entrypoints: { server: "./server.js" }, manifestVersion: 1, migrations: [], packageName: "@radomirradojevic/webshop", packageVersion: "1.0.0", releasedAt: "2026-07-12T00:00:00.000Z", runtimeContractVersion: "1", schemaVersion: 1, signature: "a".repeat(86), signingKid: "fixture" } as const;
 
 test("empty registry lookups and uninstalled add-ons remain controlled", async () => {
   assert.equal(
@@ -52,13 +52,18 @@ test("registry generator creates its output directory in a clean public checkout
 
 test("registry generator verifies signed package identity and artifact bytes", () => {
   const cleanRoot = mkdtempSync(join(tmpdir(), "nr-addon-registry-signed-"));
-  const packageRoot = join(cleanRoot, "node_modules", "@nr-cms", "webshop");
+  const packageRoot = join(
+    cleanRoot,
+    "node_modules",
+    "@radomirradojevic",
+    "webshop",
+  );
   try {
     mkdirSync(join(packageRoot, "dist"), { recursive: true });
     writeFileSync(join(cleanRoot, "package.json"), JSON.stringify({ version: "0.1.0" }), "utf8");
     writeFileSync(
       join(packageRoot, "package.json"),
-      JSON.stringify({ name: "@nr-cms/webshop", version: "0.5.0" }),
+      JSON.stringify({ name: "@radomirradojevic/webshop", version: "0.5.0" }),
       "utf8",
     );
     const server = "export const webshopAddon = {};\n";
@@ -82,7 +87,7 @@ test("registry generator verifies signed package identity and artifact bytes", (
       entrypoints: { server: "./dist/server.js" },
       manifestVersion: 1 as const,
       migrations: [],
-      packageName: "@nr-cms/webshop" as const,
+      packageName: "@radomirradojevic/webshop" as const,
       packageVersion: "0.5.0",
       releasedAt: "2026-07-13T00:00:00.000Z",
       runtimeContractVersion: "1" as const,
@@ -111,7 +116,7 @@ test("registry generator verifies signed package identity and artifact bytes", (
           {
             addonKey: "webshop",
             artifactSha256: subject,
-            packageName: "@nr-cms/webshop",
+            packageName: "@radomirradojevic/webshop",
             packageVersion: "0.5.0",
             signingKid: "local-test-authority",
           },
@@ -152,10 +157,10 @@ test("registry generator verifies signed package identity and artifact bytes", (
 });
 
 test("install reconciliation reaches ready only after every independent proof", () => {
-  const validated = validateAddonReleaseManifest(manifest, { addonKey: "webshop", packageName: "@nr-cms/webshop" });
+  const validated = validateAddonReleaseManifest(manifest, { addonKey: "webshop", packageName: "@radomirradojevic/webshop" });
   assert.equal(validated.ok, true);
   if (!validated.ok) throw new Error("fixture manifest");
-  const desired = { addonKey: "webshop", packageName: "@nr-cms/webshop", packageVersion: "1.0.0", artifactSha256: "a".repeat(64) };
+  const desired = { addonKey: "webshop", packageName: "@radomirradojevic/webshop", packageVersion: "1.0.0", artifactSha256: "a".repeat(64) };
   assert.equal(reconcileAddonInstall({ desired, entitlementValid: true, manifest: validated.manifest, migrationsApplied: true, runtimeLoaded: true }).status, "ready");
   assert.equal(reconcileAddonInstall({ desired, entitlementValid: true, manifest: validated.manifest, migrationsApplied: false, runtimeLoaded: true }).status, "migration_pending");
   assert.equal(reconcileAddonInstall({ desired, entitlementValid: true, manifest: null, migrationsApplied: true, runtimeLoaded: false }).status, "install_pending");
@@ -184,7 +189,7 @@ test("release signature covers nested artifact and migration fields", () => {
   const signed = { ...unsigned, signature };
   const validated = validateAddonReleaseManifest(signed, {
     addonKey: "webshop",
-    packageName: "@nr-cms/webshop",
+    packageName: "@radomirradojevic/webshop",
   });
   assert.equal(validated.ok, true);
   if (!validated.ok) throw new Error("manifest validation failed");

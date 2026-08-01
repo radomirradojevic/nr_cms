@@ -22,7 +22,10 @@ const artifactFileSchema = z.object({
 export const signedAddonReleaseManifestV1Schema = z.object({
   manifestVersion: z.literal(1),
   addonKey: addonKeySchema,
-  packageName: z.enum(["@nr-cms/webshop", "@nr-cms/license-server"]),
+  packageName: z.enum([
+    "@radomirradojevic/webshop",
+    "@nr-cms/license-server",
+  ]),
   packageVersion: z.string().min(1),
   runtimeContractVersion: z.literal("1"),
   cmsVersionRange: z.string().min(1),

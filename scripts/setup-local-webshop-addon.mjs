@@ -53,7 +53,8 @@ for (const addonRoot of [webshopRoot, licenseServerAddonRoot]) {
 await writeLocalAddonRegistry(manifests);
 await writeLocalAddonBuildInputs();
 await ensureRootEnv();
-await installLocalAddonPackage(webshopRoot, "@nr-cms/webshop");
+await removeLegacyLocalAddonPackage("@nr-cms/webshop");
+await installLocalAddonPackage(webshopRoot, "@radomirradojevic/webshop");
 await installLocalAddonPackage(
   licenseServerAddonRoot,
   "@nr-cms/license-server",
@@ -129,7 +130,7 @@ function authorityEnv(kid) {
 
 async function writeLocalAddonRegistry(manifests) {
   const expectedPackages = new Map([
-    ["webshop", "@nr-cms/webshop"],
+    ["webshop", "@radomirradojevic/webshop"],
     ["license-server", "@nr-cms/license-server"],
   ]);
   const entries = manifests.map((manifest) => {
@@ -334,6 +335,21 @@ async function installLocalAddonPackage(addonRoot, packageName) {
     await mkdir(dirname(target), { recursive: true });
     await cp(source, target, { recursive: true });
   }
+}
+
+async function removeLegacyLocalAddonPackage(packageName) {
+  const nodeModulesRoot = resolve(root, "node_modules");
+  const targetRoot = resolve(nodeModulesRoot, ...packageName.split("/"));
+  const targetRelative = relative(nodeModulesRoot, targetRoot);
+  if (
+    !targetRelative ||
+    targetRelative === ".." ||
+    targetRelative.startsWith(`..${sep}`) ||
+    isAbsolute(targetRelative)
+  ) {
+    throw new Error(`Refusing unsafe legacy package target: ${packageName}`);
+  }
+  await rm(targetRoot, { force: true, recursive: true });
 }
 
 function run(command, args, { cwd, env = {} }) {

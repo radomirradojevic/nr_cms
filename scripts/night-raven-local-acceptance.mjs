@@ -1076,7 +1076,7 @@ export async function runLocalAcceptance({
       }
       case "package_manifest_mismatch": {
         const mismatch = await request("cms", "/install", {
-          packageName: "@nr-cms/webshop",
+          packageName: "@radomirradojevic/webshop",
           expectedAddonKey: "webshop",
           packageAddonKey: "license-server",
           checksum: sha256("one"),
@@ -1091,7 +1091,7 @@ export async function runLocalAcceptance({
       case "install_pending_deploy_ready": {
         const checksum = sha256("immutable-package");
         const install = await request("cms", "/install", {
-          packageName: "@nr-cms/webshop",
+          packageName: "@radomirradojevic/webshop",
           expectedAddonKey: "webshop",
           packageAddonKey: "webshop",
           checksum,

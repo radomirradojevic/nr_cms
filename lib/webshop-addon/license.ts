@@ -54,6 +54,8 @@ const RevalidationResponseSchema = z.object({
   installationId: z.string().uuid(),
   installationKeyFingerprint: z.string(),
   licenseKeyRef: z.string().min(1),
+  packageName: z.string().min(1).optional(),
+  packageVersion: z.string().min(1).optional(),
   signingKid: z.string().min(1),
   status: z.enum(["active", "suspended", "expired", "revoked", "canceled"]),
 });
@@ -378,6 +380,8 @@ export async function revalidateWebshopAddonEntitlement({
     installationId: parsed.data.installationId,
     installationKeyFingerprint: parsed.data.installationKeyFingerprint,
     licenseKeyRef: parsed.data.licenseKeyRef,
+    packageName: parsed.data.packageName ?? entitlement.packageName,
+    packageVersion: parsed.data.packageVersion ?? entitlement.packageVersion,
     metadata: {
       ...metadataRecord(entitlement.metadata),
       activationId: parsed.data.activationId,

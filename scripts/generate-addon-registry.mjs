@@ -15,7 +15,7 @@ const releasePublicKeysPath = resolveBuildPath(
 );
 const outputPath = resolve(root, ".generated", "addon-registry.ts");
 const allowlist = new Map([
-  ["webshop", "@nr-cms/webshop/server"],
+  ["webshop", "@radomirradojevic/webshop/server"],
   ["license-server", "@nr-cms/license-server/server"],
 ]);
 const raw = JSON.parse(await readFile(configPath, "utf8"));

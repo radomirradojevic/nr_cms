@@ -46,7 +46,7 @@ yarn-error.log*
 
 # Internal architecture, operations, and package documentation.
 # Keep out of the public nr_cms repository.
-/docs/
+#/docs/
 
 # typescript
 *.tsbuildinfo

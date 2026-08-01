@@ -23,6 +23,15 @@ import {
 } from "@/lib/file-upload-tickets-core";
 import { sanitizeHref, sanitizeMediaSrc } from "@/lib/url-safety";
 
+test("Next dev resources allow the local HTTPS proxy hosts", () => {
+  const origins = nextConfig.allowedDevOrigins ?? [];
+
+  assert.ok(origins.includes("vendor.nr.test"));
+  assert.ok(origins.includes("client.nr.test"));
+  assert.equal(origins.includes("https://vendor.nr.test"), false);
+  assert.equal(origins.includes("vendor.nr.test:443"), false);
+});
+
 test("URL safety helpers reject executable protocols", () => {
   assert.equal(sanitizeHref("javascript:alert(1)"), "#");
   assert.equal(sanitizeHref("data:text/html,<script>alert(1)</script>"), "#");
