@@ -106,6 +106,9 @@ se ne snima kao fajl. Publish-token ref je zasebna jedna tekstualna linija.
   registruje isti Ed25519 javni materijal (GitHub može ukloniti lokalni komentar
   iz API prikaza). Ne koristi JWS release key za Git tag i ne
   prihvata ambientni `user.signingkey`.
+  Na Windows authority računaru Git se eksplicitno usmerava na isti sistemski
+  OpenSSH `ssh-keygen.exe` koji je napravio i proverio ključ, bez oslanjanja na
+  PATH-redosled Git for Windows alata.
 
 CI dodatno dobija zaseban `NR_CMS_READ_TOKEN`: fine-grained GitHub token koji
 može čitati samo privatni `radomirradojevic/nr_cms` repo (`Contents: Read-only`).
