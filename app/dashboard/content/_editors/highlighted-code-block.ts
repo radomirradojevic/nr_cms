@@ -8,7 +8,12 @@ import {
   normalizeCodeLanguage,
 } from "./code-languages";
 
-function hastToSpec(node: RootContent): DOMOutputSpec {
+// ProseMirror DOM specs permit string leaf nodes. Keep that fact explicit so
+// the host typecheck remains valid across the locked ProseMirror declaration
+// graph used by a clean CMS install.
+type HighlightOutputSpec = DOMOutputSpec | string;
+
+function hastToSpec(node: RootContent): HighlightOutputSpec {
   if (node.type === "text") return node.value;
   if (node.type !== "element") return "";
 
@@ -26,7 +31,7 @@ function hastToSpec(node: RootContent): DOMOutputSpec {
   ];
 }
 
-function highlightCode(code: string, language: unknown): DOMOutputSpec[] {
+function highlightCode(code: string, language: unknown): HighlightOutputSpec[] {
   const languageName = languageForTiptap(normalizeCodeLanguage(language)) ?? "";
   const languages = lowlight.listLanguages();
   const hasLanguage =
