@@ -45,13 +45,15 @@ Source repo:
 MANUAL:
 
 1. Repo mora ostati private.
-2. GitHub Environment private-release mora postojati.
-3. Environment treba da zahteva ručno odobrenje publish joba.
-4. Package access nakon prvog publish-a mora dozvoliti:
-   - `webshop` repo workflowu write kroz `GITHUB_TOKEN`;
+2. Za solo-maintainer odluku, release se vodi po
+   [15 — Solo maintainer release authority](15-solo-maintainer-release-authority.md).
+   GitHub `private-release` Environment sa required reviewer-om se ne koristi
+   kao production gate.
+3. Package access nakon prvog publish-a mora dozvoliti:
+   - samo lokalnoj release authority publish credentialu write;
    - deployment machine nalogu read;
    - nijednom browser/client identitetu pristup.
-5. Ako se koristi organizacija sa SSO, deployment credential mora biti eksplicitno autorizovan za SSO.
+4. Ako se koristi organizacija sa SSO, deployment credential mora biti eksplicitno autorizovan za SSO.
 
 Prema aktuelnom GitHub Packages ugovoru, npm registry autentifikacija van GitHub Actions koristi **personal access token (classic)**; fine-grained PAT ili GitHub App installation token se ne pretpostavlja kao podržana npm autentifikacija. Za lokalni deployment worker zato koristiti namenski machine-user nalog sa:
 
@@ -100,14 +102,14 @@ Webshop package release potpis i master entitlement potpis nisu isti key.
 
 Release authority mora biti persistentan i kontrolisan:
 
-    NR_ADDON_RELEASE_SIGNING_KEY_FILE=<RUNNER_SECRET_PATH>
-    NR_ADDON_RELEASE_PUBLIC_KEYS_FILE=<RUNNER_PUBLIC_KEYSET_PATH>
+    NR_ADDON_RELEASE_SIGNING_KEY_FILE=<RELEASE_AUTHORITY_SECRET_REF>
+    NR_ADDON_RELEASE_PUBLIC_KEYS_FILE=<RELEASE_AUTHORITY_PUBLIC_KEYSET_PATH>
     NR_ADDON_RELEASE_SIGNING_KID=webshop-release-2026-01
 
 Private key:
 
-- postoji samo na zaštićenom self-hosted release runneru ili KMS-u;
-- nije u GitHub repo secret tekstu ako workflow očekuje file path;
+- postoji samo na zaštićenom lokalnom release-authority računaru ili KMS-u;
+- nije GitHub repo/environment secret niti GitHub Actions env;
 - nije u D:\nr_cms;
 - nije u npm package-u;
 - ima backup i rotation proceduru.
@@ -125,7 +127,7 @@ Za lokalni E2E canonical trust artefakt je, na primer:
 
     D:\nr_runtime\trust\webshop-release-public-keys.json
 
-Master i worker imaju read-only pristup istom sadržaju i svaki u svojoj konfiguraciji pinovan expected SHA-256. Publish runner ima sopstvenu kontrolisanu kopiju; jednakost se dokazuje hashom, ne deljenjem private key-a ili implicitnim current-working-directory fajlom.
+Master i worker imaju read-only pristup istom sadržaju i svaki u svojoj konfiguraciji pinovan expected SHA-256. Lokalna release authority ima sopstvenu kontrolisanu kopiju; jednakost se dokazuje hashom, ne deljenjem private key-a ili implicitnim current-working-directory fajlom.
 
 Exact `AddonReleaseKeysetV1` schema je:
 
@@ -170,58 +172,58 @@ Još bezbednije pravilo je allowlista production KID-ova, umesto liste zabranjen
 
 Dodati test koji pravi validno potpisan manifest sa local-dev KID-em i očekuje hard failure u non-development modu.
 
-## 5. Postojeći publish workflow
+## 5. CI verification workflow i lokalna release authority
 
 Workflow:
 
     .private/webshop/.github/workflows/publish-package.yml
 
-Već radi:
+Postojeća implementacija je polazna tačka koju treba uskladiti sa zaključanom
+solo-maintainer odlukom iz dokumenta 15. Konačan GitHub workflow radi samo:
 
 - manual workflow_dispatch;
-- exact release tag input;
+- exact Webshop/CMS commit input;
 - repository identity gate;
-- protected environment;
 - pinned Node 24.15.0;
 - npm 11.12.1 gate;
 - clean source state;
-- tag mora biti v<package.json version>;
 - HEAD mora biti ancestor origin/master-ws;
 - operator-provided CMS SHA mora postojati kao commit objekat u CMS repo kopiji na runneru;
 - clean CMS i Webshop archive export;
 - frozen dependency install bez lifecycle scripts;
 - clean Next host verification;
-- signed release build;
-- publish-ready i pack verifikaciju;
-- objavljivanje tačno prethodno verifikovanog tarballa;
-- GITHUB_TOKEN samo u publish koraku.
+- non-secret candidate build i pack verifikaciju;
+- immutable candidate evidence artifact.
 
-Postojeći gate samo dokazuje da CMS commit objekat postoji; ne dokazuje sam da je commit odobren ili ancestor dozvoljene grane/taga. Pre produkcionog publish-a workflow treba hardenovati tako da `NR_CMS_RELEASE_SHA` mora biti dostižan iz eksplicitno dozvoljenog signed taga ili release grane, odnosno da protected Environment approval prikazuje i proverava taj ancestry dokaz.
+CI ne sme imati release signing key, GitHub Packages publish credential,
+`packages: write`, `contents: write`, `npm publish`, tag push ni GitHub
+Release create korak. Produkcioni potpis, publish, registry read-back,
+signed tag i detached attestation rade se samo kroz lokalni authority CLI iz
+dokumenta 15.
 
-GitHub Environment variables koje workflow čita:
+GitHub workflow prima samo non-secret, exact `workflow_dispatch` ulaze:
 
-    NR_CMS_RELEASE_SHA
-    NR_PRIVATE_WORKSPACE_ROOT
-    NR_ADDON_RELEASE_PUBLIC_KEYS_FILE
-    NR_ADDON_RELEASE_SIGNING_KEY_FILE
-    NR_ADDON_RELEASE_SIGNING_KID
+    webshop_sha
+    cms_sha
 
-Self-hosted runner mora imati labele:
+`NR_PRIVATE_WORKSPACE_ROOT`, production keyset/signing key putanje i KID nisu
+GitHub Environment varijable za ovaj model; daju se samo lokalnom
+release-authority secret-ref contractu.
 
-    self-hosted
-    Linux
-    night-raven-private
+Za solo-maintainer model standardni target su GitHub-hosted, disposable
+runneri: `windows-2025` za Windows x64 dependency-graph gate i
+`ubuntu-24.04` za clean build/Next host verifikaciju. Nema self-hosted
+runnera, `night-raven-private` labele, produkcionog ključa ni publish tokena
+u GitHub Actions-u. Za private repozitorijume ovi runneri koriste Actions
+minutni budžet/naknadu; konkretan trošak proverava operator pre pokretanja
+release verificationa.
 
-Ako se release pokreće sa Windows runnera, ne menjati samo labelu. Workflow koristi bash, tar i Linux path semantiku; napraviti i testirati poseban Windows workflow ili zadržati Linux runner.
+Windows i Linux su namerno zasebni jobovi: bash, tar i Linux path semantika
+ostaju u `ubuntu-24.04` poslu, dok se Windows graph proizvodi samo na
+stvarnom `windows-2025` x64 okruženju. Ne sme se emulirati promenom labela ili
+`npm_config_platform` vrednosti.
 
-TARGET dependency-graph gate je zaseban job na stvarnom Windows x64 runneru sa labelama:
-
-    self-hosted
-    Windows
-    X64
-    night-raven-private
-
-Postojeći Linux job može ostati build/pack/sign/publish autoritet, ali običan Linux `npm ci` ne sme generisati niti potvrditi `platform.os=win32` optional/peer graph. Windows job checkout-uje isti exact Webshop tag i CMS SHA, proverava Node `24.15.0`/npm `11.12.1`, radi clean `npm ci --omit=dev --ignore-scripts`, generiše canonical `release-dependency-lock.json` iz stvarnog Win32/x64 resolved tree-a i vraća fajl + SHA-256 + runner OS/CPU/npm evidence kroz hash-verifikovan workflow artifact handoff. Taj job nema release signing key, `packages:write` ili `contents:write`; Linux signing job prihvata output samo iz istog workflow run/attempt-a, ponovo proverava strict schema/hash i tek ga tada uključuje u tarball/manifest. `npm_config_platform` emulacija na Linuxu nije dovoljan production gate za prvi Windows-only contract. Ako se kasnije podrži drugi runtime OS/CPU, dobija zaseban platform graph/release contract umesto prepisivanja ovog fajla.
+Običan Linux `npm ci` ne sme generisati niti potvrditi `platform.os=win32` optional/peer graph. Windows job checkout-uje isti exact Webshop commit i CMS SHA, proverava Node `24.15.0`/npm `11.12.1`, radi clean `npm ci --omit=dev --ignore-scripts`, generiše canonical `release-dependency-lock.json` iz stvarnog Win32/x64 resolved tree-a i vraća fajl + SHA-256 + runner OS/CPU/npm evidence kroz hash-verifikovan workflow artifact handoff. Nijedan CI job nema release signing key, `packages:write` ili `contents:write`. Lokalna release authority prihvata output samo iz istog workflow run/attempt-a, ponovo proverava strict schema/hash i tek ga tada uključuje u finalni potpisani tarball. `npm_config_platform` emulacija na Linuxu nije dovoljan production gate za prvi Windows-only contract. Ako se kasnije podrži drugi runtime OS/CPU, dobija zaseban platform graph/release contract umesto prepisivanja ovog fajla.
 
 ## 6. Release priprema
 
@@ -252,41 +254,42 @@ Za svaku sadržajnu izmenu:
 4. proveriti da manifest packageVersion odgovara package.json;
 5. commitovati Webshop izmene;
 6. commitovati kompatibilne CMS host izmene;
-7. zabeležiti operator-pinned CMS SHA u protected Environment varijablu i dokazati njegov dozvoljeni tag/branch ancestry.
+7. zabeležiti operator-pinned CMS SHA u CI candidate evidence i dokazati njegov dozvoljeni tag/branch ancestry.
 
 Ne menjati postojeći objavljeni tarball pod istom verzijom.
 
-### 6.3 Tag
+### 6.3 Tag i promocija
 
-Na čistom Webshop commitu:
+Tag se ne pravi pre CI verification-a i ne pravi ga GitHub Actions. Posle
+uspešnog local-authority preflighta, `release:authority:publish` objavljuje
+exact tarball, read-back-om proverava registry evidence, pa stvara potpisani
+annotated tag:
 
-    git tag -a v<PACKAGE_VERSION> -m "Webshop v<PACKAGE_VERSION>"
-    git push origin <RELEASE_BRANCH>
-    git push origin v<PACKAGE_VERSION>
+    git tag -s v<PACKAGE_VERSION> <WEBSHOP_SHA> -m "Webshop v<PACKAGE_VERSION>"
+    git push origin refs/tags/v<PACKAGE_VERSION>
 
-Pre dispatch-a:
+Nijedna komanda ne overwrite-uje tag ili objavljenu package verziju. Ako
+package publish uspe, a tag korak ne uspe, koristi se samo documented
+`release:authority:reconcile` tok iz dokumenta 15.
 
-    git status --short
-    git rev-parse HEAD
-    git rev-parse v<PACKAGE_VERSION>^{commit}
+### 6.4 CI dispatch
 
-Oba SHA-a moraju biti ista, a status prazan.
+Pokrenuti read-only release CI i uneti:
 
-### 6.4 Workflow dispatch
+    webshop_sha = <40_LOWERCASE_HEX>
+    cms_sha = <40_LOWERCASE_HEX>
 
-Pokrenuti Publish Private Webshop Package i uneti:
-
-    release_tag = v<PACKAGE_VERSION>
-
-Odobriti private-release Environment tek nakon pregleda:
+Pre lokalne promocije operator pregleda:
 
 - CMS SHA;
-- Webshop tag SHA;
-- production signing KID;
+- Webshop SHA;
 - package version;
 - test rezultate;
-- absence of secrets;
-- migration compatibility.
+- candidate evidence hash;
+- absence of secrets i migration compatibility.
+
+Detaljan lokalni preflight/publish/reconcile tok je autoritativno definisan u
+dokumentu 15.
 
 ## 7. Package sadržaj
 
@@ -539,7 +542,7 @@ V1 migration admission pre prvog DB write-a zahteva da je svaki pending descript
 
 ### 7.2 Detached publication attestation
 
-Npm tarball integrity ne može biti polje embedded `release-manifest.json` koje se nalazi u tom istom tarballu, jer bi time hash zavisio od samog sebe. Posle publish-a workflow pravi detached `release-publication-attestation.json` kao flattened JWS envelope, bez dodatnih polja:
+Npm tarball integrity ne može biti polje embedded `release-manifest.json` koje se nalazi u tom istom tarballu, jer bi time hash zavisio od samog sebe. Posle publish-a lokalna release authority pravi detached `release-publication-attestation.json` kao flattened JWS envelope, bez dodatnih polja:
 
 ```json
 {
@@ -580,13 +583,13 @@ Decoded payload je strict objekat bez unknown polja:
 }
 ```
 
-`publishedAt` i `registryPackageVersionId` dolaze iz autoritativnog GitHub Packages version record-a posle publish-a; nisu lokalni `now()`. Workflow ih čuva kao release-job evidence i svaki retry ponovo čita isti immutable version record, pa isti tarball dobija iste payload bytes. `provenanceSha256`/`sbomSha256` hashiraju exact odgovarajuće tar entry bytes. Workflow pre potpisa preuzima/verifikuje objavljenu exact verziju, dokazuje isti `npmTarballSha256`, proverava da registry `dist.integrity` odgovara lokalnom SHA-512 SRI-u i ponovo proverava embedded manifest/artifact.
+`publishedAt` i `registryPackageVersionId` dolaze iz autoritativnog GitHub Packages version record-a posle publish-a; nisu lokalni `now()`. Lokalna release authority ih čuva kao release receipt evidence i svaki retry ponovo čita isti immutable version record, pa isti tarball dobija iste payload bytes. `provenanceSha256`/`sbomSha256` hashiraju exact odgovarajuće tar entry bytes. Authority pre potpisa preuzima/verifikuje objavljenu exact verziju, dokazuje isti `npmTarballSha256`, proverava da registry `dist.integrity` odgovara lokalnom SHA-512 SRI-u i ponovo proverava embedded manifest/artifact.
 
 Signature input je ASCII `protected + "." + payload`, Ed25519 key je isti release authority, a `typ/purpose` su namerno različiti od embedded manifesta. Base64url je bez paddinga. Stored attestation je RFC 8785/JCS UTF-8 bez BOM-a i završnog newline-a. Exact `publicationAttestationHash` je `lowercaseHex(SHA-256(storedAttestationBytes))`. Strict verifier odbija unknown/duplicate polja, nekanonsko kodiranje, KID/identity/hash/time mismatch ili keyset status koji nije prihvatljiv.
 
 Durable lokacija je create-only asset `release-publication-attestation.json` na GitHub Release-u vezanom za tag `v<PACKAGE_VERSION>`; overwrite/`--clobber` je zabranjen. Ako asset već postoji, retry ga preuzima i zahteva isti hash; drugačiji sadržaj je incident. Master import prima exact file bytes isključivo kroz offline/operator CLI iz dokumenta 04; nema CI mutation endpointa. CLI verifikuje JWS i sve povezane tarball/manifest vrednosti, zatim immutable čuva bytes i hash uz release red. GitHub asset je distribucioni dokaz, a master kopija je operativni autoritet posle importa.
 
-Workflow permissions su deny-by-default na workflow/job nivou. Build/test/pack/verify job ima samo `contents: read` i nema publish/release token. Odobreni `private-release` environment publish job dobija `packages: write` samo za exact npm publish korak; finalni attestation-asset job/korak, tek posle ponovne verifikacije registry record-a, dobija `contents: write` samo radi kreiranja GitHub Release-a i create-only asset upload-a. Ako platforma ne može da izoluje step credentiale, to su dva odvojena joba sa artifact handoff-om i zasebnim minimalnim `permissions` blokovima. `GITHUB_TOKEN` se ne prosleđuje package skriptama, build child procesu ili output artefaktu. Retry prvo čita postojeći release/asset i verifikuje hash; ne koristi `--clobber`, delete-asset ili overwrite.
+GitHub workflow permissions su deny-by-default na workflow/job nivou. Build/test/pack/verify job ima samo `contents: read` i nema publish/release token. Nema GitHub Environment publish joba. Lokalna release authority dobija odvojene operator secret-refove za exact npm publish i create-only GitHub Release asset korak tek posle ponovne verifikacije registry record-a. `GITHUB_TOKEN` se ne prosleđuje package skriptama, build child procesu ili output artefaktu. Retry prvo čita postojeći release/asset i verifikuje hash; ne koristi `--clobber`, delete-asset ili overwrite.
 
 Ako publish uspe, a attestation ili master import ne uspe, release ostaje `draft` i nije dostupan activation-u. Retry ne radi drugi publish: prvo dokazuje da registry verzija/tarball/package-version ID odgovaraju planiranom release-u, zatim reprodukuje ili učitava isti attestation. Shared public fixture sadrži poznati Ed25519 test key, protected/payload base64url, signature, stored-file SHA i tamper vektore za svako hash/identity polje.
 

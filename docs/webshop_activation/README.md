@@ -85,11 +85,17 @@ Za tok opisan u ovom direktorijumu, ova specifikacija ima prednost nad starijim 
 11. [10 — Bezbednost, observability i rollback](10-security-operations-i-rollback.md)
 12. [11 — Implementacioni redosled i Definition of Done](11-implementation-roadmap.md)
 13. [12 — Redosled copy/paste promptova za implementaciju](12-implementation-prompts.md)
+14. [13 — CMS core DB operator runbook](13-cms-core-db-operator-runbook.md)
+15. [14 — Webshop schema cutover operator runbook](14-webshop-schema-cutover-operator-runbook.md)
+16. [15 — Solo maintainer release authority](15-solo-maintainer-release-authority.md)
 
 ## Zaključane odluke
 
 - Hosted private registry je GitHub Packages.
 - Webshop package identitet je @radomirradojevic/webshop.
+- Za private solo-maintainer repo GitHub Actions je isključivo read-only
+  verification; production potpis, package publish, signed tag i publication
+  attestation obavlja samo lokalni release-authority tok iz dokumenta 15.
 - Privatni source ostaje u D:\nr_cms\.private\webshop samo za razvoj.
 - Instalirani runtime paket se nalazi u node_modules\@radomirradojevic\webshop.
 - Ne pravi se runtime kopija u root addons direktorijumu.

@@ -1095,7 +1095,10 @@ npm run release:check:local
 npm run install:verify:next
 ```
 
-Finalni release dodatno prolazi protected GitHub Actions publish workflow i clean registry install.
+Finalni release dodatno prolazi read-only GitHub Actions verification workflow,
+lokalni solo-maintainer release-authority preflight/publish tok i clean
+registry install prema dokumentu 15. GitHub Actions ne dobija production key
+niti publish dozvolu.
 
 ### Master License Server
 
@@ -1173,8 +1176,9 @@ Fixture-i ne sadrže realne production ključeve. Test keyset je jasno označen 
 
 ### Operator radi jednom ili po release-u
 
-- kreira/održava GitHub private repo i protected `private-release` environment;
-- unosi release signing tajne i production public keyset;
+- kreira/održava GitHub private repo i read-only release verification workflow;
+- održava namenski solo-maintainer release-authority računar, njegove
+  operator-protected secret-refove i production public keyset prema dokumentu 15;
 - provisionuje najmanje privilegovan registry read credential u worker secret store;
 - provisionuje po targetu core owner/migrator/runtime, Webshop deployer/broker i service-SID matricu kroz auditovane CLI-jeve; ne daje runtime-u DDL niti worker job-store roli target CMS DB prava;
 - izvršava operator-only core migracije i, samo za dokazani populated legacy DB, backupovan `db:webshop-schema-cutover`; blind `legacy_applied` ili ručni `SET SCHEMA` nije dozvoljen;
