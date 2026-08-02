@@ -70,6 +70,8 @@ Njegova struktura je operator-owned i ne commit-uje se:
     D:\nr_release_authority\evidence\<release-id>
     D:\nr_release_authority\secrets\webshop-release-signing-key.v1.dpapi
     D:\nr_release_authority\secrets\github-packages-publish-token.v1.dpapi
+    D:\nr_release_authority\secrets\webshop-release-tag-signing-ssh.v1
+    D:\nr_release_authority\secrets\webshop-release-tag-signing-ssh.v1.pub
 
 Datoteke sa nastavkom .dpapi su versionirani os-secret-ref contract: sadržaj je
 zaštićen postojećim Windows DPAPI LocalMachine helperom. Authority se zato
@@ -86,7 +88,7 @@ Ed25519 PEM, bez whitespace-a ili završnog newline-a. Authority ga po unseal-u
 strict dekodira i šalje samo kroz stdin handle signing child-u; plaintext PEM
 se ne snima kao fajl. Publish-token ref je zasebna jedna tekstualna linija.
 
-Tri credentiala su odvojena:
+Četiri credentiala su odvojena:
 
 - Ed25519 release key potpisuje samo ReleaseManifestPayloadV2 i publication
   attestation sa jednim aktivnim production KID-em iz hash pinovanog
@@ -97,6 +99,12 @@ Tri credentiala su odvojena:
 - Git tag/release credential je odvojeni Git/SSH ili GitHub credential u
   Windows Git Credential Manager-u, odnosno GPG/SSH agentu. Ima pravo da
   napravi potreban tag/release zapis u webshop repou i ne prosleđuje se npm-u.
+- Git tag signing key je zaseban Ed25519 SSH ključ. Privatni deo ostaje samo
+  u operator-only authority secret rootu (SYSTEM i Administrators, bez
+  nasleđivanja ACL-a); javni deo se create-only registruje kao GitHub SSH
+  signing key. Authority pre tagovanja proverava par ključeva i da GitHub
+  registruje baš isti javni ključ. Ne koristi JWS release key za Git tag i ne
+  prihvata ambientni `user.signingkey`.
 
 CI dodatno dobija zaseban `NR_CMS_READ_TOKEN`: fine-grained GitHub token koji
 može čitati samo privatni `radomirradojevic/nr_cms` repo (`Contents: Read-only`).
@@ -132,6 +140,21 @@ postojeći chained keyset/rotation contract iz dokumenta 03.
    newline/fine-grained token i existing secret-ref, pa kreira operator-only
    DPAPI LocalMachine `github-packages-publish-token.v1.dpapi`. Ne postoji
    plaintext token fajl, overwrite ni `--force` putanja.
+4. Nakon Git for Windows 2.34+ i `gh auth refresh --scopes
+   write:ssh_signing_key`, operator iz elevated Administrator PowerShell
+   sesije pokreće:
+
+       powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\provision-release-authority-tag-signing-key.ps1
+
+   Zatim iz normalne operator sesije pokreće:
+
+       npm run release:authority:register-tag-signing-key
+
+   Prva komanda je create-only i lokalno pravi namenski Ed25519 SSH ključ sa
+   operator-only ACL-om. Druga samo registruje njegov javni deo u GitHub-u;
+   ponavljanje je idempotentno samo kada GitHub već sadrži isti ključ. `gh`
+   credential za ovu registraciju zahteva `write:ssh_signing_key`, ne sme se
+   koristiti za npm publish i ne čuva se u authority secret rootu.
 
 ## 4. Ciljna implementacija komandi
 
