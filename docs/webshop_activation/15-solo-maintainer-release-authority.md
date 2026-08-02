@@ -112,6 +112,27 @@ environment dump i log nikada ne sadrže secret. Public keyset, njegov SHA-256 i
 KID nisu secret, ali su integrity-sensitive i menjaju se isključivo kroz
 postojeći chained keyset/rotation contract iz dokumenta 03.
 
+### 3.1 Prvi credential setup
+
+1. CI token se kreira kao fine-grained PAT pod imenom `nr-webshop-ci-cms-read`,
+   sa resource owner `radomirradojevic`, pristupom samo repou `nr_cms` i
+   `Contents: Read-only` dozvolom. Kopira se direktno u Webshop repository
+   Actions secret `NR_CMS_READ_TOKEN`; ne prolazi kroz lokalni fajl, `.env`,
+   chat ili release-authority root.
+2. Publish token se kreira kao zaseban **classic** PAT pod imenom
+   `nr-webshop-local-publisher`, sa `write:packages` i bez `delete:packages`,
+   `workflow` ili drugih nepotrebnih scope-ova. Postojeći interaktivni `gh`
+   token se ne proširuje i ne koristi za npm publish.
+3. Iz elevated Administrator PowerShell sesije, iz čistog Webshop checkouta,
+   operator pokreće:
+
+       powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\provision-release-authority-publish-token.ps1
+
+   Skripta prihvata classic PAT samo kao skriveni `SecureString`, odbija
+   newline/fine-grained token i existing secret-ref, pa kreira operator-only
+   DPAPI LocalMachine `github-packages-publish-token.v1.dpapi`. Ne postoji
+   plaintext token fajl, overwrite ni `--force` putanja.
+
 ## 4. Ciljna implementacija komandi
 
 Sledeća imena su TARGET interfejs. Ne tvrde da su danas sve komande
