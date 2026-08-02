@@ -85,6 +85,17 @@ test("registry generator verifies signed package identity and artifact bytes", (
       capabilities: ["routes.webshop"],
       cmsVersionRange: "^0.1.0",
       entrypoints: { server: "./dist/server.js" },
+      hostRouteBindings: [
+        "webshop.api.v1",
+        "webshop.dashboard.v1",
+        "webshop.download.v1",
+        "webshop.file-authorization.v1",
+        "webshop.form-submission-visibility.v1",
+        "webshop.fulfillment-job.v1",
+        "webshop.paddle-webhook.v1",
+        "webshop.purchase-intent-accept.v1",
+        "webshop.storefront.v1",
+      ],
       manifestVersion: 1 as const,
       migrations: [],
       packageName: "@radomirradojevic/webshop" as const,
@@ -137,7 +148,7 @@ test("registry generator verifies signed package identity and artifact bytes", (
     const command = [process.execPath, [resolve(process.cwd(), "scripts/generate-addon-registry.mjs")]] as const;
     execFileSync(command[0], command[1], {
       cwd: cleanRoot,
-      env: process.env,
+      env: { ...process.env, NR_ADDON_SOURCE_MODE: "registry" },
       stdio: "pipe",
     });
 
@@ -146,7 +157,7 @@ test("registry generator verifies signed package identity and artifact bytes", (
       () =>
         execFileSync(command[0], command[1], {
           cwd: cleanRoot,
-          env: process.env,
+          env: { ...process.env, NR_ADDON_SOURCE_MODE: "registry" },
           stdio: "pipe",
         }),
       /Command failed/,

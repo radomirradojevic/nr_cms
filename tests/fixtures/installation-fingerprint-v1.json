@@ -1,0 +1,6 @@
+{
+  "contractVersion": 1,
+  "scheme": "ed25519_spki_der_sha256_v1",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAcHzUWNbxV7duzT/KNrjFVtKgO+kvrQJ1qPfR8cpiP8o=\n-----END PUBLIC KEY-----\n",
+  "expectedFingerprint": "sha256:ee3e2bc2ff378cc487c748c59c83f5883de1388c592b85faf89aedb1b7138dd2"
+}

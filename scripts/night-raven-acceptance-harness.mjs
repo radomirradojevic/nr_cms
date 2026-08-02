@@ -7,7 +7,10 @@ import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { assertSafeTestDatabaseUrl } from "./database-test-safety.mjs";
+import {
+  assertSafeTestDatabaseUrl,
+  resolveTestDatabaseUrl,
+} from "./database-test-safety.mjs";
 import { withEphemeralAddonReleaseAuthority } from "./local-addon-release-authority.mjs";
 
 /**
@@ -116,7 +119,9 @@ export function buildPublicCopyEnvironment(env = process.env) {
   );
   const sanitized = Object.fromEntries(
     Object.entries(env).filter(
-      ([name]) => !isSensitivePublicCopyEnvironmentName(name),
+      ([name]) =>
+        !isSensitivePublicCopyEnvironmentName(name) &&
+        !/^(?:WEBSHOP|LICENSE_SERVER|NR_(?:MASTER|ADDON|VENDOR))_/.test(name),
     ),
   );
   return {
@@ -124,6 +129,29 @@ export function buildPublicCopyEnvironment(env = process.env) {
     DATABASE_URL: testDatabaseUrl,
     TEST_DATABASE_URL: testDatabaseUrl,
     DRIZZLE_AUTO_MIGRATE: "false",
+    // A public source export is deliberately addon-free. It must regenerate
+    // its registry instead of inheriting a developer's ignored .generated
+    // file or private_workspace profile.
+    NR_ADDON_SOURCE_MODE: "empty",
+    NR_CMS_DEPLOYMENT_PROFILE: "development",
+    NR_LICENSE_ENVIRONMENT: "development",
+    WEBSHOP_ENABLED: "false",
+    LICENSE_SERVER_ENABLED: "false",
+    WEBSHOP_CHECKOUT_ENABLED: "false",
+    WEBSHOP_STOREFRONT_ENABLED: "false",
+    WEBSHOP_INSTALL_MODE: "disabled",
+    LICENSE_SERVER_INSTALL_MODE: "disabled",
+    // These non-production placeholders are only consumed by server-side
+    // startup validation in a disposable clean copy; real secrets never
+    // cross the public-copy boundary.
+    CLERK_SECRET_KEY: "public-copy-clerk-secret-placeholder-not-a-real-key",
+    CRON_SECRET: "public-copy-cron-secret-placeholder-not-a-real-key",
+    IP_HASH_SALT: "public-copy-ip-hash-salt-placeholder-not-a-real-key",
+    TURNSTILE_SECRET_KEY: "public-copy-turnstile-secret-placeholder",
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_public_copy_placeholder",
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: "public-copy-turnstile-site-key",
+    EMAIL_FROM: "public-copy@example.test",
+    EMAIL_PROVIDER: "console",
   };
 }
 
@@ -671,6 +699,13 @@ async function publicCopy(env = process.env) {
     await run(
       process.platform === "win32" ? "cmd.exe" : "npm",
       process.platform === "win32"
+        ? ["/c", "npm", "run", "prepare:runtime"]
+        : ["run", "prepare:runtime"],
+      { cwd: copyRoot, env: buildEnv },
+    );
+    await run(
+      process.platform === "win32" ? "cmd.exe" : "npm",
+      process.platform === "win32"
         ? ["/c", "npm", "run", "typecheck"]
         : ["run", "typecheck"],
       { cwd: copyRoot, env: buildEnv },
@@ -881,12 +916,24 @@ async function centralRuntime() {
   }
 }
 
-async function localAll() {
+async function loadLocalPublicCopyEnvironment() {
   const localEnv = { ...process.env };
   if (!localEnv.TEST_DATABASE_URL && !localEnv.DATABASE_URL) {
     const { config } = await import("dotenv");
     config({ path: resolve(".env"), processEnv: localEnv, quiet: true });
   }
+  // `publicCopy` intentionally accepts only an explicit test URL. For the
+  // local developer entrypoints, derive that URL through the existing
+  // loopback/development guard rather than leaking the development DB URL into
+  // the disposable public export.
+  if (!localEnv.TEST_DATABASE_URL) {
+    localEnv.TEST_DATABASE_URL = resolveTestDatabaseUrl(localEnv);
+  }
+  return localEnv;
+}
+
+async function localAll() {
+  const localEnv = await loadLocalPublicCopyEnvironment();
   await publicCopy(localEnv);
   await localPrivatePackages();
   await centralRuntime();
@@ -927,7 +974,9 @@ async function redactionAndBrowserBundleSentinel() {
 
 async function main() {
   const command = process.argv[2] ?? "all";
-  if (command === "public-copy") await publicCopy();
+  if (command === "public-copy") {
+    await publicCopy(await loadLocalPublicCopyEnvironment());
+  }
   else if (command === "private-packages") await privatePackages();
   else if (command === "private-packages-local") await localPrivatePackages();
   else if (command === "local-invariants") await localInvariants();

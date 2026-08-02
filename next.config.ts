@@ -4,17 +4,7 @@ import type { NextConfig } from "next";
 // compiler exception only; application policy must not branch on NODE_ENV.
 const isDevelopmentCompiler = process.env.NODE_ENV !== "production";
 const secureTransport = usesSecurePublicOrigin();
-const publicAppHostname = publicHostname(process.env.NEXT_PUBLIC_APP_URL);
-const webshopPublicBaseHostname = publicHostname(
-  process.env.WEBSHOP_PUBLIC_BASE_URL,
-);
-const allowedDevOrigins = [
-  "172.18.208.1",
-  "vendor.nr.test",
-  "client.nr.test",
-  ...(publicAppHostname ? [publicAppHostname] : []),
-  ...(webshopPublicBaseHostname ? [webshopPublicBaseHostname] : []),
-];
+const allowedDevOrigins = ["vendor.nr.test", "client.nr.test"];
 
 const securityHeaders = [
   {
@@ -76,16 +66,6 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
-function publicHostname(value: string | undefined) {
-  if (!value) return null;
-  try {
-    const normalized = value.includes("://") ? value : `https://${value}`;
-    return new URL(normalized).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
-}
 
 function usesSecurePublicOrigin() {
   const value =

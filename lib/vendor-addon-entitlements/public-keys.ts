@@ -42,11 +42,7 @@ export async function getVendorAddonEntitlementPublicKeys({
 } = {}): Promise<Record<string, string>> {
   const masterUrl = getMasterLicenseServerUrl();
   const now = Date.now();
-  if (
-    !forceRefresh &&
-    cache?.url === masterUrl &&
-    cache.expiresAt > now
-  ) {
+  if (!forceRefresh && cache?.url === masterUrl && cache.expiresAt > now) {
     return cache.keys;
   }
 
@@ -57,7 +53,7 @@ export async function getVendorAddonEntitlementPublicKeys({
       {
         allowFirstParty: true,
         allowLocalHttp: localHttp,
-        allowSelfHosted: localHttp,
+        allowSelfHosted: true,
         method: "GET",
         purpose: "Vendor entitlement public-key discovery",
         timeoutMs: 5000,

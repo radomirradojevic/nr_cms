@@ -2,8 +2,11 @@ import { createPublicKey, verify } from "node:crypto";
 
 import { z } from "zod";
 
+import { canonicalizeLicenseDomain } from "@/lib/license-domain";
+
 export const VENDOR_ADDON_ENTITLEMENT_AUDIENCE = "nr-cms-addon-runtime";
-export const VENDOR_ADDON_ENTITLEMENT_ISSUER = "https://license-server.nrcms.com";
+export const VENDOR_ADDON_ENTITLEMENT_ISSUER =
+  "https://license-server.nrcms.com";
 const MAX_TOKEN_BYTES = 12_000;
 const CLOCK_SKEW_SECONDS = 300;
 
@@ -55,7 +58,11 @@ export function verifyVendorAddonEntitlement(
     throw new Error("Entitlement assertion is not a compact JWS.");
   }
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
-  const header = parseJson(encodedHeader, "header") as { alg?: unknown; kid?: unknown; typ?: unknown };
+  const header = parseJson(encodedHeader, "header") as {
+    alg?: unknown;
+    kid?: unknown;
+    typ?: unknown;
+  };
   if (
     header.alg !== "EdDSA" ||
     header.typ !== "NRV-ADDON-ENTITLEMENT+JWT" ||
@@ -77,16 +84,24 @@ export function verifyVendorAddonEntitlement(
 
   const claims = payloadSchema.parse(parseJson(encodedPayload, "payload"));
   const nowSeconds = Math.floor((context.now ?? new Date()).getTime() / 1000);
-  if (claims.iat > nowSeconds + CLOCK_SKEW_SECONDS || claims.exp < nowSeconds - CLOCK_SKEW_SECONDS) {
-    throw new Error("Entitlement assertion is outside its allowed time window.");
+  if (
+    claims.iat > nowSeconds + CLOCK_SKEW_SECONDS ||
+    claims.exp < nowSeconds - CLOCK_SKEW_SECONDS
+  ) {
+    throw new Error(
+      "Entitlement assertion is outside its allowed time window.",
+    );
   }
   if (
     claims.addonKey !== context.addonKey ||
     claims.installationId !== context.installationId ||
     claims.installationKeyFingerprint !== context.installationKeyFingerprint ||
-    canonicalDomain(claims.canonicalDomain) !== canonicalDomain(context.canonicalDomain)
+    canonicalizeLicenseDomain(claims.canonicalDomain) !==
+      canonicalizeLicenseDomain(context.canonicalDomain)
   ) {
-    throw new Error("Entitlement assertion is bound to another installation, add-on, or domain.");
+    throw new Error(
+      "Entitlement assertion is bound to another installation, add-on, or domain.",
+    );
   }
   return { ...claims, signingKid: header.kid };
 }
@@ -97,8 +112,4 @@ function parseJson(value: string, part: string): unknown {
   } catch {
     throw new Error(`Entitlement ${part} is not valid JSON.`);
   }
-}
-
-function canonicalDomain(value: string) {
-  return value.trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0] ?? "";
 }

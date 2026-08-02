@@ -7,21 +7,27 @@ import { validateRuntimeEnv } from "../scripts/validate-runtime-env.mjs";
 const baseEnvironment = {
   CLERK_SECRET_KEY: "sk_test_fixture",
   CRON_SECRET: "c".repeat(32),
-  DATABASE_URL: "postgresql://user:password@db.example.test/cms",
+  DATABASE_URL:
+    "postgresql://nr_cms_client_runtime:password@127.0.0.1:5432/nr_cms_client_test",
   EMAIL_FROM: "CMS <noreply@example.test>",
   EMAIL_PROVIDER: "resend",
   IP_HASH_SALT: "i".repeat(32),
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_fixture",
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "turnstile-site-key",
   TURNSTILE_SECRET_KEY: "turnstile-secret-key",
+  NR_CMS_DEPLOYMENT_PROFILE: "client",
+  NR_LICENSE_ENVIRONMENT: "development",
+  NR_ADDON_SOURCE_MODE: "empty",
 };
 
 const addonEncryptionKey = Buffer.alloc(32, 7).toString("base64url");
 
 function enabledWebshopEnvironment() {
   return {
+    NR_ADDON_SOURCE_MODE: "registry",
     NEXT_PUBLIC_APP_URL: "https://cms.example.test",
     NR_ADDON_INSTALLATION_ENCRYPTION_KEY: addonEncryptionKey,
+    WEBSHOP_BUY_URL: "https://vendor.nr.test/licenses/purchase-intents/accept",
     WEBSHOP_CART_TOKEN_SALT: "w".repeat(32),
     WEBSHOP_CHECKOUT_ENABLED: "false",
     WEBSHOP_DEPLOYMENT_MODE: "vercel",
@@ -37,6 +43,7 @@ function enabledWebshopEnvironment() {
 
 function enabledLicenseServerEnvironment() {
   return {
+    NR_ADDON_SOURCE_MODE: "registry",
     LICENSE_SERVER_CUSTOMER_ENVIRONMENT: "production",
     LICENSE_SERVER_DEPLOYMENT_MODE: "vercel",
     LICENSE_SERVER_ENABLED: "true",
@@ -49,7 +56,10 @@ function enabledLicenseServerEnvironment() {
 
 test("base CMS accepts omitted add-on environment and fails closed", () => {
   assert.deepEqual(validateRuntimeEnv(baseEnvironment), {
+    addonSourceMode: "empty",
     allowInsecureLoopbackHttp: false,
+    deploymentProfile: "client",
+    licenseEnvironment: "development",
     licenseServerEnabled: false,
     webshopEnabled: false,
   });
@@ -67,6 +77,7 @@ test("enabled add-ons require their own settings and the shared encryption key",
     () =>
       validateRuntimeEnv({
         ...baseEnvironment,
+        NR_ADDON_SOURCE_MODE: "registry",
         WEBSHOP_ENABLED: "true",
       }),
     /WEBSHOP_CART_TOKEN_SALT.*NEXT_PUBLIC_APP_URL.*NR_ADDON_INSTALLATION_ENCRYPTION_KEY/,
@@ -75,9 +86,77 @@ test("enabled add-ons require their own settings and the shared encryption key",
     () =>
       validateRuntimeEnv({
         ...baseEnvironment,
+        NR_ADDON_SOURCE_MODE: "registry",
         LICENSE_SERVER_ENABLED: "true",
       }),
     /LICENSE_SERVER_CUSTOMER_ENVIRONMENT.*LICENSE_SERVER_SECRET_KEY.*NR_ADDON_INSTALLATION_ENCRYPTION_KEY/,
+  );
+});
+
+test("deployment profiles allow only explicit add-on source modes", () => {
+  assert.doesNotThrow(() =>
+    validateRuntimeEnv({
+      ...baseEnvironment,
+      NR_CMS_DEPLOYMENT_PROFILE: "development",
+      NR_ADDON_SOURCE_MODE: "private_workspace",
+    }),
+  );
+  assert.doesNotThrow(() =>
+    validateRuntimeEnv({
+      ...baseEnvironment,
+      NR_CMS_DEPLOYMENT_PROFILE: "vendor",
+      NR_ADDON_SOURCE_MODE: "empty",
+      DATABASE_URL:
+        "postgresql://nr_cms_vendor_runtime:password@127.0.0.1:5432/nr_cms_vendor_test",
+    }),
+  );
+  assert.throws(
+    () =>
+      validateRuntimeEnv({
+        ...baseEnvironment,
+        NR_CMS_DEPLOYMENT_PROFILE: "vendor",
+        NR_ADDON_SOURCE_MODE: "private_workspace",
+      }),
+    /not allowed/,
+  );
+  assert.throws(
+    () =>
+      validateRuntimeEnv({
+        ...baseEnvironment,
+        DATABASE_URL:
+          "postgresql://nr_cms_vendor_runtime:password@127.0.0.1:5432/nr_cms_vendor_test",
+      }),
+    /static client/,
+  );
+  assert.throws(
+    () =>
+      validateRuntimeEnv({
+        ...baseEnvironment,
+        NR_LICENSE_ENVIRONMENT: "test",
+      }),
+    /NR_LICENSE_ENVIRONMENT/,
+  );
+});
+
+test("local Caddy transport requires normal Node CA trust and forbids TLS bypass", () => {
+  const local = {
+    ...baseEnvironment,
+    NR_CMS_DEPLOYMENT_PROFILE: "development",
+    NR_ADDON_SOURCE_MODE: "private_workspace",
+    NR_MASTER_LICENSE_URL: "https://license.nr.test",
+  };
+  assert.throws(() => validateRuntimeEnv(local), /NODE_USE_SYSTEM_CA/);
+  assert.doesNotThrow(() =>
+    validateRuntimeEnv({ ...local, NODE_USE_SYSTEM_CA: "1" }),
+  );
+  assert.throws(
+    () =>
+      validateRuntimeEnv({
+        ...local,
+        NODE_USE_SYSTEM_CA: "1",
+        NODE_TLS_REJECT_UNAUTHORIZED: "0",
+      }),
+    /never permitted/,
   );
 });
 

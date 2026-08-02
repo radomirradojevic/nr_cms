@@ -5,8 +5,6 @@ import {
   formSubmissions,
   forms,
   formFields,
-  webshopProductAttributeValues,
-  webshopProducts,
 } from "@/db/schema";
 import {
   and,
@@ -22,6 +20,7 @@ import {
 import { buildLiveContentWhere } from "@/data/content";
 import { canViewContent } from "@/lib/content-visibility";
 import type { Role } from "@/lib/roles";
+import { canViewWebshopFormSubmissions } from "@/lib/webshop-addon/form-submission-delegate";
 import type {
   FormRow,
   FormFieldRow,
@@ -86,43 +85,14 @@ export async function canViewFormSubmissionsViaPublishedContent(
   formId: string,
   viewerRoles: Role[] | null,
 ): Promise<boolean> {
-  const now = new Date();
-  const publicProductWhere = and(
-    eq(webshopProducts.status, "active"),
-    or(
-      isNull(webshopProducts.publishedAt),
-      lte(webshopProducts.publishedAt, now),
-    )!,
-  );
-
-  const [rows, productRows, productAttributeRows] = await Promise.all([
-    db
-      .select({
-        content: content.content,
-        contentJson: content.contentJson,
-        visibility: content.visibility,
-      })
-      .from(content)
-      .where(buildLiveContentWhere()),
-    db
-      .select({
-        description: webshopProducts.description,
-        descriptionJson: webshopProducts.descriptionJson,
-      })
-      .from(webshopProducts)
-      .where(publicProductWhere),
-    db
-      .select({
-        valueJson: webshopProductAttributeValues.valueJson,
-        valueText: webshopProductAttributeValues.valueText,
-      })
-      .from(webshopProductAttributeValues)
-      .innerJoin(
-        webshopProducts,
-        eq(webshopProductAttributeValues.productId, webshopProducts.id),
-      )
-      .where(publicProductWhere),
-  ]);
+  const rows = await db
+    .select({
+      content: content.content,
+      contentJson: content.contentJson,
+      visibility: content.visibility,
+    })
+    .from(content)
+    .where(buildLiveContentWhere());
 
   if (
     rows.some(
@@ -135,21 +105,7 @@ export async function canViewFormSubmissionsViaPublishedContent(
     return true;
   }
 
-  if (
-    productRows.some(
-      (row) =>
-        objectHasFormSubmissionsEmbed(row.descriptionJson, formId) ||
-        textHasFormSubmissionsEmbed(row.description, formId),
-    )
-  ) {
-    return true;
-  }
-
-  return productAttributeRows.some(
-    (row) =>
-      objectHasFormSubmissionsEmbed(row.valueJson, formId) ||
-      textHasFormSubmissionsEmbed(row.valueText, formId),
-  );
+  return canViewWebshopFormSubmissions(formId);
 }
 
 /**

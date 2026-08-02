@@ -58,7 +58,7 @@ test("webshop hard delete requires the exact destructive confirmation phrase", (
   assert.equal(isWebshopHardDeleteConfirmed(undefined), false);
 });
 
-test("webshop hard delete purge covers every webshop data table", () => {
+test("CMS core has no direct Webshop business-table purge path", () => {
   const schemaSource = readFileSync(
     resolve(process.cwd(), "db/schema.ts"),
     "utf8",
@@ -73,12 +73,9 @@ test("webshop hard delete purge covers every webshop data table", () => {
     .map((match) => match[1])
     .filter((table) => table !== "webshop_addon_entitlements")
     .sort();
-  const purgeTables = [...purgeSource.matchAll(/^\s{2}"(webshop_[^"]+)",$/gm)]
-    .map((match) => match[1])
-    .sort();
-
-  assert.deepEqual(purgeTables, schemaTables);
-  assert.match(purgeSource, /TRUNCATE TABLE/);
+  assert.deepEqual(schemaTables, []);
+  assert.doesNotMatch(purgeSource, /TRUNCATE TABLE|webshop_[a-z0-9_]+/);
+  assert.match(purgeSource, /WebshopLifecycleOperationRequiredError/);
 });
 
 test("webshop edit locks are admin-only", () => {

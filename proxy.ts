@@ -3,7 +3,20 @@ import { NextResponse } from "next/server";
 
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
 
+/**
+ * Kept deliberately narrow for the later purchase-JWS phase. The route is
+ * public today, so this predicate does not bypass or weaken any Clerk guard.
+ */
+export function isWebshopPurchaseIntentAcceptanceRequest(request: Request) {
+  const url = new URL(request.url);
+  return (
+    request.method === "POST" &&
+    url.pathname === "/licenses/purchase-intents/accept"
+  );
+}
+
 export default clerkMiddleware(async (auth, req) => {
+  void isWebshopPurchaseIntentAcceptanceRequest(req);
   const { userId } = await auth();
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nr-pathname", req.nextUrl.pathname);

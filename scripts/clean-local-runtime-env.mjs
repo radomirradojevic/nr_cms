@@ -3,6 +3,18 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const VARIABLES = [
+  [
+    "NR_CMS_DEPLOYMENT_PROFILE",
+    "CMS deployment identity: development, vendor, or client.",
+  ],
+  [
+    "NR_LICENSE_ENVIRONMENT",
+    "License contract environment: development, staging, or production.",
+  ],
+  [
+    "NR_ADDON_SOURCE_MODE",
+    "Add-on source policy: private_workspace, registry, or empty.",
+  ],
   ["DATABASE_URL", "PostgreSQL connection used by the CMS."],
   [
     "NEXT_PUBLIC_APP_URL",
@@ -155,6 +167,9 @@ const SECTIONS = [
     description:
       "Shared infrastructure and paid add-on activation for client and vendor CMS installations.",
     keys: [
+      "NR_CMS_DEPLOYMENT_PROFILE",
+      "NR_LICENSE_ENVIRONMENT",
+      "NR_ADDON_SOURCE_MODE",
       "DATABASE_URL",
       "NEXT_PUBLIC_APP_URL",
       "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",

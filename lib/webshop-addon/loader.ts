@@ -1,5 +1,6 @@
 import { getAddonLoader } from "@/.generated/addon-registry";
 import { isWebshopAddon, type WebshopAddon, type WebshopAddonModule } from "@/lib/webshop-addon/contract";
+import { validateWebshopHostBindings } from "@/lib/webshop-addon/host-route-contract";
 
 export type WebshopAddonLoadResult =
   | { status: "loaded"; addon: WebshopAddon }
@@ -27,7 +28,11 @@ export async function loadWebshopAddon(
   if (!loader) return { status: "not_installed" };
   try {
     const addon = await resolveAddon(await loader() as WebshopAddonModule);
-    return addon ? { status: "loaded", addon } : { status: "invalid", reason: "Installed Webshop package does not export a valid host contract." };
+    if (!addon) return { status: "invalid", reason: "Installed Webshop package does not export a valid host contract." };
+    const bindings = validateWebshopHostBindings(addon.hostRouteBindings);
+    return bindings.ok
+      ? { status: "loaded", addon }
+      : { status: "invalid", reason: bindings.reason };
   } catch (error) {
     return { status: "invalid", reason: error instanceof Error ? error.message : "Webshop package could not be loaded." };
   }

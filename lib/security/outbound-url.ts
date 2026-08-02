@@ -1,3 +1,8 @@
+import { lookup } from "node:dns/promises";
+import { isIP, type LookupFunction } from "node:net";
+
+import { Agent } from "undici";
+
 type OutboundAddressResolver = (
   hostname: string,
   options: { all: true; verbatim: true },
@@ -10,6 +15,45 @@ const FIRST_PARTY_LICENSE_SERVER_HOSTS = new Set([
   "ls.nrcms.com",
   "license-server.nrcms.com",
 ]);
+
+function configuredOutboundHosts(
+  env: Record<string, string | undefined> = process.env,
+) {
+  return new Set(
+    (env.NRLS_ALLOWED_OUTBOUND_HOSTS ?? "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+function isExplicitlyApprovedSelfHostedUrl(
+  url: URL,
+  input: {
+    allowLocalHttp?: boolean;
+    allowSelfHosted?: boolean;
+  },
+  env: Record<string, string | undefined> = process.env,
+) {
+  if (input.allowSelfHosted !== true) return false;
+  const hostname = url.hostname.toLowerCase();
+  const localHttp =
+    input.allowLocalHttp === true &&
+    url.protocol === "http:" &&
+    isExplicitlyAllowedLoopbackHttpUrl(url.toString(), env);
+  if (localHttp) return true;
+  if (
+    url.protocol !== "https:" ||
+    env.NRLS_ALLOW_SELF_HOSTED_OUTBOUND?.trim().toLowerCase() !== "true" ||
+    !configuredOutboundHosts(env).has(hostname)
+  ) {
+    return false;
+  }
+  return (
+    !hostname.endsWith(".nr.test") ||
+    env.NR_LICENSE_ENVIRONMENT?.trim().toLowerCase() === "development"
+  );
+}
 
 export function isExplicitlyAllowedLoopbackHttpUrl(
   raw: string | null | undefined,
@@ -36,33 +80,34 @@ export function assertSafeOutboundUrl(
     allowLocalHttp?: boolean;
     allowSelfHosted?: boolean;
     purpose: string;
+    env?: Record<string, string | undefined>;
   },
 ) {
+  const env = input.env ?? process.env;
   const url = new URL(raw);
   const localHttp =
     input.allowLocalHttp === true &&
     url.protocol === "http:" &&
-    isLoopbackHostname(url.hostname);
+    isExplicitlyAllowedLoopbackHttpUrl(raw, env);
   if (url.protocol !== "https:" && !localHttp)
     throw new Error(`${input.purpose} must use HTTPS.`);
-  const firstParty = FIRST_PARTY_LICENSE_SERVER_HOSTS.has(
-    url.hostname.toLowerCase(),
-  );
-  const allowedHosts =
-    process.env.NRLS_ALLOWED_OUTBOUND_HOSTS?.split(",")
-      .map((item) => item.trim().toLowerCase())
-      .filter(Boolean) ?? [];
+  const hostname = url.hostname.toLowerCase();
+  const firstParty = FIRST_PARTY_LICENSE_SERVER_HOSTS.has(hostname);
+  const allowedHosts = configuredOutboundHosts(env);
   if (
     input.allowFirstParty &&
     !localHttp &&
     !firstParty &&
-    !allowedHosts.includes(url.hostname.toLowerCase())
+    !allowedHosts.has(hostname)
   ) {
     throw new Error(`${input.purpose} host is not allowlisted.`);
   }
+  const selfHosted = isExplicitlyApprovedSelfHostedUrl(url, input, env);
   if (
-    !input.allowSelfHosted &&
-    (PRIVATE_HOST.test(url.hostname) || PRIVATE_IP.test(url.hostname))
+    !selfHosted &&
+    (PRIVATE_HOST.test(hostname) ||
+      PRIVATE_IP.test(hostname) ||
+      hostname.endsWith(".nr.test"))
   )
     throw new Error(`${input.purpose} cannot target private network hosts.`);
   if (url.username || url.password || url.hash)
@@ -117,6 +162,7 @@ export async function safeFetch(
     purpose?: string;
     timeoutMs?: number;
     maxResponseBytes?: number;
+    outboundEnvironment?: Record<string, string | undefined>;
   } = {},
 ) {
   const {
@@ -124,6 +170,7 @@ export async function safeFetch(
     allowLocalHttp,
     allowSelfHosted: allowSelfHostedOption,
     maxResponseBytes = 64 * 1024,
+    outboundEnvironment = process.env,
     purpose = "Outbound request",
     timeoutMs = 10_000,
     ...requestInit
@@ -133,16 +180,22 @@ export async function safeFetch(
   const deadlineAt = Date.now() + timeoutMs;
   const allowSelfHosted =
     allowSelfHostedOption ??
-    process.env.NRLS_ALLOW_SELF_HOSTED_OUTBOUND === "true";
+    outboundEnvironment.NRLS_ALLOW_SELF_HOSTED_OUTBOUND === "true";
   const parsed = assertSafeOutboundUrl(String(url), {
     allowFirstParty,
     allowLocalHttp,
     allowSelfHosted,
+    env: outboundEnvironment,
     purpose,
   });
+  const selfHosted = isExplicitlyApprovedSelfHostedUrl(
+    parsed,
+    { allowLocalHttp, allowSelfHosted },
+    outboundEnvironment,
+  );
   const addresses = await assertResolvedOutboundHost(
     parsed,
-    { allowSelfHosted, purpose },
+    { allowSelfHosted: selfHosted, purpose },
     lookup,
     deadlineAt,
   );
@@ -292,6 +345,3 @@ function isLoopbackHostname(value: string) {
     normalized === "::1"
   );
 }
-import { lookup } from "node:dns/promises";
-import { isIP, type LookupFunction } from "node:net";
-import { Agent } from "undici";

@@ -4,6 +4,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  assertExactTargetDatabaseUrl,
+  loadCmsCorePrivilegeManifest,
+  resolveCmsCoreTarget,
+} from "./core-db-contract.mjs";
+
 const DEFAULT_MASTER_LICENSE_SERVER_URL = "https://ls.nrcms.com";
 
 const CORE_REQUIRED = [
@@ -18,6 +24,10 @@ const CORE_REQUIRED = [
   "TURNSTILE_SECRET_KEY",
 ];
 
+const DEPLOYMENT_PROFILES = ["development", "vendor", "client"];
+const LICENSE_ENVIRONMENTS = ["development", "staging", "production"];
+const ADDON_SOURCE_MODES = ["private_workspace", "registry", "empty"];
+
 const WEBSHOP_REQUIRED_WHEN_ENABLED = [
   "WEBSHOP_CART_TOKEN_SALT",
   "WEBSHOP_CHECKOUT_ENABLED",
@@ -28,6 +38,7 @@ const WEBSHOP_REQUIRED_WHEN_ENABLED = [
   "WEBSHOP_LICENSE_SERVER_SECRET_KEY",
   "WEBSHOP_PAYMENTS_MODE",
   "WEBSHOP_STOREFRONT_ENABLED",
+  "WEBSHOP_BUY_URL",
 ];
 
 const LICENSE_SERVER_REQUIRED_WHEN_ENABLED = [
@@ -72,6 +83,22 @@ const WEBSHOP_SECRET_KEYS = [
 const LICENSE_SERVER_SECRET_KEYS = ["LICENSE_SERVER_SECRET_KEY"];
 
 export function validateRuntimeEnv(env = process.env) {
+  const deploymentProfile = readRequiredEnum(
+    env,
+    "NR_CMS_DEPLOYMENT_PROFILE",
+    DEPLOYMENT_PROFILES,
+  );
+  const licenseEnvironment = readRequiredEnum(
+    env,
+    "NR_LICENSE_ENVIRONMENT",
+    LICENSE_ENVIRONMENTS,
+  );
+  const addonSourceMode = readRequiredEnum(
+    env,
+    "NR_ADDON_SOURCE_MODE",
+    ADDON_SOURCE_MODES,
+  );
+  assertProfileSourceMode(deploymentProfile, addonSourceMode);
   const webshopEnabled = readBoolean(env, "WEBSHOP_ENABLED", false);
   const licenseServerEnabled = readBoolean(
     env,
@@ -84,6 +111,11 @@ export function validateRuntimeEnv(env = process.env) {
     false,
   );
   const addonEnabled = webshopEnabled || licenseServerEnabled;
+  if (addonSourceMode === "empty" && addonEnabled) {
+    fail(
+      "NR_ADDON_SOURCE_MODE=empty requires every paid add-on to be disabled",
+    );
+  }
 
   const required = [
     ...CORE_REQUIRED,
@@ -94,6 +126,14 @@ export function validateRuntimeEnv(env = process.env) {
   const missing = required.filter((key) => !env[key]?.trim());
   if (missing.length) {
     fail(`missing required variables: ${missing.join(", ")}`);
+  }
+
+  if (deploymentProfile === "vendor" || deploymentProfile === "client") {
+    const target = resolveCmsCoreTarget(
+      deploymentProfile,
+      loadCmsCorePrivilegeManifest(),
+    );
+    assertExactTargetDatabaseUrl(env.DATABASE_URL, target, target.roles.runtime);
   }
 
   const forbidden = FORBIDDEN.filter((key) => env[key] !== undefined);
@@ -143,23 +183,36 @@ export function validateRuntimeEnv(env = process.env) {
     assertHttpOrigin("NEXT_PUBLIC_APP_URL", env.NEXT_PUBLIC_APP_URL);
   }
   if (addonEnabled || env.NR_MASTER_LICENSE_URL?.trim()) {
+    const masterLicenseUrl =
+      env.NR_MASTER_LICENSE_URL?.trim() || DEFAULT_MASTER_LICENSE_SERVER_URL;
     assertLicenseServerUrl(
       "NR_MASTER_LICENSE_URL",
-      env.NR_MASTER_LICENSE_URL?.trim() || DEFAULT_MASTER_LICENSE_SERVER_URL,
+      masterLicenseUrl,
       allowInsecureLoopbackHttp,
     );
+    assertLocalCaddyNodeTrust(env, masterLicenseUrl);
   }
+  if (webshopEnabled) assertWebshopBuyUrl(env.WEBSHOP_BUY_URL);
 
-  return { allowInsecureLoopbackHttp, licenseServerEnabled, webshopEnabled };
+  return {
+    addonSourceMode,
+    allowInsecureLoopbackHttp,
+    deploymentProfile,
+    licenseEnvironment,
+    licenseServerEnabled,
+    webshopEnabled,
+  };
 }
 
-function assertLocalEnvContractParity() {
+function assertLocalEnvContractParity(deploymentProfile) {
   const localPath = resolve(process.cwd(), ".env");
   const publicContractPath = resolve(process.cwd(), ".env.example");
   const vendorContractPath = resolve(process.cwd(), ".env.example.vendor");
-  const contractPath = existsSync(vendorContractPath)
-    ? vendorContractPath
-    : publicContractPath;
+  const contractPath =
+    ["development", "vendor"].includes(deploymentProfile) &&
+    existsSync(vendorContractPath)
+      ? vendorContractPath
+      : publicContractPath;
   if (!existsSync(localPath) || !existsSync(contractPath)) return null;
 
   const local = readEnvKeys(localPath);
@@ -173,9 +226,7 @@ function assertLocalEnvContractParity() {
     fail(
       [
         "local .env must contain every required production key and no undocumented keys",
-        contractPath === vendorContractPath
-          ? "contract: .env.example.vendor"
-          : "contract: .env.example",
+        `contract: ${contractPath === vendorContractPath ? ".env.example.vendor" : ".env.example"}`,
         localOnly.length
           ? `undocumented locally: ${localOnly.join(", ")}`
           : null,
@@ -232,6 +283,27 @@ function assertOptionalEnum(env, key, allowedValues) {
   }
 }
 
+function readRequiredEnum(env, key, allowedValues) {
+  const value = env[key]?.trim().toLowerCase();
+  if (!value || !allowedValues.includes(value)) {
+    fail(`${key} must be explicitly set to ${allowedValues.join(", ")}`);
+  }
+  return value;
+}
+
+function assertProfileSourceMode(profile, sourceMode) {
+  const allowed = {
+    development: new Set(["private_workspace", "empty"]),
+    vendor: new Set(["registry", "empty"]),
+    client: new Set(["registry", "empty"]),
+  };
+  if (!allowed[profile].has(sourceMode)) {
+    fail(
+      `NR_ADDON_SOURCE_MODE=${sourceMode} is not allowed for NR_CMS_DEPLOYMENT_PROFILE=${profile}`,
+    );
+  }
+}
+
 function assertSecret(env, key) {
   if ((env[key]?.trim().length ?? 0) < 32) {
     fail(`${key} must contain at least 32 characters`);
@@ -282,14 +354,59 @@ function assertLicenseServerUrl(key, value, insecureAllowed) {
   }
 }
 
+function assertWebshopBuyUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    fail("WEBSHOP_BUY_URL must be an absolute HTTPS URL");
+  }
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    url.pathname !== "/licenses/purchase-intents/accept" ||
+    (url.port && url.port !== "443")
+  ) {
+    fail(
+      "WEBSHOP_BUY_URL must be HTTPS with exact /licenses/purchase-intents/accept path and no credentials, query, fragment, or unexpected port",
+    );
+  }
+}
+
+function assertLocalCaddyNodeTrust(env, rawUrl) {
+  if (env.NODE_TLS_REJECT_UNAUTHORIZED?.trim() === "0") {
+    fail("NODE_TLS_REJECT_UNAUTHORIZED=0 is never permitted");
+  }
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return;
+  }
+  if (!url.hostname.toLowerCase().endsWith(".nr.test")) return;
+  if (
+    env.NODE_USE_SYSTEM_CA?.trim() !== "1" &&
+    !env.NODE_EXTRA_CA_CERTS?.trim()
+  ) {
+    fail(
+      "local Caddy HTTPS requires NODE_USE_SYSTEM_CA=1 or NODE_EXTRA_CA_CERTS in the Node process environment",
+    );
+  }
+}
+
 function fail(message) {
   throw new Error(`[runtime-env] ${message}`);
 }
 
 function main() {
   try {
-    const localContractKeyCount = assertLocalEnvContractParity();
-    validateRuntimeEnv();
+    const runtime = validateRuntimeEnv();
+    const localContractKeyCount = assertLocalEnvContractParity(
+      runtime.deploymentProfile,
+    );
     console.log(
       `CMS runtime environment contract is valid${
         localContractKeyCount === null

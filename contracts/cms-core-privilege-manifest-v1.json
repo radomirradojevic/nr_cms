@@ -1,0 +1,54 @@
+{
+  "manifestType": "CmsCorePrivilegeManifestV1",
+  "contractVersion": 1,
+  "migrationLedger": {
+    "schema": "drizzle",
+    "table": "__drizzle_migrations",
+    "runtimePrivileges": ["SELECT"]
+  },
+  "runtimeGrantPolicy": {
+    "publicSchema": {
+      "schema": "public",
+      "tablePrivileges": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+      "sequencePrivileges": ["USAGE", "SELECT"]
+    },
+    "operatorOnlySchemas": ["nr_control"],
+    "runtimeDeniedPrivileges": ["CREATE", "ALTER", "DROP", "GRANT", "SET ROLE"]
+  },
+  "targets": {
+    "vendor": {
+      "databaseResourceId": "nr-cms-core/vendor/v1",
+      "databaseName": "nr_cms_vendor_test",
+      "localPostgres": {
+        "host": "127.0.0.1",
+        "port": 5432,
+        "adminDatabase": "postgres",
+        "adminUsername": "postgres"
+      },
+      "roles": {
+        "owner": "nr_cms_vendor_core_owner",
+        "migrator": "nr_cms_vendor_core_migrator",
+        "runtime": "nr_cms_vendor_runtime"
+      },
+      "migratorSecretRef": "dpapi-machine://nr-cms-core/vendor/migrator/v1",
+      "migratorSecretPath": "D:\\nr_runtime\\operator-secrets\\vendor-cms-core-migrator.v1.dpapi"
+    },
+    "client": {
+      "databaseResourceId": "nr-cms-core/client/v1",
+      "databaseName": "nr_cms_client_test",
+      "localPostgres": {
+        "host": "127.0.0.1",
+        "port": 5432,
+        "adminDatabase": "postgres",
+        "adminUsername": "postgres"
+      },
+      "roles": {
+        "owner": "nr_cms_client_core_owner",
+        "migrator": "nr_cms_client_core_migrator",
+        "runtime": "nr_cms_client_runtime"
+      },
+      "migratorSecretRef": "dpapi-machine://nr-cms-core/client/migrator/v1",
+      "migratorSecretPath": "D:\\nr_runtime\\operator-secrets\\client-cms-core-migrator.v1.dpapi"
+    }
+  }
+}

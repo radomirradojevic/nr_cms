@@ -323,7 +323,7 @@ export async function revalidateWebshopAddonEntitlement({
       {
         allowFirstParty: true,
         allowLocalHttp: localHttp,
-        allowSelfHosted: localHttp,
+        allowSelfHosted: true,
         body: JSON.stringify({ activationId }),
         headers: { "content-type": "application/json" },
         method: "POST",
@@ -600,7 +600,7 @@ export async function requestWebshopLicenseActivation({
     {
       allowFirstParty: true,
       allowLocalHttp: localHttp,
-      allowSelfHosted: localHttp,
+      allowSelfHosted: true,
       body: JSON.stringify({
         action: "challenge",
         addonKey: "webshop",
@@ -640,7 +640,7 @@ export async function requestWebshopLicenseActivation({
     {
       allowFirstParty: true,
       allowLocalHttp: localHttp,
-      allowSelfHosted: localHttp,
+      allowSelfHosted: true,
       body: JSON.stringify({
         action: "complete",
         challengeId: challenge.data.challengeId,

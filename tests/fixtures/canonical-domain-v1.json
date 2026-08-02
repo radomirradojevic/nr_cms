@@ -1,0 +1,61 @@
+{
+  "contractVersion": 1,
+  "developmentAllowedDomains": ["vendor.nr.test", "client.nr.test"],
+  "vectors": [
+    {
+      "input": "https://Client.NR.Test",
+      "environment": "development",
+      "expected": "client.nr.test"
+    },
+    {
+      "input": "client.nr.test:3002",
+      "environment": "development",
+      "expected": "client.nr.test"
+    },
+    {
+      "input": "https://client.nr.test./",
+      "environment": "development",
+      "expected": "client.nr.test"
+    },
+    {
+      "input": "https://shop.example.test",
+      "environment": "production",
+      "expected": "shop.example.test"
+    },
+    {
+      "input": "https://vendor.nr.test",
+      "environment": "production",
+      "error": "allowlisted"
+    },
+    {
+      "input": "https://unknown.nr.test",
+      "environment": "development",
+      "error": "allowlisted"
+    },
+    {
+      "input": "localhost:3000",
+      "environment": "development",
+      "error": "hostname"
+    },
+    {
+      "input": "https://127.0.0.1",
+      "environment": "development",
+      "error": "hostname"
+    },
+    {
+      "input": "https://user:pass@client.nr.test",
+      "environment": "development",
+      "error": "credentials"
+    },
+    {
+      "input": "https://client.nr.test/path",
+      "environment": "development",
+      "error": "path"
+    },
+    {
+      "input": "https://client.nr.test?x=1",
+      "environment": "development",
+      "error": "query"
+    }
+  ]
+}

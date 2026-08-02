@@ -107,6 +107,71 @@ test("migration runner normalizes postgres text casts in column defaults", () =>
   );
 });
 
+test("migration runner replays only a current-run idempotent overlap instead of adopting it", () => {
+  const status = {
+    satisfied: true,
+    reason: "schema already satisfies migration",
+  };
+  const migrations = [
+    {
+      tag: "0013_content_visibility",
+      hash: "a",
+      hashVariants: new Set(["a"]),
+      when: 1,
+    },
+    {
+      tag: "0014_material_jetstream",
+      hash: "b",
+      hashVariants: new Set(["b"]),
+      when: 2,
+    },
+  ];
+  const migration = migrations[1];
+
+  assert.equal(
+    __migrationRunnerTesting.mayReapplySatisfiedPendingMigration({
+      migration,
+      status,
+      appliedThisRun: new Set(),
+      appliedRows: [],
+      migrations,
+    }),
+    false,
+  );
+  assert.equal(
+    __migrationRunnerTesting.mayReapplySatisfiedPendingMigration({
+      migration,
+      status,
+      appliedThisRun: new Set(["0013_content_visibility"]),
+      appliedRows: [],
+      migrations,
+    }),
+    true,
+  );
+  assert.equal(
+    __migrationRunnerTesting.mayReapplySatisfiedPendingMigration({
+      migration,
+      status: { satisfied: true, reason: "superseded by split appearance schema" },
+      appliedThisRun: new Set(["0016_split_content_width"]),
+      appliedRows: [],
+      migrations,
+    }),
+    false,
+  );
+  assert.equal(
+    __migrationRunnerTesting.mayReapplySatisfiedPendingMigration({
+      migration,
+      status,
+      appliedThisRun: new Set(),
+      appliedRows: [
+        { tag: "0013_content_visibility", hash: "a", created_at: 1 },
+      ],
+      migrations,
+    }),
+    true,
+  );
+});
+
 test("migration runner recognizes data-only migrations", () => {
   assert.equal(
     __migrationRunnerTesting.migrationHasSchemaOperations({

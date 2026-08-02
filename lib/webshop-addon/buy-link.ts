@@ -1,26 +1,19 @@
 import { createHmac } from "node:crypto";
 
 import { getGlobalSettings } from "@/data/global-settings";
+import { canonicalizeLicenseDomain } from "@/lib/license-domain";
+import { parseWebshopBuyUrl } from "@/lib/webshop-addon/buy-url-contract";
 
-const DEFAULT_WEBSHOP_BUY_URL = "https://www.nrcms.com/webshop";
+export {
+  configuredWebshopVendorAudience,
+  parseWebshopBuyUrl,
+} from "@/lib/webshop-addon/buy-url-contract";
 
 export function canonicalWebshopActivationDomain(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === "unknown") return "unknown";
   try {
-    const parsed = new URL(
-      trimmed.startsWith("http://") || trimmed.startsWith("https://")
-        ? trimmed
-        : `https://${trimmed}`,
-    );
-    return parsed.hostname.toLowerCase();
+    return canonicalizeLicenseDomain(value);
   } catch {
-    return (
-      trimmed
-        .toLowerCase()
-        .replace(/^https?:\/\//, "")
-        .split("/")[0] || "unknown"
-    );
+    return "unknown";
   }
 }
 
@@ -50,7 +43,9 @@ async function buildWebshopLicenseBuyUrlWithSecret(secret: string) {
   const signature = createHmac("sha256", secret)
     .update(payload)
     .digest("base64url");
-  const url = new URL(process.env.WEBSHOP_BUY_URL ?? DEFAULT_WEBSHOP_BUY_URL);
+  const configured = process.env.WEBSHOP_BUY_URL;
+  if (!configured) throw new Error("WEBSHOP_BUY_URL must be configured.");
+  const url = parseWebshopBuyUrl(configured).url;
   url.searchParams.set("addon", "webshop");
   url.searchParams.set("domain", `${payload}.${signature}`);
   return url.toString();

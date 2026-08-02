@@ -191,6 +191,10 @@ async function ensureMasterLicenseServerEnv() {
     "",
   );
   const additions = [];
+  const replaceKnown = (key, from, to) => {
+    const line = `${key}=${from}`;
+    if (next.includes(line)) next = next.replace(line, `${key}=${to}`);
+  };
   const ensure = (key, value) => {
     const configured = new RegExp(`^${escapeRegExp(key)}=[ \\t]*\\S.*$`, "m");
     const empty = new RegExp(`^${escapeRegExp(key)}=[ \\t]*$`, "m");
@@ -206,7 +210,12 @@ async function ensureMasterLicenseServerEnv() {
   ensure("NR_MIGRATION_EXPECTED_PROVIDER_RESOURCE_ID", "local-postgres");
   ensure("NR_MIGRATION_PROVIDER_RESOURCE_ID", "local-postgres");
   ensure("NRLS_ENVIRONMENT", "development");
-  ensure("NRLS_PUBLIC_URL", "http://localhost:3001");
+  replaceKnown(
+    "NRLS_PUBLIC_URL",
+    "http://localhost:3001",
+    "https://license.nr.test",
+  );
+  ensure("NRLS_PUBLIC_URL", "https://license.nr.test");
   ensure("VENDOR_LICENSE_API_V2", "false");
   ensure("NRLS_RATE_LIMIT_STORE", "postgres");
 
@@ -224,6 +233,10 @@ async function ensureRootEnv() {
   const envPath = resolve(root, ".env");
   const current = existsSync(envPath) ? await readFile(envPath, "utf8") : "";
   const additions = [];
+  const replaceKnown = (key, from, to) => {
+    const line = `${key}=${from}`;
+    if (next.includes(line)) next = next.replace(line, `${key}=${to}`);
+  };
   let next = current.replace(
     /^(?:ADDON_INSTALL_RECONCILIATION_V1|ADDON_SDK_V1|APP_URL|LICENSE_SERVER_ALLOW_LOCAL_DEV_INSTALL|LICENSE_SERVER_ENTITLEMENT_CRON_SECRET|LICENSE_SERVER_LICENSE_API_URL|LICENSE_SERVER_LICENSE_KEY|LICENSE_SERVER_PACKAGE_TOKEN|LICENSE_SERVER_SELF_HOSTED_SITE_ID|NR_ADDON_RELEASE_PUBLIC_KEYS_FILE|NR_ADDONS_REGISTRY_FILE|NR_VENDOR_ENTITLEMENT_PUBLIC_KEYS_JSON|VENDOR_SIGNED_ENTITLEMENTS_V1|WEBSHOP_ALLOW_LOCAL_DEV_INSTALL|WEBSHOP_ENTITLEMENT_CRON_SECRET|WEBSHOP_LICENSE_API_URL|WEBSHOP_LICENSE_ISSUE_CRON_SECRET|WEBSHOP_LICENSE_KEY|WEBSHOP_LICENSE_PUBLIC_KEY|WEBSHOP_PACKAGE_TOKEN|WEBSHOP_SELF_HOSTED_SITE_ID)=.*(?:\r?\n|$)/gm,
     "",
@@ -240,8 +253,33 @@ async function ensureRootEnv() {
     }
   };
 
-  ensure("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
-  ensure("NR_MASTER_LICENSE_URL", "http://localhost:3001");
+  replaceKnown(
+    "NEXT_PUBLIC_APP_URL",
+    "http://localhost:3000",
+    "https://vendor.nr.test",
+  );
+  replaceKnown(
+    "NR_MASTER_LICENSE_URL",
+    "http://localhost:3001",
+    "https://license.nr.test",
+  );
+  replaceKnown("NR_ALLOW_INSECURE_LOOPBACK_HTTP", "true", "false");
+  replaceKnown(
+    "NRLS_ALLOWED_OUTBOUND_HOSTS",
+    "ls.nrcms.com",
+    "license.nr.test",
+  );
+  replaceKnown("NRLS_ALLOW_SELF_HOSTED_OUTBOUND", "false", "true");
+  replaceKnown(
+    "WEBSHOP_BUY_URL",
+    "https://www.nrcms.com/webshop",
+    "https://vendor.nr.test/licenses/purchase-intents/accept",
+  );
+  ensure("NR_CMS_DEPLOYMENT_PROFILE", "development");
+  ensure("NR_LICENSE_ENVIRONMENT", "development");
+  ensure("NR_ADDON_SOURCE_MODE", "private_workspace");
+  ensure("NEXT_PUBLIC_APP_URL", "https://vendor.nr.test");
+  ensure("NR_MASTER_LICENSE_URL", "https://license.nr.test");
   ensure("WEBSHOP_ENABLED", "true");
   ensure("WEBSHOP_STOREFRONT_ENABLED", "true");
   ensure("WEBSHOP_CHECKOUT_ENABLED", "true");
@@ -251,12 +289,9 @@ async function ensureRootEnv() {
   ensure("LICENSE_SERVER_INSTALL_MODE", "managed_redeploy");
   ensure("LICENSE_SERVER_DEPLOYMENT_MODE", "self_hosted");
   ensure("LICENSE_SERVER_CUSTOMER_ENVIRONMENT", "development");
-  ensure("NR_ALLOW_INSECURE_LOOPBACK_HTTP", "true");
-  ensure(
-    "NRLS_ALLOWED_OUTBOUND_HOSTS",
-    "ls.nrcms.com",
-  );
-  ensure("NRLS_ALLOW_SELF_HOSTED_OUTBOUND", "false");
+  ensure("NR_ALLOW_INSECURE_LOOPBACK_HTTP", "false");
+  ensure("NRLS_ALLOWED_OUTBOUND_HOSTS", "license.nr.test");
+  ensure("NRLS_ALLOW_SELF_HOSTED_OUTBOUND", "true");
   ensure(
     "NR_ADDON_INSTALLATION_ENCRYPTION_KEY",
     randomBytes(32).toString("base64url"),
@@ -282,7 +317,10 @@ async function ensureRootEnv() {
   ensure("VENDOR_LICENSE_API_V2", "false");
   ensure("STORAGE_PROVIDER", "local");
   ensure("UPLOADS_DIR", "./storage/uploads");
-  ensure("WEBSHOP_BUY_URL", "https://www.nrcms.com/webshop");
+  ensure(
+    "WEBSHOP_BUY_URL",
+    "https://vendor.nr.test/licenses/purchase-intents/accept",
+  );
   ensure("LICENSE_SERVER_BUY_URL", "https://www.nrcms.com/license-server");
   ensure("WEBSHOP_BUY_LINK_SECRET", randomBytes(32).toString("base64url"));
   ensure(
@@ -320,6 +358,7 @@ async function installLocalAddonPackage(addonRoot, packageName) {
   await rm(targetRoot, { force: true, recursive: true });
   for (const entry of [
     "dist",
+    "migrations",
     "migrations.json",
     "package.json",
     "provenance.json",

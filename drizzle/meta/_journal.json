@@ -624,6 +624,20 @@
       "when": 1784167200000,
       "tag": "0088_customer_issuer_durable_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1784170800000,
+      "tag": "0089_cms_core_control_plane",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1784174400000,
+      "tag": "0090_webshop_core_detach",
+      "breakpoints": true
     }
   ]
 }

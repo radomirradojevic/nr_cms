@@ -59,6 +59,7 @@ test("outbound guard permits a caller-approved loopback HTTP transport", () => {
     assertSafeOutboundUrl("http://localhost:3001/api", {
       allowLocalHttp: true,
       allowSelfHosted: true,
+      env: { NR_ALLOW_INSECURE_LOOPBACK_HTTP: "true" },
       purpose: "test",
     }).hostname,
     "localhost",
@@ -113,6 +114,45 @@ test("outbound allowlisting is enforced independently of NODE_ENV", () => {
   );
 });
 
+test("local Caddy HTTPS requires exact self-hosted and host allowlist gates", () => {
+  const base = {
+    NR_LICENSE_ENVIRONMENT: "development",
+    NRLS_ALLOWED_OUTBOUND_HOSTS: "license.nr.test",
+  };
+  assert.throws(
+    () =>
+      assertSafeOutboundUrl("https://license.nr.test/api", {
+        allowFirstParty: true,
+        allowSelfHosted: true,
+        env: base,
+        purpose: "test",
+      }),
+    /private network/i,
+  );
+  assert.equal(
+    assertSafeOutboundUrl("https://license.nr.test/api", {
+      allowFirstParty: true,
+      allowSelfHosted: true,
+      env: { ...base, NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true" },
+      purpose: "test",
+    }).hostname,
+    "license.nr.test",
+  );
+  for (const value of [
+    "http://license.nr.test/api",
+    "https://other.nr.test/api",
+  ]) {
+    assert.throws(() =>
+      assertSafeOutboundUrl(value, {
+        allowFirstParty: true,
+        allowSelfHosted: true,
+        env: { ...base, NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true" },
+        purpose: "test",
+      }),
+    );
+  }
+});
+
 test("outbound guard rejects a public hostname that resolves to a private address", async () => {
   await assert.rejects(
     assertResolvedOutboundHost(
@@ -140,8 +180,13 @@ test("outbound fetch enforces the byte limit without a Content-Length header", a
   globalThis.fetch = async () => new Response("0123456789", { status: 200 });
   try {
     await assert.rejects(
-      safeFetch("https://127.0.0.1/fixture", {
+      safeFetch("https://license.nr.test/fixture", {
         allowSelfHosted: true,
+        outboundEnvironment: {
+          NR_LICENSE_ENVIRONMENT: "development",
+          NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true",
+          NRLS_ALLOWED_OUTBOUND_HOSTS: "license.nr.test",
+        },
         maxResponseBytes: 8,
         purpose: "test",
       }),
@@ -162,8 +207,13 @@ test("outbound fetch pins the preflight DNS result for the connection", async ()
     return new Response("ok", { status: 200 });
   };
   try {
-    await safeFetch("https://127.0.0.1/fixture", {
+    await safeFetch("https://license.nr.test/fixture", {
       allowSelfHosted: true,
+      outboundEnvironment: {
+        NR_LICENSE_ENVIRONMENT: "development",
+        NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true",
+        NRLS_ALLOWED_OUTBOUND_HOSTS: "license.nr.test",
+      },
       purpose: "test",
     });
     assert.ok(
@@ -204,8 +254,13 @@ test("outbound fetch cancels a rejected response body before closing its dispatc
     );
   try {
     await assert.rejects(
-      safeFetch("https://127.0.0.1/fixture", {
+      safeFetch("https://license.nr.test/fixture", {
         allowSelfHosted: true,
+        outboundEnvironment: {
+          NR_LICENSE_ENVIRONMENT: "development",
+          NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true",
+          NRLS_ALLOWED_OUTBOUND_HOSTS: "license.nr.test",
+        },
         purpose: "test",
       }),
       /redirects are not permitted/i,

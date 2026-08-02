@@ -86,6 +86,8 @@ export type WebshopMigration = {
 
 export type WebshopAddon = {
   version: string;
+  /** Exact core-owned route/render/job/authorization bindings supported by this package. */
+  hostRouteBindings: readonly string[];
   renderDashboard(input: WebshopDashboardInput): Promise<ReactNode>;
   renderDashboardPath(input: WebshopDashboardPathInput): Promise<ReactNode>;
   renderStorefrontRoot(input: WebshopStorefrontInput): Promise<ReactNode>;
@@ -94,6 +96,26 @@ export type WebshopAddon = {
     input: WebshopStorefrontPathInput,
   ): Promise<Metadata>;
   handleApiRoute?(input: WebshopApiRouteInput): Promise<Response>;
+  authorizeFileAccess?(input: {
+    fileId: string;
+    isAdmin: boolean;
+    userId: string | null;
+  }): Promise<{ allowed: boolean; isProtected: boolean }>;
+  findFileDeleteReferences?(input: { fileIds: readonly string[] }): Promise<{
+    categoryImages: number;
+    categoryNames: string[];
+    digitalAssets: number;
+    digitalAssetProductNames: string[];
+    digitalAssetEntitlementProductNames: string[];
+    digitalAssetsWithEntitlements: number;
+    digitalAssetMissingReplacementProductNames: string[];
+    digitalAssetsWithoutPrivateReplacement: number;
+    productCovers: number;
+    productCoverNames: string[];
+    productMedia: number;
+    productMediaProductNames: string[];
+  }>;
+  canViewFormSubmissions?(input: { formId: string }): Promise<boolean>;
   renderContentCategoriesBridge?(
     input: WebshopContentCategoriesBridgeInput,
   ): Promise<ReactNode>;
@@ -136,6 +158,7 @@ export function isWebshopAddon(value: unknown): value is WebshopAddon {
   const candidate = value as Partial<WebshopAddon>;
   return (
     typeof candidate.version === "string" &&
+    Array.isArray(candidate.hostRouteBindings) &&
     typeof candidate.renderDashboard === "function" &&
     typeof candidate.renderDashboardPath === "function" &&
     typeof candidate.renderStorefrontRoot === "function" &&

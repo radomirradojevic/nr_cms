@@ -39,6 +39,14 @@ const SUPERSEDED_BY_CMS_SCHEMA = new Set([
   "0001_safe_martin_li",
 ]);
 
+// 0013 and 0014 are historical, overlapping idempotent migrations. A fresh
+// migration may legitimately have the 0014 end state after recording 0013.
+// This is replay, never ledger adoption: the exact SQL is still executed and
+// its checksum-tagged ledger row is written by applyMigration.
+const VERIFIED_LEGACY_IDEMPOTENT_REPLAYS = new Map([
+  ["0014_material_jetstream", "0013_content_visibility"],
+]);
+
 const SUPERSEDED_CONSTRAINTS = new Map([
   [
     "webshop_product_media_product_file_unique",
@@ -77,11 +85,57 @@ const checkOnly = args.has("--check");
 const dryRun = args.has("--dry-run");
 const testMode = args.has("--test");
 const testBootstrapLedger = args.has("--test-bootstrap-ledger");
-const productionMode = args.has("--production") || process.env.NR_MIGRATION_TARGET === "production";
-const expectedMigrationArgument = process.argv.find((arg) => arg.startsWith("--expected-migrations="));
-const expectedMigrationList = expectedMigrationArgument?.slice("--expected-migrations=".length) ?? process.env.NR_MIGRATION_EXPECTED_LIST;
-const throughArgument = process.argv.find((arg) => arg.startsWith("--through="));
+const productionMode =
+  args.has("--production") || process.env.NR_MIGRATION_TARGET === "production";
+const expectedMigrationArgument = process.argv.find((arg) =>
+  arg.startsWith("--expected-migrations="),
+);
+const expectedMigrationList =
+  expectedMigrationArgument?.slice("--expected-migrations=".length) ??
+  process.env.NR_MIGRATION_EXPECTED_LIST;
+const throughArgument = process.argv.find((arg) =>
+  arg.startsWith("--through="),
+);
 const throughMigration = throughArgument?.slice("--through=".length) ?? null;
+const DEFAULT_SCHEMA_IDENTITIES = ["public", "nr_control"];
+const WEBSHOP_CORE_DETACH_TAG = "0090_webshop_core_detach";
+// These were historical core-owned Webshop operations. After the detached
+// schema migration has an exact ledger row, their missing public objects are
+// intentional and must never be recreated during reconciliation.
+const DETACHED_WEBSHOP_LEGACY_MIGRATIONS = new Set([
+  "0047_webshop_foundation",
+  "0048_curly_praxagora",
+  "0049_massive_rawhide_kid",
+  "0050_chief_vivisector",
+  "0051_first_veda",
+  "0052_misty_cobalt_man",
+  "0053_dizzy_wild_pack",
+  "0054_boring_gorilla_man",
+  "0055_tricky_switch",
+  "0057_webshop_product_price_minor_units",
+  "0058_webshop_attribute_text_display_options",
+  "0059_webshop_variant_attributes_and_media",
+  "0060_webshop_product_reviews",
+  "0061_webshop_price_minor_unit_correction",
+  "0062_webshop_repeated_price_scale_correction",
+  "0063_webshop_review_public_name_opt_in",
+  "0064_webshop_offline_payment_provider_checks",
+  "0065_webshop_order_delivery_confirmations",
+  "0067_webshop_license_key_pool",
+  "0068_webshop_license_key_validity",
+  "0069_webshop_private_digital_asset_files",
+  "0070_rename_local_card_gateway_to_monri",
+  "0071_webshop_paddle_billing",
+  "0072_webshop_license_key_reservations",
+  "0073_webshop_fulfillment_documents",
+  "0074_webshop_license_servers",
+  "0075_webshop_license_server_issues",
+  "0078_webshop_license_server_catalog",
+  "0080_webshop_payment_state_v2",
+  "0081_webshop_license_fulfillment_outbox",
+  "0087_webshop_license_key_encryption",
+  "0088_customer_issuer_durable_outbox",
+]);
 
 function log(message) {
   console.log(`[migrations] ${message}`);
@@ -197,11 +251,21 @@ function identifierExists(names, expectedName) {
   );
 }
 
-function constraintDefinitionFor(schemaState, tableName, constraintName) {
+function tableStateKey({ schema = "public", table }) {
+  return schema === "public" ? table : `${schema}.${table}`;
+}
+
+function constraintDefinitionFor(
+  schemaState,
+  tableName,
+  constraintName,
+  schema = "public",
+) {
+  const tableKey = tableStateKey({ schema, table: tableName });
   return (
-    schemaState.constraintDefinitions.get(`${tableName}.${constraintName}`) ??
+    schemaState.constraintDefinitions.get(`${tableKey}.${constraintName}`) ??
     schemaState.constraintDefinitions.get(
-      `${tableName}.${postgresIdentifierName(constraintName)}`,
+      `${tableKey}.${postgresIdentifierName(constraintName)}`,
     )
   );
 }
@@ -412,7 +476,8 @@ function hasDestructiveSql(sql) {
   );
 }
 
-function loadMigrations() {
+export function loadMigrations(options = {}) {
+  const requestedThroughMigration = options.throughMigration ?? throughMigration;
   if (!fs.existsSync(JOURNAL_PATH)) {
     fail(`missing ${path.relative(process.cwd(), JOURNAL_PATH)}`);
   }
@@ -511,9 +576,11 @@ function loadMigrations() {
     );
   }
 
-  if (!throughMigration) return migrations;
-  const index = migrations.findIndex((migration) => migration.tag === throughMigration);
-  if (index === -1) fail(`unknown --through migration ${throughMigration}`);
+  if (!requestedThroughMigration) return migrations;
+  const index = migrations.findIndex(
+    (migration) => migration.tag === requestedThroughMigration,
+  );
+  if (index === -1) fail(`unknown --through migration ${requestedThroughMigration}`);
   return migrations.slice(0, index + 1);
 }
 
@@ -526,7 +593,7 @@ function shouldUseTransaction(migration) {
 
 function parseCreateTable(statement) {
   const tableMatch = statement.match(
-    /\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:"public"\.)?"([^"]+)"/i,
+    /\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:(?:"([^"]+)")\.)?"([^"]+)"/i,
   );
   if (!tableMatch) return null;
 
@@ -549,7 +616,8 @@ function parseCreateTable(statement) {
 
   return {
     kind: "createTable",
-    table: tableMatch[1],
+    schema: tableMatch[1] ?? "public",
+    table: tableMatch[2],
     columns: [...columns],
     constraints: [...constraints],
   };
@@ -561,52 +629,72 @@ function analyzeStatement(statement) {
   if (createTable) operations.push(createTable);
 
   for (const match of statement.matchAll(
-    /\bDROP\s+TABLE(?:\s+IF\s+EXISTS)?\s+(?:"public"\.)?"([^"]+)"/gi,
+    /\bDROP\s+TABLE(?:\s+IF\s+EXISTS)?\s+(?:(?:"([^"]+)")\.)?"([^"]+)"/gi,
   )) {
-    operations.push({ kind: "dropTable", table: match[1] });
+    operations.push({
+      kind: "dropTable",
+      schema: match[1] ?? "public",
+      table: match[2],
+    });
   }
 
   for (const match of statement.matchAll(
-    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"\s+ADD\s+COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"/gi,
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:(?:"([^"]+)")\.)?"([^"]+)"\s+ADD\s+COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"/gi,
   )) {
-    operations.push({ kind: "addColumn", table: match[1], column: match[2] });
+    operations.push({
+      kind: "addColumn",
+      schema: match[1] ?? "public",
+      table: match[2],
+      column: match[3],
+    });
   }
 
   for (const match of statement.matchAll(
-    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"\s+DROP\s+COLUMN(?:\s+IF\s+EXISTS)?\s+"([^"]+)"/gi,
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:(?:"([^"]+)")\.)?"([^"]+)"\s+DROP\s+COLUMN(?:\s+IF\s+EXISTS)?\s+"([^"]+)"/gi,
   )) {
-    operations.push({ kind: "dropColumn", table: match[1], column: match[2] });
+    operations.push({
+      kind: "dropColumn",
+      schema: match[1] ?? "public",
+      table: match[2],
+      column: match[3],
+    });
   }
 
   for (const match of statement.matchAll(
-    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"[\s\S]*?\bADD\s+CONSTRAINT\s+"([^"]+)"\s+([\s\S]+)$/gi,
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:(?:"([^"]+)")\.)?"([^"]+)"[\s\S]*?\bADD\s+CONSTRAINT\s+"([^"]+)"\s+([\s\S]+)$/gi,
   )) {
     operations.push({
       kind: "addConstraint",
-      table: match[1],
-      constraint: match[2],
-      definition: match[3].trim().replace(/;$/, ""),
+      schema: match[1] ?? "public",
+      table: match[2],
+      constraint: match[3],
+      definition: match[4].trim().replace(/;$/, ""),
     });
   }
 
   for (const match of statement.matchAll(
-    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"[\s\S]*?\bDROP\s+CONSTRAINT(?:\s+IF\s+EXISTS)?\s+"([^"]+)"/gi,
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:(?:"([^"]+)")\.)?"([^"]+)"[\s\S]*?\bDROP\s+CONSTRAINT(?:\s+IF\s+EXISTS)?\s+"([^"]+)"/gi,
   )) {
     operations.push({
       kind: "dropConstraint",
-      table: match[1],
-      constraint: match[2],
+      schema: match[1] ?? "public",
+      table: match[2],
+      constraint: match[3],
     });
   }
 
   for (const match of statement.matchAll(
-    /\bCREATE\s+(?:UNIQUE\s+)?INDEX(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"/gi,
+    /\bCREATE\s+(?:UNIQUE\s+)?INDEX(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"\s+ON\s+(?:(?:"([^"]+)")\.)?"[^"]+"/gi,
   )) {
-    operations.push({ kind: "createIndex", index: match[1] });
+    operations.push({
+      kind: "createIndex",
+      index: match[1],
+      schema: match[2] ?? "public",
+    });
   }
 
   const alterTableMatch = statement.match(
-    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:"public"\.)?"([^"]+)"/i,
+    /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:(?:"([^"]+)")\.)?"([^"]+)"/i,
   );
   if (alterTableMatch) {
     for (const match of statement.matchAll(
@@ -614,7 +702,8 @@ function analyzeStatement(statement) {
     )) {
       operations.push({
         kind: "setDefault",
-        table: alterTableMatch[1],
+        schema: alterTableMatch[1] ?? "public",
+        table: alterTableMatch[2],
         column: match[1],
         defaultValue: normalizeColumnDefault(match[2]),
       });
@@ -624,59 +713,113 @@ function analyzeStatement(statement) {
   return operations;
 }
 
-async function loadSchemaState(client) {
-  const tables = await client.query(`
-    SELECT table_name
+function assertSchemaIdentities(schemaIdentities) {
+  if (!Array.isArray(schemaIdentities) || schemaIdentities.length === 0) {
+    fail("migration schema identities must contain at least one schema.");
+  }
+  const unique = [...new Set(schemaIdentities)];
+  for (const schema of unique) {
+    if (!/^[a-z_][a-z0-9_]{0,62}$/.test(schema)) {
+      fail(`invalid migration schema identity ${JSON.stringify(schema)}.`);
+    }
+  }
+  return unique;
+}
+
+async function loadSchemaState(
+  client,
+  schemaIdentities = DEFAULT_SCHEMA_IDENTITIES,
+) {
+  const schemas = assertSchemaIdentities(schemaIdentities);
+  const tables = await client.query(
+    `
+    SELECT table_schema, table_name
     FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-  `);
-  const columns = await client.query(`
-    SELECT table_name, column_name, column_default
+    WHERE table_schema = ANY($1::text[]) AND table_type = 'BASE TABLE'
+  `,
+    [schemas],
+  );
+  const columns = await client.query(
+    `
+    SELECT table_schema, table_name, column_name, column_default
     FROM information_schema.columns
-    WHERE table_schema = 'public'
-  `);
-  const indexes = await client.query(`
-    SELECT indexname
+    WHERE table_schema = ANY($1::text[])
+  `,
+    [schemas],
+  );
+  const indexes = await client.query(
+    `
+    SELECT schemaname, indexname
     FROM pg_indexes
-    WHERE schemaname = 'public'
-  `);
-  const constraints = await client.query(`
+    WHERE schemaname = ANY($1::text[])
+  `,
+    [schemas],
+  );
+  const constraints = await client.query(
+    `
     SELECT
+      n.nspname AS table_schema,
       c.conname,
       t.relname AS table_name,
       pg_get_constraintdef(c.oid) AS definition
     FROM pg_constraint c
     JOIN pg_class t ON t.oid = c.conrelid
     JOIN pg_namespace n ON n.oid = t.relnamespace
-    WHERE n.nspname = 'public'
-  `);
+    WHERE n.nspname = ANY($1::text[])
+  `,
+    [schemas],
+  );
 
-  const tableNames = new Set(tables.rows.map((row) => row.table_name));
+  const tableNames = new Set(
+    tables.rows.flatMap((row) =>
+      row.table_schema === "public"
+        ? [row.table_name, `public.${row.table_name}`]
+        : [`${row.table_schema}.${row.table_name}`],
+    ),
+  );
   const tableColumns = new Map();
   const columnDefaults = new Map();
 
   for (const row of columns.rows) {
-    if (!tableColumns.has(row.table_name)) {
-      tableColumns.set(row.table_name, new Set());
+    const tableKeys =
+      row.table_schema === "public"
+        ? [row.table_name, `public.${row.table_name}`]
+        : [`${row.table_schema}.${row.table_name}`];
+    for (const tableKey of tableKeys) {
+      if (!tableColumns.has(tableKey)) {
+        tableColumns.set(tableKey, new Set());
+      }
+      tableColumns.get(tableKey).add(row.column_name);
+      columnDefaults.set(
+        `${tableKey}.${row.column_name}`,
+        row.column_default ? normalizeColumnDefault(row.column_default) : null,
+      );
     }
-    tableColumns.get(row.table_name).add(row.column_name);
-    columnDefaults.set(
-      `${row.table_name}.${row.column_name}`,
-      row.column_default ? normalizeColumnDefault(row.column_default) : null,
-    );
   }
 
   return {
     tables: tableNames,
     tableColumns,
     columnDefaults,
-    indexes: new Set(indexes.rows.map((row) => row.indexname)),
+    indexes: new Set(
+      indexes.rows.flatMap((row) =>
+        row.schemaname === "public"
+          ? [row.indexname, `public.${row.indexname}`]
+          : [`${row.schemaname}.${row.indexname}`],
+      ),
+    ),
     constraints: new Set(constraints.rows.map((row) => row.conname)),
     constraintDefinitions: new Map(
-      constraints.rows.map((row) => [
-        `${row.table_name}.${row.conname}`,
-        row.definition,
-      ]),
+      constraints.rows.flatMap((row) => {
+        const tableKeys =
+          row.table_schema === "public"
+            ? [row.table_name, `public.${row.table_name}`]
+            : [`${row.table_schema}.${row.table_name}`];
+        return tableKeys.map((tableKey) => [
+          `${tableKey}.${row.conname}`,
+          row.definition,
+        ]);
+      }),
     ),
   };
 }
@@ -687,12 +830,12 @@ function operationStatus(
   finalAdds = new Set(),
   definitionSensitiveConstraints = new Set(),
 ) {
+  const tableKey = tableStateKey(operation);
   switch (operation.kind) {
     case "createTable": {
-      if (!schemaState.tables.has(operation.table)) return { satisfied: false };
+      if (!schemaState.tables.has(tableKey)) return { satisfied: false };
 
-      const columns =
-        schemaState.tableColumns.get(operation.table) ?? new Set();
+      const columns = schemaState.tableColumns.get(tableKey) ?? new Set();
       const missingColumns = operation.columns.filter(
         (column) => !columns.has(column),
       );
@@ -721,22 +864,20 @@ function operationStatus(
       return { satisfied: true };
     }
     case "dropTable":
-      return { satisfied: !schemaState.tables.has(operation.table) };
+      return { satisfied: !schemaState.tables.has(tableKey) };
     case "addColumn":
       return {
         satisfied:
-          schemaState.tableColumns
-            .get(operation.table)
-            ?.has(operation.column) ?? false,
+          schemaState.tableColumns.get(tableKey)?.has(operation.column) ??
+          false,
       };
     case "dropColumn":
       return {
         satisfied:
-          !schemaState.tables.has(operation.table) ||
+          !schemaState.tables.has(tableKey) ||
           !(
-            schemaState.tableColumns
-              .get(operation.table)
-              ?.has(operation.column) ?? false
+            schemaState.tableColumns.get(tableKey)?.has(operation.column) ??
+            false
           ),
       };
     case "addConstraint": {
@@ -744,6 +885,7 @@ function operationStatus(
         schemaState,
         operation.table,
         operation.constraint,
+        operation.schema,
       );
 
       if (!currentDefinition) {
@@ -776,11 +918,14 @@ function operationStatus(
       };
     case "createIndex":
       return {
-        satisfied: identifierExists(schemaState.indexes, operation.index),
+        satisfied: identifierExists(
+          schemaState.indexes,
+          tableStateKey({ schema: operation.schema, table: operation.index }),
+        ),
       };
     case "setDefault": {
       const current = schemaState.columnDefaults.get(
-        `${operation.table}.${operation.column}`,
+        `${tableKey}.${operation.column}`,
       );
       return { satisfied: current === operation.defaultValue };
     }
@@ -890,7 +1035,13 @@ function supersededMigrationReason(migration, schemaState) {
   return null;
 }
 
-function migrationEndStateStatus(migration, schemaState) {
+function migrationEndStateStatus(migration, schemaState, options = {}) {
+  if (
+    options.webshopCoreDetached === true &&
+    DETACHED_WEBSHOP_LEGACY_MIGRATIONS.has(migration.tag)
+  ) {
+    return { satisfied: true, reason: "superseded by 0090_webshop_core_detach" };
+  }
   const supersededReason = supersededMigrationReason(migration, schemaState);
   if (supersededReason) {
     return { satisfied: true, reason: supersededReason };
@@ -915,6 +1066,37 @@ function migrationEndStateStatus(migration, schemaState) {
   return { satisfied: true, reason: "schema already satisfies migration" };
 }
 
+function hasVerifiedAppliedPrefix(migrations, appliedRows, throughTag) {
+  const throughIndex = migrations.findIndex(
+    (migration) => migration.tag === throughTag,
+  );
+  return (
+    throughIndex >= 0 &&
+    migrations
+      .slice(0, throughIndex + 1)
+      .every((migration) => Boolean(findAppliedRow(appliedRows, migration)))
+  );
+}
+
+function mayReapplySatisfiedPendingMigration({
+  migration,
+  status,
+  appliedThisRun,
+  appliedRows,
+  migrations,
+}) {
+  if (status.reason !== "schema already satisfies migration") return false;
+  if (appliedThisRun.size > 0) return true;
+
+  const requiredPredecessor = VERIFIED_LEGACY_IDEMPOTENT_REPLAYS.get(
+    migration.tag,
+  );
+  return Boolean(
+    requiredPredecessor &&
+      hasVerifiedAppliedPrefix(migrations, appliedRows, requiredPredecessor),
+  );
+}
+
 function statementStatus(statement, schemaState) {
   const operations = analyzeStatement(statement);
   if (operations.length === 0) return { satisfied: false, operations };
@@ -929,21 +1111,39 @@ function statementStatus(statement, schemaState) {
 }
 
 export const __migrationRunnerTesting = {
+  analyzeStatement,
+  hasVerifiedAppliedPrefix,
+  mayReapplySatisfiedPendingMigration,
   migrationHasSchemaOperations,
   migrationEndStateStatus,
   normalizeColumnDefault,
   supersededMigrationReason,
 };
 
-function createClient() {
-  const connectionString = testMode
-    ? resolveTestDatabaseUrl()
-    : process.env.DATABASE_URL;
+function createClient(connectionStringOverride) {
+  const connectionString =
+    connectionStringOverride ??
+    (testMode ? resolveTestDatabaseUrl() : process.env.DATABASE_URL);
   if (!connectionString) {
     fail("DATABASE_URL is required to apply migrations");
   }
 
   return new Client({ connectionString });
+}
+
+function quoteStaticRole(role) {
+  if (!/^[a-z_][a-z0-9_]{0,62}$/.test(role)) {
+    fail("core migration role is invalid.");
+  }
+  return `"${role}"`;
+}
+
+async function setVerifiedRole(client, role) {
+  await client.query(`SET ROLE ${quoteStaticRole(role)}`);
+  const current = await client.query("SELECT current_user");
+  if (current.rows[0]?.current_user !== role) {
+    fail("core migration session could not assume the exact owner role.");
+  }
 }
 
 async function ensureMigrationTable(client) {
@@ -1023,7 +1223,8 @@ async function loadAppliedRowsReadOnly(client) {
 function findAppliedRow(rows, migration) {
   const hashMatches = (hash) =>
     migration.hashVariants.has(hash) ||
-    (!productionMode && (LEGACY_MIGRATION_HASHES.get(migration.tag)?.has(hash) ?? false));
+    (!productionMode &&
+      (LEGACY_MIGRATION_HASHES.get(migration.tag)?.has(hash) ?? false));
 
   const byTag = rows.find((row) => row.tag === migration.tag);
   if (byTag) {
@@ -1072,7 +1273,8 @@ async function recordMigration(client, migration) {
 }
 
 async function applyMigration(client, migration, options = {}) {
-  const { existingRow = null } = options;
+  const { existingRow = null, schemaIdentities = DEFAULT_SCHEMA_IDENTITIES } =
+    options;
   if (migration.statements.length === 0) {
     fail(`${migration.tag} has no SQL statements`);
   }
@@ -1090,7 +1292,7 @@ async function applyMigration(client, migration, options = {}) {
 
   try {
     for (const statement of migration.statements) {
-      const schemaState = await loadSchemaState(client);
+      const schemaState = await loadSchemaState(client, schemaIdentities);
       const status = statementStatus(statement, schemaState);
 
       if (status.unsafeReason) {
@@ -1118,35 +1320,47 @@ async function applyMigration(client, migration, options = {}) {
   }
 }
 
-async function main() {
-  const migrations = loadMigrations();
+export async function runDrizzleMigrations(options = {}) {
+  const effectiveCheckOnly = options.checkOnly ?? checkOnly;
+  const effectiveDryRun = options.dryRun ?? dryRun;
+  const effectiveProductionMode = options.productionMode ?? productionMode;
+  const schemaIdentities = assertSchemaIdentities(
+    options.schemaIdentities ?? DEFAULT_SCHEMA_IDENTITIES,
+  );
+  const setRole = options.setRole ?? null;
+  const migrations = loadMigrations({ throughMigration: options.throughMigration });
 
   if (testBootstrapLedger && !testMode) {
     fail("--test-bootstrap-ledger is available only together with --test.");
   }
 
-  if (checkOnly) {
+  if (effectiveCheckOnly) {
     log(`validated ${migrations.length} migration files`);
-    return;
+    return { migrations, pendingTags: [] };
   }
 
-  if (productionMode) {
-    if (!args.has("--production")) fail("production target requires the explicit --production flag.");
+  if (effectiveProductionMode) {
+    if (!args.has("--production"))
+      fail("production target requires the explicit --production flag.");
     assertProductionMigrationTarget(process.env, "cms");
   }
 
-  if (shouldHonorAutoMigrateDisable(process.env, { dryRun })) {
+  if (
+    !options.ignoreAutoMigrateDisable &&
+    shouldHonorAutoMigrateDisable(process.env, { dryRun: effectiveDryRun })
+  ) {
     log("DRIZZLE_AUTO_MIGRATE disables automatic migration; skipping");
-    return;
+    return { migrations, pendingTags: [] };
   }
 
-  const client = createClient();
+  const client = createClient(options.connectionString);
   await client.connect();
 
   try {
+    if (setRole) await setVerifiedRole(client, setRole);
     await client.query("SET lock_timeout = '15s'");
     await client.query("SET statement_timeout = '5min'");
-    if (dryRun) {
+    if (effectiveDryRun) {
       const appliedRows = await loadAppliedRowsReadOnly(client);
       const pending = migrations
         .filter((migration) => !findAppliedRow(appliedRows, migration))
@@ -1156,7 +1370,7 @@ async function main() {
           ? "database is already up to date"
           : `pending: ${pending.map((tag) => `${tag}:apply`).join(", ")}`,
       );
-      return;
+      return { migrations, pendingTags: pending };
     }
 
     await ensureMigrationTable(client);
@@ -1165,24 +1379,36 @@ async function main() {
     try {
       const appliedRows = await loadAppliedRows(client);
       let applied = 0;
+      const appliedThisRun = new Set();
 
       for (const migration of migrations) {
         const appliedRow = findAppliedRow(appliedRows, migration);
-        if (productionMode && appliedRow && !appliedRow.tag) {
-          fail(`${migration.tag} has legacy ledger data without a tag; production adopt/repair is forbidden.`);
+        if (effectiveProductionMode && appliedRow && !appliedRow.tag) {
+          fail(
+            `${migration.tag} has legacy ledger data without a tag; production adopt/repair is forbidden.`,
+          );
         }
       }
 
-      const pendingTags = migrations.filter((migration) => !findAppliedRow(appliedRows, migration)).map((migration) => migration.tag);
-      if (productionMode) assertExpectedMigrationList(pendingTags, expectedMigrationList);
+      const pendingTags = migrations
+        .filter((migration) => !findAppliedRow(appliedRows, migration))
+        .map((migration) => migration.tag);
+      if (effectiveProductionMode)
+        assertExpectedMigrationList(pendingTags, expectedMigrationList);
 
       for (const migration of migrations) {
-        const schemaState = await loadSchemaState(client);
-        const status = migrationEndStateStatus(migration, schemaState);
-        const appliedRow = findAppliedRow(
-          await loadAppliedRows(client),
-          migration,
+        const schemaState = await loadSchemaState(client, schemaIdentities);
+        const currentAppliedRows = await loadAppliedRows(client);
+        const detachMigration = migrations.find(
+          (candidate) => candidate.tag === WEBSHOP_CORE_DETACH_TAG,
         );
+        const webshopCoreDetached = Boolean(
+          detachMigration && findAppliedRow(currentAppliedRows, detachMigration),
+        );
+        const status = migrationEndStateStatus(migration, schemaState, {
+          webshopCoreDetached,
+        });
+        const appliedRow = findAppliedRow(currentAppliedRows, migration);
 
         if (appliedRow) {
           if (!migrationHasSchemaOperations(migration)) {
@@ -1192,6 +1418,7 @@ async function main() {
           if (!status.satisfied) {
             await applyMigration(client, migration, {
               existingRow: appliedRow,
+              schemaIdentities,
             });
             applied += 1;
           }
@@ -1200,31 +1427,58 @@ async function main() {
 
         if (status.satisfied) {
           if (!testBootstrapLedger) {
-            fail(`${migration.tag} schema state exists without a matching ledger record; automatic adoption is forbidden.`);
+            if (
+              !mayReapplySatisfiedPendingMigration({
+                migration,
+                status,
+                appliedThisRun,
+                appliedRows,
+                migrations,
+              })
+            ) {
+              fail(
+                `${migration.tag} schema state exists without a matching ledger record; automatic adoption is forbidden.`,
+              );
+            }
+            // A preceding migration in this exact invocation can leave a
+            // later, idempotent migration's schema checks satisfied (for
+            // example overlapping ADD COLUMN/ALTER DEFAULT history). Run its
+            // statements and write its own ledger row; never adopt it.
+            await applyMigration(client, migration, { schemaIdentities });
+            appliedThisRun.add(migration.tag);
+            applied += 1;
+            continue;
           }
-          log(`test bootstrap records ${migration.tag} after verified schema equivalence`);
+          log(
+            `test bootstrap records ${migration.tag} after verified schema equivalence`,
+          );
           await recordMigration(client, migration);
+          appliedThisRun.add(migration.tag);
           continue;
         }
 
-        await applyMigration(client, migration);
+        await applyMigration(client, migration, { schemaIdentities });
+        appliedThisRun.add(migration.tag);
         applied += 1;
       }
 
       if (applied === 0) {
         log("database is already up to date");
-        return;
+        return { migrations, pendingTags: [] };
       }
 
-      log(
-        `applied ${applied} migration${applied === 1 ? "" : "s"}`,
-      );
+      log(`applied ${applied} migration${applied === 1 ? "" : "s"}`);
+      return { migrations, pendingTags: [] };
     } finally {
       await releaseLock(client);
     }
   } finally {
     await client.end();
   }
+}
+
+async function main() {
+  await runDrizzleMigrations();
 }
 
 function isMainModule() {

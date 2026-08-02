@@ -5,12 +5,6 @@ import {
   content,
   galleries,
   galleryImages,
-  webshopCategories,
-  webshopDigitalAssets,
-  webshopDownloadEntitlements,
-  webshopProductMedia,
-  webshopProducts,
-  webshopProductVariants,
 } from "@/db/schema";
 import { updateContentWithRevision } from "@/data/content-revisions";
 import {
@@ -31,6 +25,7 @@ import {
 } from "drizzle-orm";
 import type { FileKind } from "@/lib/file-manager";
 import { collectHeroSliderFileIds } from "@/lib/hero-slider";
+import { findWebshopFileDeleteReferences } from "@/lib/webshop-addon/file-delete-delegate";
 
 export type FileRow = typeof files.$inferSelect;
 export type FileFolderRow = typeof fileFolders.$inferSelect;
@@ -298,24 +293,6 @@ export async function updateFile(
   return rows[0] ?? null;
 }
 
-function digitalAssetHasDownloadEntitlements() {
-  return sql<boolean>`EXISTS (
-    SELECT 1 FROM ${webshopDownloadEntitlements}
-    WHERE ${webshopDownloadEntitlements.digitalAssetId} = ${webshopDigitalAssets.id}
-  )`;
-}
-
-function digitalAssetHasPrivateReplacement() {
-  return sql<boolean>`EXISTS (
-    SELECT 1 FROM "webshop_digital_assets" AS replacement
-    WHERE replacement."id" <> ${webshopDigitalAssets.id}
-      AND replacement."product_id" = ${webshopDigitalAssets.productId}
-      AND replacement."variant_id" IS NOT DISTINCT FROM ${webshopDigitalAssets.variantId}
-      AND replacement."asset_file_id" IS NOT NULL
-      AND replacement."status" = 'active'
-  )`;
-}
-
 export async function deleteFiles(
   ids: string[],
   caller: Caller,
@@ -325,40 +302,21 @@ export async function deleteFiles(
   const owner = ownerWhere(caller);
   if (owner) conditions.push(owner);
 
-  return db.transaction(async (tx) => {
-    const authorizedRows = await tx
-      .select({ id: files.id })
-      .from(files)
-      .where(and(...conditions));
-    const authorizedIds = authorizedRows.map((row) => row.id);
-    if (authorizedIds.length === 0) return [];
+  const references = await findBlockingFileDeleteReferences(ids);
+  if (
+    references.categoryImages +
+      references.digitalAssets +
+      references.galleryCovers +
+      references.galleryImages +
+      references.heroSliderMedia +
+      references.productCovers +
+      references.productMedia >
+    0
+  ) {
+    throw new Error("A selected file is still referenced by CMS or Webshop content.");
+  }
 
-    await tx
-      .delete(webshopDigitalAssets)
-      .where(
-        and(
-          inArray(webshopDigitalAssets.fileId, authorizedIds),
-          isNull(webshopDigitalAssets.assetFileId),
-          sql`NOT ${digitalAssetHasDownloadEntitlements()}`,
-          or(
-            sql`${webshopDigitalAssets.status} <> 'active'`,
-            digitalAssetHasPrivateReplacement(),
-          ),
-        ),
-      );
-
-    await tx
-      .update(webshopDigitalAssets)
-      .set({ fileId: null })
-      .where(
-        and(
-          inArray(webshopDigitalAssets.fileId, authorizedIds),
-          isNotNull(webshopDigitalAssets.assetFileId),
-        ),
-      );
-
-    return tx.delete(files).where(inArray(files.id, authorizedIds)).returning();
-  });
+  return db.delete(files).where(and(...conditions)).returning();
 }
 
 export type BlockingFileDeleteReferences = {
@@ -381,18 +339,6 @@ export type BlockingFileDeleteReferences = {
   productMediaProductNames: string[];
   fileIds: string[];
 };
-
-function formatProductReference(
-  productTitle: string,
-  variantTitle: string | null,
-  variantSku: string | null,
-): string {
-  if (!variantTitle && !variantSku) return productTitle;
-  if (variantTitle && variantSku && variantTitle !== variantSku) {
-    return `${productTitle} - ${variantTitle} (${variantSku})`;
-  }
-  return `${productTitle} - ${variantTitle ?? variantSku}`;
-}
 
 export async function findBlockingFileDeleteReferences(
   ids: string[],
@@ -419,229 +365,60 @@ export async function findBlockingFileDeleteReferences(
       fileIds: [],
     };
   }
-
-  const [
-    categoryImages,
-    digitalAssets,
-    heroSliderContentMedia,
-    manualGalleryImages,
-    manualGalleryCovers,
-    productCovers,
-    productMedia,
-  ] = await Promise.all([
+  const [webshop, heroSliderContentMedia, manualGalleryImages, manualGalleryCovers] = await Promise.all([
+    findWebshopFileDeleteReferences(ids),
     db
-      .select({
-        fileId: webshopCategories.imageFileId,
-        categoryName: webshopCategories.name,
-      })
-      .from(webshopCategories)
-      .where(inArray(webshopCategories.imageFileId, ids)),
-    db
-      .select({
-        fileId: webshopDigitalAssets.fileId,
-        productTitle: webshopProducts.title,
-        status: webshopDigitalAssets.status,
-        variantTitle: webshopProductVariants.title,
-        variantSku: webshopProductVariants.sku,
-        hasDownloadEntitlements: digitalAssetHasDownloadEntitlements(),
-        hasPrivateReplacement: digitalAssetHasPrivateReplacement(),
-      })
-      .from(webshopDigitalAssets)
-      .innerJoin(
-        webshopProducts,
-        eq(webshopDigitalAssets.productId, webshopProducts.id),
-      )
-      .leftJoin(
-        webshopProductVariants,
-        eq(webshopDigitalAssets.variantId, webshopProductVariants.id),
-      )
-      .where(
-        and(
-          inArray(webshopDigitalAssets.fileId, ids),
-          isNull(webshopDigitalAssets.assetFileId),
-          or(
-            digitalAssetHasDownloadEntitlements(),
-            and(
-              eq(webshopDigitalAssets.status, "active"),
-              sql`NOT ${digitalAssetHasPrivateReplacement()}`,
-            ),
-          ),
-        ),
-      ),
-    db
-      .select({
-        title: content.title,
-        contentJson: content.contentJson,
-      })
+      .select({ title: content.title, contentJson: content.contentJson })
       .from(content)
       .where(
         and(
           eq(content.contentType, "hero_slider"),
           isNull(content.deletedAt),
-          or(
-            ...ids.map(
-              (id) => sql`${content.contentJson}::text ILIKE ${`%${id}%`}`,
-            ),
-          ),
+          or(...ids.map((id) => sql`${content.contentJson}::text ILIKE ${`%${id}%`}`)),
         ),
       ),
     db
-      .select({
-        fileId: galleryImages.fileId,
-        galleryName: galleries.name,
-      })
+      .select({ fileId: galleryImages.fileId, galleryName: galleries.name })
       .from(galleryImages)
       .innerJoin(galleries, eq(galleryImages.galleryId, galleries.id))
-      .where(
-        and(inArray(galleryImages.fileId, ids), eq(galleries.origin, "manual")),
-      ),
+      .where(and(inArray(galleryImages.fileId, ids), eq(galleries.origin, "manual"))),
     db
-      .select({
-        fileId: galleries.coverFileId,
-        galleryName: galleries.name,
-      })
+      .select({ fileId: galleries.coverFileId, galleryName: galleries.name })
       .from(galleries)
-      .where(
-        and(
-          inArray(galleries.coverFileId, ids),
-          eq(galleries.origin, "manual"),
-        ),
-      ),
-    db
-      .select({
-        fileId: webshopProducts.coverImageFileId,
-        productTitle: webshopProducts.title,
-      })
-      .from(webshopProducts)
-      .where(inArray(webshopProducts.coverImageFileId, ids)),
-    db
-      .select({
-        fileId: webshopProductMedia.fileId,
-        productTitle: webshopProducts.title,
-        variantTitle: webshopProductVariants.title,
-        variantSku: webshopProductVariants.sku,
-      })
-      .from(webshopProductMedia)
-      .innerJoin(
-        webshopProducts,
-        eq(webshopProductMedia.productId, webshopProducts.id),
-      )
-      .leftJoin(
-        webshopProductVariants,
-        eq(webshopProductMedia.variantId, webshopProductVariants.id),
-      )
-      .where(inArray(webshopProductMedia.fileId, ids)),
+      .where(and(inArray(galleries.coverFileId, ids), eq(galleries.origin, "manual"))),
   ]);
-
+  const targetIds = new Set(ids);
   const fileIds = new Set<string>();
-  const categoryNames = new Set<string>();
-  const digitalAssetProductNames = new Set<string>();
-  const digitalAssetEntitlementProductNames = new Set<string>();
-  const digitalAssetMissingReplacementProductNames = new Set<string>();
   const galleryNames = new Set<string>();
   const heroSliderNames = new Set<string>();
-  const targetIds = new Set(ids);
-  let digitalAssetsWithEntitlements = 0;
-  let digitalAssetsWithoutPrivateReplacement = 0;
-  let heroSliderMedia = 0;
-
-  for (const row of categoryImages) {
-    if (row.fileId) fileIds.add(row.fileId);
-    categoryNames.add(row.categoryName);
-  }
-
-  for (const row of digitalAssets) {
-    if (row.fileId) fileIds.add(row.fileId);
-    const productReference = formatProductReference(
-      row.productTitle,
-      row.variantTitle,
-      row.variantSku,
-    );
-    digitalAssetProductNames.add(productReference);
-
-    if (row.hasDownloadEntitlements) {
-      digitalAssetsWithEntitlements += 1;
-      digitalAssetEntitlementProductNames.add(productReference);
-    } else if (row.status === "active" && !row.hasPrivateReplacement) {
-      digitalAssetsWithoutPrivateReplacement += 1;
-      digitalAssetMissingReplacementProductNames.add(productReference);
-    }
-  }
-
   for (const row of manualGalleryImages) {
     fileIds.add(row.fileId);
     galleryNames.add(row.galleryName);
   }
-
   for (const row of manualGalleryCovers) {
     if (row.fileId) fileIds.add(row.fileId);
     galleryNames.add(row.galleryName);
   }
-
+  let heroSliderMedia = 0;
   for (const row of heroSliderContentMedia) {
     const referencedIds = new Set(
-      collectHeroSliderFileIds(row.contentJson).filter((fileId) =>
-        targetIds.has(fileId),
-      ),
+      collectHeroSliderFileIds(row.contentJson).filter((fileId) => targetIds.has(fileId)),
     );
     if (referencedIds.size === 0) continue;
     heroSliderNames.add(row.title);
     heroSliderMedia += referencedIds.size;
     for (const fileId of referencedIds) fileIds.add(fileId);
   }
-
-  const productCoverNames = new Set<string>();
-  for (const row of productCovers) {
-    if (row.fileId) fileIds.add(row.fileId);
-    productCoverNames.add(row.productTitle);
-  }
-
-  const productMediaProductNames = new Set<string>();
-  for (const row of productMedia) {
-    fileIds.add(row.fileId);
-    productMediaProductNames.add(
-      formatProductReference(
-        row.productTitle,
-        row.variantTitle,
-        row.variantSku,
-      ),
-    );
-  }
-
   return {
-    categoryImages: categoryImages.length,
-    categoryNames: Array.from(categoryNames).sort((a, b) => a.localeCompare(b)),
-    digitalAssets: digitalAssets.length,
-    digitalAssetProductNames: Array.from(digitalAssetProductNames).sort(
-      (a, b) => a.localeCompare(b),
-    ),
-    digitalAssetEntitlementProductNames: Array.from(
-      digitalAssetEntitlementProductNames,
-    ).sort((a, b) => a.localeCompare(b)),
-    digitalAssetsWithEntitlements,
-    digitalAssetMissingReplacementProductNames: Array.from(
-      digitalAssetMissingReplacementProductNames,
-    ).sort((a, b) => a.localeCompare(b)),
-    digitalAssetsWithoutPrivateReplacement,
+    ...webshop,
     galleryCovers: manualGalleryCovers.length,
     galleryImages: manualGalleryImages.length,
-    galleryNames: Array.from(galleryNames).sort((a, b) => a.localeCompare(b)),
+    galleryNames: [...galleryNames].sort((left, right) => left.localeCompare(right)),
     heroSliderMedia,
-    heroSliderNames: Array.from(heroSliderNames).sort((a, b) =>
-      a.localeCompare(b),
-    ),
-    productCovers: productCovers.length,
-    productCoverNames: Array.from(productCoverNames).sort((a, b) =>
-      a.localeCompare(b),
-    ),
-    productMedia: productMedia.length,
-    productMediaProductNames: Array.from(productMediaProductNames).sort(
-      (a, b) => a.localeCompare(b),
-    ),
-    fileIds: Array.from(fileIds),
+    heroSliderNames: [...heroSliderNames].sort((left, right) => left.localeCompare(right)),
+    fileIds: [...fileIds],
   };
 }
-
 export async function moveFilesToFolder(
   ids: string[],
   folderId: string | null,

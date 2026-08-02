@@ -385,7 +385,7 @@ export async function requestLicenseServerLicenseActivation({
     {
       allowFirstParty: true,
       allowLocalHttp: localHttp,
-      allowSelfHosted: localHttp,
+      allowSelfHosted: true,
       body: JSON.stringify({
         action: "challenge",
         addonKey: "license-server",
@@ -422,7 +422,7 @@ export async function requestLicenseServerLicenseActivation({
     {
       allowFirstParty: true,
       allowLocalHttp: localHttp,
-      allowSelfHosted: localHttp,
+      allowSelfHosted: true,
       body: JSON.stringify({
         action: "complete",
         challengeId: challenge.data.challengeId,
@@ -509,7 +509,7 @@ export async function requestLicenseServerLicenseRevalidation({
         headers: { "content-type": "application/json" },
         allowFirstParty: true,
         allowLocalHttp: localHttp,
-        allowSelfHosted: localHttp,
+        allowSelfHosted: true,
         method: "POST",
         purpose: "License Server entitlement revalidation",
         timeoutMs: 5000,

@@ -33,6 +33,16 @@ import {
 
 const fakeAddon: WebshopAddon = {
   version: "0.0.1",
+  hostRouteBindings: [
+    "webshop.api.v1",
+    "webshop.dashboard.v1",
+    "webshop.download.v1",
+    "webshop.file-authorization.v1",
+    "webshop.fulfillment-job.v1",
+    "webshop.paddle-webhook.v1",
+    "webshop.purchase-intent-accept.v1",
+    "webshop.storefront.v1",
+  ],
   async renderDashboard() {
     return null;
   },
@@ -177,6 +187,13 @@ test("in-memory rate limiter blocks fixed-window overflow", () => {
 
 test("webshop add-on contract guard rejects incomplete modules", () => {
   assert.equal(isWebshopAddon({ version: "0.0.1" }), false);
+  assert.equal(
+    isWebshopAddon({
+      ...fakeAddon,
+      hostRouteBindings: ["webshop.api.v1"],
+    }),
+    true,
+  );
 });
 
 test("webshop add-on contract carries i18n to dashboard hooks", async () => {
