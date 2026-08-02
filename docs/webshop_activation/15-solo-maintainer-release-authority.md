@@ -195,6 +195,15 @@ pravi finalni signed manifest i tarball. Npm publish dobija publish token samo
 u one-shot child procesu preko privremenog user config-a koji se posle briše.
 Niti parent proces, niti CI evidence, niti tarball ne dobijaju token.
 
+Local authority **ne šalje** `npm publish --provenance`: npm provenance zahteva
+podržani cloud CI/CD runner, dok je ovaj namerno operator-kontrolisani lokalni
+publish tok za private GitHub Packages. Umesto lažne provenance tvrdnje,
+authority obavezno isporučuje potpisani `ReleaseManifestPayloadV2`, SBOM,
+Windows dependency graph, registry read-back SHA/SRI i create-only potpisani
+`release-publication-attestation.json`. Ako se u budućnosti uvede zaseban
+podržani cloud publish tok, on mora imati novi threat-model i ne sme dobiti
+ovaj local signing key ili publish token.
+
 Posle uspešnog registry odgovora authority read-back-om proverava package
 version ID, exact tarball SHA/SRI i attested publishedAt. Iz toga pravi i
 potpisuje detached release-publication-attestation.json. Tek sada kreira
