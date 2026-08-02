@@ -103,7 +103,8 @@ se ne snima kao fajl. Publish-token ref je zasebna jedna tekstualna linija.
   u operator-only authority secret rootu (SYSTEM i Administrators, bez
   nasleđivanja ACL-a); javni deo se create-only registruje kao GitHub SSH
   signing key. Authority pre tagovanja proverava par ključeva i da GitHub
-  registruje baš isti javni ključ. Ne koristi JWS release key za Git tag i ne
+  registruje isti Ed25519 javni materijal (GitHub može ukloniti lokalni komentar
+  iz API prikaza). Ne koristi JWS release key za Git tag i ne
   prihvata ambientni `user.signingkey`.
 
 CI dodatno dobija zaseban `NR_CMS_READ_TOKEN`: fine-grained GitHub token koji
