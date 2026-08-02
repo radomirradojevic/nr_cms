@@ -241,7 +241,14 @@ Cross-system publish i tag nisu atomska transakcija. Zato receipt vodi state:
 - Posle package_published, a pre taga: ne radi se novi npm publish i ne menja
   se tarball. Authority blokira master import/deployment, čuva exact receipt i
   dozvoljava samo reconcile da ponovo proveri isti
-  package/version/SHA/manifest, pa napravi nedostajući tag.
+  package/version/SHA/manifest, pa napravi nedostajući tag. Ako je registry
+  prihvatio publish, ali je proces pukao pre create-only
+  `package_published.json` receipt-a, reconcile sme prvo da koristi samo
+  postojeći `preflighted.json`, jedini regularni authority tarball i
+  token-autorizovan registry read-back. Tek kada package-version ID, publishedAt
+  i byte-identičan tarball SHA/SRI prođu, on create-only upisuje isti receipt i
+  nastavlja. Bilo koji missing/drifted/drugi tarball ili keyset mismatch ostaje
+  incident; nema republish-a niti ručnog pravljenja receipt-a.
 - Posle taga, a pre attestation asseta: reconcile sme create-only dodati
   nedostajući asset za isti release ID i hash. Postojeći drugačiji asset je
   incident, nikada overwrite.
