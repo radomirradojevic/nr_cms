@@ -126,7 +126,7 @@ const REQUIRED_NPMRC = new Map([
   ["registry", REGISTRY_URL],
 ]);
 const PROJECTS = [
-  { label: "CMS", root: "." },
+  { label: "CMS", root: ".", requireCompleteLockEvidence: true },
   { label: "Webshop addon", root: ".private/webshop" },
   { label: "License Server addon", root: ".private/license-server-addon" },
   { label: "Central License Server", root: ".private/license-server" },
@@ -134,10 +134,10 @@ const PROJECTS = [
 
 console.log("npm supply-chain audit");
 for (const project of PROJECTS) {
-  auditProject(project.label, project.root);
+  auditProject(project.label, project.root, project.requireCompleteLockEvidence ?? false);
 }
 
-function auditProject(label: string, projectRoot: string) {
+function auditProject(label: string, projectRoot: string, requireCompleteLockEvidence: boolean) {
   const packageJson = readJson<PackageJson>(path.join(projectRoot, "package.json"));
   const lock = readJson<PackageLock>(path.join(projectRoot, "package-lock.json"));
   const packages = Object.entries(lock.packages ?? {}).filter(([packagePath]) => packagePath);
@@ -189,7 +189,12 @@ function auditProject(label: string, projectRoot: string) {
     return !pkg.link && !pkg.resolved && !pkg.integrity;
   });
   if (missingLockMetadata.length) {
-    warnings.push(`${prefix} ${missingLockMetadata.length} lockfile package entries omit resolved/integrity metadata.`);
+    const message = `${prefix} ${missingLockMetadata.length} lockfile package entries omit resolved/integrity metadata.`;
+    if (requireCompleteLockEvidence) {
+      failures.push(message);
+    } else {
+      warnings.push(message);
+    }
   }
 
   const installScripts = packages.filter(([, pkg]) => pkg.hasInstallScript);

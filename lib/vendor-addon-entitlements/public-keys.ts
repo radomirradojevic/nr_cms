@@ -3,8 +3,6 @@ import { createHash, createPublicKey } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { db } from "@/db";
-import { cmsAddonEntitlementKeysets } from "@/db/schema";
 import { getMasterLicenseServerUrl } from "@/lib/master-license-server";
 import { canonicalJson } from "@/lib/vendor-addon-entitlements/activation-v2-contract";
 import { isExplicitlyAllowedLoopbackHttpUrl, safeFetch } from "@/lib/security/outbound-url";
@@ -68,12 +66,14 @@ function parseVendorAddonEntitlementPublicKeyset(raw: string): Keyset {
 }
 
 async function readDurableKeyset() {
+  const { db, cmsAddonEntitlementKeysets } = await entitlementKeysetStore();
   const row = (await db.select().from(cmsAddonEntitlementKeysets).where(eq(cmsAddonEntitlementKeysets.purpose, PURPOSE)).limit(1))[0];
   if (!row) return null;
   return { ...row, keyset: parseVendorAddonEntitlementPublicKeyset(row.keysetBytes) };
 }
 
 async function acceptDurableKeyset(keyset: Keyset, raw: string) {
+  const { db, cmsAddonEntitlementKeysets } = await entitlementKeysetStore();
   const contentSha256 = createHash("sha256").update(raw, "utf8").digest("hex");
   await db.transaction(async (tx) => {
     const prior = (await tx.select().from(cmsAddonEntitlementKeysets).where(eq(cmsAddonEntitlementKeysets.purpose, PURPOSE)).limit(1))[0];
@@ -87,6 +87,11 @@ async function acceptDurableKeyset(keyset: Keyset, raw: string) {
     }
     await tx.insert(cmsAddonEntitlementKeysets).values({ purpose: PURPOSE, sequence: keyset.sequence, contentSha256, previousKeysetSha256: keyset.previousKeysetSha256, keysetBytes: raw }).onConflictDoUpdate({ target: cmsAddonEntitlementKeysets.purpose, set: { sequence: keyset.sequence, contentSha256, previousKeysetSha256: keyset.previousKeysetSha256, keysetBytes: raw, refreshedAt: new Date() } });
   });
+}
+
+async function entitlementKeysetStore() {
+  const [{ db }, { cmsAddonEntitlementKeysets }] = await Promise.all([import("@/db"), import("@/db/schema")]);
+  return { db, cmsAddonEntitlementKeysets };
 }
 
 function verificationKeys(keyset: Keyset): Record<string, string> {

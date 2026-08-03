@@ -63,7 +63,7 @@ test("registry generator verifies signed package identity and artifact bytes", (
     writeFileSync(join(cleanRoot, "package.json"), JSON.stringify({ version: "0.1.0" }), "utf8");
     writeFileSync(
       join(packageRoot, "package.json"),
-      JSON.stringify({ name: "@radomirradojevic/webshop", version: "0.5.0" }),
+      JSON.stringify({ name: "@radomirradojevic/webshop", version: "0.6.0" }),
       "utf8",
     );
     const server = "export const webshopAddon = {};\n";
@@ -75,44 +75,33 @@ test("registry generator verifies signed package identity and artifact bytes", (
         size: Buffer.byteLength(server),
       },
     ];
-    const subject = createHash("sha256")
-      .update(stablePretty(files))
-      .digest("hex");
+    const subject = createHash("sha256").update(canonicalTest({ contractVersion: 1, digestPurpose: "addon_runtime_payload", entries: files })).digest("hex");
     const { privateKey, publicKey } = generateKeyPairSync("ed25519");
-    const unsigned = {
+    const payload = {
       addonKey: "webshop" as const,
-      artifact: { files, sha256: subject, size: Buffer.byteLength(stablePretty(files)) },
-      capabilities: ["routes.webshop"],
-      cmsVersionRange: "^0.1.0",
-      entrypoints: { server: "./dist/server.js" },
-      hostRouteBindings: [
-        "webshop.api.v1",
-        "webshop.dashboard.v1",
-        "webshop.download.v1",
-        "webshop.file-authorization.v1",
-        "webshop.form-submission-visibility.v1",
-        "webshop.fulfillment-job.v1",
-        "webshop.paddle-webhook.v1",
-        "webshop.purchase-intent-accept.v1",
-        "webshop.storefront.v1",
+      artifactInventory: { contractVersion: 1, digestPurpose: "addon_runtime_payload", entries: files },
+      artifactSha256: subject,
+      capabilities: [
+        "webshop.api.v1", "webshop.dashboard.v1", "webshop.download.v1",
+        "webshop.file-authorization.v1", "webshop.form-submission-visibility.v1",
+        "webshop.fulfillment-job.v1", "webshop.paddle-webhook.v1",
+        "webshop.purchase-intent-accept.v1", "webshop.storefront.v1",
       ],
-      manifestVersion: 1 as const,
-      migrations: [],
+      entrypoints: { server: "./dist/server.js" },
+      manifestVersion: 2 as const,
       packageName: "@radomirradojevic/webshop" as const,
-      packageVersion: "0.5.0",
-      releasedAt: "2026-07-13T00:00:00.000Z",
+      packageVersion: "0.6.0",
+      purpose: "addon_release_manifest",
+      releaseSigningKid: "local-test-authority",
       runtimeContractVersion: "1" as const,
-      schemaVersion: 1,
-      signingKid: "local-test-authority",
     };
-    const signature = sign(
-      null,
-      Buffer.from(canonicalReleaseManifestPayload(unsigned), "utf8"),
-      privateKey,
-    ).toString("base64url");
+    const protectedPart = Buffer.from(canonicalTest({ alg: "EdDSA", kid: "local-test-authority", typ: "NRV-ADDON-RELEASE-MANIFEST-V2+JWS" })).toString("base64url");
+    const payloadPart = Buffer.from(canonicalTest(payload)).toString("base64url");
+    const signature = sign(null, Buffer.from(`${protectedPart}.${payloadPart}`, "ascii"), privateKey).toString("base64url");
+    const manifestBytes = canonicalTest({ payload: payloadPart, protected: protectedPart, signature });
     writeFileSync(
       join(packageRoot, "release-manifest.json"),
-      JSON.stringify({ ...unsigned, signature }),
+      manifestBytes,
       "utf8",
     );
     writeFileSync(
@@ -127,8 +116,9 @@ test("registry generator verifies signed package identity and artifact bytes", (
           {
             addonKey: "webshop",
             artifactSha256: subject,
+            embeddedManifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
             packageName: "@radomirradojevic/webshop",
-            packageVersion: "0.5.0",
+            packageVersion: "0.6.0",
             signingKid: "local-test-authority",
           },
         ],
@@ -231,9 +221,8 @@ test("public tracked sources contain no private source import or Tailwind scan",
   for (const file of files) assert.equal(readFileSync(resolve(process.cwd(), file), "utf8").includes(".private"), false, file);
 });
 
-function stablePretty(value: unknown): string {
-  if (Array.isArray(value)) return JSON.stringify(value.map(sortValue), null, 2);
-  return JSON.stringify(sortValue(value), null, 2);
+function canonicalTest(value: unknown): string {
+  return JSON.stringify(sortValue(value));
 }
 
 function sortValue(value: unknown): unknown {

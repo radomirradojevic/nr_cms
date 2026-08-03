@@ -30,38 +30,31 @@ test("master public-key discovery accepts only unique Ed25519 signing keys", () 
   const pem = publicKey
     .export({ format: "pem", type: "spki" })
     .toString();
+  const key = {
+    alg: "EdDSA" as const,
+    kid: "vendor-2026",
+    notAfter: null,
+    notBefore: "2020-01-01T00:00:00.000Z",
+    publicKeyPem: pem,
+    status: "active" as const,
+  };
+  const keyset = {
+    contractVersion: 1 as const,
+    generatedAt: "2026-08-03T00:00:00.000Z",
+    issuer: "https://license-server.nrcms.com" as const,
+    keys: [key],
+    previousKeysetSha256: null,
+    purpose: "addon_entitlement" as const,
+    sequence: 1,
+  };
   assert.deepEqual(
-    parseVendorAddonEntitlementPublicKeys({
-      keys: [
-        {
-          alg: "EdDSA",
-          kid: "vendor-2026",
-          kty: "OKP",
-          pem,
-          use: "sig",
-        },
-      ],
-    }),
+    parseVendorAddonEntitlementPublicKeys(keyset),
     { "vendor-2026": pem },
   );
   assert.throws(() =>
     parseVendorAddonEntitlementPublicKeys({
-      keys: [
-        {
-          alg: "EdDSA",
-          kid: "vendor-2026",
-          kty: "OKP",
-          pem,
-          use: "sig",
-        },
-        {
-          alg: "EdDSA",
-          kid: "vendor-2026",
-          kty: "OKP",
-          pem,
-          use: "sig",
-        },
-      ],
+      ...keyset,
+      keys: [key, key],
     }),
   );
 });
