@@ -122,3 +122,4 @@ export async function GET(request: NextRequest) {
     total,
   });
 }
+export const dynamic = "force-dynamic";

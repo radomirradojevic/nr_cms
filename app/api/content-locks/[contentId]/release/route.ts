@@ -67,3 +67,4 @@ export async function POST(
 
   return new NextResponse(null, { status: 204 });
 }
+export const dynamic = "force-dynamic";

@@ -638,6 +638,20 @@
       "when": 1784174400000,
       "tag": "0090_webshop_core_detach",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1784505600000,
+      "tag": "0091_webshop_activation_v2_control_plane",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1784592000000,
+      "tag": "0092_addon_deployment_worker_callback_ledger",
+      "breakpoints": true
     }
   ]
 }

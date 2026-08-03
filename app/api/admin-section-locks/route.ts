@@ -17,6 +17,8 @@ import {
 } from "@/lib/admin-section-locks";
 import { getAdminSectionActor } from "@/lib/admin-section-locks-server";
 
+export const dynamic = "force-dynamic";
+
 const bodySchema = z.object({
   clientId: z.string().min(1).max(128),
 });

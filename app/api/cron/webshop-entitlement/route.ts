@@ -23,3 +23,4 @@ async function run(request: Request) {
     { status: result.ok ? 200 : 502 },
   );
 }
+export const dynamic = "force-dynamic";

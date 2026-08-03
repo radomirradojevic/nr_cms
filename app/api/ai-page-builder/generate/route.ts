@@ -236,3 +236,4 @@ function getPageBuilderTimeoutMs(providerId: string, model: string) {
     ? 75_000
     : 30_000;
 }
+export const dynamic = "force-dynamic";

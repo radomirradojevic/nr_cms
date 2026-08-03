@@ -440,6 +440,11 @@ function parseSessionSecurity(row: {
 
 export const getGlobalSettings = unstable_cache(
   async (): Promise<ResolvedGlobalSettings> => {
+    if (process.env.NR_CMS_ENV_PHASE === "build") {
+      // Sealed deployment builds have no DB credential by design. The build
+      // only needs a deterministic public shell, never live CMS settings.
+      return normalizeResolvedGlobalSettings(DEFAULT_RESOLVED_GLOBAL_SETTINGS);
+    }
     try {
       return normalizeResolvedGlobalSettings(
         await loadResolvedGlobalSettings(),

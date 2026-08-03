@@ -41,3 +41,4 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ results: rows, total });
 }
+export const dynamic = "force-dynamic";

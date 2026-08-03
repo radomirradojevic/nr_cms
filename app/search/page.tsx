@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import Link from "next/link";
 
 import { searchPublishedContent, type ContentType } from "@/data/content";
@@ -17,6 +18,7 @@ type Props = {
 const VALID_TYPES: ContentType[] = ["blog_post", "page"];
 
 export async function generateMetadata(): Promise<Metadata> {
+  await connection();
   const t = await getTranslations("frontend");
 
   return {
@@ -47,6 +49,7 @@ function typeLabel(type: ContentType, t: TranslateFn): string {
 }
 
 export default async function SearchPage({ searchParams }: Props) {
+  await connection();
   const t = await getTranslations("frontend");
   const params = await searchParams;
   const query = firstParam(params.q).trim();

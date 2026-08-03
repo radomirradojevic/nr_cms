@@ -80,3 +80,4 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ categories: enriched, total });
 }
+export const dynamic = "force-dynamic";

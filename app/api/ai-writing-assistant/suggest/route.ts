@@ -259,3 +259,4 @@ function normalizeSuggestion(value: string, before: string): string {
 
   return suggestion.slice(0, 600);
 }
+export const dynamic = "force-dynamic";

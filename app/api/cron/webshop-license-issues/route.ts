@@ -18,3 +18,4 @@ async function run(request: Request) {
   const result = await runWebshopFulfillmentSafetyNet(25);
   return NextResponse.json({ ok: true, ...result });
 }
+export const dynamic = "force-dynamic";

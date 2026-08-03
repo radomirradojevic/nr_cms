@@ -339,3 +339,4 @@ function normalizeGeneratedText(
 
   return text.replace(/\n+/g, " ").replace(/\s+/g, " ").slice(0, 2_000);
 }
+export const dynamic = "force-dynamic";

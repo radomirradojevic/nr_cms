@@ -40,3 +40,4 @@ function menuIdsFromRequest(request: NextRequest) {
     ),
   ).slice(0, MAX_MENU_IDS);
 }
+export const dynamic = "force-dynamic";

@@ -48,3 +48,4 @@ export async function GET() {
 
   return NextResponse.json({ admins: Array.from(adminMap.values()) });
 }
+export const dynamic = "force-dynamic";

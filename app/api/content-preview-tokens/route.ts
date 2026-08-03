@@ -69,3 +69,4 @@ export async function POST(request: NextRequest) {
     expiresAt: expiresAt.toISOString(),
   });
 }
+export const dynamic = "force-dynamic";

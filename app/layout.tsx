@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { headers } from "next/headers";
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/themes";
@@ -43,6 +44,9 @@ const geistMono = Geist_Mono({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
+  // Global settings are DB-backed. Explicitly defer this metadata to request
+  // time so a sealed/public-only deployment build never needs DATABASE_URL.
+  await connection();
   const { siteName } = await getGlobalSettings();
 
   return {

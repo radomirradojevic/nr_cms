@@ -39,6 +39,11 @@ export async function getWebshopAddonEntitlement(): Promise<WebshopAddonEntitlem
 export async function saveWebshopAddonEntitlement(
   input: SaveWebshopAddonEntitlementInput,
 ): Promise<void> {
+  if (input.status === "ready") {
+    throw new Error(
+      "Webshop ready state is reserved for the fenced worker reconciliation finalizer.",
+    );
+  }
   const values = {
     deploymentEnvironment: input.deploymentEnvironment ?? null,
     entitlementToken: input.entitlementToken,

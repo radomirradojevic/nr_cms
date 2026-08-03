@@ -70,3 +70,4 @@ export function PATCH(request: Request, context: RouteContext) {
 export function DELETE(request: Request, context: RouteContext) {
   return handleLicenseServerApi(request, context);
 }
+export const dynamic = "force-dynamic";

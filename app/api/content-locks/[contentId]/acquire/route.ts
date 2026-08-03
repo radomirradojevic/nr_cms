@@ -103,3 +103,4 @@ export async function POST(
     { status: 409 },
   );
 }
+export const dynamic = "force-dynamic";

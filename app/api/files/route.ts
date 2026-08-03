@@ -180,3 +180,4 @@ export async function POST(req: NextRequest) {
 // Quiet unused warning; ALLOWED_MIME is re-exported for consumers but
 // referenced indirectly via isMimeAllowed.
 void ALLOWED_MIME;
+export const dynamic = "force-dynamic";

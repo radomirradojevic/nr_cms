@@ -22,3 +22,4 @@ export async function GET(request: Request, context: RouteContext) {
     HostAddonRouteBindingsV1.download.id,
   );
 }
+export const dynamic = "force-dynamic";

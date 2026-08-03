@@ -4,10 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { saveWebshopAddonEntitlement } from "@/data/webshop-addon-entitlement";
+import { persistVerifiedWebshopActivation } from "@/data/webshop-addon-control-plane";
 import { getGlobalSettings } from "@/data/global-settings";
-import { buildRedeployCallbackRequest } from "@/lib/addon-runtime/redeploy-callback";
-import { safeFetch } from "@/lib/security/outbound-url";
 import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
@@ -16,7 +14,6 @@ import {
   getWebshopRuntimeConfig,
 } from "@/lib/webshop-addon/config";
 import { requestWebshopLicenseActivation } from "@/lib/webshop-addon/license";
-import { loadWebshopAddon } from "@/lib/webshop-addon/loader";
 import { verifyWebshopDeploymentPlatform } from "@/lib/webshop-addon/platform";
 
 const ActivationSchema = z.object({
@@ -88,66 +85,24 @@ export async function activateWebshopAddonAction(
     return { status: "error", message: activation.error };
   }
 
-  const loadResult = await loadWebshopAddon();
-  if (
-    runtimeConfig.redeployWebhookUrl &&
-    runtimeConfig.redeployAuthKid &&
-    runtimeConfig.redeployAuthSecret
-  ) {
-    const callback = buildRedeployCallbackRequest({
-      auth: {
-        kid: runtimeConfig.redeployAuthKid,
-        secret: runtimeConfig.redeployAuthSecret,
-      },
-      packageName: activation.entitlement.packageName ?? null,
-      packageVersion: activation.entitlement.packageVersion ?? null,
-      url: runtimeConfig.redeployWebhookUrl,
+  let persisted: Awaited<ReturnType<typeof persistVerifiedWebshopActivation>>;
+  try {
+    persisted = await persistVerifiedWebshopActivation({
+      claim: activation.entitlement.verifiedClaims,
+      signedEntitlement: activation.entitlement.signedEntitlement,
+      updatedBy: userId,
     });
-    await safeFetch(callback.url, {
-      allowFirstParty: true,
-      body: callback.body,
-      headers: callback.headers,
-      method: "POST",
-      purpose: "Webshop redeploy callback",
-      timeoutMs: 10_000,
-    }).catch(() => null);
+  } catch {
+    return {
+      status: "error",
+      message:
+        "Webshop license was verified, but durable installation state could not be committed.",
+    };
   }
-  const entitlementStatus =
-    loadResult.status === "loaded" ? "ready" : "install_pending";
-
-  const now = new Date().toISOString();
-  await saveWebshopAddonEntitlement({
-    deploymentEnvironment: deploymentPlatform.deploymentEnvironment,
-    entitlementToken: activation.entitlement.entitlementToken,
-    expiresAt: new Date(activation.entitlement.expiresAt),
-    features: activation.entitlement.features,
-    installationId: activation.entitlement.installationId ?? null,
-    installationKeyFingerprint:
-      activation.entitlement.installationKeyFingerprint ?? null,
-    licenseKeyRef: activation.entitlement.licenseKeyRef,
-    metadata: {
-      activationId: activation.entitlement.activationId,
-      lastRevalidationAttemptAt: now,
-      lastRevalidationSuccessAt: now,
-    },
-    packageName: activation.entitlement.packageName ?? null,
-    packageVersion: activation.entitlement.packageVersion ?? null,
-    provider: deploymentPlatform.provider,
-    providerMode: deploymentPlatform.mode,
-    providerOwnerId: deploymentPlatform.ownerId,
-    providerProjectId: deploymentPlatform.projectId,
-    status: entitlementStatus,
-    updatedBy: userId,
-  });
 
   revalidatePath("/dashboard/webshop");
   return {
     status: "success",
-    message:
-      entitlementStatus === "ready"
-        ? t("addons.webshop.activationSuccessReady")
-        : deploymentPlatform.provider === "self_hosted"
-          ? t("addons.webshop.activationSuccessSelfHosted")
-          : t("addons.webshop.activationSuccessPending"),
+    message: `Webshop license accepted. Installation is pending (operation ${persisted.operationId}).`,
   };
 }

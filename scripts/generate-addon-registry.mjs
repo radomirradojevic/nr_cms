@@ -79,7 +79,14 @@ async function readReleasePublicKeys() {
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
     throw new Error("Addon release public key set must be an object.");
-  for (const [kid, pem] of Object.entries(parsed)) {
+  const entries =
+    parsed.contractVersion === 1 && Array.isArray(parsed.keys)
+      ? parsed.keys
+          .filter((entry) => entry?.status !== "revoked")
+          .map((entry) => [entry?.kid, entry?.publicKeyPem])
+      : Object.entries(parsed);
+  const keys = new Map();
+  for (const [kid, pem] of entries) {
     if (
       !/^[A-Za-z0-9._:-]{3,200}$/.test(kid) ||
       typeof pem !== "string" ||
@@ -100,8 +107,10 @@ async function readReleasePublicKeys() {
       throw new Error(
         "Addon release authority keys must be Ed25519 public keys.",
       );
+    keys.set(kid, pem);
   }
-  return parsed;
+  if (keys.size === 0) throw new Error("Addon release public key set is empty.");
+  return keys;
 }
 
 async function readBuildInputs() {
@@ -136,7 +145,8 @@ async function verifyInstalledRelease(expected, publicKeys) {
   if (
     typeof expected.packageVersion !== "string" ||
     !/^[a-f0-9]{64}$/.test(expected.artifactSha256 ?? "") ||
-    typeof expected.signingKid !== "string"
+    typeof expected.signingKid !== "string" ||
+    (expected.addonKey === "webshop" && !/^[a-f0-9]{64}$/.test(expected.embeddedManifestSha256 ?? ""))
   ) {
     throw new Error(
       `Registry entry ${expected.addonKey} must pin packageVersion, artifactSha256 and signingKid.`,
@@ -147,20 +157,20 @@ async function verifyInstalledRelease(expected, publicKeys) {
     "node_modules",
     ...expected.packageName.split("/"),
   );
-  const [packageJson, manifest, provenance] = await Promise.all([
+  const [packageJson, manifestBytes] = await Promise.all([
     readJson(
       resolve(packageRoot, "package.json"),
       `${expected.addonKey} package metadata`,
     ),
-    readJson(
-      resolve(packageRoot, "release-manifest.json"),
-      `${expected.addonKey} release manifest`,
-    ),
-    readJson(
-      resolve(packageRoot, "provenance.json"),
-      `${expected.addonKey} provenance`,
-    ),
+    readFile(resolve(packageRoot, "release-manifest.json")),
   ]);
+  let manifest;
+  try { manifest = JSON.parse(manifestBytes.toString("utf8")); } catch { throw new Error(`${expected.addonKey} release manifest is missing or invalid.`); }
+  if (manifest && typeof manifest === "object" && "protected" in manifest && "payload" in manifest && "signature" in manifest) {
+    await verifyInstalledReleaseV2({ expected, publicKeys, packageRoot, packageJson, manifest, manifestBytes });
+    return;
+  }
+  const provenance = await readJson(resolve(packageRoot, "provenance.json"), `${expected.addonKey} provenance`);
   if (
     packageJson.name !== expected.packageName ||
     packageJson.version !== expected.packageVersion ||
@@ -218,7 +228,7 @@ async function verifyInstalledRelease(expected, publicKeys) {
     throw new Error(
       `Installed addon release signature is malformed: ${expected.addonKey}.`,
     );
-  const publicKey = publicKeys[manifest.signingKid];
+  const publicKey = publicKeys.get(manifest.signingKid);
   if (!publicKey)
     throw new Error(
       `Installed addon release uses an unpinned signing key: ${expected.addonKey}.`,
@@ -281,6 +291,43 @@ async function verifyInstalledRelease(expected, publicKeys) {
     throw new Error(
       `Installed addon server entrypoint is outside the signed artifact inventory: ${expected.addonKey}.`,
     );
+}
+
+async function verifyInstalledReleaseV2({ expected, publicKeys, packageRoot, packageJson, manifest, manifestBytes }) {
+  if (expected.addonKey !== "webshop") throw new Error(`Only a V2 Webshop release may be installed: ${expected.addonKey}.`);
+  if (Object.keys(manifest).sort().join(",") !== "payload,protected,signature") throw new Error("Installed V2 release envelope shape is invalid.");
+  let header; let payload;
+  try {
+    header = JSON.parse(Buffer.from(manifest.protected, "base64url").toString("utf8"));
+    payload = JSON.parse(Buffer.from(manifest.payload, "base64url").toString("utf8"));
+  } catch { throw new Error("Installed V2 release envelope encoding is invalid."); }
+  if (
+    !header || header.alg !== "EdDSA" || header.typ !== "NRV-ADDON-RELEASE-MANIFEST-V2+JWS" ||
+    header.kid !== expected.signingKid || !/^[A-Za-z0-9][A-Za-z0-9._:-]{2,119}$/.test(header.kid) ||
+    Object.keys(header).sort().join(",") !== "alg,kid,typ" ||
+    !payload || payload.manifestVersion !== 2 || payload.purpose !== "addon_release_manifest" ||
+    payload.addonKey !== expected.addonKey || payload.packageName !== expected.packageName ||
+    payload.packageVersion !== expected.packageVersion || payload.runtimeContractVersion !== "1" ||
+    payload.artifactSha256 !== expected.artifactSha256 || payload.releaseSigningKid !== header.kid ||
+    packageJson.name !== expected.packageName || packageJson.version !== expected.packageVersion
+  ) throw new Error(`Installed V2 addon release identity mismatch: ${expected.addonKey}.`);
+  const publicKey = publicKeys.get(header.kid);
+  if (!publicKey || !verify(null, Buffer.from(`${manifest.protected}.${manifest.payload}`, "ascii"), publicKey, Buffer.from(manifest.signature, "base64url"))) throw new Error(`Installed V2 addon release signature verification failed: ${expected.addonKey}.`);
+  const requiredBindings = expectedHostBindings[expected.addonKey];
+  if (!Array.isArray(payload.capabilities) || payload.capabilities.length !== requiredBindings.length || new Set(payload.capabilities).size !== payload.capabilities.length || requiredBindings.some((binding) => !payload.capabilities.includes(binding))) throw new Error(`Installed V2 addon host bindings mismatch: ${expected.addonKey}.`);
+  const entries = payload.artifactInventory?.entries;
+  if (!Array.isArray(entries) || entries.length === 0 || !/^[a-f0-9]{64}$/.test(payload.artifactInventory?.entries?.[0]?.sha256 ?? "")) throw new Error(`Installed V2 addon artifact inventory is invalid: ${expected.addonKey}.`);
+  const aggregate = sha256(Buffer.from(canonicalJson({ contractVersion: 1, digestPurpose: "addon_runtime_payload", entries }), "utf8"));
+  if (aggregate !== expected.artifactSha256 || payload.artifactSha256 !== aggregate || sha256(manifestBytes) !== (expected.embeddedManifestSha256 ?? sha256(manifestBytes))) throw new Error(`Installed V2 addon artifact checksum mismatch: ${expected.addonKey}.`);
+  const paths = new Set();
+  for (const file of entries) {
+    if (!file || typeof file.path !== "string" || !/^[A-Za-z0-9._/-]+$/.test(file.path) || file.path.includes("..") || typeof file.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(file.sha256) || !Number.isSafeInteger(file.size) || file.size < 0 || paths.has(file.path)) throw new Error(`Installed V2 addon inventory is invalid: ${expected.addonKey}.`);
+    const artifactPath = resolve(packageRoot, file.path); if (!isWithin(packageRoot, artifactPath)) throw new Error(`Installed V2 addon artifact escapes package: ${expected.addonKey}.`);
+    let contents; try { contents = await readFile(artifactPath); } catch { throw new Error(`Installed V2 addon artifact is missing: ${expected.addonKey}.`); }
+    if (contents.byteLength !== file.size || sha256(contents) !== file.sha256) throw new Error(`Installed V2 addon artifact checksum mismatch: ${expected.addonKey}.`);
+    paths.add(file.path);
+  }
+  if (!paths.has(String(payload.entrypoints?.server ?? "").replace(/^\.\//, ""))) throw new Error(`Installed V2 addon server entrypoint is outside inventory: ${expected.addonKey}.`);
 }
 
 async function readJson(path, label) {

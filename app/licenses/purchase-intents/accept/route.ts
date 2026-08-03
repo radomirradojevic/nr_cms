@@ -16,3 +16,4 @@ export async function POST(request: Request) {
     HostAddonRouteBindingsV1.purchaseIntentAccept.id,
   );
 }
+export const dynamic = "force-dynamic";

@@ -71,3 +71,4 @@ export async function POST(
     { status: 200 },
   );
 }
+export const dynamic = "force-dynamic";

@@ -14,3 +14,4 @@ export async function POST(request: Request) {
     HostAddonRouteBindingsV1.paddleWebhook.id,
   );
 }
+export const dynamic = "force-dynamic";
