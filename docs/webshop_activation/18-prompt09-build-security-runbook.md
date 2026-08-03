@@ -162,3 +162,32 @@ Both the vendor and client registry secret references v1 audit as sealed and
 ACL-valid, with separate target-specific DPAPI `LocalMachine` files. No P09
 step acquired a target DB credential, applied a target migration, changed
 `current`, or started/stopped a CMS service.
+
+The final hosted build fixtures use worker commit
+`35edfb0ca4f350dcae1699a8d044a43fee597524`. The worker seeds both npm full and
+corgi packument variants, preserves every base-lock entry exactly, materializes
+the signed addon graph (including transitive peer boundaries), runs
+`npm ci --offline --ignore-scripts`, and reifies any npm-omitted pinned base or
+signed addon package only from the already verified token-free cacache. Every
+reified package tree rejects links before its installed manifest identity is
+checked. Both target-specific fixtures completed the production build and
+returned the required explicit non-success test boundary:
+
+- vendor: `build_verified_test_mutation_gate` / `rejected_before_switch`;
+  source `a62724ddecd91a0b16c303ed1c2bf723038463e178221d1e8649abea3a87d66d`,
+  release `0ea22536566b313b735ce77597c48df2d7fa1844958c367ac6b97dfaf49f5656`,
+  offline install `712d25c47f7a756231dff693429833f1c880b024edeb90193673d03f0b28d531`,
+  CMS build `7e371ff10a0dd94e91b2ee1d105ff96988b3560bc6531d0a5b63c5df05e80a9f`;
+- client: `build_verified_test_mutation_gate` / `rejected_before_switch`;
+  source `a62724ddecd91a0b16c303ed1c2bf723038463e178221d1e8649abea3a87d66d`,
+  release `0ea22536566b313b735ce77597c48df2d7fa1844958c367ac6b97dfaf49f5656`,
+  offline install `7b386c80b71f5b60362b951a90827283abd40a072d0e29cfc4fa7deb8b1bf989`,
+  CMS build `f5d8eaa3e0a58858915d76fd7f5deeb5dc1af73df62707149633d3f34c9bf06e`.
+
+The final host audit SHA-256 is
+`7607b23ecc9c976475c26bc41de33e4109c2e86aa192b96b3907fe70ddbf0029`.
+It reconfirmed both sealed secret-ref ACLs without decryption, scanned the full
+successful vendor and client staging trees without finding a GitHub PAT marker,
+validated the exact token-free npm config, confirmed the outbound deny and the
+six sealed-canary/broker-pipe/breakaway denials, and found all four P09 services
+stopped.
