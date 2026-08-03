@@ -123,3 +123,39 @@ prompt or `.env`:
 cd D:\nr_cms\.private\addon-deployment-worker
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\provision-registry-read-token.ps1 -TargetProfile vendor -Version 1
 ```
+
+## 0.6.1 execution receipt (2026-08-03)
+
+The corrected immutable source pair is pushed and was verified by the
+verification-only GitHub Actions run
+[`30811445073`](https://github.com/radomirradojevic/webshop/actions/runs/30811445073):
+
+- CMS commit: `370106624a2208cc7f122439a15794976c767585`
+- Webshop commit: `00c82981d27d4d5fcfc6721610068bd9b4111577`
+- package: `@radomirradojevic/webshop@0.6.1`
+- deterministic release ID: `0f905012-c22d-5dbc-b317-7c0366ef3259`
+- downloaded secret-free candidate evidence SHA-256:
+  `4703afbfc9ce0eca314492559f2437ec77f57447e2d67507bdd629b3115911a8`.
+
+Both the Windows x64 dependency-graph job and the independent clean-host build
+job passed. This is candidate evidence only: the package, tag and attestation
+are still absent until the operator-only release authority has copied that
+exact candidate under `D:\nr_release_authority`, repeated its production
+preflight and then performed the separate explicit publish command. The
+non-elevated worker process is intentionally denied access to that authority
+root.
+
+Master now has `npm run release:preflight`, a read-only release-catalog check
+that uses the protected release-operator credential and performs no migration.
+It proves the operator credential ACL before connecting. The current database
+then fail-closed reports PostgreSQL `42P01` while checking the required
+`public.addon_release_catalog` relation. Therefore this run did **not** import
+or publish a catalog row and did **not** run a migration. The catalog schema
+must exist through a separately authorized database migration before the
+authority release can be imported.
+
+The vendor registry secret reference remains sealed. Client sealing, the
+registry broker service and the build-sandbox canary remain deliberately
+pending because no final hash-pinned Windows service host/wrapper has been
+provisioned. Installing an arbitrary `sc.exe` command or running the canary as
+an administrator would not satisfy the service-SID/Job Object boundary.
