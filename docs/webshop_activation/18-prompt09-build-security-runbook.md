@@ -158,9 +158,7 @@ The final P09 Windows evidence export records these SHA-256 values:
 - sandbox canary: `c49cd16983db1cf8b8db4e1e3afa1ab60a43854e3d06e9758dbbc2223ff99975`;
 - successful sandbox boundary receipt: `36148fe943445d6c6570afab857cf7c937fb0dc6e25b0565f6a6f3e081e835b9`.
 
-The vendor registry secret reference v1 audits as sealed and ACL-valid. The
-client reference is deliberately still absent; it must be a separate
-target-specific classic `read:packages` PAT sealed through the operator helper.
-Until that secret exists, client hosted-registry fixture execution is blocked.
-No P09 step acquired a target DB credential, applied a target migration,
-changed `current`, or started/stopped a CMS service.
+Both the vendor and client registry secret references v1 audit as sealed and
+ACL-valid, with separate target-specific DPAPI `LocalMachine` files. No P09
+step acquired a target DB credential, applied a target migration, changed
+`current`, or started/stopped a CMS service.
