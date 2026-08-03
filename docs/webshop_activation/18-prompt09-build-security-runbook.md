@@ -110,14 +110,23 @@ The orchestrator passes only the statically pinned
 it does not stat or receive the protected file path. Only the registry broker
 maps that reference to the ACL-protected file. Service identity checks require
 the deterministic service SID in the Windows token groups (the virtual service
-SID is not the token's primary user SID), and the pipe canary requires a real
-`ACCESS_DENIED` result rather than accepting a missing pipe timeout.
+SID is not the token's primary user SID). The pipe canary requires a broker
+`ready` receipt and accepts either `ACCESS_DENIED` or a bounded timeout against
+that already-open pipe; a missing-pipe timeout is rejected.
 
-No Windows service wrapper is currently installed for the four P09 identities,
-so the OS identity/ACL/Job Object/network-deny canary has **not** passed and a
-real hosted-registry job is not yet an accepted P09 receipt. A generated PAT is
-sealed only from an elevated interactive PowerShell; it is never pasted into a
-prompt or `.env`:
+The four P09 Windows service wrappers are now installed with deterministic
+service SIDs and `LocalService` identities. The build sandbox service is bound
+to a `KILL_ON_JOB_CLOSE` Job Object and the scoped outbound rule `NR P09 Build
+Sandbox outbound deny`. The final non-secret canary receipt proves all six
+sealed canary reads are denied, the service token contains the pinned sandbox
+SID, breakaway returns `ERROR_ACCESS_DENIED`, and the sandbox cannot connect to
+a broker pipe that has reported `ready`. The static target-policy hash is
+`38827d3adb06d4ee498aa35bfaad2f9269af172643fda225e0f463873496d606`.
+
+This does not itself create a real hosted-registry deployment receipt. Each
+target still needs its own independently sealed GitHub Packages read reference;
+a generated PAT is sealed only from an elevated interactive PowerShell and is
+never pasted into a prompt or `.env`:
 
 ```powershell
 cd D:\nr_cms\.private\addon-deployment-worker
@@ -138,24 +147,20 @@ verification-only GitHub Actions run
   `4703afbfc9ce0eca314492559f2437ec77f57447e2d67507bdd629b3115911a8`.
 
 Both the Windows x64 dependency-graph job and the independent clean-host build
-job passed. This is candidate evidence only: the package, tag and attestation
-are still absent until the operator-only release authority has copied that
-exact candidate under `D:\nr_release_authority`, repeated its production
-preflight and then performed the separate explicit publish command. The
-non-elevated worker process is intentionally denied access to that authority
-root.
+job passed. The operator release authority then completed production preflight
+and publish for the exact 0.6.1 evidence, and the Master release catalog row is
+published. The worker remains denied access to the authority root.
 
-Master now has `npm run release:preflight`, a read-only release-catalog check
-that uses the protected release-operator credential and performs no migration.
-It proves the operator credential ACL before connecting. The current database
-then fail-closed reports PostgreSQL `42P01` while checking the required
-`public.addon_release_catalog` relation. Therefore this run did **not** import
-or publish a catalog row and did **not** run a migration. The catalog schema
-must exist through a separately authorized database migration before the
-authority release can be imported.
+The final P09 Windows evidence export records these SHA-256 values:
 
-The vendor registry secret reference remains sealed. Client sealing, the
-registry broker service and the build-sandbox canary remain deliberately
-pending because no final hash-pinned Windows service host/wrapper has been
-provisioned. Installing an arbitrary `sc.exe` command or running the canary as
-an administrator would not satisfy the service-SID/Job Object boundary.
+- service host: `301b2dd7284e1bca4bc0b7ba3b5f401f4bf08098be343e5779463deaff58c932`;
+- immutable registry/build dispatch: `d061e3f992a5d8512254d546c22d0c2ab114d606a015525747d5715c84b6bd4a`;
+- sandbox canary: `c49cd16983db1cf8b8db4e1e3afa1ab60a43854e3d06e9758dbbc2223ff99975`;
+- successful sandbox boundary receipt: `36148fe943445d6c6570afab857cf7c937fb0dc6e25b0565f6a6f3e081e835b9`.
+
+The vendor registry secret reference v1 audits as sealed and ACL-valid. The
+client reference is deliberately still absent; it must be a separate
+target-specific classic `read:packages` PAT sealed through the operator helper.
+Until that secret exists, client hosted-registry fixture execution is blocked.
+No P09 step acquired a target DB credential, applied a target migration,
+changed `current`, or started/stopped a CMS service.
