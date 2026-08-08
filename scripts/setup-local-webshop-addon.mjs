@@ -45,9 +45,7 @@ for (const addonRoot of [webshopRoot, licenseServerAddonRoot]) {
     env: authority.env,
   });
   manifests.push(
-    JSON.parse(
-      await readFile(join(addonRoot, "release-manifest.json"), "utf8"),
-    ),
+    await readLocalReleaseManifest(join(addonRoot, "release-manifest.json")),
   );
 }
 await writeLocalAddonRegistry(manifests);
@@ -83,6 +81,25 @@ async function ensureLocalReleaseAuthority() {
     if (typeof metadata.kid !== "string" || !metadata.kid) {
       throw new Error("Local release authority metadata is invalid.");
     }
+    const storedKeyset = JSON.parse(await readFile(publicKeysFile, "utf8"));
+    const legacyPublicKeyPem = storedKeyset[metadata.kid];
+    const keyset =
+      Object.keys(storedKeyset).length === 1 &&
+      typeof legacyPublicKeyPem === "string" &&
+      legacyPublicKeyPem
+        ? makeLocalReleaseKeyset({
+            kid: metadata.kid,
+            publicKeyPem: legacyPublicKeyPem,
+            generatedAt: metadata.createdAt,
+          })
+        : storedKeyset;
+    if (!isExpectedLocalReleaseKeyset(keyset, metadata.kid)) {
+      throw new Error("Local release authority public keyset is invalid.");
+    }
+    await writeFile(publicKeysFile, canonicalJson(keyset), {
+      encoding: "utf8",
+      mode: 0o600,
+    });
     return {
       kid: metadata.kid,
       env: authorityEnv(metadata.kid),
@@ -105,8 +122,14 @@ async function ensureLocalReleaseAuthority() {
   privateKeyMaterial.fill(0);
   await writeFile(
     publicKeysFile,
-    `${JSON.stringify({ [kid]: publicKeyPem }, null, 2)}\n`,
-    { mode: 0o600 },
+    canonicalJson(
+      makeLocalReleaseKeyset({
+        kid,
+        publicKeyPem,
+        generatedAt: new Date().toISOString(),
+      }),
+    ),
+    { encoding: "utf8", mode: 0o600 },
   );
   await writeFile(
     metadataFile,
@@ -121,11 +144,73 @@ async function ensureLocalReleaseAuthority() {
 
 function authorityEnv(kid) {
   return {
-    NR_ADDON_RELEASE_AUTHORITY_MODE: "local-dev",
+    NR_ADDON_RELEASE_AUTHORITY_MODE: "ephemeral-local-acceptance",
     NR_ADDON_RELEASE_PUBLIC_KEYS_FILE: publicKeysFile,
     NR_ADDON_RELEASE_SIGNING_KEY_FILE: privateKeyFile,
     NR_ADDON_RELEASE_SIGNING_KID: kid,
   };
+}
+
+function makeLocalReleaseKeyset({ kid, publicKeyPem, generatedAt }) {
+  if (
+    typeof generatedAt !== "string" ||
+    !Number.isFinite(Date.parse(generatedAt))
+  ) {
+    throw new Error("Local release authority metadata timestamp is invalid.");
+  }
+  return {
+    contractVersion: 1,
+    generatedAt: new Date(generatedAt).toISOString(),
+    issuer: "https://github.com/radomirradojevic/webshop",
+    keys: [
+      {
+        alg: "EdDSA",
+        kid,
+        notAfter: null,
+        notBefore: "2020-01-01T00:00:00.000Z",
+        publicKeyPem,
+        status: "active",
+      },
+    ],
+    previousKeysetSha256: null,
+    purpose: "addon_release",
+    sequence: 1,
+  };
+}
+
+function isExpectedLocalReleaseKeyset(keyset, kid) {
+  return (
+    keyset &&
+    keyset.contractVersion === 1 &&
+    keyset.issuer === "https://github.com/radomirradojevic/webshop" &&
+    keyset.purpose === "addon_release" &&
+    keyset.sequence === 1 &&
+    keyset.previousKeysetSha256 === null &&
+    Array.isArray(keyset.keys) &&
+    keyset.keys.length === 1 &&
+    keyset.keys[0]?.alg === "EdDSA" &&
+    keyset.keys[0]?.kid === kid &&
+    keyset.keys[0]?.notAfter === null &&
+    keyset.keys[0]?.notBefore === "2020-01-01T00:00:00.000Z" &&
+    typeof keyset.keys[0]?.publicKeyPem === "string" &&
+    keyset.keys[0]?.publicKeyPem.length > 0 &&
+    keyset.keys[0]?.status === "active"
+  );
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return JSON.stringify(value.map(canonicalize));
+  return JSON.stringify(canonicalize(value));
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, canonicalize(value[key])]),
+  );
 }
 
 async function writeLocalAddonRegistry(manifests) {
@@ -147,6 +232,9 @@ async function writeLocalAddonRegistry(manifests) {
     return {
       addonKey: manifest.addonKey,
       artifactSha256: manifest.artifact.sha256,
+      ...(manifest.embeddedManifestSha256
+        ? { embeddedManifestSha256: manifest.embeddedManifestSha256 }
+        : {}),
       packageName: manifest.packageName,
       packageVersion: manifest.packageVersion,
       signingKid: manifest.signingKid,
@@ -160,6 +248,49 @@ async function writeLocalAddonRegistry(manifests) {
     `${JSON.stringify({ addons: entries }, null, 2)}\n`,
     "utf8",
   );
+}
+
+async function readLocalReleaseManifest(manifestPath) {
+  const manifestBytes = await readFile(manifestPath);
+  const manifest = JSON.parse(manifestBytes.toString("utf8"));
+  if (
+    manifest &&
+    typeof manifest === "object" &&
+    typeof manifest.protected === "string" &&
+    typeof manifest.payload === "string" &&
+    typeof manifest.signature === "string"
+  ) {
+    let payload;
+    try {
+      payload = JSON.parse(
+        Buffer.from(manifest.payload, "base64url").toString("utf8"),
+      );
+    } catch {
+      throw new Error("Local V2 add-on release manifest payload is invalid.");
+    }
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      typeof payload.addonKey !== "string" ||
+      typeof payload.packageName !== "string" ||
+      typeof payload.packageVersion !== "string" ||
+      !/^[a-f0-9]{64}$/.test(payload.artifactSha256 ?? "") ||
+      typeof payload.releaseSigningKid !== "string"
+    ) {
+      throw new Error("Local V2 add-on release manifest identity is invalid.");
+    }
+    return {
+      addonKey: payload.addonKey,
+      artifact: { sha256: payload.artifactSha256 },
+      embeddedManifestSha256: createHash("sha256")
+        .update(manifestBytes)
+        .digest("hex"),
+      packageName: payload.packageName,
+      packageVersion: payload.packageVersion,
+      signingKid: payload.releaseSigningKid,
+    };
+  }
+  return manifest;
 }
 
 async function writeLocalAddonBuildInputs() {
@@ -238,7 +369,7 @@ async function ensureRootEnv() {
     if (next.includes(line)) next = next.replace(line, `${key}=${to}`);
   };
   let next = current.replace(
-    /^(?:ADDON_INSTALL_RECONCILIATION_V1|ADDON_SDK_V1|APP_URL|LICENSE_SERVER_ALLOW_LOCAL_DEV_INSTALL|LICENSE_SERVER_ENTITLEMENT_CRON_SECRET|LICENSE_SERVER_LICENSE_API_URL|LICENSE_SERVER_LICENSE_KEY|LICENSE_SERVER_PACKAGE_TOKEN|LICENSE_SERVER_SELF_HOSTED_SITE_ID|NR_ADDON_RELEASE_PUBLIC_KEYS_FILE|NR_ADDONS_REGISTRY_FILE|NR_VENDOR_ENTITLEMENT_PUBLIC_KEYS_JSON|VENDOR_SIGNED_ENTITLEMENTS_V1|WEBSHOP_ALLOW_LOCAL_DEV_INSTALL|WEBSHOP_ENTITLEMENT_CRON_SECRET|WEBSHOP_LICENSE_API_URL|WEBSHOP_LICENSE_ISSUE_CRON_SECRET|WEBSHOP_LICENSE_KEY|WEBSHOP_LICENSE_PUBLIC_KEY|WEBSHOP_PACKAGE_TOKEN|WEBSHOP_SELF_HOSTED_SITE_ID)=.*(?:\r?\n|$)/gm,
+    /^(?:ADDON_INSTALL_RECONCILIATION_V1|ADDON_SDK_V1|APP_URL|LICENSE_SERVER_ALLOW_LOCAL_DEV_INSTALL|LICENSE_SERVER_ENTITLEMENT_CRON_SECRET|LICENSE_SERVER_LICENSE_API_URL|LICENSE_SERVER_LICENSE_KEY|LICENSE_SERVER_PACKAGE_TOKEN|LICENSE_SERVER_SELF_HOSTED_SITE_ID|NR_ADDON_RELEASE_PUBLIC_KEYS_FILE|NR_ADDONS_REGISTRY_FILE|NR_VENDOR_ENTITLEMENT_PUBLIC_KEYS_JSON|VENDOR_SIGNED_ENTITLEMENTS_V1|WEBSHOP_ALLOW_LOCAL_DEV_INSTALL|WEBSHOP_BUY_LINK_SECRET|WEBSHOP_ENTITLEMENT_CRON_SECRET|WEBSHOP_LICENSE_API_URL|WEBSHOP_LICENSE_ISSUE_CRON_SECRET|WEBSHOP_LICENSE_KEY|WEBSHOP_LICENSE_PUBLIC_KEY|WEBSHOP_PACKAGE_TOKEN|WEBSHOP_SELF_HOSTED_SITE_ID)=.*(?:\r?\n|$)/gm,
     "",
   );
   const ensure = (key, value) => {
@@ -321,8 +452,16 @@ async function ensureRootEnv() {
     "WEBSHOP_BUY_URL",
     "https://vendor.nr.test/licenses/purchase-intents/accept",
   );
+  ensure("WEBSHOP_BUY_OFFER_KEY", "nr-cms-webshop-license");
+  ensure(
+    "NR_PURCHASE_INTENT_PUBLIC_KEYS_URL",
+    "https://license.nr.test/.well-known/nr-purchase-intent-keys.json",
+  );
+  ensure(
+    "WEBSHOP_PURCHASE_INTENT_SESSION_SECRET",
+    randomBytes(32).toString("base64url"),
+  );
   ensure("LICENSE_SERVER_BUY_URL", "https://www.nrcms.com/license-server");
-  ensure("WEBSHOP_BUY_LINK_SECRET", randomBytes(32).toString("base64url"));
   ensure(
     "LICENSE_SERVER_BUY_LINK_SECRET",
     randomBytes(32).toString("base64url"),
@@ -356,18 +495,24 @@ async function installLocalAddonPackage(addonRoot, packageName) {
   }
 
   await rm(targetRoot, { force: true, recursive: true });
+  const optionalEntries = new Set([
+    "migrations",
+    "release-dependency-lock.json",
+  ]);
   for (const entry of [
     "dist",
     "migrations",
     "migrations.json",
     "package.json",
     "provenance.json",
+    "release-dependency-lock.json",
     "release-manifest.json",
     "sbom.json",
     join("tests", "README.md"),
   ]) {
     const source = resolve(addonRoot, entry);
     if (!existsSync(source)) {
+      if (optionalEntries.has(entry)) continue;
       throw new Error(`${packageName} release is missing ${entry}.`);
     }
     const target = resolve(targetRoot, entry);
