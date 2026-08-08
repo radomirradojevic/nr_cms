@@ -57,6 +57,9 @@ let cachedVendorEnvelope = null;
 let cachedVendorKeys = new Map();
 let installationThumbprint = "installation-local-a";
 const alerts = [];
+const LOCAL_API_AUTH_VERSION = "2";
+const LOCAL_API_KEY_ID = "local-central-hmac-v1";
+const LOCAL_API_ENVIRONMENT = "development";
 
 function required(name) {
   const value = process.env[name];
@@ -153,9 +156,12 @@ function verifyEnvelope(envelope, keySet) {
 }
 
 function centralAuthHeaders(method, path, raw, clientId, idempotencyKey) {
-  const timestamp = String(Date.now());
+  const timestamp = new Date().toISOString();
   const nonce = randomUUID();
   const canonical = canonicalizeHmacV2Request({
+    authVersion: LOCAL_API_AUTH_VERSION,
+    environment: LOCAL_API_ENVIRONMENT,
+    keyId: LOCAL_API_KEY_ID,
     method,
     pathAndQuery: path,
     timestamp,
@@ -166,26 +172,49 @@ function centralAuthHeaders(method, path, raw, clientId, idempotencyKey) {
   });
   return {
     "content-type": "application/json",
-    "x-nr-client": clientId,
-    "x-nr-timestamp": timestamp,
-    "x-nr-nonce": nonce,
-    "x-nr-signature": hmacV2Signature(
+    "x-nrls-auth-version": LOCAL_API_AUTH_VERSION,
+    "x-nrls-client-id": clientId,
+    "x-nrls-environment": LOCAL_API_ENVIRONMENT,
+    "x-nrls-key-id": LOCAL_API_KEY_ID,
+    "x-nrls-nonce": nonce,
+    "x-nrls-signature": hmacV2Signature(
       required("NR_LOCAL_CENTRAL_HMAC"),
       canonical,
     ),
+    "x-nrls-timestamp": timestamp,
     ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
   };
 }
 
 async function authenticateCentral(request, pathname, raw) {
-  const clientId = String(request.headers["x-nr-client"] ?? "");
-  const timestamp = String(request.headers["x-nr-timestamp"] ?? "");
-  const nonce = String(request.headers["x-nr-nonce"] ?? "");
-  const signature = String(request.headers["x-nr-signature"] ?? "");
+  const authVersion = String(request.headers["x-nrls-auth-version"] ?? "");
+  const clientId = String(request.headers["x-nrls-client-id"] ?? "");
+  const environment = String(request.headers["x-nrls-environment"] ?? "");
+  const keyId = String(request.headers["x-nrls-key-id"] ?? "");
+  const timestamp = String(request.headers["x-nrls-timestamp"] ?? "");
+  const nonce = String(request.headers["x-nrls-nonce"] ?? "");
+  const signature = String(request.headers["x-nrls-signature"] ?? "");
   const idempotencyKey = String(request.headers["idempotency-key"] ?? "");
-  if (!clientId || !timestamp || !nonce || !signature) return null;
-  if (Math.abs(Date.now() - Number(timestamp)) > 300_000) return null;
+  if (
+    authVersion !== LOCAL_API_AUTH_VERSION ||
+    !clientId ||
+    environment !== LOCAL_API_ENVIRONMENT ||
+    keyId !== LOCAL_API_KEY_ID ||
+    !timestamp ||
+    !nonce ||
+    !signature
+  )
+    return null;
+  const requestTime = new Date(timestamp).getTime();
+  if (
+    !Number.isFinite(requestTime) ||
+    Math.abs(Date.now() - requestTime) > 300_000
+  )
+    return null;
   const canonical = canonicalizeHmacV2Request({
+    authVersion,
+    environment,
+    keyId,
     method: request.method,
     pathAndQuery: pathname,
     timestamp,

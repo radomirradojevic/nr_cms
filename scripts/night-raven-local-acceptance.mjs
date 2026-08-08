@@ -1,21 +1,27 @@
 import assert from "node:assert/strict";
 import {
   createHash,
-  createHmac,
   generateKeyPairSync,
   randomBytes,
   randomUUID,
 } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
+import { createRequire } from "node:module";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
 
 import { config as loadEnv } from "dotenv";
 import pg from "pg";
+import "tsx/cjs";
 
 import { assertSafeTestDatabaseUrl } from "./database-test-safety.mjs";
+
+const requireTs = createRequire(import.meta.url);
+const { canonicalizeHmacV2Request, hmacV2Signature } = requireTs(
+  "../.private/license-server/src/lib/vendor-license-contract-v1.ts",
+);
 
 // This runner exercises the Night Raven contracts over real loopback processes
 // and PostgreSQL databases. It is deliberately not a deployable production
@@ -24,6 +30,9 @@ const { Client, Pool } = pg;
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1"]);
 const DATABASE_PREFIX = "nr_accept_";
 const SCHEMA_VERSION = 1;
+const LOCAL_API_AUTH_VERSION = "2";
+const LOCAL_API_KEY_ID = "local-central-hmac-v1";
+const LOCAL_API_ENVIRONMENT = "development";
 
 function fail(message) {
   throw new Error(`[night-raven-local] ${message}`);
@@ -44,10 +53,6 @@ function safeFailureReason(error) {
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
-}
-
-function hmac(secret, value) {
-  return createHmac("sha256", secret).update(value).digest("base64url");
 }
 
 function stable(value) {
@@ -365,26 +370,31 @@ export async function runLocalAcceptance({
   ) => {
     httpRequests += 1;
     const raw = JSON.stringify(value);
-    const timestamp = String(Date.now());
+    const timestamp = new Date().toISOString();
     const nonce = randomUUID();
-    const canonical = [
-      "NRLS-HMAC-V2",
-      "POST",
-      path,
-      timestamp,
-      nonce,
+    const canonical = canonicalizeHmacV2Request({
+      authVersion: LOCAL_API_AUTH_VERSION,
+      body: raw,
       clientId,
-      idempotencyKey ?? "",
-      sha256(raw),
-    ].join("\n");
+      environment: LOCAL_API_ENVIRONMENT,
+      idempotencyKey,
+      keyId: LOCAL_API_KEY_ID,
+      method: "POST",
+      nonce,
+      pathAndQuery: path,
+      timestamp,
+    });
     const response = await fetch(`${endpoints.central}${path}`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-nr-client": clientId,
-        "x-nr-timestamp": timestamp,
-        "x-nr-nonce": nonce,
-        "x-nr-signature": hmac(centralHmac, canonical),
+        "x-nrls-auth-version": LOCAL_API_AUTH_VERSION,
+        "x-nrls-client-id": clientId,
+        "x-nrls-environment": LOCAL_API_ENVIRONMENT,
+        "x-nrls-key-id": LOCAL_API_KEY_ID,
+        "x-nrls-nonce": nonce,
+        "x-nrls-signature": hmacV2Signature(centralHmac, canonical),
+        "x-nrls-timestamp": timestamp,
         ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
       },
       body: raw,
