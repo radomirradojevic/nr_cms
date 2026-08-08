@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   WEBSHOP_CANONICAL_TABLES,
+  WEBSHOP_CURRENT_TABLES,
   loadWebshopSchemaManifest,
 } from "../scripts/webshop-schema-contract.mjs";
 
@@ -14,6 +15,7 @@ test("WebshopSchemaPrivilegeManifestV1 locks the exact 45 public relocation tabl
   assert.equal(manifest.relocatedBusinessTables.length, 45);
   assert.equal(new Set(manifest.relocatedBusinessTables).size, 45);
   assert.equal(WEBSHOP_CANONICAL_TABLES.length, 47);
+  assert.equal(WEBSHOP_CURRENT_TABLES.length, 49);
   assert.equal(manifest.relocatedBusinessTables.includes("webshop_addon_entitlements"), false);
   assert.match(manifest.legacyPublicSchemaFingerprintSha256, /^[a-f0-9]{64}$/);
   assert.match(manifest.postconditionSchemaFingerprintSha256, /^[a-f0-9]{64}$/);
@@ -34,6 +36,7 @@ test("canonical package migration is payload-backed and fingerprint-pinned", (t)
   assert.deepEqual(migrations.map((entry) => entry.id), [
     "0001_webshop_core.sql",
     "0002_webshop_license_server_hmac_kid.sql",
+    "0003_vendor_webshop_license_catalog.sql",
   ]);
   for (const descriptor of migrations) {
     assert.deepEqual(Object.keys(descriptor).sort(), [
@@ -52,10 +55,12 @@ test("canonical package migration is payload-backed and fingerprint-pinned", (t)
     assert.equal(descriptor.requiresBackup, true);
     assert.equal(descriptor.rollbackPolicy, "expand_compatible");
   }
-  const descriptor = migrations.at(-1);
+  const descriptor = migrations.find(
+    (entry) => entry.id === "0002_webshop_license_server_hmac_kid.sql",
+  );
   assert.equal(
-    descriptor.postconditionSchemaFingerprintSha256,
+    descriptor?.postconditionSchemaFingerprintSha256,
     manifest.postconditionSchemaFingerprintSha256,
   );
-  assert.equal(descriptor.schemaVersion, 2);
+  assert.equal(migrations.at(-1)?.schemaVersion, 3);
 });

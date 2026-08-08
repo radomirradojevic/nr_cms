@@ -72,3 +72,11 @@ export const WEBSHOP_CANONICAL_TABLES = Object.freeze([
   "webshop_settings",
   ...loadWebshopSchemaManifest().relocatedBusinessTables,
 ]);
+
+/** Post-baseline package schema. The 47-table V1 manifest remains the only
+ * legal empty/legacy cutover boundary; later signed migrations extend it. */
+export const WEBSHOP_CURRENT_TABLES = Object.freeze([
+  ...WEBSHOP_CANONICAL_TABLES,
+  "webshop_license_product_catalog_bindings",
+  "webshop_license_server_catalog_revisions",
+]);

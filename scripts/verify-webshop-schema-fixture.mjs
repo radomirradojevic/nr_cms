@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 
 import {
-  WEBSHOP_CANONICAL_TABLES,
+  WEBSHOP_CURRENT_TABLES,
   canonicalJson,
   loadWebshopSchemaManifest,
   sha256,
@@ -222,8 +222,8 @@ try {
   if (sharedReceipt.fingerprint !== receipt.fingerprint) {
     fail("shared WebshopSchemaFingerprintV1 projection diverged from baseline fixture.");
   }
-  const expectedTables = [...WEBSHOP_CANONICAL_TABLES].sort();
-  if (JSON.stringify(receipt.tableNames) !== JSON.stringify(expectedTables)) fail("baseline did not create the exact canonical 47-table Webshop schema.");
+  const expectedTables = [...WEBSHOP_CURRENT_TABLES].sort();
+  if (JSON.stringify(receipt.tableNames) !== JSON.stringify(expectedTables)) fail("package migrations did not create the exact current Webshop schema.");
   if (receipt.publicLegacyTables.length) fail("baseline left a legacy Webshop business table in public.");
   if (!receipt.crossSchemaFks.some((row) => ["content", "files", "galleries"].includes(row.destination_table))) {
     fail("baseline does not contain required schema-qualified host foreign keys.");
