@@ -9,9 +9,12 @@ const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
  */
 export function isWebshopPurchaseIntentAcceptanceRequest(request: Request) {
   const url = new URL(request.url);
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
   return (
     request.method === "POST" &&
-    url.pathname === "/licenses/purchase-intents/accept"
+    url.pathname === "/licenses/purchase-intents/accept" &&
+    (contentType === "application/x-www-form-urlencoded" ||
+      contentType === "application/x-www-form-urlencoded; charset=utf-8")
   );
 }
 

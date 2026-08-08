@@ -659,6 +659,13 @@
       "when": 1784678400000,
       "tag": "0093_addon_deployment_mutation_terminal_receipts",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1784764800000,
+      "tag": "0094_webshop_purchase_intent_domain_proofs",
+      "breakpoints": true
     }
   ]
 }

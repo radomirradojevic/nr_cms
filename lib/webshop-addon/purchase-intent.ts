@@ -1,0 +1,208 @@
+import "server-only";
+
+import { eq } from "drizzle-orm";
+
+import { db } from "@/db";
+import { webshopPurchaseIntentDomainProofs } from "@/db/schema";
+import { getGlobalSettings } from "@/data/global-settings";
+import { canonicalizeLicenseDomain } from "@/lib/license-domain";
+import { getMasterLicenseServerUrl } from "@/lib/master-license-server";
+import {
+  getOrCreateVendorAddonInstallationIdentity,
+  signVendorAddonActivationPayload,
+} from "@/lib/vendor-addon-installation";
+import {
+  configuredWebshopVendorAudience,
+  parseWebshopBuyUrl,
+} from "@/lib/webshop-addon/buy-url-contract";
+import {
+  isExplicitlyAllowedLoopbackHttpUrl,
+  safeFetch,
+} from "@/lib/security/outbound-url";
+
+const PURCHASE_INTENT_ENDPOINT = "/api/addons/purchase-intents";
+const OFFER_KEY = "nr-cms-webshop-license";
+
+type PurchaseChallenge = {
+  challengeId: string;
+  contractVersion: 1;
+  domainVerification: {
+    method: "development_allowlist_exemption" | "https_well_known";
+    path?: string;
+    required: boolean;
+  };
+  expiresAt: string;
+  proofPayload: string;
+};
+
+type PurchaseComplete = {
+  contractVersion: 1;
+  expiresAt: string;
+  purchaseIntent: string;
+  purchaseIntentId: string;
+};
+
+export type WebshopPurchaseIntentHandoff = {
+  action: string;
+  purchaseIntent: string;
+};
+
+/**
+ * Creates one short-lived master-signed bearer only on the server. Browser
+ * code receives it solely as the hidden field of a cross-origin POST form.
+ */
+export async function createWebshopPurchaseIntentHandoff(): Promise<WebshopPurchaseIntentHandoff> {
+  const [settings, configured] = await Promise.all([
+    getGlobalSettings(),
+    Promise.resolve(parseWebshopBuyUrl(requireBuyUrl())),
+  ]);
+  const siteUrl =
+    settings.publicSiteUrl ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+    process.env.VERCEL_URL;
+  if (!siteUrl) throw new Error("A public CMS URL is required to purchase the Webshop license.");
+  const canonicalDomain = canonicalizeLicenseDomain(siteUrl);
+  const identity = await getOrCreateVendorAddonInstallationIdentity({
+    canonicalDomain,
+    deploymentMode: currentDeploymentMode(),
+  });
+  const masterUrl = getMasterLicenseServerUrl();
+  const localHttp = isExplicitlyAllowedLoopbackHttpUrl(masterUrl);
+  const challenge = await postMaster<PurchaseChallenge>(masterUrl, {
+    action: "challenge",
+    addonKey: "webshop",
+    canonicalDomain,
+    contractVersion: 1,
+    installationFingerprintScheme: identity.installationFingerprintScheme,
+    installationId: identity.installationId,
+    installationKeyFingerprint: identity.installationKeyFingerprint,
+    installationPublicKey: identity.installationPublicKey,
+    offerKey: process.env.WEBSHOP_BUY_OFFER_KEY?.trim() || OFFER_KEY,
+    vendorAudience: configured.vendorAudience,
+  }, localHttp, "Webshop purchase challenge");
+
+  if (
+    challenge.contractVersion !== 1 ||
+    !challenge.challengeId ||
+    !challenge.proofPayload ||
+    !challenge.expiresAt ||
+    (challenge.domainVerification.method !== "https_well_known" &&
+      challenge.domainVerification.method !== "development_allowlist_exemption")
+  ) {
+    throw new Error("The master purchase challenge response is invalid.");
+  }
+  const proofSignature = signVendorAddonActivationPayload(
+    identity,
+    Buffer.from(challenge.proofPayload, "base64url").toString("utf8"),
+  );
+  const expiresAt = new Date(challenge.expiresAt);
+  if (!Number.isFinite(expiresAt.getTime()) || expiresAt <= new Date()) {
+    throw new Error("The master purchase challenge is already expired.");
+  }
+
+  // The master fetches this durable row only for production HTTPS proof. It
+  // stores the PoP, never the eventual purchase JWS.
+  await db
+    .insert(webshopPurchaseIntentDomainProofs)
+    .values({
+      canonicalDomain,
+      challengeId: challenge.challengeId,
+      expiresAt,
+      installationFingerprintScheme: identity.installationFingerprintScheme,
+      installationId: identity.installationId,
+      installationKeyFingerprint: identity.installationKeyFingerprint,
+      proofPayload: challenge.proofPayload,
+      proofSignature,
+    })
+    .onConflictDoUpdate({
+      set: {
+        canonicalDomain,
+        expiresAt,
+        installationFingerprintScheme: identity.installationFingerprintScheme,
+        installationId: identity.installationId,
+        installationKeyFingerprint: identity.installationKeyFingerprint,
+        proofPayload: challenge.proofPayload,
+        proofSignature,
+      },
+      target: webshopPurchaseIntentDomainProofs.challengeId,
+    });
+
+  const complete = await postMaster<PurchaseComplete>(masterUrl, {
+    action: "complete",
+    challengeId: challenge.challengeId,
+    contractVersion: 1,
+    installationFingerprintScheme: identity.installationFingerprintScheme,
+    installationId: identity.installationId,
+    installationKeyFingerprint: identity.installationKeyFingerprint,
+    proofSignature,
+  }, localHttp, "Webshop purchase completion");
+  if (
+    complete.contractVersion !== 1 ||
+    !isCompactJws(complete.purchaseIntent) ||
+    !complete.purchaseIntentId
+  ) {
+    throw new Error("The master purchase intent response is invalid.");
+  }
+  await db
+    .update(webshopPurchaseIntentDomainProofs)
+    .set({ completedAt: new Date() })
+    .where(eq(webshopPurchaseIntentDomainProofs.challengeId, challenge.challengeId));
+  return { action: configured.url.toString(), purchaseIntent: complete.purchaseIntent };
+}
+
+export async function readWebshopPurchaseIntentDomainProof(challengeId: string) {
+  const rows = await db
+    .select()
+    .from(webshopPurchaseIntentDomainProofs)
+    .where(eq(webshopPurchaseIntentDomainProofs.challengeId, challengeId))
+    .limit(1);
+  const proof = rows[0];
+  if (!proof || proof.expiresAt <= new Date()) return null;
+  return proof;
+}
+
+async function postMaster<T>(
+  masterUrl: string,
+  body: Record<string, unknown>,
+  localHttp: boolean,
+  purpose: string,
+): Promise<T> {
+  const response = await safeFetch(`${masterUrl}${PURCHASE_INTENT_ENDPOINT}`, {
+    allowFirstParty: true,
+    allowLocalHttp: localHttp,
+    allowSelfHosted: true,
+    body: JSON.stringify(body),
+    headers: { "content-type": "application/json" },
+    method: "POST",
+    purpose,
+    timeoutMs: 8_000,
+  });
+  if (!response.ok) {
+    throw new Error(`${purpose} was rejected. Please retry from this activation screen.`);
+  }
+  return response.json() as Promise<T>;
+}
+
+function requireBuyUrl() {
+  const value = process.env.WEBSHOP_BUY_URL?.trim();
+  if (!value) throw new Error("WEBSHOP_BUY_URL must be configured.");
+  return value;
+}
+
+function currentDeploymentMode(): "vercel" | "self_hosted" | "other" {
+  const configured = process.env.WEBSHOP_DEPLOYMENT_MODE?.trim().toLowerCase();
+  if (configured === "vercel") return "vercel";
+  if (configured === "self_hosted") return "self_hosted";
+  return "other";
+}
+
+function isCompactJws(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 16_384 &&
+    /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)
+  );
+}
+
+export { configuredWebshopVendorAudience };

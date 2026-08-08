@@ -71,7 +71,14 @@ test("CMS core has no direct Webshop business-table purge path", () => {
     ...schemaSource.matchAll(/pgTable\(\s*"(webshop_[^"]+)"/g),
   ]
     .map((match) => match[1])
-    .filter((table) => table !== "webshop_addon_entitlements")
+    // These two are CMS control-plane ledgers, not Webshop package-owned
+    // business tables. The purchase proof is served by the core before the
+    // vendor package accepts its JWS.
+    .filter(
+      (table) =>
+        table !== "webshop_addon_entitlements" &&
+        table !== "webshop_purchase_intent_domain_proofs",
+    )
     .sort();
   assert.deepEqual(schemaTables, []);
   assert.doesNotMatch(purgeSource, /TRUNCATE TABLE|webshop_[a-z0-9_]+/);

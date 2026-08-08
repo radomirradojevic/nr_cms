@@ -26,6 +26,7 @@ export function WebshopLicenseActivation({
   action,
   buyLabel,
   buyUrl,
+  purchaseIntentHandoff,
   description,
   inputId = "webshop-license-key",
   submitLabel,
@@ -33,7 +34,9 @@ export function WebshopLicenseActivation({
 }: {
   action: ActivationAction;
   buyLabel?: string;
+  /** Legacy non-Webshop activation may still use a normal informational link. */
   buyUrl?: string | null;
+  purchaseIntentHandoff?: { action: string; purchaseIntent: string } | null;
   description?: string;
   inputId?: string;
   submitLabel?: string;
@@ -51,7 +54,7 @@ export function WebshopLicenseActivation({
   const resolvedTitle = title ?? t("addons.webshop.activationTitle");
 
   return (
-    <form action={formAction} className="rounded-lg border bg-background p-5">
+    <div className="rounded-lg border bg-background p-5">
       <div className="space-y-5">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted/40">
@@ -65,45 +68,62 @@ export function WebshopLicenseActivation({
           </div>
         </div>
 
-        {buyUrl ? (
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline">
-              <a href={buyUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4" />
-                {resolvedBuyLabel}
-              </a>
-            </Button>
-          </div>
-        ) : null}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor={inputId}>{t("addons.common.licenseKey")}</Label>
-            <Input
-              id={inputId}
-              name="licenseKey"
-              placeholder="NRLS-..."
-              required
-            />
-          </div>
-        </div>
-
-        {state.status !== "idle" && state.message ? (
-          <p
-            className={
-              state.status === "success"
-                ? "text-sm text-emerald-600"
-                : "text-sm text-destructive"
-            }
+        {purchaseIntentHandoff ? (
+          <form
+            action={purchaseIntentHandoff.action}
+            className="flex flex-wrap gap-2"
+            encType="application/x-www-form-urlencoded"
+            method="post"
           >
-            {state.message}
-          </p>
+            <input
+              name="purchaseIntent"
+              type="hidden"
+              value={purchaseIntentHandoff.purchaseIntent}
+            />
+            <Button type="submit" variant="outline">
+              <ExternalLink className="h-4 w-4" />
+              {resolvedBuyLabel}
+            </Button>
+          </form>
+        ) : buyUrl ? (
+          <Button asChild variant="outline">
+            <a href={buyUrl} rel="noopener noreferrer" target="_blank">
+              <ExternalLink className="h-4 w-4" />
+              {resolvedBuyLabel}
+            </a>
+          </Button>
         ) : null}
 
-        <Button disabled={pending} type="submit">
-          {pending ? t("addons.common.activating") : resolvedSubmitLabel}
-        </Button>
+        <form action={formAction} className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor={inputId}>{t("addons.common.licenseKey")}</Label>
+              <Input
+                id={inputId}
+                name="licenseKey"
+                placeholder="NRLS-..."
+                required
+              />
+            </div>
+          </div>
+
+          {state.status !== "idle" && state.message ? (
+            <p
+              className={
+                state.status === "success"
+                  ? "text-sm text-emerald-600"
+                  : "text-sm text-destructive"
+              }
+            >
+              {state.message}
+            </p>
+          ) : null}
+
+          <Button disabled={pending} type="submit">
+            {pending ? t("addons.common.activating") : resolvedSubmitLabel}
+          </Button>
+        </form>
       </div>
-    </form>
+    </div>
   );
 }

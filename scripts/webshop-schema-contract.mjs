@@ -79,4 +79,8 @@ export const WEBSHOP_CURRENT_TABLES = Object.freeze([
   ...WEBSHOP_CANONICAL_TABLES,
   "webshop_license_product_catalog_bindings",
   "webshop_license_server_catalog_revisions",
+  "webshop_purchase_intent_keysets",
+  "webshop_purchase_intent_operations",
+  "webshop_purchase_intent_sessions",
+  "webshop_purchase_intents",
 ]);

@@ -590,6 +590,38 @@ export const vendorAddonInstallationIdentities = pgTable(
   ],
 );
 
+/**
+ * Short-lived, server-only material used to answer the master HTTPS
+ * well-known domain-control fetch while a Webshop purchase challenge is being
+ * completed. It deliberately never stores the resulting purchase JWS.
+ */
+export const webshopPurchaseIntentDomainProofs = pgTable(
+  "webshop_purchase_intent_domain_proofs",
+  {
+    challengeId: uuid("challenge_id").primaryKey(),
+    canonicalDomain: text("canonical_domain").notNull(),
+    installationId: uuid("installation_id").notNull(),
+    installationKeyFingerprint: text("installation_key_fingerprint").notNull(),
+    installationFingerprintScheme: text("installation_fingerprint_scheme").notNull(),
+    proofPayload: text("proof_payload").notNull(),
+    proofSignature: text("proof_signature").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("webshop_purchase_intent_domain_proofs_expiry_idx").on(
+      table.expiresAt,
+    ),
+    check(
+      "webshop_purchase_intent_domain_proofs_fingerprint_scheme_check",
+      sql`${table.installationFingerprintScheme} = 'ed25519_spki_der_sha256_v1'`,
+    ),
+  ],
+);
+
 export const cmsAddonInstallations = pgTable(
   "cms_addon_installations",
   {
