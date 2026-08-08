@@ -1,23 +1,18 @@
-import "dotenv/config";
-
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import process from "node:process";
 
-import { resolveTestDatabaseUrl } from "./database-test-safety.mjs";
+const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 const child = spawn(
   process.execPath,
   [
-    "node_modules/tsx/dist/cli.mjs",
-    "--test",
-    "tests/payment-state-v2.integration.test.mjs",
+    resolve(repositoryRoot, "scripts", "verify-webshop-schema-fixture.mjs"),
+    "--run-payment-test",
   ],
   {
-    env: {
-      ...process.env,
-      DATABASE_URL: resolveTestDatabaseUrl(),
-      NODE_ENV: "test",
-    },
+    cwd: repositoryRoot,
     stdio: "inherit",
   },
 );
