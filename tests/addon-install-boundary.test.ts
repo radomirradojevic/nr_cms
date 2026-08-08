@@ -84,7 +84,7 @@ test("registry generator verifies signed package identity and artifact bytes", (
       capabilities: [
         "webshop.api.v1", "webshop.dashboard.v1", "webshop.download.v1",
         "webshop.file-authorization.v1", "webshop.form-submission-visibility.v1",
-        "webshop.fulfillment-job.v1", "webshop.paddle-webhook.v1",
+        "webshop.fulfillment-job.v1", "webshop.license-delivery.v1", "webshop.paddle-webhook.v1", "webshop.post-issue-delivery-job.v1",
         "webshop.purchase-intent-accept.v1", "webshop.storefront.v1",
       ],
       entrypoints: { server: "./dist/server.js" },

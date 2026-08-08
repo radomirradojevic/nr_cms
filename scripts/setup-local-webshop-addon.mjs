@@ -440,6 +440,21 @@ async function ensureRootEnv() {
     "WEBSHOP_LICENSE_SERVER_SECRET_KEY",
     randomBytes(32).toString("base64url"),
   );
+  ensure(
+    "WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY",
+    randomBytes(32).toString("base64url"),
+  );
+  ensure(
+    "WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KID",
+    "webshop-issued-license-kek-local-v1",
+  );
+  ensure("WEBSHOP_ISSUED_LICENSE_KEY_DECRYPTION_KEYS_JSON", "{}");
+  ensure(
+    "WEBSHOP_DELIVERY_WORKER_SECRET",
+    randomBytes(32).toString("base64url"),
+  );
+  ensure("WEBSHOP_POST_ISSUE_LICENSE_STATUS_MAX_AGE_SECONDS", "60");
+  ensure("WEBSHOP_DELIVERY_EMAIL_PROVIDER", "fixture");
   ensure("LICENSE_SERVER_SECRET_KEY", randomBytes(32).toString("base64url"));
   ensure("WEBSHOP_PAYMENTS_MODE", "test");
   ensure("WEBSHOP_COOKIE_SECURE", "false");

@@ -167,10 +167,12 @@ export function validateRuntimeEnv(env = process.env) {
     "managed_redeploy",
   ]);
   assertOptionalEnum(env, "WEBSHOP_PAYMENTS_MODE", ["live", "test"]);
+  assertOptionalEnum(env, "WEBSHOP_DELIVERY_EMAIL_PROVIDER", ["fixture"]);
 
   for (const key of CORE_SECRET_KEYS) assertSecret(env, key);
   if (webshopEnabled) {
     for (const key of WEBSHOP_SECRET_KEYS) assertSecret(env, key);
+    assertOptionalPostIssueDeliveryContract(env);
   }
   if (licenseServerEnabled) {
     for (const key of LICENSE_SERVER_SECRET_KEYS) assertSecret(env, key);
@@ -202,6 +204,33 @@ export function validateRuntimeEnv(env = process.env) {
     licenseServerEnabled,
     webshopEnabled,
   };
+}
+
+function assertOptionalPostIssueDeliveryContract(env) {
+  const key = env.WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY?.trim();
+  const kid = env.WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KID?.trim();
+  if (Boolean(key) !== Boolean(kid)) {
+    fail("WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY and _KID must be configured together");
+  }
+  if (key) {
+    if (Buffer.from(key, "base64url").length !== 32) {
+      fail("WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY must be a 32-byte base64url value");
+    }
+    if (key === env.WEBSHOP_LICENSE_SERVER_SECRET_KEY?.trim()) {
+      fail("WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY must differ from WEBSHOP_LICENSE_SERVER_SECRET_KEY");
+    }
+  }
+  if (kid && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(kid)) {
+    fail("WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KID is invalid");
+  }
+  const maxAge = env.WEBSHOP_POST_ISSUE_LICENSE_STATUS_MAX_AGE_SECONDS?.trim();
+  if (maxAge && (!/^\d+$/.test(maxAge) || Number(maxAge) < 15 || Number(maxAge) > 300)) {
+    fail("WEBSHOP_POST_ISSUE_LICENSE_STATUS_MAX_AGE_SECONDS must be 15..300");
+  }
+  const workerSecret = env.WEBSHOP_DELIVERY_WORKER_SECRET?.trim();
+  if (workerSecret && workerSecret.length < 32) {
+    fail("WEBSHOP_DELIVERY_WORKER_SECRET must contain at least 32 characters");
+  }
 }
 
 function assertLocalEnvContractParity(deploymentProfile) {

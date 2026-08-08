@@ -124,6 +124,10 @@ export type WebshopAddon = {
     webshopLicenseFulfillment?(input: { limit: number; policy: "settle_existing_obligations" }): Promise<{
       claimed: number; deadLettered: number; retried: number; succeeded: number;
     }>;
+    webshopPostIssueDelivery?(input: { limit: number; policy: "settle_existing_obligations" }): Promise<{
+      notifications: { claimed: number; pending: number; sent: number };
+      reconciliation: { applied: number; claimed: number; compensation: number; pending: number };
+    }>;
   };
 };
 

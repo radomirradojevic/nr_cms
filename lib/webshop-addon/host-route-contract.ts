@@ -7,9 +7,11 @@ export const HostAddonRouteBindingsV1 = {
   download: { id: "webshop.download.v1", kind: "api", path: ["slug", "downloads", "*"] },
   paddleWebhook: { id: "webshop.paddle-webhook.v1", kind: "api", path: ["api", "webhooks", "paddle"] },
   purchaseIntentAccept: { id: "webshop.purchase-intent-accept.v1", kind: "api", path: ["licenses", "purchase-intents", "accept"] },
+  licenseDelivery: { id: "webshop.license-delivery.v1", kind: "api", path: ["licenses", "delivery", "token"] },
   storefront: { id: "webshop.storefront.v1", kind: "render", path: ["slug", "*"] },
   dashboard: { id: "webshop.dashboard.v1", kind: "render", path: ["dashboard", "webshop", "*"] },
   fulfillmentJob: { id: "webshop.fulfillment-job.v1", kind: "job", path: ["cron", "webshop-license-issues"] },
+  postIssueDeliveryJob: { id: "webshop.post-issue-delivery-job.v1", kind: "job", path: ["cron", "webshop-post-issue-delivery"] },
   fileAuthorization: { id: "webshop.file-authorization.v1", kind: "authorization", path: ["api", "files", "id"] },
   formSubmissionVisibility: { id: "webshop.form-submission-visibility.v1", kind: "authorization", path: ["forms", "submissions"] },
 } as const;
