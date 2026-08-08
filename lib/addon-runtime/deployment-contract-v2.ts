@@ -32,7 +32,7 @@ export const noMutationTerminalEvidenceV1Schema = z.object({
   observedActiveReleaseId: uuid.nullable(), observedServicePointerReleaseId: uuid.nullable(), lastCompletedWorkerPhase: z.enum(["accepted", "source_exported", "root_verified", "cache_verified", "offline_installed", "built", "db_preflight"]),
 }).strict();
 
-export const deploymentResultV2Schema = z.object({
+const deploymentResultBaseV2Schema = z.object({
   version: z.literal(2), resultId: uuid, operationId: uuid, installationId: uuid, installationDeploymentEpoch: z.string().regex(/^[1-9][0-9]{0,18}$/),
   deploymentIntentKey: z.string().min(1), generation: z.number().int().positive(), operationKey: z.string().min(1), workerJobId: uuid,
   targetProfile: z.enum(["vendor", "client"]), environment: z.enum(["development", "staging", "production"]), status: z.literal("failed"), finalPhase: z.literal("rejected_before_switch"), runtimeStatus: z.literal("not_installed"),
@@ -43,7 +43,26 @@ export const deploymentResultV2Schema = z.object({
   supportedAddonSchemaVersionMin: z.number().int().min(1), supportedAddonSchemaVersionMax: z.number().int().min(1), migrationBundleHash: hash, supportedLicenseEditions: z.tuple([z.literal("standard")]), releaseChannel: z.literal("stable"),
   entitlementSnapshotHash: hashRef, entitlementLifecycleVersion: z.number().int().min(1), entitlementEnvelopeExpiresAt: timestamp,
   activeReleaseId: uuid.nullable(), observedServicePointerReleaseId: uuid.nullable(), cmsCommitSha: z.string().regex(/^[a-f0-9]{40}$/), observedHostCapabilityDescriptorHash: hashRef,
-  buildId: z.null(), migrationLedgerHash: z.null(), terminalEvidenceKind: z.literal("no_mutation_receipt"), terminalEvidenceHash: hashRef,
-  noMutationEvidence: noMutationTerminalEvidenceV1Schema, errorClass: z.enum(["retryable", "permanent", "incident"]), errorCode: z.string().regex(/^[a-z0-9_]+$/), occurredAt: timestamp,
+  terminalEvidenceHash: hashRef, occurredAt: timestamp,
 }).strict();
+
+/** P10 terminal result contract.  The callback only accepts a terminal receipt
+ * written by the DB-phase owner before the callback is enqueued. */
+export const deploymentResultV2Schema = z.discriminatedUnion("terminalEvidenceKind", [
+  deploymentResultBaseV2Schema.extend({
+    status: z.literal("failed"), finalPhase: z.literal("rejected_before_switch"), runtimeStatus: z.literal("not_installed"),
+    buildId: z.null(), migrationLedgerHash: z.null(), terminalEvidenceKind: z.literal("no_mutation_receipt"), noMutationEvidence: noMutationTerminalEvidenceV1Schema,
+    errorClass: z.enum(["retryable", "permanent", "incident"]), errorCode: z.string().regex(/^[a-z0-9_]+$/), activeReleaseId: z.null(), observedServicePointerReleaseId: z.null(),
+  }),
+  deploymentResultBaseV2Schema.extend({
+    status: z.literal("succeeded"), finalPhase: z.literal("ready"), runtimeStatus: z.literal("ready"),
+    buildId: z.string().min(1).max(200), migrationLedgerHash: hashRef, terminalEvidenceKind: z.literal("reconciliation_receipt"), noMutationEvidence: z.null(),
+    errorClass: z.null(), errorCode: z.null(), activeReleaseId: uuid, observedServicePointerReleaseId: uuid,
+  }),
+  deploymentResultBaseV2Schema.extend({
+    status: z.literal("failed"), finalPhase: z.enum(["rolled_back", "maintenance_required", "rollback_failed"]), runtimeStatus: z.enum(["ready", "maintenance", "unavailable"]),
+    buildId: z.string().min(1).max(200).nullable(), migrationLedgerHash: hashRef, terminalEvidenceKind: z.literal("recovery_receipt"), noMutationEvidence: z.null(),
+    errorClass: z.enum(["retryable", "permanent", "incident"]), errorCode: z.string().regex(/^[a-z0-9_]+$/), activeReleaseId: uuid.nullable(), observedServicePointerReleaseId: uuid.nullable(),
+  }),
+]);
 export type DeploymentResultV2 = z.infer<typeof deploymentResultV2Schema>;

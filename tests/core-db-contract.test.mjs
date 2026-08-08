@@ -140,16 +140,18 @@ test("migration introspection retains the explicit nr_control schema identity", 
 
 test("core control-plane and schema-detach migrations are versioned", () => {
   const migrations = loadMigrations();
-  assert.deepEqual(migrations.slice(-4).map((migration) => migration.tag), [
+  assert.deepEqual(migrations.slice(-5).map((migration) => migration.tag), [
     "0089_cms_core_control_plane",
     "0090_webshop_core_detach",
     "0091_webshop_activation_v2_control_plane",
     "0092_addon_deployment_worker_callback_ledger",
+    "0093_addon_deployment_mutation_terminal_receipts",
   ]);
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0089_snapshot.json")));
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0090_snapshot.json")));
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0091_snapshot.json")));
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0092_snapshot.json")));
+  assert.ok(fs.existsSync(path.resolve("drizzle/meta/0093_snapshot.json")));
   const sql = fs.readFileSync(
     path.resolve("drizzle/0089_cms_core_control_plane.sql"),
     "utf8",

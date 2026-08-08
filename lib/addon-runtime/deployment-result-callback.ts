@@ -5,6 +5,8 @@ import {
   cmsAddonDeploymentOutbox,
   cmsAddonDeploymentResults,
   cmsAddonDeploymentTerminalReceipts,
+  cmsAddonDeploymentCandidates,
+  cmsAddonServingFences,
   cmsAddonInstallations,
   cmsAddonOperations,
 } from "@/db/schema";
@@ -12,14 +14,16 @@ import { canonicalJson } from "@/lib/vendor-addon-entitlements/activation-v2-con
 import { deploymentRequestV2Schema, deploymentResultV2Schema, type DeploymentResultV2 } from "@/lib/addon-runtime/deployment-contract-v2";
 import { DeployHmacError, sha256Hex, signDeployResponse, verifyDeployRequest } from "@/lib/addon-runtime/deploy-hmac-v2";
 
-type CallbackAck = "applied" | "duplicate" | "stale_installation_ignored" | "stale_epoch_ignored" | "stale_generation_ignored";
+type InitialCallbackAck = "applied" | "stale_installation_ignored" | "stale_epoch_ignored" | "stale_generation_ignored";
+type CallbackAck = InitialCallbackAck | "duplicate";
+type CallbackDisposition = { ack: CallbackAck; initialAck: InitialCallbackAck };
 
 export async function receiveDeploymentResultV2(input: { body: Buffer; headers: Headers; method: string; pathname: string }) {
   const auth = verifyDeployRequest({ headers: input.headers, method: input.method, pathname: input.pathname, body: input.body, resolveSecret: resultSecretForKid });
   try {
     const result = deploymentResultV2Schema.parse(JSON.parse(input.body.toString("utf8")));
-    const ack = await persistResult(result, `sha256:${sha256Hex(input.body)}`);
-    return signedResponse(auth, 200, { version: 2, resultId: result.resultId, operationId: result.operationId, installationDeploymentEpoch: result.installationDeploymentEpoch, generation: result.generation, ack });
+    const disposition = await persistResult(result, `sha256:${sha256Hex(input.body)}`);
+    return signedResponse(auth, 200, { version: 2, resultId: result.resultId, operationId: result.operationId, installationDeploymentEpoch: result.installationDeploymentEpoch, generation: result.generation, ack: disposition.ack, initialAck: disposition.initialAck });
   } catch (error) {
     const code = error instanceof CallbackFailure ? error.code : "invalid_result_tuple";
     const status = error instanceof CallbackFailure ? error.status : 400;
@@ -31,11 +35,13 @@ class CallbackFailure extends Error {
   constructor(readonly code: string, readonly status: 400 | 409 = 400) { super(code); }
 }
 
-async function persistResult(result: DeploymentResultV2, bodyHash: string): Promise<CallbackAck> {
+async function persistResult(result: DeploymentResultV2, bodyHash: string): Promise<CallbackDisposition> {
   return db.transaction(async (tx) => {
     const existing = (await tx.select().from(cmsAddonDeploymentResults).where(and(eq(cmsAddonDeploymentResults.operationId, result.operationId), eq(cmsAddonDeploymentResults.workerJobId, result.workerJobId))).limit(1))[0];
     if (existing) {
-      if (existing.resultId === result.resultId && existing.resultBodyHash === bodyHash && existing.resultStatus === result.status && existing.finalPhase === result.finalPhase && existing.terminalEvidenceHash === result.terminalEvidenceHash) return "duplicate";
+      if (existing.resultId === result.resultId && existing.resultBodyHash === bodyHash && existing.resultStatus === result.status && existing.finalPhase === result.finalPhase && existing.terminalEvidenceHash === result.terminalEvidenceHash) {
+        return { ack: "duplicate", initialAck: existing.initialAck as InitialCallbackAck };
+      }
       throw new CallbackFailure("result_binding_conflict", 409);
     }
     const sameResultId = (await tx.select().from(cmsAddonDeploymentResults).where(eq(cmsAddonDeploymentResults.resultId, result.resultId)).limit(1))[0];
@@ -47,25 +53,32 @@ async function persistResult(result: DeploymentResultV2, bodyHash: string): Prom
     const request = deploymentRequestV2Schema.safeParse(outbox.payload);
     if (!request.success) throw new CallbackFailure("historical_request_snapshot_invalid");
     assertHistoricalBinding(result, request.data, outbox);
-    assertNoMutationEvidence(result, request.data);
+    assertTerminalEvidence(result, request.data);
     const ownProfile = requiredProfile();
     if (result.targetProfile !== ownProfile || result.environment !== outbox.licenseEnvironment || result.environment !== process.env.NR_LICENSE_ENVIRONMENT?.trim()) throw new CallbackFailure("invalid_result_tuple");
     const installation = (await tx.select().from(cmsAddonInstallations).where(eq(cmsAddonInstallations.addonKey, "webshop")).limit(1))[0];
     const ack = classifyAck(installation, result);
+    const receipt = (await tx.select().from(cmsAddonDeploymentTerminalReceipts).where(and(eq(cmsAddonDeploymentTerminalReceipts.operationId, result.operationId), eq(cmsAddonDeploymentTerminalReceipts.workerJobId, result.workerJobId))).limit(1))[0];
+    const allowsP09CompatibilityReceipt = result.terminalEvidenceKind === "no_mutation_receipt" && result.errorCode === "controlled_test_stub_no_deployment";
+    if (receipt) assertReceiptBinding(receipt, result);
+    else if (!allowsP09CompatibilityReceipt) throw new CallbackFailure("terminal_receipt_not_found", 409);
+    if (result.terminalEvidenceKind === "reconciliation_receipt") await assertPromotionFinality(tx, result, receipt);
     await tx.insert(cmsAddonDeploymentResults).values({
       resultId: result.resultId, operationId: result.operationId, workerJobId: result.workerJobId, resultBodyHash: bodyHash,
       resultStatus: result.status, finalPhase: result.finalPhase, terminalEvidenceKind: result.terminalEvidenceKind,
       terminalEvidenceHash: result.terminalEvidenceHash, receivedPayload: result, initialAck: ack,
     });
-    if (ack !== "applied") return ack;
-    await tx.insert(cmsAddonDeploymentTerminalReceipts).values({
-      operationId: result.operationId, workerJobId: result.workerJobId, kind: "no_mutation_receipt", evidenceHash: result.terminalEvidenceHash,
-      finalTuple: { finalPhase: result.finalPhase, runtimeStatus: result.runtimeStatus, errorClass: result.errorClass, errorCode: result.errorCode },
-    }).onConflictDoNothing();
-    await tx.update(cmsAddonOperations).set({ status: "failed", errorCode: result.errorCode, completedAt: new Date(), result: { terminalEvidenceHash: result.terminalEvidenceHash, terminalEvidenceKind: result.terminalEvidenceKind, finalPhase: result.finalPhase } }).where(eq(cmsAddonOperations.id, result.operationId));
-    await tx.update(cmsAddonDeploymentOutbox).set({ status: "failed", completedAt: new Date(), lastErrorCode: result.errorCode }).where(eq(cmsAddonDeploymentOutbox.operationId, result.operationId));
-    await tx.update(cmsAddonInstallations).set({ status: "failed", lastErrorCode: result.errorCode, lastErrorMessage: "Deployment rejected before switch.", version: sql`${cmsAddonInstallations.version} + 1` }).where(and(eq(cmsAddonInstallations.addonKey, "webshop"), eq(cmsAddonInstallations.installationId, result.installationId), eq(cmsAddonInstallations.installationDeploymentEpoch, Number(result.installationDeploymentEpoch))));
-    return ack;
+    if (ack !== "applied") return { ack, initialAck: ack };
+    if (allowsP09CompatibilityReceipt) {
+      await tx.insert(cmsAddonDeploymentTerminalReceipts).values({
+        operationId: result.operationId, workerJobId: result.workerJobId, kind: "no_mutation_receipt", evidenceHash: result.terminalEvidenceHash,
+        finalTuple: terminalTuple(result),
+      }).onConflictDoNothing();
+      await tx.update(cmsAddonOperations).set({ status: "failed", errorCode: result.errorCode, completedAt: new Date(), result: { terminalEvidenceHash: result.terminalEvidenceHash, terminalEvidenceKind: result.terminalEvidenceKind, finalPhase: result.finalPhase } }).where(eq(cmsAddonOperations.id, result.operationId));
+      await tx.update(cmsAddonDeploymentOutbox).set({ status: "failed", completedAt: new Date(), lastErrorCode: result.errorCode }).where(eq(cmsAddonDeploymentOutbox.operationId, result.operationId));
+      await tx.update(cmsAddonInstallations).set({ status: "failed", lastErrorCode: result.errorCode, lastErrorMessage: "Deployment rejected before switch.", version: sql`${cmsAddonInstallations.version} + 1` }).where(and(eq(cmsAddonInstallations.addonKey, "webshop"), eq(cmsAddonInstallations.installationId, result.installationId), eq(cmsAddonInstallations.installationDeploymentEpoch, Number(result.installationDeploymentEpoch))));
+    }
+    return { ack, initialAck: ack };
   });
 }
 
@@ -79,13 +92,35 @@ function assertHistoricalBinding(result: DeploymentResultV2, request: ReturnType
   if (pairs.some(([left, right]) => left !== right)) throw new CallbackFailure("invalid_result_tuple");
   if (JSON.stringify(result.supportedLicenseEditions) !== JSON.stringify(request.supportedLicenseEditions) || outbox.installationId !== result.installationId || String(outbox.installationDeploymentEpoch) !== result.installationDeploymentEpoch || outbox.generation !== result.generation || outbox.operationKey !== result.operationKey || outbox.deploymentIntentKey !== result.deploymentIntentKey) throw new CallbackFailure("invalid_result_tuple");
 }
-function assertNoMutationEvidence(result: DeploymentResultV2, request: ReturnType<typeof deploymentRequestV2Schema.parse>) {
-  if (result.status !== "failed" || result.finalPhase !== "rejected_before_switch" || result.runtimeStatus !== "not_installed" || result.terminalEvidenceKind !== "no_mutation_receipt" || result.migrationLedgerHash !== null || result.buildId !== null || result.activeReleaseId !== null || result.observedServicePointerReleaseId !== null) throw new CallbackFailure("invalid_result_tuple");
+function assertTerminalEvidence(result: DeploymentResultV2, request: ReturnType<typeof deploymentRequestV2Schema.parse>) {
+  if (result.terminalEvidenceKind !== "no_mutation_receipt") return;
+  if (result.status !== "failed" || result.finalPhase !== "rejected_before_switch" || result.runtimeStatus !== "not_installed" || result.migrationLedgerHash !== null || result.buildId !== null || result.activeReleaseId !== null || result.observedServicePointerReleaseId !== null) throw new CallbackFailure("invalid_result_tuple");
   if (`sha256:${sha256Hex(canonicalJson(result.noMutationEvidence))}` !== result.terminalEvidenceHash) throw new CallbackFailure("invalid_result_tuple");
   const evidence = result.noMutationEvidence;
   if (evidence.operationId !== request.operationId || evidence.workerJobId !== result.workerJobId || evidence.targetProfile !== result.targetProfile || evidence.installationId !== request.installationId || evidence.installationDeploymentEpoch !== request.installationDeploymentEpoch || evidence.generation !== request.generation || evidence.releaseId !== request.releaseId || evidence.preOperationServingStateHash !== request.preOperationServingStateHash || evidence.preOperationMigrationLedgerHash !== request.preOperationMigrationLedgerHash) throw new CallbackFailure("invalid_result_tuple");
 }
-function classifyAck(installation: typeof cmsAddonInstallations.$inferSelect | undefined, result: DeploymentResultV2): Exclude<CallbackAck, "duplicate"> {
+function terminalTuple(result: DeploymentResultV2) {
+  return {
+    finalPhase: result.finalPhase, runtimeStatus: result.runtimeStatus, migrationLedgerHash: result.migrationLedgerHash,
+    activeReleaseId: result.activeReleaseId, observedServicePointerReleaseId: result.observedServicePointerReleaseId,
+    terminalEvidenceKind: result.terminalEvidenceKind, terminalEvidenceHash: result.terminalEvidenceHash,
+  };
+}
+function assertReceiptBinding(receipt: typeof cmsAddonDeploymentTerminalReceipts.$inferSelect, result: DeploymentResultV2) {
+  if (receipt.kind !== result.terminalEvidenceKind || receipt.evidenceHash !== result.terminalEvidenceHash) throw new CallbackFailure("terminal_receipt_binding_conflict", 409);
+  const tuple = receipt.finalTuple;
+  if (!tuple || typeof tuple !== "object" || Array.isArray(tuple)) throw new CallbackFailure("terminal_receipt_binding_conflict", 409);
+  for (const [key, value] of Object.entries(terminalTuple(result))) {
+    if ((tuple as Record<string, unknown>)[key] !== value) throw new CallbackFailure("terminal_receipt_binding_conflict", 409);
+  }
+}
+async function assertPromotionFinality(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], result: DeploymentResultV2, receipt: typeof cmsAddonDeploymentTerminalReceipts.$inferSelect | undefined) {
+  if (!receipt) throw new CallbackFailure("terminal_receipt_not_found", 409);
+  const candidate = (await tx.select().from(cmsAddonDeploymentCandidates).where(and(eq(cmsAddonDeploymentCandidates.operationId, result.operationId), eq(cmsAddonDeploymentCandidates.workerJobId, result.workerJobId), eq(cmsAddonDeploymentCandidates.installationDeploymentEpoch, Number(result.installationDeploymentEpoch)), eq(cmsAddonDeploymentCandidates.generation, result.generation))).limit(1))[0];
+  const activeFence = (await tx.select({ id: cmsAddonServingFences.id }).from(cmsAddonServingFences).where(and(eq(cmsAddonServingFences.operationId, result.operationId), eq(cmsAddonServingFences.state, "active"))).limit(1))[0];
+  if (!candidate || candidate.terminalReceiptId !== receipt.id || activeFence) throw new CallbackFailure("serving_promotion_not_final", 409);
+}
+function classifyAck(installation: typeof cmsAddonInstallations.$inferSelect | undefined, result: DeploymentResultV2): InitialCallbackAck {
   if (!installation || installation.installationId !== result.installationId) return "stale_installation_ignored";
   if (installation.installationDeploymentEpoch > Number(result.installationDeploymentEpoch)) return "stale_epoch_ignored";
   if (installation.installationDeploymentEpoch < Number(result.installationDeploymentEpoch)) throw new CallbackFailure("invalid_result_tuple");

@@ -101,6 +101,12 @@ export async function activateWebshopAddonAction(
   }
 
   revalidatePath("/dashboard/webshop");
+  if (persisted.status === "operator_schema_cutover_required") {
+    return {
+      status: "error",
+      message: "Webshop schema requires the approved operator cutover before a fresh host-capability revalidation can create a new deployment.",
+    };
+  }
   return {
     status: "success",
     message: `Webshop license accepted. Installation is pending (operation ${persisted.operationId}).`,

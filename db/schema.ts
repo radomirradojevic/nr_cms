@@ -783,7 +783,7 @@ export const cmsAddonDeploymentResults = pgTable("cms_addon_deployment_results",
   unique("cms_addon_deployment_results_result_id_unique").on(table.resultId),
   unique("cms_addon_deployment_results_operation_job_unique").on(table.operationId, table.workerJobId),
   check("cms_addon_deployment_results_initial_ack_check", sql`${table.initialAck} IN ('applied','stale_installation_ignored','stale_epoch_ignored','stale_generation_ignored')`),
-  check("cms_addon_deployment_results_stub_final_tuple_check", sql`${table.resultStatus} = 'failed' AND ${table.finalPhase} = 'rejected_before_switch' AND ${table.terminalEvidenceKind} = 'no_mutation_receipt'`),
+  check("cms_addon_deployment_results_terminal_tuple_check", sql`(${table.resultStatus} = 'failed' AND ${table.finalPhase} = 'rejected_before_switch' AND ${table.terminalEvidenceKind} = 'no_mutation_receipt') OR (${table.resultStatus} = 'succeeded' AND ${table.finalPhase} = 'ready' AND ${table.terminalEvidenceKind} = 'reconciliation_receipt') OR (${table.resultStatus} = 'failed' AND ${table.finalPhase} IN ('rolled_back','maintenance_required','rollback_failed') AND ${table.terminalEvidenceKind} = 'recovery_receipt')`),
 ]);
 
 export const cmsAddonDeploymentCandidates = pgTable("cms_addon_deployment_candidates", {

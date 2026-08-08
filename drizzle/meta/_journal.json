@@ -652,6 +652,13 @@
       "when": 1784592000000,
       "tag": "0092_addon_deployment_worker_callback_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1784678400000,
+      "tag": "0093_addon_deployment_mutation_terminal_receipts",
+      "breakpoints": true
     }
   ]
 }

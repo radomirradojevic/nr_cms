@@ -12,6 +12,9 @@ export type WebshopRuntimeConfig = {
   redeployAuthKid: string | null;
   redeployAuthSecret: string | null;
   redeployWebhookUrl: string | null;
+  runtimeReleaseId: string | null;
+  runtimeBuildId: string | null;
+  runtimeArtifactSha256: string | null;
   storefrontEnabled: boolean;
 };
 
@@ -63,6 +66,9 @@ export function getWebshopRuntimeConfig(
     redeployAuthKid: readOptionalEnv(env, "WEBSHOP_REDEPLOY_AUTH_KID"),
     redeployAuthSecret: readOptionalEnv(env, "WEBSHOP_REDEPLOY_AUTH_SECRET"),
     redeployWebhookUrl: readOptionalEnv(env, "WEBSHOP_REDEPLOY_WEBHOOK_URL"),
+    runtimeReleaseId: readOptionalEnv(env, "WEBSHOP_RUNTIME_RELEASE_ID"),
+    runtimeBuildId: readOptionalEnv(env, "WEBSHOP_RUNTIME_BUILD_ID"),
+    runtimeArtifactSha256: readOptionalEnv(env, "WEBSHOP_RUNTIME_ARTIFACT_SHA256"),
     storefrontEnabled: parseWebshopBoolean(
       env.WEBSHOP_STOREFRONT_ENABLED,
       false,

@@ -32,6 +32,7 @@ import {
   canonicalHostCapabilitiesV1,
   entitlementClaimsV2Schema,
 } from "@/lib/vendor-addon-entitlements/activation-v2-contract";
+import { evaluateWebshopPublicServingGateV1 } from "@/lib/addon-runtime/serving-gate";
 
 const ActivationResponseSchema = z.object({
   contractVersion: z.literal(2),
@@ -310,12 +311,23 @@ export async function resolveWebshopAddonState(): Promise<WebshopAddonState> {
   const publicKeysByKid = entitlement?.entitlementToken
     ? await getVendorAddonEntitlementPublicKeys().catch(() => ({}))
     : {};
-  return resolveWebshopAddonStateFromInputs({
+  const resolved = resolveWebshopAddonStateFromInputs({
     entitlement,
     loadResult,
     publicKeysByKid,
     runtimeConfig,
   });
+  if (resolved.status !== "ready" || runtimeConfig.installMode !== "managed_redeploy") return resolved;
+  const { readWebshopServingStateV1 } = await import("@/data/webshop-addon-serving-state");
+  const serving = await readWebshopServingStateV1();
+  const gate = evaluateWebshopPublicServingGateV1({
+    entitlementValid: true,
+    activeServingFenceCount: serving.activeServingFenceCount,
+    installation: serving.installation && { status: serving.installation.status, runtimeStatus: serving.installation.runtimeStatus, installedReleaseId: serving.installation.installedReleaseId, installedBuildId: serving.installation.installedBuildId, installedArtifactSha256: serving.installation.installedArtifactSha256 },
+    terminalReceipt: serving.terminalReceipt,
+    runtime: { releaseId: runtimeConfig.runtimeReleaseId, buildId: runtimeConfig.runtimeBuildId, artifactSha256: runtimeConfig.runtimeArtifactSha256 },
+  });
+  return gate.ok ? resolved : { status: "install_pending" };
 }
 
 export async function revalidateWebshopAddonEntitlement({

@@ -233,3 +233,17 @@ test("verified activation commits entitlement, desired state, operation, and out
   assert.equal(outbox.rows[1]?.status, "pending");
   assert.equal(outbox.rows[1]?.payload.includes("compact-jws"), false);
 });
+
+test("legacy cutover terminal never retries its old intent; only fresh host capability opens epoch generation one", { skip: !databaseUrl, concurrency: false }, async () => {
+  const { persistVerifiedWebshopActivation } = await import("@/data/webshop-addon-control-plane");
+  const first = await persistVerifiedWebshopActivation({ claim, signedEntitlement: "compact-jws-v2-legacy-a", updatedBy: "test-admin" });
+  await client!.query("UPDATE cms_addon_operations SET status = 'failed', error_code = 'operator_schema_cutover_required', completed_at = now() WHERE id = $1", [first.operationId]);
+  const sameHost = await persistVerifiedWebshopActivation({ claim, signedEntitlement: "compact-jws-v2-legacy-new-token", updatedBy: "test-admin" });
+  assert.equal(sameHost.operationId, first.operationId);
+  assert.equal(sameHost.status, "operator_schema_cutover_required");
+  const freshHostClaim = { ...claim, hostCapabilityDescriptorHash: `sha256:${"c".repeat(64)}` };
+  const fresh = await persistVerifiedWebshopActivation({ claim: freshHostClaim, signedEntitlement: "compact-jws-v2-legacy-cutover-complete", updatedBy: "test-admin" });
+  assert.equal(fresh.reused, false);
+  const operations = await client!.query("SELECT installation_deployment_epoch::text AS epoch, generation, status FROM cms_addon_operations ORDER BY created_at");
+  assert.deepEqual(operations.rows.map((row) => [row.epoch, row.generation, row.status]), [["1", 1, "failed"], ["2", 1, "pending"]]);
+});

@@ -45,6 +45,40 @@ export async function persistVerifiedWebshopActivation(input: {
         "A different installation identity already owns the Webshop control plane; audited transfer is required.",
       );
     }
+    // An exact legacy-public schema result is a permanent terminal result for
+    // its epoch.  A new JWS snapshot alone must not turn it into a retry (or a
+    // generation+1): only a newly attested host-capability descriptor opens a
+    // new intent after the separately authorized schema cutover.
+    if (
+      existing &&
+      existing.desiredHostCapabilityDescriptorHash === input.claim.hostCapabilityDescriptorHash
+    ) {
+      const legacyTerminal = (
+        await tx
+          .select()
+          .from(cmsAddonOperations)
+          .where(
+            and(
+              eq(cmsAddonOperations.addonKey, ADDON_KEY),
+              eq(cmsAddonOperations.installationId, input.claim.installationId),
+              eq(cmsAddonOperations.installationDeploymentEpoch, existing.installationDeploymentEpoch),
+              eq(cmsAddonOperations.generation, 1),
+              eq(cmsAddonOperations.status, "failed"),
+              eq(cmsAddonOperations.errorCode, "operator_schema_cutover_required"),
+            ),
+          )
+          .limit(1)
+      )[0];
+      if (legacyTerminal) {
+        return {
+          operationId: legacyTerminal.id,
+          operationKey: legacyTerminal.operationKey,
+          status: "operator_schema_cutover_required" as const,
+          reused: true as const,
+          terminal: true as const,
+        };
+      }
+    }
     const sameDesired = Boolean(
       existing &&
         existing.desiredReleaseId === input.claim.release.releaseId &&
