@@ -231,6 +231,21 @@ function assertOptionalPostIssueDeliveryContract(env) {
   if (workerSecret && workerSecret.length < 32) {
     fail("WEBSHOP_DELIVERY_WORKER_SECRET must contain at least 32 characters");
   }
+  const entitlementWorkerSecret = env.WEBSHOP_ENTITLEMENT_REVALIDATION_WORKER_SECRET?.trim();
+  if (entitlementWorkerSecret && entitlementWorkerSecret.length < 32) {
+    fail("WEBSHOP_ENTITLEMENT_REVALIDATION_WORKER_SECRET must contain at least 32 characters");
+  }
+  const transferSecret = env.NR_ADDON_TRANSFER_APPROVAL_SECRET?.trim();
+  const transferKid = env.NR_ADDON_TRANSFER_APPROVAL_KID?.trim();
+  if (Boolean(transferSecret) !== Boolean(transferKid)) {
+    fail("NR_ADDON_TRANSFER_APPROVAL_SECRET and NR_ADDON_TRANSFER_APPROVAL_KID must be configured together");
+  }
+  if (transferSecret && transferSecret.length < 32) {
+    fail("NR_ADDON_TRANSFER_APPROVAL_SECRET must contain at least 32 characters");
+  }
+  if (transferKid && !/^[A-Za-z0-9._-]{1,100}$/.test(transferKid)) {
+    fail("NR_ADDON_TRANSFER_APPROVAL_KID must match the lifecycle transfer KID contract");
+  }
 }
 
 function assertLocalEnvContractParity(deploymentProfile) {

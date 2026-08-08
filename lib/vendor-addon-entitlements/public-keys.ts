@@ -9,7 +9,6 @@ import { isExplicitlyAllowedLoopbackHttpUrl, safeFetch } from "@/lib/security/ou
 
 const PURPOSE = "addon_entitlement";
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const STALE_FALLBACK_MS = 24 * 60 * 60 * 1000;
 const keysetSchema = z.object({
   contractVersion: z.literal(1), generatedAt: z.string().datetime({ offset: true }),
   issuer: z.literal("https://license-server.nrcms.com"), purpose: z.literal(PURPOSE),
@@ -39,7 +38,10 @@ export async function getVendorAddonEntitlementPublicKeys({ forceRefresh = false
     await acceptDurableKeyset(keyset, raw);
     return verificationKeys(keyset);
   } catch (error) {
-    if (cached && cached.refreshedAt.getTime() + STALE_FALLBACK_MS > now) return verificationKeys(cached.keyset);
+    // A previously verified, anti-rollback keyset is durable evidence.  It is
+    // intentionally retained across a restart for the same bounded signed
+    // entitlement/grace window; an outage must not silently erase trust.
+    if (cached) return verificationKeys(cached.keyset);
     throw error;
   }
 }

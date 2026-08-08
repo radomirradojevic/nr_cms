@@ -472,7 +472,7 @@ export const webshopAddonEntitlements = pgTable(
     check("webshop_addon_entitlements_singleton_check", sql`${table.id} = 1`),
     check(
       "webshop_addon_entitlements_status_check",
-      sql`${table.status} IN ('license_required','ready','expired','invalid','install_pending')`,
+      sql`${table.status} IN ('license_required','ready','expired','invalid','install_pending','lifecycle_finalization_pending','deactivated','transferred')`,
     ),
     check(
       "webshop_addon_entitlements_provider_check",
@@ -788,6 +788,57 @@ export const cmsAddonEntitlementKeysets = pgTable("cms_addon_entitlement_keysets
   acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow(),
   refreshedAt: timestamp("refreshed_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Durable local half of a master-assigned deactivation or source-transfer operation. */
+export const cmsAddonLifecycleOperations = pgTable("cms_addon_lifecycle_operations", {
+  id: uuid("id").primaryKey(),
+  addonKey: text("addon_key").notNull(),
+  lifecycleAction: text("lifecycle_action").notNull(),
+  receiptRole: text("receipt_role").notNull(),
+  state: text("state").notNull().default("lifecycle_finalization_pending"),
+  activationId: uuid("activation_id").notNull(),
+  entitlementId: uuid("entitlement_id").notNull(),
+  installationId: uuid("installation_id").notNull(),
+  canonicalDomain: text("canonical_domain").notNull(),
+  transferId: uuid("transfer_id"),
+  targetInstallationId: uuid("target_installation_id"),
+  targetCanonicalDomain: text("target_canonical_domain"),
+  preLifecycleVersion: bigint("pre_lifecycle_version", { mode: "number" }).notNull(),
+  finalRequestBodyHash: text("final_request_body_hash").notNull(),
+  finalRequestBody: jsonb("final_request_body").notNull(),
+  masterChallengeId: uuid("master_challenge_id"),
+  masterProofPayload: text("master_proof_payload"),
+  originalCompleteAcceptUntil: timestamp("original_complete_accept_until", { withTimezone: true }).notNull(),
+  resultBodyHash: text("result_body_hash"),
+  receiptCompact: text("receipt_compact"),
+  receiptJti: uuid("receipt_jti"),
+  receiptExpiresAt: timestamp("receipt_expires_at", { withTimezone: true }),
+  statusObservationRequestId: uuid("status_observation_request_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("cms_addon_lifecycle_operations_state_idx").on(table.addonKey, table.state, table.createdAt),
+  check("cms_addon_lifecycle_operations_action_check", sql`${table.lifecycleAction} IN ('deactivate','transfer_source_complete')`),
+  check("cms_addon_lifecycle_operations_role_check", sql`${table.receiptRole} IN ('deactivation','transfer_source','transfer_target')`),
+  check("cms_addon_lifecycle_operations_state_check", sql`${table.state} IN ('lifecycle_finalization_pending','committed','not_committed','restricted')`),
+  check("cms_addon_lifecycle_operations_result_hash_check", sql`${table.resultBodyHash} IS NULL OR ${table.resultBodyHash} ~ '^sha256:[a-f0-9]{64}$'`),
+]);
+
+export const cmsAddonLifecycleReceipts = pgTable("cms_addon_lifecycle_receipts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  lifecycleOperationId: uuid("lifecycle_operation_id").notNull().references(() => cmsAddonLifecycleOperations.id, { onDelete: "restrict" }),
+  receiptRole: text("receipt_role").notNull(),
+  jti: uuid("jti").notNull(),
+  compactHash: text("compact_hash").notNull(),
+  resultBodyHash: text("result_body_hash").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique("cms_addon_lifecycle_receipts_operation_role_unique").on(table.lifecycleOperationId, table.receiptRole),
+  unique("cms_addon_lifecycle_receipts_jti_unique").on(table.jti),
+  check("cms_addon_lifecycle_receipts_role_check", sql`${table.receiptRole} IN ('deactivation','transfer_source','transfer_target')`),
+]);
 
 export const cmsAddonWorkerCallbacks = pgTable("cms_addon_worker_callbacks", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1531,6 +1582,27 @@ export const formSettings = pgTable("form_settings", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+/** Target-side transfer evidence; it never stores the approval code plaintext. */
+export const cmsAddonTransferPreparations = pgTable("cms_addon_transfer_preparations", {
+  transferId: uuid("transfer_id").primaryKey(),
+  entitlementId: uuid("entitlement_id"),
+  sourceActivationId: uuid("source_activation_id").notNull(),
+  sourceCanonicalDomain: text("source_canonical_domain"),
+  targetCanonicalDomain: text("target_canonical_domain").notNull(),
+  targetInstallationId: uuid("target_installation_id").notNull(),
+  targetInstallationKeyFingerprint: text("target_installation_key_fingerprint").notNull(),
+  targetChallengeId: uuid("target_challenge_id").notNull(),
+  sourceApprovalDerivationKid: text("source_approval_derivation_kid"),
+  sourceApprovalCodeHash: text("source_approval_code_hash"),
+  status: text("status").notNull().default("requested"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  check("cms_addon_transfer_preparations_status_check", sql`${table.status} IN ('requested','target_proved','completed','canceled','expired')`),
+  check("cms_addon_transfer_preparations_hash_check", sql`${table.sourceApprovalCodeHash} IS NULL OR ${table.sourceApprovalCodeHash} ~ '^sha256:[a-f0-9]{64}$'`),
+]);
 
 export const formSubmissions = pgTable(
   "form_submissions",

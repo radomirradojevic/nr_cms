@@ -453,6 +453,15 @@ async function ensureRootEnv() {
     "WEBSHOP_DELIVERY_WORKER_SECRET",
     randomBytes(32).toString("base64url"),
   );
+  ensure(
+    "WEBSHOP_ENTITLEMENT_REVALIDATION_WORKER_SECRET",
+    randomBytes(32).toString("base64url"),
+  );
+  ensure(
+    "NR_ADDON_TRANSFER_APPROVAL_SECRET",
+    randomBytes(32).toString("base64url"),
+  );
+  ensure("NR_ADDON_TRANSFER_APPROVAL_KID", "local-transfer-approval-v1");
   ensure("WEBSHOP_POST_ISSUE_LICENSE_STATUS_MAX_AGE_SECONDS", "60");
   ensure("WEBSHOP_DELIVERY_EMAIL_PROVIDER", "fixture");
   ensure("LICENSE_SERVER_SECRET_KEY", randomBytes(32).toString("base64url"));

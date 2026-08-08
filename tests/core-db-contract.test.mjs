@@ -141,12 +141,12 @@ test("migration introspection retains the explicit nr_control schema identity", 
 test("core control-plane and schema-detach migrations are versioned", () => {
   const migrations = loadMigrations();
   assert.deepEqual(migrations.slice(-6).map((migration) => migration.tag), [
-    "0089_cms_core_control_plane",
     "0090_webshop_core_detach",
     "0091_webshop_activation_v2_control_plane",
     "0092_addon_deployment_worker_callback_ledger",
     "0093_addon_deployment_mutation_terminal_receipts",
     "0094_webshop_purchase_intent_domain_proofs",
+    "0095_addon_lifecycle_recovery",
   ]);
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0089_snapshot.json")));
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0090_snapshot.json")));
@@ -154,6 +154,7 @@ test("core control-plane and schema-detach migrations are versioned", () => {
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0092_snapshot.json")));
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0093_snapshot.json")));
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0094_snapshot.json")));
+  assert.ok(fs.existsSync(path.resolve("drizzle/meta/0095_snapshot.json")));
   const sql = fs.readFileSync(
     path.resolve("drizzle/0089_cms_core_control_plane.sql"),
     "utf8",
@@ -165,6 +166,12 @@ test("core control-plane and schema-detach migrations are versioned", () => {
   );
   assert.match(detach, /operator_schema_cutover_required/);
   assert.doesNotMatch(detach, /DROP\s+TABLE[^;]*\sCASCADE/i);
+  const lifecycle = fs.readFileSync(
+    path.resolve("drizzle/0095_addon_lifecycle_recovery.sql"),
+    "utf8",
+  );
+  assert.match(lifecycle, /lifecycle_finalization_pending/);
+  assert.match(lifecycle, /cms_addon_lifecycle_receipts/);
 });
 
 test("provisioning constants reserve no worker-owned secret root", () => {

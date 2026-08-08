@@ -666,6 +666,13 @@
       "when": 1784764800000,
       "tag": "0094_webshop_purchase_intent_domain_proofs",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1786197600000,
+      "tag": "0095_addon_lifecycle_recovery",
+      "breakpoints": true
     }
   ]
 }

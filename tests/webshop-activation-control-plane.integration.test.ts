@@ -114,16 +114,56 @@ beforeEach(async () => {
   client ??= new Client({ connectionString: databaseUrl });
   if (!connected) { await client.connect(); connected = true; }
   await client.query(
-    "TRUNCATE cms_addon_deployment_results, cms_addon_deployment_terminal_receipts, cms_addon_deployment_candidates, cms_addon_serving_fences, cms_addon_worker_callbacks, cms_addon_deployment_outbox, cms_addon_operations, cms_addon_installations, webshop_addon_entitlements CASCADE",
+    "TRUNCATE cms_addon_lifecycle_receipts, cms_addon_lifecycle_operations, cms_addon_transfer_preparations, cms_addon_deployment_results, cms_addon_deployment_terminal_receipts, cms_addon_deployment_candidates, cms_addon_serving_fences, cms_addon_worker_callbacks, cms_addon_deployment_outbox, cms_addon_operations, cms_addon_installations, webshop_addon_entitlements CASCADE",
   );
 });
 after(async () => {
   if (client) {
     await client.query(
-      "TRUNCATE cms_addon_deployment_results, cms_addon_deployment_terminal_receipts, cms_addon_deployment_candidates, cms_addon_serving_fences, cms_addon_worker_callbacks, cms_addon_deployment_outbox, cms_addon_operations, cms_addon_installations, webshop_addon_entitlements CASCADE",
+      "TRUNCATE cms_addon_lifecycle_receipts, cms_addon_lifecycle_operations, cms_addon_transfer_preparations, cms_addon_deployment_results, cms_addon_deployment_terminal_receipts, cms_addon_deployment_candidates, cms_addon_serving_fences, cms_addon_worker_callbacks, cms_addon_deployment_outbox, cms_addon_operations, cms_addon_installations, webshop_addon_entitlements CASCADE",
     );
   }
   await client?.end();
+});
+
+test("CMS lifecycle migration durably fences finalization and receipt evidence", { skip: !databaseUrl, concurrency: false }, async () => {
+  const operationId = "11111111-1111-4111-8111-111111111111";
+  const receiptJti = "22222222-2222-4222-8222-222222222222";
+  await client!.query(
+    `INSERT INTO cms_addon_lifecycle_operations (
+      id, addon_key, lifecycle_action, receipt_role, activation_id,
+      installation_id, canonical_domain, pre_lifecycle_version,
+      final_request_body_hash, final_request_body, original_complete_accept_until
+    ) VALUES ($1, 'webshop', 'deactivate', 'deactivation',
+      '33333333-3333-4333-8333-333333333333',
+      '44444444-4444-4444-8444-444444444444', 'client.nr.test', 1,
+      $2, '{"action":"complete","contractVersion":1}'::jsonb, now() + interval '1 day')`,
+    [operationId, `sha256:${"a".repeat(64)}`],
+  );
+  await client!.query(
+    `INSERT INTO cms_addon_lifecycle_receipts (
+      lifecycle_operation_id, receipt_role, jti, compact_hash, result_body_hash, expires_at
+    ) VALUES ($1, 'deactivation', $2, $3, $4, now() + interval '1 hour')`,
+    [operationId, receiptJti, `sha256:${"b".repeat(64)}`, `sha256:${"c".repeat(64)}`],
+  );
+  await client!.query(
+    `INSERT INTO cms_addon_transfer_preparations (
+      transfer_id, entitlement_id, source_activation_id, target_canonical_domain,
+      target_installation_id, target_installation_key_fingerprint, target_challenge_id, expires_at
+    ) VALUES (
+      '55555555-5555-4555-8555-555555555555',
+      '66666666-6666-4666-8666-666666666666',
+      '77777777-7777-4777-8777-777777777777', 'new.nr.test',
+      '88888888-8888-4888-8888-888888888888', $1,
+      '99999999-9999-4999-8999-999999999999', now() + interval '1 hour'
+    )`,
+    [`sha256:${"d".repeat(64)}`],
+  );
+  const rows = await client!.query(
+    "SELECT operation.state, receipt.receipt_role FROM cms_addon_lifecycle_operations operation JOIN cms_addon_lifecycle_receipts receipt ON receipt.lifecycle_operation_id = operation.id WHERE operation.id = $1",
+    [operationId],
+  );
+  assert.deepEqual(rows.rows, [{ state: "lifecycle_finalization_pending", receipt_role: "deactivation" }]);
 });
 
 test("authenticated worker callback stores one immutable result and returns duplicate or stale ACK without serving-state writes", { skip: !databaseUrl, concurrency: false }, async () => {

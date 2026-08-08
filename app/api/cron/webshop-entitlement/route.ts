@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { isCronRequestAuthorized } from "@/lib/cron-auth";
+import { isWebshopEntitlementWorkerAuthorized } from "@/lib/webshop-entitlement-cron-auth";
 import { revalidateWebshopAddonEntitlement } from "@/lib/webshop-addon/license";
 
-export async function GET(request: Request) {
-  return run(request);
-}
 export async function POST(request: Request) {
   return run(request);
 }
 
 async function run(request: Request) {
-  if (!isCronRequestAuthorized(request))
+  if (!isWebshopEntitlementWorkerAuthorized(request))
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   const result = await revalidateWebshopAddonEntitlement({ force: true });
   return NextResponse.json(

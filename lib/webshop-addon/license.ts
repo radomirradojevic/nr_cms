@@ -33,6 +33,7 @@ import {
   entitlementClaimsV2Schema,
 } from "@/lib/vendor-addon-entitlements/activation-v2-contract";
 import { evaluateWebshopPublicServingGateV1 } from "@/lib/addon-runtime/serving-gate";
+import { resolvePersistentV2EntitlementRuntimeMode } from "@/lib/vendor-addon-entitlements/revalidation-policy";
 
 const ActivationResponseSchema = z.object({
   contractVersion: z.literal(2),
@@ -74,6 +75,10 @@ export type WebshopEntitlementState = {
   signedEntitlement?: string | null;
   expiresAt?: Date | null;
   entitlementEnvelopeExpiresAt?: Date | null;
+  graceEndsAt?: Date | null;
+  lastErrorCode?: string | null;
+  lastRevalidationSuccessAt?: Date | null;
+  nextRevalidationAt?: Date | null;
   licenseEnvironment?: string | null;
   licenseValidUntil?: Date | null;
   verifiedClaims?: unknown;
@@ -91,6 +96,15 @@ export type WebshopEntitlementState = {
   licenseKeyRef?: string | null;
   status: string;
 };
+
+class RevalidationFailure extends Error {
+  constructor(
+    readonly classification: "outage" | "invalid",
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 export function verifyWebshopSignedEntitlement(
   entitlement: WebshopEntitlementState,
@@ -317,6 +331,35 @@ export async function resolveWebshopAddonState(): Promise<WebshopAddonState> {
     publicKeysByKid,
     runtimeConfig,
   });
+  if (entitlement && resolved.status === "ready") {
+    try {
+      const claim = verifyWebshopSignedEntitlement(
+        entitlement,
+        expectedDomain(),
+        new Date(),
+        publicKeysByKid,
+      );
+      const persistentMode = resolvePersistentV2EntitlementRuntimeMode({
+        activationStatus: claim.activationStatus,
+        envelopeExpiresAt: entitlement.entitlementEnvelopeExpiresAt ?? null,
+        graceEndsAt: entitlement.graceEndsAt ?? null,
+        lastErrorCode: entitlement.lastErrorCode ?? null,
+        lastSuccessAt: entitlement.lastRevalidationSuccessAt ?? null,
+        licenseStatus: claim.licenseStatus,
+        licenseValidUntil: entitlement.licenseValidUntil ?? null,
+      });
+      if (persistentMode === "revoked") {
+        return { status: "license_invalid", reason: "Webshop activation lifecycle is no longer active." };
+      }
+      if (persistentMode === "expired") {
+        return loadResult.status === "loaded"
+          ? { status: "license_expired", addon: loadResult.addon, expiresAt: entitlement.licenseValidUntil?.toISOString() ?? "", mode: "edit_existing_only" }
+          : { status: "license_invalid", reason: "Webshop entitlement runtime is unavailable." };
+      }
+    } catch {
+      return { status: "license_invalid", reason: "Webshop entitlement snapshot cannot be used." };
+    }
+  }
   if (resolved.status !== "ready" || runtimeConfig.installMode !== "managed_redeploy") return resolved;
   const { readWebshopServingStateV1 } = await import("@/data/webshop-addon-serving-state");
   const serving = await readWebshopServingStateV1();
@@ -395,8 +438,10 @@ export async function revalidateWebshopAddonEntitlement({
       entitlement: await getWebshopAddonEntitlement(),
       ok: true as const,
     };
-  } catch {
-    return { entitlement, ok: false as const, error: "Webshop entitlement revalidation failed closed." };
+  } catch (error) {
+    const classification = error instanceof RevalidationFailure ? error.classification : "invalid";
+    await persistRevalidationFailure(classification);
+    return { entitlement: await getWebshopAddonEntitlement(), ok: false as const, error: classification === "outage" ? "Webshop entitlement revalidation is temporarily unavailable." : "Webshop entitlement revalidation failed closed." };
   }
 }
 
@@ -404,13 +449,10 @@ export function shouldRevalidateWebshopEntitlement(
   entitlement: WebshopEntitlementState | null,
   now = new Date(),
 ) {
-  const last = metadataString(
-    entitlement?.metadata,
-    "lastRevalidationAttemptAt",
-  );
+  const next = entitlement?.nextRevalidationAt;
   return (
     Boolean(entitlement?.entitlementToken) &&
-    (!last || now.getTime() - new Date(last).getTime() >= 24 * 60 * 60 * 1000)
+    (!next || next.getTime() <= now.getTime())
   );
 }
 async function maybeRevalidateWebshopAddonEntitlement(
@@ -564,33 +606,68 @@ async function completeV2LicenseExchange(input: {
 }): Promise<WebshopActivationResponse> {
   const licenseServerUrl = getMasterLicenseServerUrl();
   const localHttp = isExplicitlyAllowedLoopbackHttpUrl(licenseServerUrl);
-  const challengeResponse = await safeFetch(joinUrl(licenseServerUrl, input.endpoint), {
-    allowFirstParty: true, allowLocalHttp: localHttp, allowSelfHosted: true,
-    body: JSON.stringify({
-      contractVersion: 2, action: "challenge", installationId: input.identity.installationId,
-      installationKeyFingerprint: input.identity.installationKeyFingerprint,
-      installationPublicKey: input.identity.installationPublicKey, licenseEnvironment: currentLicenseEnvironment(),
-      ...input.body,
-    }),
-    headers: { "content-type": "application/json" }, method: "POST",
-    purpose: `${input.purpose} challenge`, timeoutMs: 5_000,
-  });
-  if (!challengeResponse.ok) throw new Error(await readLicenseServerError(challengeResponse, `${input.purpose} challenge was rejected by the license server.`));
+  let challengeResponse: Response;
+  try {
+    challengeResponse = await safeFetch(joinUrl(licenseServerUrl, input.endpoint), {
+      allowFirstParty: true, allowLocalHttp: localHttp, allowSelfHosted: true,
+      body: JSON.stringify({
+        contractVersion: 2, action: "challenge", installationId: input.identity.installationId,
+        installationKeyFingerprint: input.identity.installationKeyFingerprint,
+        installationPublicKey: input.identity.installationPublicKey, licenseEnvironment: currentLicenseEnvironment(),
+        ...input.body,
+      }),
+      headers: { "content-type": "application/json" }, method: "POST",
+      purpose: `${input.purpose} challenge`, timeoutMs: 5_000,
+    });
+  } catch {
+    throw new RevalidationFailure("outage", "Webshop license server could not be reached.");
+  }
+  if (!challengeResponse.ok) {
+    const message = await readLicenseServerError(challengeResponse, `${input.purpose} challenge was rejected by the license server.`);
+    throw new RevalidationFailure(challengeResponse.status >= 500 ? "outage" : "invalid", message);
+  }
   const challenge = ActivationChallengeSchema.safeParse(await challengeResponse.json());
-  if (!challenge.success) throw new Error("Webshop license server returned an invalid V2 challenge.");
-  const completion = await safeFetch(joinUrl(licenseServerUrl, input.endpoint), {
-    allowFirstParty: true, allowLocalHttp: localHttp, allowSelfHosted: true,
-    body: JSON.stringify({
-      contractVersion: 2, action: "complete", challengeId: challenge.data.challengeId,
-      challengeSignature: signVendorAddonActivationPayload(input.identity, challenge.data.signaturePayload),
-    }),
-    headers: { "content-type": "application/json" }, method: "POST",
-    purpose: `${input.purpose} completion`, timeoutMs: 5_000,
-  });
-  if (!completion.ok) throw new Error(await readLicenseServerError(completion, `${input.purpose} was rejected by the license server.`));
+  if (!challenge.success) throw new RevalidationFailure("invalid", "Webshop license server returned an invalid V2 challenge.");
+  let completion: Response;
+  try {
+    completion = await safeFetch(joinUrl(licenseServerUrl, input.endpoint), {
+      allowFirstParty: true, allowLocalHttp: localHttp, allowSelfHosted: true,
+      body: JSON.stringify({
+        contractVersion: 2, action: "complete", challengeId: challenge.data.challengeId,
+        challengeSignature: signVendorAddonActivationPayload(input.identity, challenge.data.signaturePayload),
+      }),
+      headers: { "content-type": "application/json" }, method: "POST",
+      purpose: `${input.purpose} completion`, timeoutMs: 5_000,
+    });
+  } catch {
+    throw new RevalidationFailure("outage", "Webshop license server completion could not be reached.");
+  }
+  if (!completion.ok) {
+    const message = await readLicenseServerError(completion, `${input.purpose} was rejected by the license server.`);
+    throw new RevalidationFailure(completion.status >= 500 ? "outage" : "invalid", message);
+  }
   const parsed = ActivationResponseSchema.safeParse(await completion.json());
-  if (!parsed.success) throw new Error("Webshop license server returned an invalid V2 activation response.");
+  if (!parsed.success) throw new RevalidationFailure("invalid", "Webshop license server returned an invalid V2 activation response.");
   return parsed.data;
+}
+
+async function persistRevalidationFailure(classification: "outage" | "invalid") {
+  const { db } = await import("@/db");
+  const { webshopAddonEntitlements } = await import("@/db/schema");
+  const { eq } = await import("drizzle-orm");
+  await db
+    .update(webshopAddonEntitlements)
+    .set({
+      lastErrorCode:
+        classification === "outage"
+          ? "revalidation_network_outage"
+          : "revalidation_invalid_response",
+      lastRevalidationAttemptAt: new Date(),
+      // A signed invalid/domain/auth response never receives outage grace.
+      ...(classification === "invalid" ? { status: "invalid" as const } : {}),
+      updatedBy: "system:revalidation",
+    })
+    .where(eq(webshopAddonEntitlements.id, 1));
 }
 
 function verifyActivationResponse(
