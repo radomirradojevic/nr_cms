@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     // vendored host snapshot are generated JavaScript, not lint inputs.
     ".private/**/dist/**",
     ".private/**/runtime-snapshot/**",
+    // Local diagnostics, extracted release packages, and audit evidence are
+    // generated inputs/outputs rather than repository source.
+    ".tmp/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
