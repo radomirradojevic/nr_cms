@@ -15,7 +15,7 @@ export const hostCapabilitiesV1Schema = z.object({
   cmsVersion: semver,
   cmsCommitSha: z.string().regex(/^[a-f0-9]{40}$/),
   nodeVersion: semver,
-  nextVersion: z.literal("16.2.6"),
+  nextVersion: z.literal("16.3.0"),
   runtimeContractVersion: z.literal("1"),
   coreSchemaVersion: z.number().int().positive(),
   installedAddonSchemaVersion: z.number().int().nonnegative(),
@@ -96,7 +96,7 @@ export function buildHostCapabilitiesV1(input: {
 }): HostCapabilitiesV1 {
   return hostCapabilitiesV1Schema.parse({
     descriptorVersion: 1, cmsVersion: input.cmsVersion, cmsCommitSha: input.cmsCommitSha,
-    nodeVersion: input.nodeVersion ?? process.versions.node, nextVersion: "16.2.6",
+    nodeVersion: input.nodeVersion ?? process.versions.node, nextVersion: "16.3.0",
     runtimeContractVersion: "1", coreSchemaVersion: input.coreSchemaVersion,
     installedAddonSchemaVersion: input.installedAddonSchemaVersion,
   });

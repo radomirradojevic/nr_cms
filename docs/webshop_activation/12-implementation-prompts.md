@@ -29,7 +29,7 @@ Obavezno potpuno pročitaj:
 - docs/webshop_activation/11-implementation-roadmap.md;
 - docs/webshop_activation/12-implementation-prompts.md.
 
-Zatim pregledaj git status u svakom postojećem repozitorijumu pod D:\nr_cms i evidentiraj postojeće user izmene bez menjanja/stashovanja/resetovanja. Potvrdi stvarne package scriptove, migration alate, Next 16.2.6 lokalnu dokumentaciju i da li postoji novi worker repo. Ne pretpostavljaj da su TARGET stavke već implementirane samo zato što su dokumentovane.
+Zatim pregledaj git status u svakom postojećem repozitorijumu pod D:\nr_cms i evidentiraj postojeće user izmene bez menjanja/stashovanja/resetovanja. Potvrdi stvarne package scriptove, migration alate, Next 16.3.0 lokalnu dokumentaciju i da li postoji novi worker repo. Ne pretpostavljaj da su TARGET stavke već implementirane samo zato što su dokumentovane.
 
 Stalna pravila za sve naredne faze:
 1. Specifikacija u docs/webshop_activation ima prednost nad starijim PASS/status dokumentima.

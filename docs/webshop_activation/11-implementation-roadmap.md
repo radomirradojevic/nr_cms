@@ -30,7 +30,7 @@ ne dobijaju ručne source patcheve. Deployment ih pravi/obnavlja iz commitova i 
 4. Feature je default-off dok svi njegovi producer/consumer delovi nisu deployovani.
 5. Tajne i lokalne `.env` vrednosti se ne commit-uju.
 6. Generated artefakti se commit-uju samo ako postojeći repo contract to zahteva.
-7. Next.js 16.2.6 pravila važe u CMS-u i masteru:
+7. Next.js 16.3.0 pravila važe u CMS-u i masteru:
 
    - koristiti `proxy.ts`, nikada `middleware.ts`;
    - `params` i `searchParams` su Promise i moraju se `await`-ovati;

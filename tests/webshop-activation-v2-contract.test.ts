@@ -17,7 +17,7 @@ test("Webshop V2 entitlement is canonical, SPKI-bound, and host/environment fenc
   const fingerprint = fingerprintEd25519SpkiDer(publicKey);
   const host = canonicalHostCapabilitiesV1({
     descriptorVersion: 1, cmsVersion: "0.1.0",
-    cmsCommitSha: "a".repeat(40), nodeVersion: "24.15.0", nextVersion: "16.2.6",
+    cmsCommitSha: "a".repeat(40), nodeVersion: "24.15.0", nextVersion: "16.3.0",
     runtimeContractVersion: "1", coreSchemaVersion: 1, installedAddonSchemaVersion: 0,
   });
   const now = Math.floor(Date.now() / 1000);
@@ -47,7 +47,7 @@ test("Webshop V2 entitlement is canonical, SPKI-bound, and host/environment fenc
       registryPackageVersionId: "1090949848", sourceReleasedAt: new Date(now * 1000).toISOString(),
       publishedAt: new Date(now * 1000).toISOString(), releaseSigningKid: "test-kid",
       runtimeContractVersion: "1", cmsVersionRange: "^0.1.0", nodeVersionRange: ">=24.15.0 <25.0.0",
-      nextVersionRange: "16.2.6", minimumCoreSchemaVersion: 1, schemaVersion: 1,
+      nextVersionRange: "16.3.0", minimumCoreSchemaVersion: 1, schemaVersion: 1,
       supportedAddonSchemaVersionMin: 1, supportedAddonSchemaVersionMax: 1,
       migrationBundleHash: "8".repeat(64), supportedLicenseEditions: ["standard"], channel: "stable",
     },

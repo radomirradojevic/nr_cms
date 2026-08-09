@@ -65,7 +65,7 @@ const claim = {
     runtimeContractVersion: "1" as const,
     cmsVersionRange: "^0.1.0",
     nodeVersionRange: ">=24.15.0 <25.0.0",
-    nextVersionRange: "16.2.6",
+    nextVersionRange: "16.3.0",
     minimumCoreSchemaVersion: 1,
     schemaVersion: 1,
     supportedAddonSchemaVersionMin: 1,

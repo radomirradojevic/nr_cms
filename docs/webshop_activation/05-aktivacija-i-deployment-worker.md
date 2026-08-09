@@ -37,7 +37,7 @@ DB CHECK/Drizzle/TypeScript koristi exact `installation_fingerprint_scheme=legac
         "cmsVersion": "<EXACT_SEMVER>",
         "cmsCommitSha": "<40_LOWERCASE_HEX>",
         "nodeVersion": "<EXACT_SEMVER>",
-        "nextVersion": "16.2.6",
+        "nextVersion": "16.3.0",
         "runtimeContractVersion": "1",
         "coreSchemaVersion": 1,
         "installedAddonSchemaVersion": 0
