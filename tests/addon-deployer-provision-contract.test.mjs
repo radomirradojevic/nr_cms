@@ -44,6 +44,7 @@ test("addon deployer public control grants are a closed minimal set", () => {
 
 test("addon deployer provisioning revokes cross-database and ambient sequence privileges", () => {
   const source = fs.readFileSync(path.resolve("scripts", "db-addon-deployer-provision.mjs"), "utf8");
+  assert.match(source, /REVOKE ALL ON DATABASE \$\{quoteIdentifier\(row\.datname\)\} FROM PUBLIC/);
   assert.match(source, /REVOKE ALL ON DATABASE \$\{quoteIdentifier\(row\.datname\)\} FROM \$\{quoteIdentifier\(deployerRole\)\}/);
   assert.match(source, /REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM \$\{quoteIdentifier\(deployerRole\)\}/);
   assert.match(source, /has_database_privilege\(\$1,datname,'CONNECT'\)/);

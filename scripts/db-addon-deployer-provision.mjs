@@ -109,7 +109,7 @@ async function reconcileDatabase(client, coreTarget, manifest, password) {
       role = await ensureRole(client, deployerRole, password);
       const databases = await client.query("SELECT datname FROM pg_database WHERE datallowconn AND NOT datistemplate ORDER BY datname");
       for (const row of databases.rows) {
-        await client.query(`REVOKE CONNECT ON DATABASE ${quoteIdentifier(row.datname)} FROM PUBLIC`);
+        await client.query(`REVOKE ALL ON DATABASE ${quoteIdentifier(row.datname)} FROM PUBLIC`);
         await client.query(`REVOKE ALL ON DATABASE ${quoteIdentifier(row.datname)} FROM ${quoteIdentifier(deployerRole)}`);
       }
       await client.query(`GRANT CONNECT ON DATABASE ${quoteIdentifier(coreTarget.databaseName)} TO ${quoteIdentifier(deployerRole)}`);
