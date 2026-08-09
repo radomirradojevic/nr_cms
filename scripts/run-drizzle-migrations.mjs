@@ -985,6 +985,31 @@ function isSplitAppearanceSchema(schemaState) {
   );
 }
 
+function migrationSatisfiedWithConstraintAlias(
+  migration,
+  schemaState,
+  replacedConstraint,
+  replacementConstraint,
+) {
+  if (!constraintExists(schemaState, replacementConstraint)) return false;
+  const aliasedState = {
+    ...schemaState,
+    constraints: new Set([...schemaState.constraints, replacedConstraint]),
+  };
+  const analysis = analyzeMigration(migration);
+  return analysis.statements
+    .flatMap((statement) => statement.operations)
+    .every(
+      (operation) =>
+        operationStatus(
+          operation,
+          aliasedState,
+          analysis.finalAdds,
+          analysis.replacedConstraints,
+        ).satisfied,
+    );
+}
+
 function supersededMigrationReason(migration, schemaState) {
   if (
     migration.tag === "0080_webshop_payment_state_v2" &&
@@ -1030,6 +1055,18 @@ function supersededMigrationReason(migration, schemaState) {
     webshopPaymentProviderConstraintsInclude(schemaState, ["monri", "paddle"])
   ) {
     return "superseded by Paddle payment provider schema";
+  }
+
+  if (
+    migration.tag === "0092_addon_deployment_worker_callback_ledger" &&
+    migrationSatisfiedWithConstraintAlias(
+      migration,
+      schemaState,
+      "cms_addon_deployment_results_stub_final_tuple_check",
+      "cms_addon_deployment_results_terminal_tuple_check",
+    )
+  ) {
+    return "superseded by 0093 terminal result tuple contract";
   }
 
   return null;
@@ -1115,6 +1152,7 @@ export const __migrationRunnerTesting = {
   hasVerifiedAppliedPrefix,
   mayReapplySatisfiedPendingMigration,
   migrationHasSchemaOperations,
+  migrationSatisfiedWithConstraintAlias,
   migrationEndStateStatus,
   normalizeColumnDefault,
   supersededMigrationReason,

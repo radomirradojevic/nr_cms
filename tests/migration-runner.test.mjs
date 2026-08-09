@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-import { __migrationRunnerTesting } from "../scripts/run-drizzle-migrations.mjs";
+import {
+  __migrationRunnerTesting,
+  loadMigrations,
+} from "../scripts/run-drizzle-migrations.mjs";
 
 function makeSchemaState(columns) {
   return {
@@ -320,6 +323,61 @@ test("migration runner accepts superseded webshop media unique constraint", () =
   );
 
   assert.equal(status.satisfied, true);
+});
+
+test("migration runner accepts the 0093 replacement only when all 0092 state remains complete", () => {
+  const migration = loadMigrations().find(
+    (candidate) =>
+      candidate.tag === "0092_addon_deployment_worker_callback_ledger",
+  );
+  assert.ok(migration);
+  const state = {
+    tables: new Set(),
+    tableColumns: new Map(),
+    columnDefaults: new Map(),
+    indexes: new Set(),
+    constraints: new Set(),
+    constraintDefinitions: new Map(),
+  };
+  for (const statement of migration.statements) {
+    for (const operation of __migrationRunnerTesting.analyzeStatement(statement)) {
+      if (operation.kind === "createTable") {
+        state.tables.add(operation.table);
+        state.tableColumns.set(operation.table, new Set(operation.columns));
+        for (const constraint of operation.constraints) {
+          state.constraints.add(constraint);
+        }
+      } else if (operation.kind === "addColumn") {
+        const columns = state.tableColumns.get(operation.table) ?? new Set();
+        columns.add(operation.column);
+        state.tableColumns.set(operation.table, columns);
+      } else if (operation.kind === "createIndex") {
+        state.indexes.add(operation.index);
+      }
+    }
+  }
+  state.constraints.delete(
+    "cms_addon_deployment_results_stub_final_tuple_check",
+  );
+  state.constraints.add(
+    "cms_addon_deployment_results_terminal_tuple_check",
+  );
+
+  const complete = __migrationRunnerTesting.migrationEndStateStatus(
+    migration,
+    state,
+  );
+  assert.deepEqual(complete, {
+    satisfied: true,
+    reason: "superseded by 0093 terminal result tuple contract",
+  });
+
+  state.tableColumns.get("cms_addon_deployment_results").delete("result_id");
+  assert.equal(
+    __migrationRunnerTesting.migrationEndStateStatus(migration, state)
+      .satisfied,
+    false,
+  );
 });
 
 test("webshop public migrations are present in checked migration files", () => {
