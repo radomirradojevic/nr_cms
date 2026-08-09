@@ -279,15 +279,19 @@ async function assertExpectedDatabase(client, target) {
   }
 }
 
-async function assertNoUnknownSchemas(client) {
+async function assertNoUnknownSchemas(client, target) {
   const result = await client.query(`
-    SELECT nspname
+    SELECT nspname, pg_get_userbyid(nspowner) AS owner
     FROM pg_namespace
     WHERE nspname !~ '^pg_'
       AND nspname NOT IN ('information_schema', 'public', 'drizzle', 'nr_control')
     ORDER BY nspname
   `);
-  if (result.rowCount) {
+  const expectedAddonOwner = `nr_cms_${target.targetName}_webshop_deployer`;
+  const unexpected = result.rows.filter(
+    (row) => row.nspname !== "webshop" || row.owner !== expectedAddonOwner,
+  );
+  if (unexpected.length > 0 || result.rows.length > 1) {
     fail(
       "target database has a non-contract schema; explicit migration/restore review is required.",
     );
@@ -455,7 +459,7 @@ export async function provisionCmsCoreDatabase({
   });
   await targetAdmin.connect();
   try {
-    await assertNoUnknownSchemas(targetAdmin);
+    await assertNoUnknownSchemas(targetAdmin, target);
     const ownerState = await ensureRole(targetAdmin, target.roles.owner, false);
     const migratorState = await ensureRole(
       targetAdmin,

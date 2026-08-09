@@ -185,3 +185,13 @@ test("provisioning constants reserve no worker-owned secret root", () => {
     "nr_control",
   ]);
 });
+
+test("core provisioning retry permits only the target-owned Webshop schema", () => {
+  const source = fs.readFileSync(
+    path.resolve("scripts", "core-db-provisioning.mjs"),
+    "utf8",
+  );
+  assert.match(source, /const expectedAddonOwner = `nr_cms_\$\{target\.targetName\}_webshop_deployer`/);
+  assert.match(source, /row\.nspname !== "webshop" \|\| row\.owner !== expectedAddonOwner/);
+  assert.match(source, /unexpected\.length > 0 \|\| result\.rows\.length > 1/);
+});
