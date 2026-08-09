@@ -55,13 +55,13 @@ function Assert-RegularBlob([string]$Candidate) {
   if ($item.PSIsContainer -or (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) -or $item.Length -lt 1 -or $item.Length -gt 32768) { throw 'addon_deployer_dpapi_blob_invalid' }
   $acl = $item.GetAccessControl()
   if (-not $acl.AreAccessRulesProtected) { throw 'addon_deployer_dpapi_acl_inheritance_enabled' }
-  if ($acl.Owner.Translate([Security.Principal.SecurityIdentifier]).Value -ne $administratorsSid) { throw 'addon_deployer_dpapi_owner_invalid' }
+  if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $administratorsSid) { throw 'addon_deployer_dpapi_owner_invalid' }
   $rules = @($acl.Access)
   if ($rules.Count -ne 3) { throw 'addon_deployer_dpapi_acl_rule_count_invalid' }
   $expected = @{
     $systemSid = [Security.AccessControl.FileSystemRights]::FullControl
     $administratorsSid = [Security.AccessControl.FileSystemRights]::FullControl
-    $brokerSid = [Security.AccessControl.FileSystemRights]::ReadAndExecute
+    $brokerSid = [Security.AccessControl.FileSystemRights]::ReadAndExecute -bor [Security.AccessControl.FileSystemRights]::Synchronize
   }
   foreach ($rule in $rules) {
     $sid = $rule.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value
