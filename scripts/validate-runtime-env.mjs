@@ -41,6 +41,14 @@ const WEBSHOP_REQUIRED_WHEN_ENABLED = [
   "WEBSHOP_BUY_URL",
 ];
 
+const WEBSHOP_REQUIRED_FOR_MANAGED_REDEPLOY = [
+  "NR_ADDON_DEPLOYMENT_WORKER_AUTH_KID",
+  "NR_ADDON_DEPLOYMENT_WORKER_AUTH_SECRET",
+  "NR_ADDON_DEPLOYMENT_WORKER_URL",
+  "WEBSHOP_DEPLOYMENT_RESULT_AUTH_KID",
+  "WEBSHOP_DEPLOYMENT_RESULT_AUTH_SECRET",
+];
+
 const LICENSE_SERVER_REQUIRED_WHEN_ENABLED = [
   "LICENSE_SERVER_CUSTOMER_ENVIRONMENT",
   "LICENSE_SERVER_DEPLOYMENT_MODE",
@@ -111,6 +119,8 @@ export function validateRuntimeEnv(env = process.env) {
     false,
   );
   const addonEnabled = webshopEnabled || licenseServerEnabled;
+  const webshopManagedRedeploy =
+    webshopEnabled && env.WEBSHOP_INSTALL_MODE?.trim() === "managed_redeploy";
   if (addonSourceMode === "empty" && addonEnabled) {
     fail(
       "NR_ADDON_SOURCE_MODE=empty requires every paid add-on to be disabled",
@@ -120,6 +130,9 @@ export function validateRuntimeEnv(env = process.env) {
   const required = [
     ...CORE_REQUIRED,
     ...(webshopEnabled ? WEBSHOP_REQUIRED_WHEN_ENABLED : []),
+    ...(webshopManagedRedeploy
+      ? WEBSHOP_REQUIRED_FOR_MANAGED_REDEPLOY
+      : []),
     ...(licenseServerEnabled ? LICENSE_SERVER_REQUIRED_WHEN_ENABLED : []),
     ...(addonEnabled ? ADDON_SHARED_REQUIRED : []),
   ];
@@ -195,6 +208,9 @@ export function validateRuntimeEnv(env = process.env) {
     assertLocalCaddyNodeTrust(env, masterLicenseUrl);
   }
   if (webshopEnabled) assertWebshopBuyUrl(env.WEBSHOP_BUY_URL);
+  if (webshopManagedRedeploy) {
+    assertManagedRedeployTransport(env, deploymentProfile, licenseEnvironment);
+  }
 
   return {
     addonSourceMode,
@@ -418,6 +434,73 @@ function assertWebshopBuyUrl(value) {
       "WEBSHOP_BUY_URL must be HTTPS with exact /licenses/purchase-intents/accept path and no credentials, query, fragment, or unexpected port",
     );
   }
+}
+
+function assertManagedRedeployTransport(
+  env,
+  deploymentProfile,
+  licenseEnvironment,
+) {
+  if (deploymentProfile !== "vendor" && deploymentProfile !== "client") {
+    fail("managed redeploy requires the vendor or client deployment profile");
+  }
+  const workerUrl = parseExactHttpsOrigin(
+    "NR_ADDON_DEPLOYMENT_WORKER_URL",
+    env.NR_ADDON_DEPLOYMENT_WORKER_URL,
+  );
+  for (const key of [
+    "NR_ADDON_DEPLOYMENT_WORKER_AUTH_KID",
+    "WEBSHOP_DEPLOYMENT_RESULT_AUTH_KID",
+  ]) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$/.test(env[key]?.trim() ?? "")) {
+      fail(`${key} must match the managed deployment KID contract`);
+    }
+  }
+  for (const key of [
+    "NR_ADDON_DEPLOYMENT_WORKER_AUTH_SECRET",
+    "WEBSHOP_DEPLOYMENT_RESULT_AUTH_SECRET",
+  ]) {
+    assertSecret(env, key);
+  }
+  assertLocalCaddyNodeTrust(env, workerUrl.toString());
+  if (workerUrl.hostname.toLowerCase().endsWith(".nr.test")) {
+    if (licenseEnvironment !== "development") {
+      fail("local .nr.test deployment worker is allowed only in development");
+    }
+    if (readBoolean(env, "NRLS_ALLOW_SELF_HOSTED_OUTBOUND", false) !== true) {
+      fail("local deployment worker requires NRLS_ALLOW_SELF_HOSTED_OUTBOUND=true");
+    }
+    const allowedHosts = new Set(
+      (env.NRLS_ALLOWED_OUTBOUND_HOSTS ?? "")
+        .split(",")
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    if (!allowedHosts.has(workerUrl.hostname.toLowerCase())) {
+      fail("NRLS_ALLOWED_OUTBOUND_HOSTS must include the deployment worker host");
+    }
+  }
+}
+
+function parseExactHttpsOrigin(key, value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    fail(`${key} must be an absolute HTTPS origin`);
+  }
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash ||
+    (url.port && url.port !== "443")
+  ) {
+    fail(`${key} must be an exact HTTPS origin`);
+  }
+  return url;
 }
 
 function assertLocalCaddyNodeTrust(env, rawUrl) {

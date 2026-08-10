@@ -160,6 +160,48 @@ test("local Caddy transport requires normal Node CA trust and forbids TLS bypass
   );
 });
 
+test("managed redeploy binds the worker URL to complete HMAC and local outbound policy", () => {
+  const managed = {
+    ...baseEnvironment,
+    ...enabledWebshopEnvironment(),
+    WEBSHOP_DEPLOYMENT_MODE: "self_hosted",
+    WEBSHOP_INSTALL_MODE: "managed_redeploy",
+  };
+  assert.throws(
+    () => validateRuntimeEnv(managed),
+    /NR_ADDON_DEPLOYMENT_WORKER_AUTH_KID.*NR_ADDON_DEPLOYMENT_WORKER_AUTH_SECRET.*NR_ADDON_DEPLOYMENT_WORKER_URL.*WEBSHOP_DEPLOYMENT_RESULT_AUTH_KID.*WEBSHOP_DEPLOYMENT_RESULT_AUTH_SECRET/,
+  );
+  const transport = {
+    ...managed,
+    NODE_USE_SYSTEM_CA: "1",
+    NR_ADDON_DEPLOYMENT_WORKER_AUTH_KID: "cms-client-deploy-v1",
+    NR_ADDON_DEPLOYMENT_WORKER_AUTH_SECRET: "d".repeat(32),
+    NR_ADDON_DEPLOYMENT_WORKER_URL: "https://deploy.nr.test",
+    WEBSHOP_DEPLOYMENT_RESULT_AUTH_KID: "worker-client-result-v1",
+    WEBSHOP_DEPLOYMENT_RESULT_AUTH_SECRET: "r".repeat(32),
+  };
+  assert.throws(
+    () => validateRuntimeEnv(transport),
+    /NRLS_ALLOW_SELF_HOSTED_OUTBOUND=true/,
+  );
+  assert.throws(
+    () =>
+      validateRuntimeEnv({
+        ...transport,
+        NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true",
+        NRLS_ALLOWED_OUTBOUND_HOSTS: "license.nr.test",
+      }),
+    /must include the deployment worker host/,
+  );
+  assert.doesNotThrow(() =>
+    validateRuntimeEnv({
+      ...transport,
+      NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true",
+      NRLS_ALLOWED_OUTBOUND_HOSTS: "license.nr.test,deploy.nr.test",
+    }),
+  );
+});
+
 test("fully configured add-ons validate while malformed feature configuration fails", () => {
   assert.doesNotThrow(() =>
     validateRuntimeEnv({
