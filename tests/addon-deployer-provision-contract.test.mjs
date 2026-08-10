@@ -8,28 +8,39 @@ import { __addonDeployerProvisionTesting } from "../scripts/db-addon-deployer-pr
 import { WEBSHOP_CURRENT_TABLES } from "../scripts/webshop-schema-contract.mjs";
 
 const workerRoot = path.resolve(".private", "addon-deployment-worker");
+const workerManifestPath = path.join(
+  workerRoot,
+  "config",
+  "db-credential-broker.template.json",
+);
 const cases = [
   ["vendor", "d89dbb3be2d0c2ea9568b0a9a92b990fbe9252df1d3ef96c0a417addef506bd3"],
   ["client", "a3ec57f8a506ef9ff0696f5496877c99356f884171adea1cb8497efe091abb77"],
 ];
 
-test("addon deployer manifests cover the exact current signed Webshop table set", () => {
-  const core = loadCmsCorePrivilegeManifest();
-  const broker = JSON.parse(fs.readFileSync(path.join(workerRoot, "config", "db-credential-broker.template.json"), "utf8"));
-  assert.equal(WEBSHOP_CURRENT_TABLES.length, 59);
-  for (const [target, expectedHash] of cases) {
-    const file = path.join(workerRoot, "config", "migration-privileges", `${target}-webshop-v1.json`);
-    const loaded = __addonDeployerProvisionTesting.loadPrivilegeManifest(
-      file,
-      expectedHash,
-      target,
-      resolveCmsCoreTarget(target, core),
-    );
-    assert.equal(loaded.value.tableNames.length, 59);
-    assert.deepEqual(loaded.value.tableNames, [...WEBSHOP_CURRENT_TABLES].sort());
-    assert.equal(broker.privilegeManifests[target].sha256, expectedHash);
-  }
-});
+test(
+  "addon deployer manifests cover the exact current signed Webshop table set",
+  {
+    skip: !fs.existsSync(workerManifestPath),
+  },
+  () => {
+    const core = loadCmsCorePrivilegeManifest();
+    const broker = JSON.parse(fs.readFileSync(workerManifestPath, "utf8"));
+    assert.equal(WEBSHOP_CURRENT_TABLES.length, 59);
+    for (const [target, expectedHash] of cases) {
+      const file = path.join(workerRoot, "config", "migration-privileges", `${target}-webshop-v1.json`);
+      const loaded = __addonDeployerProvisionTesting.loadPrivilegeManifest(
+        file,
+        expectedHash,
+        target,
+        resolveCmsCoreTarget(target, core),
+      );
+      assert.equal(loaded.value.tableNames.length, 59);
+      assert.deepEqual(loaded.value.tableNames, [...WEBSHOP_CURRENT_TABLES].sort());
+      assert.equal(broker.privilegeManifests[target].sha256, expectedHash);
+    }
+  },
+);
 
 test("addon deployer public control grants are a closed minimal set", () => {
   assert.deepEqual(__addonDeployerProvisionTesting.CONTROL_TABLES, [

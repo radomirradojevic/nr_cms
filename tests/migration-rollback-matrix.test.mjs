@@ -10,6 +10,10 @@ import {
   centralMigrationTagsFromJournal,
 } from "../scripts/migration-matrix-harness.mjs";
 
+const centralJournalPath = path.resolve(
+  ".private/license-server/drizzle/meta/_journal.json",
+);
+
 test("versioned migration matrix covers every required fresh, upgrade, expand, failure and rollback case", () => {
   assert.deepEqual(buildMigrationMatrixPlan().map((item) => item.id), [
     "fresh",
@@ -45,13 +49,19 @@ test("central migration rerun expects no pending migrations after fresh apply", 
   ]);
 });
 
-test("central migration matrix derives the complete expected list from the checked-in journal", () => {
-  const journal = JSON.parse(fs.readFileSync(path.resolve(".private/license-server/drizzle/meta/_journal.json"), "utf8"));
-  const tags = centralMigrationTagsFromJournal(journal);
-  assert.equal(tags.length, journal.entries.length);
-  assert.equal(tags.at(-1), "0015_addon_lifecycle_receipts");
-  assert.equal(buildCentralMigrationApplyPlan(tags)[0].expectedMigrations, tags.join(","));
-});
+test(
+  "central migration matrix derives the complete expected list from the checked-in journal",
+  {
+    skip: !fs.existsSync(centralJournalPath),
+  },
+  () => {
+    const journal = JSON.parse(fs.readFileSync(centralJournalPath, "utf8"));
+    const tags = centralMigrationTagsFromJournal(journal);
+    assert.equal(tags.length, journal.entries.length);
+    assert.equal(tags.at(-1), "0015_addon_lifecycle_receipts");
+    assert.equal(buildCentralMigrationApplyPlan(tags)[0].expectedMigrations, tags.join(","));
+  },
+);
 
 test("central migration journal validation rejects gaps and duplicate tags", () => {
   assert.throws(
