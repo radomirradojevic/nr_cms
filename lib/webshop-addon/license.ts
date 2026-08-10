@@ -32,6 +32,7 @@ import {
   canonicalHostCapabilitiesV1,
   entitlementClaimsV2Schema,
 } from "@/lib/vendor-addon-entitlements/activation-v2-contract";
+import { parseActivationChallengeV2Response } from "@/lib/vendor-addon-entitlements/activation-challenge-v2";
 import { evaluateWebshopPublicServingGateV1 } from "@/lib/addon-runtime/serving-gate";
 import { resolvePersistentV2EntitlementRuntimeMode } from "@/lib/vendor-addon-entitlements/revalidation-policy";
 
@@ -54,15 +55,6 @@ const ActivationResponseSchema = z.object({
   signingKid: z.string().min(1),
   release: entitlementClaimsV2Schema.shape.release,
 }).strict();
-const ActivationChallengeSchema = z.object({
-  contractVersion: z.literal(2).optional(),
-  challengeId: z.string().uuid(),
-  expiresAt: z.string().datetime(),
-  ok: z.literal(true),
-  signaturePayload: z.string().min(1),
-  hostCapabilityDescriptorHash: z.string().regex(/^sha256:[a-f0-9]{64}$/).optional(),
-}).strict();
-
 export type WebshopActivationResponse = z.infer<
   typeof ActivationResponseSchema
 >;
@@ -626,15 +618,19 @@ async function completeV2LicenseExchange(input: {
     const message = await readLicenseServerError(challengeResponse, `${input.purpose} challenge was rejected by the license server.`);
     throw new RevalidationFailure(challengeResponse.status >= 500 ? "outage" : "invalid", message);
   }
-  const challenge = ActivationChallengeSchema.safeParse(await challengeResponse.json());
-  if (!challenge.success) throw new RevalidationFailure("invalid", "Webshop license server returned an invalid V2 challenge.");
+  let challenge: ReturnType<typeof parseActivationChallengeV2Response>;
+  try {
+    challenge = parseActivationChallengeV2Response(await challengeResponse.json());
+  } catch {
+    throw new RevalidationFailure("invalid", "Webshop license server returned an invalid V2 challenge.");
+  }
   let completion: Response;
   try {
     completion = await safeFetch(joinUrl(licenseServerUrl, input.endpoint), {
       allowFirstParty: true, allowLocalHttp: localHttp, allowSelfHosted: true,
       body: JSON.stringify({
-        contractVersion: 2, action: "complete", challengeId: challenge.data.challengeId,
-        challengeSignature: signVendorAddonActivationPayload(input.identity, challenge.data.signaturePayload),
+        contractVersion: 2, action: "complete", challengeId: challenge.challengeId,
+        challengeSignature: signVendorAddonActivationPayload(input.identity, challenge.signaturePayload),
       }),
       headers: { "content-type": "application/json" }, method: "POST",
       purpose: `${input.purpose} completion`, timeoutMs: 5_000,
