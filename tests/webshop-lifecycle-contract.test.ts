@@ -5,8 +5,16 @@ import {
   lifecycleCoreHash,
   lifecycleStatusClaimsSchema,
 } from "@/lib/webshop-addon/lifecycle-contract";
+import { deploymentRequestV2Schema } from "@/lib/addon-runtime/deployment-contract-v2";
 
 const HASH = (char: string) => `sha256:${char.repeat(64)}`;
+
+test("deployment fencing accepts the initial lifecycle version and rejects negative versions", () => {
+  const schema = deploymentRequestV2Schema.shape.entitlementLifecycleVersion;
+  assert.equal(schema.safeParse(0).success, true);
+  assert.equal(schema.safeParse(1).success, true);
+  assert.equal(schema.safeParse(-1).success, false);
+});
 
 test("CMS verifier shares frozen lifecycle result-core hashes", () => {
   assert.equal(

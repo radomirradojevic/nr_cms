@@ -32,7 +32,7 @@ const claim = {
   installationKeyFingerprint: `sha256:${"a".repeat(64)}`,
   licenseStatus: "active" as const,
   activationStatus: "active" as const,
-  lifecycleVersion: 1,
+  lifecycleVersion: 0,
   activationLimit: 1,
   edition: "standard" as const,
   features: [] as string[],

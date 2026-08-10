@@ -6,6 +6,7 @@ const hashRef = z.string().regex(/^sha256:[a-f0-9]{64}$/);
 const epoch = z.string().regex(/^[1-9][0-9]{0,18}$/).refine((value) => BigInt(value) <= BigInt("9223372036854775807"), "installation_epoch_out_of_range");
 const timestamp = z.string().datetime({ offset: true });
 const semver = z.string().regex(/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/);
+const entitlementLifecycleVersion = z.number().int().nonnegative();
 
 export const deploymentRequestV2Schema = z.object({
   version: z.literal(2), operationId: uuid, installationDeploymentEpoch: epoch,
@@ -18,7 +19,7 @@ export const deploymentRequestV2Schema = z.object({
   cmsVersionRange: z.string().min(1), nodeVersionRange: z.string().min(1), nextVersionRange: z.string().min(1), minimumCoreSchemaVersion: z.number().int().min(1), schemaVersion: z.number().int().min(1),
   supportedAddonSchemaVersionMin: z.number().int().min(1), supportedAddonSchemaVersionMax: z.number().int().min(1), migrationBundleHash: hash,
   supportedLicenseEditions: z.tuple([z.literal("standard")]), releaseChannel: z.literal("stable"), hostCapabilityDescriptorHash: hashRef,
-  entitlementSnapshotHash: hashRef, entitlementLifecycleVersion: z.number().int().min(1), entitlementEnvelopeExpiresAt: timestamp,
+  entitlementSnapshotHash: hashRef, entitlementLifecycleVersion, entitlementEnvelopeExpiresAt: timestamp,
   preOperationServingStateHash: hashRef, preOperationMigrationLedgerHash: hashRef,
 }).strict().superRefine((value, ctx) => {
   if ((value.generation === 1) !== (value.supersedesOperationId === null)) ctx.addIssue({ code: "custom", message: "supersedes_operation_lineage_invalid", path: ["supersedesOperationId"] });
@@ -42,7 +43,7 @@ const deploymentResultBaseV2Schema = z.object({
   registryPackageVersionId: z.string().regex(/^[1-9][0-9]*$/), sourceReleasedAt: timestamp, publishedAt: timestamp, releaseSigningKid: z.string().min(1), runtimeContractVersion: z.literal("1"),
   cmsVersionRange: z.string().min(1), nodeVersionRange: z.string().min(1), nextVersionRange: z.string().min(1), minimumCoreSchemaVersion: z.number().int().min(1), schemaVersion: z.number().int().min(1),
   supportedAddonSchemaVersionMin: z.number().int().min(1), supportedAddonSchemaVersionMax: z.number().int().min(1), migrationBundleHash: hash, supportedLicenseEditions: z.tuple([z.literal("standard")]), releaseChannel: z.literal("stable"),
-  entitlementSnapshotHash: hashRef, entitlementLifecycleVersion: z.number().int().min(1), entitlementEnvelopeExpiresAt: timestamp,
+  entitlementSnapshotHash: hashRef, entitlementLifecycleVersion, entitlementEnvelopeExpiresAt: timestamp,
   activeReleaseId: uuid.nullable(), activeArtifactSha256: hash.nullable(), observedServicePointerReleaseId: uuid.nullable(), cmsCommitSha: z.string().regex(/^[a-f0-9]{40}$/), observedHostCapabilityDescriptorHash: hashRef,
   terminalEvidenceHash: hashRef, occurredAt: timestamp,
 }).strict();
