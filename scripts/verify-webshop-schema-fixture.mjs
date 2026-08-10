@@ -33,6 +33,9 @@ const expectedHash = process.argv
   .find((value) => value.startsWith("--expect-hash="))
   ?.slice("--expect-hash=".length);
 const runPaymentTest = process.argv.includes("--run-payment-test");
+const runRemediationInvariants = process.argv.includes(
+  "--run-remediation-invariants",
+);
 
 function fail(message) {
   throw new Error(`[webshop-schema-fixture] ${message}`);
@@ -177,6 +180,36 @@ async function runIsolatedPaymentFixture(databaseUrl) {
   });
 }
 
+async function runIsolatedRemediationInvariants(databaseUrl) {
+  const centralUrl = process.env.NR_ACCEPTANCE_CENTRAL_TEST_DATABASE_URL;
+  if (!centralUrl)
+    fail("NR_ACCEPTANCE_CENTRAL_TEST_DATABASE_URL is required for remediation invariants.");
+  const child = spawn(
+    process.execPath,
+    ["scripts/run-remediation-invariants.mjs", "--local"],
+    {
+      cwd: root,
+      env: {
+        ...process.env,
+        NR_ACCEPTANCE_CMS_TEST_DATABASE_URL: databaseUrl,
+        NR_ACCEPTANCE_CENTRAL_TEST_DATABASE_URL: centralUrl,
+        NR_ACCEPTANCE_TARGET: "local",
+      },
+      stdio: "inherit",
+    },
+  );
+  await new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (signal || code !== 0) {
+        reject(new Error("isolated_remediation_invariants_failed"));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 async function introspect(client) {
   const relationRows = await client.query(`
     SELECT c.relname AS table_name
@@ -296,7 +329,7 @@ async function dropDatabase(admin, database) {
     fail("temporary fixture cleanup did not remove its database.");
 }
 
-const database = `nr_webshop_p03_${randomUUID().replaceAll("-", "").slice(0, 20)}`;
+const database = `nr_webshop_p03_test_${randomUUID().replaceAll("-", "").slice(0, 20)}`;
 const admin = new Client({ connectionString: connectionUrl("postgres") });
 let fixture;
 let adminConnected = false;
@@ -359,6 +392,8 @@ try {
   if (expectedHash && receipt.fingerprint !== expectedHash)
     fail("postcondition fingerprint does not match the pinned descriptor.");
   if (runPaymentTest) await runIsolatedPaymentFixture(connectionUrl(database));
+  if (runRemediationInvariants)
+    await runIsolatedRemediationInvariants(connectionUrl(database));
   console.log(
     JSON.stringify({
       fixture: "isolated-cleanup-verified",

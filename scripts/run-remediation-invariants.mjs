@@ -43,8 +43,8 @@ const checks = [
     id: "completed_order_without_required_fulfillment",
     sql: `
       SELECT count(*)::integer AS violations
-      FROM webshop_orders orders
-      JOIN webshop_order_items items ON items.order_id = orders.id
+      FROM webshop.webshop_orders orders
+      JOIN webshop.webshop_order_items items ON items.order_id = orders.id
       WHERE orders.status = 'completed'
         AND items.fulfillment_status NOT IN ('fulfilled', 'not_required')
     `,
@@ -53,8 +53,8 @@ const checks = [
     id: "refunded_or_chargeback_order_with_active_desired_entitlement",
     sql: `
       SELECT count(*)::integer AS violations
-      FROM webshop_license_server_issues issue
-      JOIN webshop_orders orders ON orders.id = issue.order_id
+      FROM webshop.webshop_license_server_issues issue
+      JOIN webshop.webshop_orders orders ON orders.id = issue.order_id
       WHERE orders.payment_status IN ('refunded', 'chargeback')
         AND issue.desired_status = 'active'
     `,
@@ -63,7 +63,7 @@ const checks = [
     id: "stale_processing_operation_lease",
     sql: `
       SELECT count(*)::integer AS violations
-      FROM webshop_license_server_operations
+      FROM webshop.webshop_license_server_operations
       WHERE status = 'processing'
         AND lease_expires_at < now()
     `,
@@ -72,8 +72,8 @@ const checks = [
     id: "paid_license_issue_without_terminal_fulfillment",
     sql: `
       SELECT count(*)::integer AS violations
-      FROM webshop_license_server_issues issue
-      JOIN webshop_orders orders ON orders.id = issue.order_id
+      FROM webshop.webshop_license_server_issues issue
+      JOIN webshop.webshop_orders orders ON orders.id = issue.order_id
       WHERE orders.payment_status = 'paid'
         AND issue.status IN ('failed', 'canceled')
         AND issue.desired_status = 'active'
@@ -83,8 +83,8 @@ const checks = [
     id: "dead_letter_without_visible_issue_state",
     sql: `
       SELECT count(*)::integer AS violations
-      FROM webshop_license_server_operations operation
-      JOIN webshop_license_server_issues issue ON issue.id = operation.issue_id
+      FROM webshop.webshop_license_server_operations operation
+      JOIN webshop.webshop_license_server_issues issue ON issue.id = operation.issue_id
       WHERE operation.status = 'dead_letter'
         AND issue.status NOT IN ('failed', 'canceled')
     `,

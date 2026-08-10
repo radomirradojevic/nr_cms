@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
 
 import {
   buildCentralMigrationApplyPlan,
   buildMigrationMatrixPlan,
   canRollbackPackage,
+  centralMigrationTagsFromJournal,
 } from "../scripts/migration-matrix-harness.mjs";
 
 test("versioned migration matrix covers every required fresh, upgrade, expand, failure and rollback case", () => {
@@ -40,4 +43,26 @@ test("central migration rerun expects no pending migrations after fresh apply", 
       scenario: "rerun",
     },
   ]);
+});
+
+test("central migration matrix derives the complete expected list from the checked-in journal", () => {
+  const journal = JSON.parse(fs.readFileSync(path.resolve(".private/license-server/drizzle/meta/_journal.json"), "utf8"));
+  const tags = centralMigrationTagsFromJournal(journal);
+  assert.equal(tags.length, journal.entries.length);
+  assert.equal(tags.at(-1), "0015_addon_lifecycle_receipts");
+  assert.equal(buildCentralMigrationApplyPlan(tags)[0].expectedMigrations, tags.join(","));
+});
+
+test("central migration journal validation rejects gaps and duplicate tags", () => {
+  assert.throws(
+    () => centralMigrationTagsFromJournal({
+      dialect: "postgresql",
+      entries: [
+        { idx: 0, tag: "0000_initial" },
+        { idx: 2, tag: "0000_initial" },
+      ],
+      version: "7",
+    }),
+    /invalid central Drizzle journal entry/i,
+  );
 });

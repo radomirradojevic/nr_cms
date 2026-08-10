@@ -27,6 +27,27 @@ export function buildCentralMigrationApplyPlan(migrationTags) {
   ];
 }
 
+export function centralMigrationTagsFromJournal(journal) {
+  if (
+    journal?.version !== "7"
+    || journal?.dialect !== "postgresql"
+    || !Array.isArray(journal.entries)
+    || journal.entries.length === 0
+  ) {
+    throw new Error("[migration-matrix] invalid central Drizzle journal.");
+  }
+  const tags = journal.entries.map((entry, index) => {
+    if (entry?.idx !== index || typeof entry?.tag !== "string" || !/^\d{4}_[a-z0-9_]+$/.test(entry.tag)) {
+      throw new Error("[migration-matrix] invalid central Drizzle journal entry.");
+    }
+    return entry.tag;
+  });
+  if (new Set(tags).size !== tags.length) {
+    throw new Error("[migration-matrix] duplicate central Drizzle migration tag.");
+  }
+  return tags;
+}
+
 export function canRollbackPackage({ currentSchemaVersion, supportedSchemaRange }) {
   return currentSchemaVersion >= supportedSchemaRange.min && currentSchemaVersion <= supportedSchemaRange.max;
 }

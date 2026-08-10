@@ -1006,7 +1006,10 @@ async function localInvariants() {
   );
   await run(
     process.execPath,
-    ["scripts/run-remediation-invariants.mjs", "--local"],
+    [
+      "scripts/verify-webshop-schema-fixture.mjs",
+      "--run-remediation-invariants",
+    ],
     { env: invariantEnv },
   );
 }

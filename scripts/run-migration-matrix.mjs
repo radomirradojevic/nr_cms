@@ -1,9 +1,16 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
 import pg from "pg";
 
 import { assertSafeTestDatabaseUrl } from "./database-test-safety.mjs";
-import { buildCentralMigrationApplyPlan, buildMigrationMatrixPlan, canRollbackPackage } from "./migration-matrix-harness.mjs";
+import {
+  buildCentralMigrationApplyPlan,
+  buildMigrationMatrixPlan,
+  canRollbackPackage,
+  centralMigrationTagsFromJournal,
+} from "./migration-matrix-harness.mjs";
 
 const { Client } = pg;
 const service = process.argv.find((arg) => arg.startsWith("--service="))?.slice("--service=".length) ?? "cms";
@@ -93,7 +100,8 @@ async function centralMatrix(url) {
   try {
     await resetDedicatedDatabase(client);
   } finally { await client.end(); }
-  const migrationTags = ["0000_initial", "0001_addon_product_keys", "0002_vendor_license_v2", "0003_vendor_addon_activation_signing", "0004_security_operations", "0005_vendor_subscriptions_updates"];
+  const journal = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "drizzle", "meta", "_journal.json"), "utf8"));
+  const migrationTags = centralMigrationTagsFromJournal(journal);
   for (const step of buildCentralMigrationApplyPlan(migrationTags)) {
     await command(process.execPath, ["scripts/migration-runner.mjs", "--apply", "--test", `--expected-migrations=${step.expectedMigrations}`], env);
   }

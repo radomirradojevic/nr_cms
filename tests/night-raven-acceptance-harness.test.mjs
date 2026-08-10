@@ -414,6 +414,19 @@ test("staging invariant runner covers both legacy and addon activation limits", 
   assert.match(source, /--local/);
   assert.match(source, /NR_ACCEPTANCE_CMS_TEST_DATABASE_URL/);
   assert.match(source, /NR_ACCEPTANCE_CENTRAL_TEST_DATABASE_URL/);
+  assert.match(source, /FROM webshop\.webshop_orders orders/);
+  assert.doesNotMatch(source, /FROM webshop_orders orders/);
+  const harnessSource = readFileSync(
+    resolve("scripts/night-raven-acceptance-harness.mjs"),
+    "utf8",
+  );
+  assert.match(harnessSource, /verify-webshop-schema-fixture\.mjs/);
+  assert.match(harnessSource, /--run-remediation-invariants/);
+  const schemaFixtureSource = readFileSync(
+    resolve("scripts/verify-webshop-schema-fixture.mjs"),
+    "utf8",
+  );
+  assert.match(schemaFixtureSource, /nr_webshop_p03_test_/);
 });
 
 test("migration matrix is complete and versioned", () => {
