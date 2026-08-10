@@ -89,8 +89,8 @@ export async function persistVerifiedWebshopActivation(input: {
     );
     const epoch = sameDesired
       ? existing!.installationDeploymentEpoch
-      : (existing?.installationDeploymentEpoch ?? 0) + 1;
-    if (!Number.isSafeInteger(epoch) || epoch < 1) {
+      : (existing?.installationDeploymentEpoch ?? BigInt(0)) + BigInt(1);
+    if (epoch < BigInt(1) || epoch > BigInt("9223372036854775807")) {
       throw new Error("Installation deployment epoch is invalid.");
     }
     const deploymentIntentKey = `addon-deploy-intent:v3:${input.claim.installationId}:${epoch}:${input.claim.release.releaseId}`;
@@ -314,7 +314,7 @@ function deploymentPayload(
   deploymentIntentKey: string,
   operationId: string,
   operationKey: string,
-  epoch: number,
+  epoch: bigint,
   preOperation: {
     preOperationMigrationLedgerHash: string;
     preOperationServingStateHash: string;

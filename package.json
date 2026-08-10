@@ -25,6 +25,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test",
     "test:db": "node scripts/run-test-command-with-test-db.mjs npm test",
+    "test:p18:db": "node scripts/run-p18-isolated-cms-db-tests.mjs",
     "test:payment:integration": "node scripts/run-payment-integration-tests.mjs",
     "test:fulfillment:integration": "node scripts/run-test-command-with-test-db.mjs npx tsx --test tests/license-fulfillment-outbox.integration.test.mjs",
     "content:scheduler:run": "node scripts/run-content-publishing-cron.mjs --once",

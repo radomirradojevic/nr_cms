@@ -16,4 +16,5 @@ test("public runtime gate requires exact loaded/promoted tuple, terminal receipt
   assert.deepEqual(evaluateWebshopPublicServingGateV1({ ...tuple, activeServingFenceCount: 1 }), { ok: false, reason: "serving_fence_active" });
   assert.deepEqual(evaluateWebshopPublicServingGateV1({ ...tuple, runtime: { ...tuple.runtime, buildId: "other" } }), { ok: false, reason: "loaded_tuple_mismatch" });
   assert.deepEqual(evaluateWebshopPublicServingGateV1({ ...tuple, terminalReceipt: null }), { ok: false, reason: "terminal_receipt_missing" });
+  assert.deepEqual(evaluateWebshopPublicServingGateV1({ ...tuple, installation: { ...tuple.installation!, status: "failed" }, terminalReceipt: { kind: "no_mutation_receipt", finalTuple: tuple.terminalReceipt!.finalTuple } }), { ok: true });
 });

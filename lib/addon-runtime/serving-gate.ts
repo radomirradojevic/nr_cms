@@ -11,10 +11,10 @@ export type WebshopServingGateInputV1 = {
 export function evaluateWebshopPublicServingGateV1(input: WebshopServingGateInputV1): { ok: true } | { ok: false; reason: string } {
   if (!input.entitlementValid) return { ok: false, reason: "entitlement_not_valid" };
   if (input.activeServingFenceCount !== 0) return { ok: false, reason: "serving_fence_active" };
-  if (!input.installation || input.installation.status !== "ready" || input.installation.runtimeStatus !== "ready") return { ok: false, reason: "installation_not_ready" };
+  if (!input.installation || !["ready", "failed"].includes(input.installation.status) || input.installation.runtimeStatus !== "ready") return { ok: false, reason: "installation_not_ready" };
   const { runtime, installation } = input;
   if (!runtime.releaseId || !runtime.buildId || !runtime.artifactSha256 || runtime.releaseId !== installation.installedReleaseId || runtime.buildId !== installation.installedBuildId || runtime.artifactSha256 !== installation.installedArtifactSha256) return { ok: false, reason: "loaded_tuple_mismatch" };
-  if (!input.terminalReceipt || !["reconciliation_receipt", "recovery_receipt"].includes(input.terminalReceipt.kind)) return { ok: false, reason: "terminal_receipt_missing" };
+  if (!input.terminalReceipt || !["reconciliation_receipt", "recovery_receipt", "no_mutation_receipt"].includes(input.terminalReceipt.kind)) return { ok: false, reason: "terminal_receipt_missing" };
   const tuple = input.terminalReceipt.finalTuple;
   if (!tuple || typeof tuple !== "object" || Array.isArray(tuple)) return { ok: false, reason: "terminal_receipt_invalid" };
   const record = tuple as Record<string, unknown>;

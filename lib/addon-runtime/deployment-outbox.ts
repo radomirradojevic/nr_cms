@@ -11,9 +11,10 @@ import { signDeployRequest, verifyDeployResponse } from "@/lib/addon-runtime/dep
 import { deploymentRequestV2Schema } from "@/lib/addon-runtime/deployment-contract-v2";
 
 const LEASE_MS = 30_000;
+const epoch = z.string().regex(/^[1-9][0-9]{0,18}$/).refine((value) => BigInt(value) <= BigInt("9223372036854775807"), "installation_epoch_out_of_range");
 const responseSchema = z.object({
   version: z.literal(2), jobId: z.string().min(1).max(300), status: z.literal("accepted"),
-  operationId: z.string().uuid(), installationDeploymentEpoch: z.string().regex(/^[1-9][0-9]{0,18}$/),
+  operationId: z.string().uuid(), installationDeploymentEpoch: epoch,
   generation: z.number().int().positive(), operationKey: z.string().min(1).max(500),
 }).strict();
 

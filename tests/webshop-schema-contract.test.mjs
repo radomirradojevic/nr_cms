@@ -40,6 +40,7 @@ test("canonical package migration is payload-backed and fingerprint-pinned", (t)
     "0004_webshop_purchase_intent_checkout.sql",
     "0005_webshop_payment_issuance_v2.sql",
     "0006_webshop_post_issue_delivery.sql",
+    "0007_webshop_delivery_session_exchange.sql",
   ]);
   for (const descriptor of migrations) {
     assert.deepEqual(Object.keys(descriptor).sort(), [
@@ -72,5 +73,12 @@ test("canonical package migration is payload-backed and fingerprint-pinned", (t)
     postIssueDescriptor?.postconditionSchemaFingerprintSha256,
     "c16da74df6ab8c5d137b98c3abe2588ed105c0956c78abf885b2909670a79eb3",
   );
-  assert.equal(migrations.at(-1)?.schemaVersion, 6);
+  const deliverySessionDescriptor = migrations.find(
+    (entry) => entry.id === "0007_webshop_delivery_session_exchange.sql",
+  );
+  assert.equal(
+    deliverySessionDescriptor?.postconditionSchemaFingerprintSha256,
+    "8ccec9e4f5145815615c489a666dbc96b7efe4b423a842cca15bb1f31ebb55b5",
+  );
+  assert.equal(migrations.at(-1)?.schemaVersion, 7);
 });

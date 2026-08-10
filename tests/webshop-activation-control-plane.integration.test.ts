@@ -77,19 +77,24 @@ const claim = {
   signingKid: "entitlement-kid",
 };
 
-function controlledStubResult(payload: ReturnType<typeof deploymentRequestV2Schema.parse>, workerJobId: string, resultId: string) {
+function controlledStubResult(
+  payload: ReturnType<typeof deploymentRequestV2Schema.parse>,
+  workerJobId: string,
+  resultId: string,
+  active: { releaseId: string; buildId: string; artifactSha256: string } | null = null,
+) {
   const noMutationEvidence = {
     contractVersion: 1 as const, purpose: "addon_deployment_no_mutation" as const, operationId: payload.operationId, workerJobId,
     targetProfile: "client" as const, installationId: payload.installationId, installationDeploymentEpoch: payload.installationDeploymentEpoch,
     generation: payload.generation, releaseId: payload.releaseId, preOperationServingStateHash: payload.preOperationServingStateHash,
     preOperationMigrationLedgerHash: payload.preOperationMigrationLedgerHash, cmsControlPlanePhase: "install_pending" as const,
     addonSchemaMutationStarted: false as const, serviceMutationStarted: false as const, pointerMutationStarted: false as const,
-    observedActiveReleaseId: null, observedServicePointerReleaseId: null, lastCompletedWorkerPhase: "accepted" as const,
+    observedActiveReleaseId: active?.releaseId ?? null, observedServicePointerReleaseId: active?.releaseId ?? null, lastCompletedWorkerPhase: "accepted" as const,
   };
   return deploymentResultV2Schema.parse({
     version: 2, resultId, operationId: payload.operationId, installationId: payload.installationId,
     installationDeploymentEpoch: payload.installationDeploymentEpoch, deploymentIntentKey: payload.deploymentIntentKey, generation: payload.generation, operationKey: payload.operationKey,
-    workerJobId, targetProfile: "client", environment: payload.environment, status: "failed", finalPhase: "rejected_before_switch", runtimeStatus: "not_installed",
+    workerJobId, targetProfile: "client", environment: payload.environment, status: "failed", finalPhase: "rejected_before_switch", runtimeStatus: active ? "ready" : "not_installed",
     releaseId: payload.releaseId, packageName: payload.packageName, packageVersion: payload.packageVersion, npmTarballSha256: payload.npmTarballSha256, npmTarballIntegrity: payload.npmTarballIntegrity,
     artifactSha256: payload.artifactSha256, dependencyLockSha256: payload.dependencyLockSha256, embeddedManifestSha256: payload.embeddedManifestSha256, provenanceSha256: payload.provenanceSha256,
     sbomSha256: payload.sbomSha256, publicationAttestationHash: payload.publicationAttestationHash, registryPackageVersionId: payload.registryPackageVersionId,
@@ -98,8 +103,8 @@ function controlledStubResult(payload: ReturnType<typeof deploymentRequestV2Sche
     schemaVersion: payload.schemaVersion, supportedAddonSchemaVersionMin: payload.supportedAddonSchemaVersionMin, supportedAddonSchemaVersionMax: payload.supportedAddonSchemaVersionMax,
     migrationBundleHash: payload.migrationBundleHash, supportedLicenseEditions: payload.supportedLicenseEditions, releaseChannel: payload.releaseChannel,
     entitlementSnapshotHash: payload.entitlementSnapshotHash, entitlementLifecycleVersion: payload.entitlementLifecycleVersion, entitlementEnvelopeExpiresAt: payload.entitlementEnvelopeExpiresAt,
-    activeReleaseId: null, observedServicePointerReleaseId: null, cmsCommitSha: "a".repeat(40), observedHostCapabilityDescriptorHash: payload.hostCapabilityDescriptorHash,
-    buildId: null, migrationLedgerHash: null, terminalEvidenceKind: "no_mutation_receipt",
+    activeReleaseId: active?.releaseId ?? null, activeArtifactSha256: active?.artifactSha256 ?? null, observedServicePointerReleaseId: active?.releaseId ?? null, cmsCommitSha: "a".repeat(40), observedHostCapabilityDescriptorHash: payload.hostCapabilityDescriptorHash,
+    buildId: active?.buildId ?? null, migrationLedgerHash: null, terminalEvidenceKind: "no_mutation_receipt",
     terminalEvidenceHash: `sha256:${createHash("sha256").update(canonicalJson(noMutationEvidence), "utf8").digest("hex")}`,
     noMutationEvidence, errorClass: "retryable", errorCode: "controlled_test_stub_no_deployment", occurredAt: new Date().toISOString(),
   });
@@ -195,7 +200,7 @@ test("authenticated worker callback stores one immutable result and returns dupl
     schemaVersion: payload.schemaVersion, supportedAddonSchemaVersionMin: payload.supportedAddonSchemaVersionMin, supportedAddonSchemaVersionMax: payload.supportedAddonSchemaVersionMax,
     migrationBundleHash: payload.migrationBundleHash, supportedLicenseEditions: payload.supportedLicenseEditions, releaseChannel: payload.releaseChannel,
     entitlementSnapshotHash: payload.entitlementSnapshotHash, entitlementLifecycleVersion: payload.entitlementLifecycleVersion, entitlementEnvelopeExpiresAt: payload.entitlementEnvelopeExpiresAt,
-    activeReleaseId: null, observedServicePointerReleaseId: null, cmsCommitSha: "a".repeat(40), observedHostCapabilityDescriptorHash: payload.hostCapabilityDescriptorHash,
+    activeReleaseId: null, activeArtifactSha256: null, observedServicePointerReleaseId: null, cmsCommitSha: "a".repeat(40), observedHostCapabilityDescriptorHash: payload.hostCapabilityDescriptorHash,
     buildId: null, migrationLedgerHash: null, terminalEvidenceKind: "no_mutation_receipt" as const,
     terminalEvidenceHash: `sha256:${createHash("sha256").update(canonicalJson(noMutationEvidence), "utf8").digest("hex")}`,
     noMutationEvidence, errorClass: "retryable" as const, errorCode: "controlled_test_stub_no_deployment", occurredAt: new Date().toISOString(),
@@ -211,6 +216,33 @@ test("authenticated worker callback stores one immutable result and returns dupl
   assert.deepEqual(state.rows[0], { status: "failed", runtime_status: "not_installed" });
   const ledgers = await client!.query("SELECT count(*)::int AS count FROM cms_addon_deployment_results");
   assert.equal(ledgers.rows[0]?.count, 1);
+});
+
+test("pre-mutation worker exhaustion preserves an exact previously ready runtime while terminalizing the new intent", { skip: !databaseUrl, concurrency: false }, async () => {
+  const { persistVerifiedWebshopActivation } = await import("@/data/webshop-addon-control-plane");
+  const { receiveDeploymentResultV2 } = await import("@/lib/addon-runtime/deployment-result-callback");
+  const accepted = await persistVerifiedWebshopActivation({ claim, signedEntitlement: "compact-jws-v2-prior-ready", updatedBy: "test-admin" });
+  const workerJobId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const active = {
+    releaseId: "eeeeeeee-eeee-5eee-8eee-eeeeeeeeeeee",
+    buildId: "f".repeat(64),
+    artifactSha256: "e".repeat(64),
+  };
+  await client!.query("UPDATE cms_addon_deployment_outbox SET worker_job_id = $1 WHERE operation_id = $2", [workerJobId, accepted.operationId]);
+  await client!.query(
+    "UPDATE cms_addon_installations SET deployment_job_id=$1, runtime_status='ready', installed_release_id=$2, installed_build_id=$3, installed_artifact_sha256=$4 WHERE addon_key='webshop'",
+    [workerJobId, active.releaseId, active.buildId, active.artifactSha256],
+  );
+  const row = await client!.query("SELECT payload FROM cms_addon_deployment_outbox WHERE operation_id = $1", [accepted.operationId]);
+  const result = controlledStubResult(deploymentRequestV2Schema.parse(row.rows[0]?.payload), workerJobId, "ffffffff-ffff-4fff-8fff-ffffffffffff", active);
+  const body = Buffer.from(canonicalJson(result), "utf8");
+  const headers = new Headers(signDeployRequest({ secret: process.env.WEBSHOP_DEPLOYMENT_RESULT_AUTH_SECRET!, kid: process.env.WEBSHOP_DEPLOYMENT_RESULT_AUTH_KID!, requestId: "abababab-abab-4bab-8bab-abababababab", timestamp: String(Math.floor(Date.now() / 1000)), method: "POST", path: "/api/internal/addons/deployment-results", body }));
+  const response = await receiveDeploymentResultV2({ body, headers, method: "POST", pathname: "/api/internal/addons/deployment-results" });
+  assert.match(response.body.toString("utf8"), /"ack":"applied"/);
+  const state = await client!.query("SELECT status, runtime_status, installed_release_id::text, installed_build_id, installed_artifact_sha256 FROM cms_addon_installations WHERE addon_key='webshop'");
+  assert.deepEqual(state.rows[0], { status: "failed", runtime_status: "ready", installed_release_id: active.releaseId, installed_build_id: active.buildId, installed_artifact_sha256: active.artifactSha256 });
+  const terminal = await client!.query("SELECT kind, final_tuple->>'activeReleaseId' AS active_release_id FROM cms_addon_deployment_terminal_receipts WHERE operation_id=$1", [accepted.operationId]);
+  assert.deepEqual(terminal.rows, [{ kind: "no_mutation_receipt", active_release_id: active.releaseId }]);
 });
 
 test("late historical worker result receives stale_epoch_ignored without changing current desired state", { skip: !databaseUrl, concurrency: false }, async () => {
