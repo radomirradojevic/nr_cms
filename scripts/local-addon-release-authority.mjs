@@ -21,10 +21,31 @@ export async function withEphemeralAddonReleaseAuthority(callback) {
     .digest("hex")
     .slice(0, 16)}`;
   const publicKeys = { [kid]: publicKeyPem };
+  const keyset = {
+    contractVersion: 1,
+    generatedAt: new Date().toISOString(),
+    issuer: "https://github.com/radomirradojevic/webshop",
+    keys: [
+      {
+        alg: "EdDSA",
+        kid,
+        notAfter: null,
+        notBefore: "2020-01-01T00:00:00.000Z",
+        publicKeyPem,
+        status: "active",
+      },
+    ],
+    previousKeysetSha256: null,
+    purpose: "addon_release",
+    sequence: 1,
+  };
 
   try {
     await writeFile(privateKeyFile, privateKeyMaterial, { mode: 0o600 });
-    await writeFile(publicKeysFile, `${JSON.stringify(publicKeys, null, 2)}\n`, {
+    // The release contract consumes this file as exact JCS UTF-8 bytes. A
+    // human-friendly indent or trailing newline changes those bytes and makes
+    // the otherwise valid ephemeral authority unusable for package builds.
+    await writeFile(publicKeysFile, JSON.stringify(keyset), {
       encoding: "utf8",
       mode: 0o600,
     });
@@ -36,6 +57,7 @@ export async function withEphemeralAddonReleaseAuthority(callback) {
         NR_ADDON_RELEASE_SIGNING_KID: kid,
       },
       kid,
+      keyset,
       publicKeys,
       publicKeysFile,
     });

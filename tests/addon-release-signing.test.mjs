@@ -121,8 +121,19 @@ test("local release authority exists only for the callback and exposes no key va
     );
     assert.deepEqual(
       JSON.parse(readFileSync(authority.publicKeysFile, "utf8")),
-      authority.publicKeys,
+      authority.keyset,
     );
+    assert.equal(
+      readFileSync(authority.publicKeysFile, "utf8"),
+      JSON.stringify(authority.keyset),
+      "ephemeral public keyset must be exact JCS UTF-8 without formatting or a trailing newline",
+    );
+    assert.deepEqual(authority.publicKeys, {
+      [authority.kid]: authority.keyset.keys[0].publicKeyPem,
+    });
+    assert.equal(authority.keyset.contractVersion, 1);
+    assert.equal(authority.keyset.purpose, "addon_release");
+    assert.equal(authority.keyset.keys[0].status, "active");
     assert.match(authority.kid, /^local-acceptance:[a-f0-9]{16}$/);
   });
   assert.equal(existsSync(privateKeyPath), false);

@@ -343,6 +343,52 @@ test("private release acceptance cryptographically verifies the complete manifes
     ),
     localManifest,
   );
+
+  const v2Header = {
+    alg: "EdDSA",
+    kid: "local-acceptance:0123456789abcdef",
+    typ: "NRV-ADDON-RELEASE-MANIFEST-V2+JWS",
+  };
+  const v2Payload = {
+    artifactInventory: {
+      contractVersion: 1,
+      digestPurpose: "addon_runtime_payload",
+      entries: [{ path: "dist/server.js", sha256: "a".repeat(64), size: 7 }],
+    },
+    artifactSha256: "b".repeat(64),
+    manifestVersion: 2,
+    purpose: "addon_release_manifest",
+    releaseId: "25ee1159-f641-536b-b565-35dd49b40f8b",
+    releaseSigningKid: v2Header.kid,
+    releasedAt: "2026-08-10T01:24:06.000Z",
+  };
+  const protectedValue = Buffer.from(JSON.stringify(v2Header)).toString("base64url");
+  const payloadValue = Buffer.from(JSON.stringify(v2Payload)).toString("base64url");
+  const v2Manifest = {
+    payload: payloadValue,
+    protected: protectedValue,
+    signature: sign(
+      null,
+      Buffer.from(`${protectedValue}.${payloadValue}`, "ascii"),
+      privateKey,
+    ).toString("base64url"),
+  };
+  assert.equal(
+    assertPromotablePrivateRelease(v2Manifest, ".private/webshop", localKeys, {
+      allowEphemeral: true,
+    }),
+    v2Manifest,
+  );
+  assert.throws(
+    () =>
+      assertPromotablePrivateRelease(
+        { ...v2Manifest, payload: `${v2Manifest.payload.slice(0, -1)}A` },
+        ".private/webshop",
+        localKeys,
+        { allowEphemeral: true },
+      ),
+    /canonical|contract|signature/i,
+  );
 });
 
 test("browser bundle sentinel distinguishes crypto parser markers from private key material", () => {

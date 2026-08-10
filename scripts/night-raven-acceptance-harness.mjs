@@ -208,6 +208,58 @@ export function assertPromotablePrivateRelease(
   publicKeys = {},
   { allowEphemeral = false } = {},
 ) {
+  if (
+    manifest &&
+    typeof manifest === "object" &&
+    !Array.isArray(manifest) &&
+    "protected" in manifest &&
+    "payload" in manifest
+  ) {
+    if (
+      Object.keys(manifest).sort().join("\0") !==
+      ["payload", "protected", "signature"].join("\0")
+    )
+      fail(`${directory} flattened release JWS has unknown or missing fields.`);
+    let header;
+    let payload;
+    try {
+      header = decodeCanonicalBase64urlJson(manifest.protected);
+      payload = decodeCanonicalBase64urlJson(manifest.payload);
+    } catch {
+      fail(`${directory} release JWS is not canonical base64url JSON.`);
+    }
+    if (
+      Object.keys(header).sort().join("\0") !== ["alg", "kid", "typ"].join("\0") ||
+      header.alg !== "EdDSA" ||
+      typeof header.kid !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._:-]{2,119}$/.test(header.kid) ||
+      header.typ !== "NRV-ADDON-RELEASE-MANIFEST-V2+JWS" ||
+      payload?.manifestVersion !== 2 ||
+      payload?.purpose !== "addon_release_manifest" ||
+      payload?.releaseSigningKid !== header.kid ||
+      !/^[a-f0-9]{64}$/.test(payload?.artifactSha256 ?? "") ||
+      !Array.isArray(payload?.artifactInventory?.entries)
+    )
+      fail(`${directory} release JWS contract is invalid.`);
+    assertAcceptedReleaseSigningKey({
+      allowEphemeral,
+      directory,
+      publicKeys,
+      signingKid: header.kid,
+    });
+    if (
+      typeof manifest.signature !== "string" ||
+      !/^[A-Za-z0-9_-]{86}$/.test(manifest.signature) ||
+      !verify(
+        null,
+        Buffer.from(`${manifest.protected}.${manifest.payload}`, "ascii"),
+        createPublicKey(publicKeys[header.kid]),
+        Buffer.from(manifest.signature, "base64url"),
+      )
+    )
+      fail(`${directory} release signature verification failed.`);
+    return manifest;
+  }
   const signingKid = manifest?.signingKid;
   const signature = manifest?.signature;
   if (
@@ -221,6 +273,50 @@ export function assertPromotablePrivateRelease(
       `${directory} is not authority-signed; local integrity fixtures are not promotable.`,
     );
   }
+  const publicKey = assertAcceptedReleaseSigningKey({
+    allowEphemeral,
+    directory,
+    publicKeys,
+    signingKid,
+  });
+  if (
+    !verify(
+      null,
+      Buffer.from(canonicalReleaseManifestPayload(manifest), "utf8"),
+      publicKey,
+      Buffer.from(signature, "base64url"),
+    )
+  )
+    fail(`${directory} release signature verification failed.`);
+  return manifest;
+}
+
+function decodeCanonicalBase64urlJson(value) {
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/.test(value))
+    throw new Error("invalid base64url");
+  const decoded = Buffer.from(value, "base64url").toString("utf8");
+  const parsed = JSON.parse(decoded);
+  if (JSON.stringify(sortJcsValue(parsed)) !== decoded)
+    throw new Error("non-canonical JSON");
+  return parsed;
+}
+
+function sortJcsValue(value) {
+  if (Array.isArray(value)) return value.map(sortJcsValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, sortJcsValue(value[key])]),
+  );
+}
+
+function assertAcceptedReleaseSigningKey({
+  allowEphemeral,
+  directory,
+  publicKeys,
+  signingKid,
+}) {
   if (signingKid.startsWith("local-acceptance:") && !allowEphemeral)
     fail(
       `${directory} uses an ephemeral local authority and is not promotable.`,
@@ -241,16 +337,18 @@ export function assertPromotablePrivateRelease(
   }
   if (publicKey.asymmetricKeyType !== "ed25519")
     fail(`${directory} release authority key must be Ed25519.`);
-  if (
-    !verify(
-      null,
-      Buffer.from(canonicalReleaseManifestPayload(manifest), "utf8"),
-      publicKey,
-      Buffer.from(signature, "base64url"),
-    )
-  )
-    fail(`${directory} release signature verification failed.`);
-  return manifest;
+  return publicKey;
+}
+
+function privateReleaseArtifact(manifest) {
+  if (manifest && typeof manifest.payload === "string") {
+    const payload = decodeCanonicalBase64urlJson(manifest.payload);
+    return {
+      files: payload.artifactInventory.entries,
+      sha256: payload.artifactSha256,
+    };
+  }
+  return manifest.artifact;
 }
 
 function sortCanonicalValue(value) {
@@ -771,6 +869,22 @@ async function readAddonReleasePublicKeys(path) {
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
     fail("Addon release public key file must contain a key map.");
+  if (Array.isArray(parsed.keys)) {
+    const entries = parsed.keys
+      .filter(
+        (entry) =>
+          entry &&
+          typeof entry.kid === "string" &&
+          typeof entry.publicKeyPem === "string" &&
+          entry.status !== "revoked",
+      )
+      .map((entry) => [entry.kid, entry.publicKeyPem]);
+    if (entries.length === 0)
+      fail("Addon release public keyset has no usable verification keys.");
+    return Object.fromEntries(entries);
+  }
+  // Retained only for pre-keyset release evidence. Fresh package builds reject
+  // this legacy shape themselves, so it cannot silently become new evidence.
   return parsed;
 }
 
@@ -850,12 +964,15 @@ async function privatePackages({
     assertPromotablePrivateRelease(manifest, directory, publicKeys, {
       allowEphemeral,
     });
+    const artifact = privateReleaseArtifact(manifest);
+    const provenanceSubjectSha256 =
+      provenance.subject?.artifactSha256 ?? provenance.subject?.sha256;
     if (
-      !/^[a-f0-9]{64}$/.test(manifest.artifact?.sha256 ?? "") ||
-      manifest.artifact.sha256 !== provenance.subject?.sha256
+      !/^[a-f0-9]{64}$/.test(artifact?.sha256 ?? "") ||
+      artifact.sha256 !== provenanceSubjectSha256
     )
       fail(`${directory} checksum/provenance mismatch.`);
-    for (const file of manifest.artifact.files ?? []) {
+    for (const file of artifact.files ?? []) {
       const contents = await readFile(join(cwd, file.path));
       if (sha256(contents) !== file.sha256 || contents.byteLength !== file.size)
         fail(`${directory} artifact checksum mismatch: ${file.path}`);
