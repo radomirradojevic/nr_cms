@@ -107,6 +107,15 @@ export function validateRuntimeEnv(env = process.env) {
     ADDON_SOURCE_MODES,
   );
   assertProfileSourceMode(deploymentProfile, addonSourceMode);
+  if (
+    (deploymentProfile === "vendor" || deploymentProfile === "client") &&
+    env.NR_CMS_ENV_PHASE !== "build" &&
+    !/^[a-f0-9]{40}$/.test(env.NR_CMS_RELEASE_SHA?.trim() ?? "")
+  ) {
+    fail(
+      "NR_CMS_RELEASE_SHA must identify the exact lowercase CMS commit for a managed target runtime",
+    );
+  }
   const webshopEnabled = readBoolean(env, "WEBSHOP_ENABLED", false);
   const licenseServerEnabled = readBoolean(
     env,

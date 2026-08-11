@@ -16,6 +16,7 @@ const baseEnvironment = {
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "turnstile-site-key",
   TURNSTILE_SECRET_KEY: "turnstile-secret-key",
   NR_CMS_DEPLOYMENT_PROFILE: "client",
+  NR_CMS_RELEASE_SHA: "a".repeat(40),
   NR_LICENSE_ENVIRONMENT: "development",
   NR_ADDON_SOURCE_MODE: "empty",
 };
@@ -68,6 +69,28 @@ test("base CMS accepts omitted add-on environment and fails closed", () => {
       ...baseEnvironment,
       LICENSE_SERVER_ENABLED: "false",
       WEBSHOP_ENABLED: "false",
+    }),
+  );
+});
+
+test("managed target runtime requires an exact CMS release commit outside build phase", () => {
+  assert.throws(
+    () => validateRuntimeEnv({ ...baseEnvironment, NR_CMS_RELEASE_SHA: "" }),
+    /NR_CMS_RELEASE_SHA must identify the exact lowercase CMS commit/,
+  );
+  assert.throws(
+    () =>
+      validateRuntimeEnv({
+        ...baseEnvironment,
+        NR_CMS_RELEASE_SHA: "A".repeat(40),
+      }),
+    /NR_CMS_RELEASE_SHA must identify the exact lowercase CMS commit/,
+  );
+  assert.doesNotThrow(() =>
+    validateRuntimeEnv({
+      ...baseEnvironment,
+      NR_CMS_ENV_PHASE: "build",
+      NR_CMS_RELEASE_SHA: "",
     }),
   );
 });

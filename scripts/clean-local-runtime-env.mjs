@@ -15,6 +15,10 @@ const VARIABLES = [
     "NR_ADDON_SOURCE_MODE",
     "Add-on source policy: private_workspace, registry, or empty.",
   ],
+  [
+    "NR_CMS_RELEASE_SHA",
+    "Exact 40-character lowercase CMS source commit served by this runtime.",
+  ],
   ["DATABASE_URL", "PostgreSQL connection used by the CMS."],
   [
     "NEXT_PUBLIC_APP_URL",
@@ -170,6 +174,7 @@ const SECTIONS = [
       "NR_CMS_DEPLOYMENT_PROFILE",
       "NR_LICENSE_ENVIRONMENT",
       "NR_ADDON_SOURCE_MODE",
+      "NR_CMS_RELEASE_SHA",
       "DATABASE_URL",
       "NEXT_PUBLIC_APP_URL",
       "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
