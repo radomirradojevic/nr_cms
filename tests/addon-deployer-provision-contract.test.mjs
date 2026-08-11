@@ -62,6 +62,15 @@ test("addon deployer provisioning revokes cross-database and ambient sequence pr
   assert.match(source, /has_schema_privilege\(\$1,'webshop','CREATE'\)/);
 });
 
+test("addon deployer sealing isolates Windows PowerShell from the parent module path", () => {
+  const source = fs.readFileSync(path.resolve("scripts", "db-addon-deployer-provision.mjs"), "utf8");
+  assert.match(source, /windowsPowerShellChildEnvironment/);
+  assert.match(
+    source,
+    /spawnSync\(powershell,[\s\S]*?env: windowsPowerShellChildEnvironment\(\)/,
+  );
+});
+
 test("addon deployer DPAPI unseal is bound to the dedicated broker identity and exact ACL", () => {
   const source = fs.readFileSync(path.resolve("scripts", "windows-addon-deployer-dpapi.ps1"), "utf8");
   assert.match(source, /addon_deployer_dpapi_unseal_requires_db_broker_identity/);

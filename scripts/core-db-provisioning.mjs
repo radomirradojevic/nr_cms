@@ -45,7 +45,7 @@ function powershellExecutable() {
     : "powershell.exe";
 }
 
-function windowsPowerShellChildEnvironment(environment = process.env) {
+export function windowsPowerShellChildEnvironment(environment = process.env) {
   const childEnvironment = { ...environment };
   for (const name of Object.keys(childEnvironment)) {
     if (name.toLowerCase() === "psmodulepath") {

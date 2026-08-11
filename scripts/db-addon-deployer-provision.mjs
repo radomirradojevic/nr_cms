@@ -16,6 +16,7 @@ import {
   assertProtectedOperatorPasswordFile,
   assertWindowsAdministrator,
   readProtectedOperatorPasswordFile,
+  windowsPowerShellChildEnvironment,
 } from "./core-db-provisioning.mjs";
 import { canonicalJson, sha256, WEBSHOP_CURRENT_TABLES } from "./webshop-schema-contract.mjs";
 
@@ -162,7 +163,7 @@ function sealCredential(targetName, coreTarget, role, password) {
   const record = Buffer.from(canonicalJson({ contractVersion: 1, createdAt: new Date().toISOString(), database: coreTarget.databaseName, password, secretRef: `dpapi-machine://nr-addon-worker/${targetName}/webshop-db-deployer/v1`, targetProfile: targetName, username: role }), "utf8");
   const powershell = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
   try {
-    const result = spawnSync(powershell, ["-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",DPAPI_HELPER,"-Mode","seal","-Target",targetName], { cwd: process.cwd(), input: record, encoding: "utf8", shell: false, windowsHide: true });
+    const result = spawnSync(powershell, ["-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",DPAPI_HELPER,"-Mode","seal","-Target",targetName], { cwd: process.cwd(), input: record, encoding: "utf8", env: windowsPowerShellChildEnvironment(), shell: false, windowsHide: true });
     if (result.error || result.status !== 0) fail("DPAPI broker credential seal/audit failed.");
     return JSON.parse(result.stdout.trim());
   } finally { record.fill(0); }
