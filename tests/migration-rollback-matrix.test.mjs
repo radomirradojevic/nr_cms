@@ -58,7 +58,7 @@ test(
     const journal = JSON.parse(fs.readFileSync(centralJournalPath, "utf8"));
     const tags = centralMigrationTagsFromJournal(journal);
     assert.equal(tags.length, journal.entries.length);
-    assert.equal(tags.at(-1), "0015_addon_lifecycle_receipts");
+    assert.equal(tags.at(-1), "0016_activation_reenrollment_history");
     assert.equal(buildCentralMigrationApplyPlan(tags)[0].expectedMigrations, tags.join(","));
   },
 );
