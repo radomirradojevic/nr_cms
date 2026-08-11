@@ -24,6 +24,7 @@ const { Client } = pg;
 const DPAPI_HELPER = path.resolve("scripts", "windows-addon-deployer-dpapi.ps1");
 const CONTROL_TABLES = Object.freeze([
   "cms_addon_deployment_candidates",
+  "cms_addon_deployment_outbox",
   "cms_addon_deployment_terminal_receipts",
   "cms_addon_installations",
   "cms_addon_migrations",
