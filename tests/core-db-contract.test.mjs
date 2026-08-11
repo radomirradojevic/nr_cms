@@ -186,6 +186,25 @@ test("provisioning constants reserve no worker-owned secret root", () => {
   ]);
 });
 
+test("Windows PowerShell children do not inherit a PowerShell 7 module path", () => {
+  const parentEnvironment = {
+    Path: "C:\\Windows\\System32",
+    PSModulePath: "C:\\Program Files\\PowerShell\\Modules",
+    safeCanary: "preserved",
+  };
+  const childEnvironment =
+    __coreDbProvisioningTesting.windowsPowerShellChildEnvironment(
+      parentEnvironment,
+    );
+
+  assert.equal(childEnvironment.PSModulePath, undefined);
+  assert.equal(childEnvironment.safeCanary, "preserved");
+  assert.equal(
+    parentEnvironment.PSModulePath,
+    "C:\\Program Files\\PowerShell\\Modules",
+  );
+});
+
 test("core provisioning retry permits only the target-owned Webshop schema", () => {
   const source = fs.readFileSync(
     path.resolve("scripts", "core-db-provisioning.mjs"),

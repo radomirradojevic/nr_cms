@@ -45,6 +45,16 @@ function powershellExecutable() {
     : "powershell.exe";
 }
 
+function windowsPowerShellChildEnvironment(environment = process.env) {
+  const childEnvironment = { ...environment };
+  for (const name of Object.keys(childEnvironment)) {
+    if (name.toLowerCase() === "psmodulepath") {
+      delete childEnvironment[name];
+    }
+  }
+  return childEnvironment;
+}
+
 function runPowerShell(argumentsList, operation) {
   if (process.platform !== "win32") {
     fail(`${operation} requires Windows DPAPI LocalMachine.`);
@@ -60,7 +70,12 @@ function runPowerShell(argumentsList, operation) {
       WINDOWS_DPAPI_SCRIPT,
       ...argumentsList,
     ],
-    { encoding: null, shell: false, windowsHide: true },
+    {
+      encoding: null,
+      env: windowsPowerShellChildEnvironment(),
+      shell: false,
+      windowsHide: true,
+    },
   );
   if (result.error || result.status !== 0) {
     // Password content is deliberately never included in the failure channel.
@@ -83,7 +98,12 @@ export function assertWindowsAdministrator() {
       "-Command",
       "$p=New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent()); if(-not $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){exit 1}",
     ],
-    { encoding: "utf8", shell: false, windowsHide: true },
+    {
+      encoding: "utf8",
+      env: windowsPowerShellChildEnvironment(),
+      shell: false,
+      windowsHide: true,
+    },
   );
   if (result.error || result.status !== 0) {
     fail(
@@ -500,4 +520,5 @@ export const __coreDbProvisioningTesting = {
   CORE_SCHEMAS,
   OPERATOR_ROOT,
   expectedRoleAttributes,
+  windowsPowerShellChildEnvironment,
 };
