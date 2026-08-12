@@ -3,7 +3,9 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import nextConfig from "@/next.config";
+import nextConfig, {
+  resolveWebshopPurchaseFormActionSources,
+} from "@/next.config";
 import {
   ButtonStatic,
   HeroStatic,
@@ -80,6 +82,34 @@ test("CSP allows Paddle.js checkout assets", async () => {
   assert.match(csp, /connect-src[^;]*https:\/\/\*\.paddle\.com/);
   assert.match(csp, /frame-src[^;]*https:\/\/\*\.paddle\.com/);
   assert.match(csp, /form-action[^;]*https:\/\/\*\.paddle\.com/);
+});
+
+test("CSP permits only the trusted Webshop purchase form origin", async () => {
+  const routes = await nextConfig.headers?.();
+  assert.ok(routes);
+
+  const csp = routes
+    .flatMap((route) => route.headers)
+    .find((header) => header.key === "Content-Security-Policy")?.value;
+
+  assert.ok(csp);
+  assert.match(csp, /form-action[^;]*https:\/\/vendor\.nr\.test/);
+  assert.doesNotMatch(csp, /form-action[^;]*https:\/\/\*\.nr\.test/);
+
+  assert.deepEqual(
+    resolveWebshopPurchaseFormActionSources({
+      WEBSHOP_BUY_URL:
+        "https://licenses.example.test/licenses/purchase-intents/accept",
+    }),
+    ["https://licenses.example.test", "https://vendor.nr.test"],
+  );
+  assert.deepEqual(
+    resolveWebshopPurchaseFormActionSources({
+      WEBSHOP_BUY_URL:
+        "https://attacker.example/licenses/purchase-intents/accept?redirect=1",
+    }),
+    ["https://vendor.nr.test"],
+  );
 });
 
 test("builder static renderers neutralize unsafe URLs", () => {

@@ -1,10 +1,14 @@
 import type { NextConfig } from "next";
 
+import { parseWebshopBuyUrl } from "./lib/webshop-addon/buy-url-contract";
+
 // Next's development compiler requires unsafe-eval. This is a framework
 // compiler exception only; application policy must not branch on NODE_ENV.
 const isDevelopmentCompiler = process.env.NODE_ENV !== "production";
 const secureTransport = usesSecurePublicOrigin();
 const allowedDevOrigins = ["vendor.nr.test", "client.nr.test"];
+const webshopPurchaseFormActionSources =
+  resolveWebshopPurchaseFormActionSources();
 
 const securityHeaders = [
   {
@@ -37,7 +41,7 @@ const securityHeaders = [
       "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
-      "form-action 'self' https://*.paddle.com https://*.paypal.com https://*.stripe.com",
+      `form-action 'self' https://*.paddle.com https://*.paypal.com https://*.stripe.com ${webshopPurchaseFormActionSources.join(" ")}`,
       "frame-ancestors 'none'",
       ...(secureTransport ? ["upgrade-insecure-requests"] : []),
     ].join("; "),
@@ -64,6 +68,25 @@ const nextConfig: NextConfig = {
     ];
   },
 };
+
+export function resolveWebshopPurchaseFormActionSources(
+  env: Record<string, string | undefined> = process.env,
+) {
+  // `.nr.test` is reserved for the documented local E2E and cannot authorize a
+  // public Internet origin. A production build additionally receives only the
+  // exact origin derived from the same strict trusted buy-URL contract as the
+  // purchase-intent audience; malformed configuration remains fail-closed.
+  const sources = new Set(["https://vendor.nr.test"]);
+  const configured = env.WEBSHOP_BUY_URL?.trim();
+  if (configured) {
+    try {
+      sources.add(parseWebshopBuyUrl(configured).vendorAudience);
+    } catch {
+      // Runtime env validation reports the actionable configuration error.
+    }
+  }
+  return [...sources].sort();
+}
 
 export default nextConfig;
 
