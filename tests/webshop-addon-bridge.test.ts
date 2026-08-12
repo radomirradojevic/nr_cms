@@ -58,6 +58,7 @@ const fakeAddon: WebshopAddon = {
   async renderStorefrontPath() {
     return null;
   },
+  async provisionStorefrontContent() {},
 };
 
 const enabledWebshopRuntimeConfig = getWebshopRuntimeConfig({
@@ -190,6 +191,9 @@ test("in-memory rate limiter blocks fixed-window overflow", () => {
 
 test("webshop add-on contract guard rejects incomplete modules", () => {
   assert.equal(isWebshopAddon({ version: "0.0.1" }), false);
+  const withoutProvisioning: Partial<WebshopAddon> = { ...fakeAddon };
+  delete withoutProvisioning.provisionStorefrontContent;
+  assert.equal(isWebshopAddon(withoutProvisioning), false);
   assert.equal(
     isWebshopAddon({
       ...fakeAddon,

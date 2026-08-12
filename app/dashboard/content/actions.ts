@@ -67,6 +67,7 @@ import {
 } from "@/lib/content-types";
 import { canCreateContentType } from "@/lib/content-type-permissions";
 import { isWebshopHardDeleteConfirmed } from "@/lib/webshop-hard-delete";
+import { resolveWebshopAddonState } from "@/lib/webshop-addon/license";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -307,6 +308,12 @@ export async function createContent(input: CreateContentInput) {
     };
   }
 
+  const webshopAddonState =
+    data.contentType === "webshop" ? await resolveWebshopAddonState() : null;
+  if (webshopAddonState && webshopAddonState.status !== "ready") {
+    return { error: "The Webshop add-on must be ready before creating a storefront." };
+  }
+
   try {
     const isBlogPost = data.contentType === "blog_post";
     const created = await db.transaction(async (tx) => {
@@ -350,6 +357,12 @@ export async function createContent(input: CreateContentInput) {
         })
         .returning();
       const row = rows[0];
+      if (webshopAddonState?.status === "ready") {
+        await webshopAddonState.addon.provisionStorefrontContent({
+          contentId: row.id,
+          transaction: tx,
+        });
+      }
       await createContentRevisionSnapshotForRow(
         tx,
         row,
@@ -369,6 +382,9 @@ export async function createContent(input: CreateContentInput) {
     return { success: true, id: created.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("webshop_webshops_single_active_idx")) {
+      return { error: "An active Webshop storefront already exists." };
+    }
     if (msg.includes("unique") || msg.includes("duplicate")) {
       return { error: "Slug is already in use." };
     }

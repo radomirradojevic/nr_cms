@@ -26,6 +26,38 @@ export async function persistVerifiedWebshopActivation(input: {
 }) {
   const snapshotHash = sha256(input.signedEntitlement);
   const targetProfile = requiredDeploymentProfile();
+  const release = input.claim.release;
+  const entitlementValues = (
+    status: "install_pending" | "ready",
+  ) => ({
+    status,
+    licenseKeyRef: input.claim.entitlementId.slice(0, 16),
+    entitlementToken: input.signedEntitlement,
+    signedEntitlement: input.signedEntitlement,
+    signingKid: input.claim.signingKid,
+    verifiedClaims: redactedClaims(input.claim),
+    lastVerifiedAt: new Date(),
+    lastRevalidationAttemptAt: new Date(),
+    lastRevalidationSuccessAt: new Date(),
+    nextRevalidationAt: new Date(input.claim.nextRevalidationAt),
+    graceEndsAt: nullableDate(input.claim.graceEndsAt),
+    lastCentralStatus: input.claim.licenseStatus,
+    lastErrorCode: null,
+    lifecycleVersion: input.claim.lifecycleVersion,
+    releaseId: release.releaseId,
+    licenseEnvironment: input.claim.environment,
+    licenseValidUntil: nullableDate(input.claim.licenseValidUntil),
+    entitlementEnvelopeExpiresAt: new Date(input.claim.exp * 1000),
+    entitlementSnapshotHash: snapshotHash,
+    installationId: input.claim.installationId,
+    installationKeyFingerprint: input.claim.installationKeyFingerprint,
+    packageName: release.packageName,
+    packageVersion: release.packageVersion,
+    packageInstalledAt: status === "ready" ? new Date() : null,
+    features: input.claim.features,
+    metadata: {},
+    updatedBy: input.updatedBy,
+  });
   return db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext(${`${ADDON_KEY}:${input.claim.installationId}`}))`,
@@ -78,6 +110,92 @@ export async function persistVerifiedWebshopActivation(input: {
           terminal: true as const,
         };
       }
+    }
+    const alreadyServingExactRelease = Boolean(
+      existing &&
+        existing.status === "ready" &&
+        existing.runtimeStatus === "ready" &&
+        existing.desiredReleaseId === release.releaseId &&
+        existing.desiredArtifactSha256 === release.artifactSha256 &&
+        existing.installedReleaseId === release.releaseId &&
+        existing.installedArtifactSha256 === release.artifactSha256 &&
+        existing.installedPackageName === release.packageName &&
+        existing.installedPackageVersion === release.packageVersion &&
+        existing.runtimeContractVersion === release.runtimeContractVersion &&
+        existing.schemaVersion === release.schemaVersion &&
+        existing.installedHostCapabilityDescriptorHash ===
+          input.claim.hostCapabilityDescriptorHash &&
+        existing.entitlementLifecycleVersion === input.claim.lifecycleVersion,
+    );
+    if (alreadyServingExactRelease) {
+      const completedOperation = (
+        await tx
+          .select()
+          .from(cmsAddonOperations)
+          .where(
+            and(
+              eq(cmsAddonOperations.addonKey, ADDON_KEY),
+              eq(
+                cmsAddonOperations.installationId,
+                input.claim.installationId,
+              ),
+              eq(
+                cmsAddonOperations.installationDeploymentEpoch,
+                existing!.installationDeploymentEpoch,
+              ),
+              eq(cmsAddonOperations.generation, 1),
+              eq(cmsAddonOperations.status, "completed"),
+            ),
+          )
+          .limit(1)
+      )[0];
+      if (!completedOperation) {
+        throw new Error(
+          "Ready Webshop installation is missing its completed deployment operation.",
+        );
+      }
+      const refreshedEntitlement = entitlementValues("ready");
+      await tx
+        .insert(webshopAddonEntitlements)
+        .values({ id: 1, ...refreshedEntitlement })
+        .onConflictDoUpdate({
+          target: webshopAddonEntitlements.id,
+          set: refreshedEntitlement,
+        });
+      const refreshed = await tx
+        .update(cmsAddonInstallations)
+        .set({
+          entitlementSnapshotHash: snapshotHash,
+          entitlementLifecycleVersion: input.claim.lifecycleVersion,
+          entitlementEnvelopeExpiresAt: new Date(input.claim.exp * 1000),
+          version: existing!.version + 1,
+        })
+        .where(
+          and(
+            eq(cmsAddonInstallations.addonKey, ADDON_KEY),
+            eq(
+              cmsAddonInstallations.installationId,
+              input.claim.installationId,
+            ),
+            eq(
+              cmsAddonInstallations.installationDeploymentEpoch,
+              existing!.installationDeploymentEpoch,
+            ),
+            eq(cmsAddonInstallations.status, "ready"),
+            eq(cmsAddonInstallations.runtimeStatus, "ready"),
+          ),
+        )
+        .returning({ addonKey: cmsAddonInstallations.addonKey });
+      if (refreshed.length !== 1) {
+        throw new Error("Ready Webshop entitlement refresh lost its CAS.");
+      }
+      return {
+        operationId: completedOperation.id,
+        operationKey: completedOperation.operationKey,
+        status: "ready" as const,
+        reused: true as const,
+        terminal: true as const,
+      };
     }
     const sameDesired = Boolean(
       existing &&
@@ -177,42 +295,13 @@ export async function persistVerifiedWebshopActivation(input: {
       preOperation,
     );
     const requestHash = sha256(canonicalJson(operationPayload));
-    const release = input.claim.release;
-    const entitlementValues = {
-      status: "install_pending" as const,
-      licenseKeyRef: input.claim.entitlementId.slice(0, 16),
-      entitlementToken: input.signedEntitlement,
-      signedEntitlement: input.signedEntitlement,
-      signingKid: input.claim.signingKid,
-      verifiedClaims: redactedClaims(input.claim),
-      lastVerifiedAt: new Date(),
-      lastRevalidationAttemptAt: new Date(),
-      lastRevalidationSuccessAt: new Date(),
-      nextRevalidationAt: new Date(input.claim.nextRevalidationAt),
-      graceEndsAt: nullableDate(input.claim.graceEndsAt),
-      lastCentralStatus: input.claim.licenseStatus,
-      lastErrorCode: null,
-      lifecycleVersion: input.claim.lifecycleVersion,
-      releaseId: input.claim.release.releaseId,
-      licenseEnvironment: input.claim.environment,
-      licenseValidUntil: nullableDate(input.claim.licenseValidUntil),
-      entitlementEnvelopeExpiresAt: new Date(input.claim.exp * 1000),
-      entitlementSnapshotHash: snapshotHash,
-      installationId: input.claim.installationId,
-      installationKeyFingerprint: input.claim.installationKeyFingerprint,
-      packageName: release.packageName,
-      packageVersion: release.packageVersion,
-      packageInstalledAt: null,
-      features: input.claim.features,
-      metadata: {},
-      updatedBy: input.updatedBy,
-    };
+    const pendingEntitlement = entitlementValues("install_pending");
     await tx
       .insert(webshopAddonEntitlements)
-      .values({ id: 1, ...entitlementValues })
+      .values({ id: 1, ...pendingEntitlement })
       .onConflictDoUpdate({
         target: webshopAddonEntitlements.id,
-        set: entitlementValues,
+        set: pendingEntitlement,
       });
     const installationValues = {
       installationId: input.claim.installationId,

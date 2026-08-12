@@ -108,6 +108,10 @@ function loadWebshopMigrations() {
 
 async function createHostReferences(client) {
   await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+  // Production provisioning creates and delegates this package-owned schema
+  // before the migration-only addon role is used. Reproduce that authority
+  // boundary in the isolated fixture instead of granting CREATE to migrations.
+  await client.query("CREATE SCHEMA webshop AUTHORIZATION CURRENT_USER");
   await client.query(`
     CREATE TABLE public.content_categories (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

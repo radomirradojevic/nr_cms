@@ -10,6 +10,12 @@ import {
 import {
   verifyWebshopAddonEntitlementV2,
 } from "@/lib/vendor-addon-entitlements/verified-entitlement";
+import { WebshopActivationResponseSchema } from "@/lib/webshop-addon/license";
+
+test("Webshop accepts the master's successful V2 response marker", () => {
+  assert.equal(WebshopActivationResponseSchema.shape.ok.parse(true), true);
+  assert.throws(() => WebshopActivationResponseSchema.shape.ok.parse(false));
+});
 
 test("Webshop V2 entitlement is canonical, SPKI-bound, and host/environment fenced", () => {
   const key = generateKeyPairSync("ed25519");

@@ -189,7 +189,10 @@ export function validateRuntimeEnv(env = process.env) {
     "managed_redeploy",
   ]);
   assertOptionalEnum(env, "WEBSHOP_PAYMENTS_MODE", ["live", "test"]);
-  assertOptionalEnum(env, "WEBSHOP_DELIVERY_EMAIL_PROVIDER", ["fixture"]);
+  assertOptionalEnum(env, "WEBSHOP_DELIVERY_EMAIL_PROVIDER", [
+    "fixture",
+    "resend",
+  ]);
 
   for (const key of CORE_SECRET_KEYS) assertSecret(env, key);
   if (webshopEnabled) {

@@ -36,7 +36,8 @@ import { parseActivationChallengeV2Response } from "@/lib/vendor-addon-entitleme
 import { evaluateWebshopPublicServingGateV1 } from "@/lib/addon-runtime/serving-gate";
 import { resolvePersistentV2EntitlementRuntimeMode } from "@/lib/vendor-addon-entitlements/revalidation-policy";
 
-const ActivationResponseSchema = z.object({
+export const WebshopActivationResponseSchema = z.object({
+  ok: z.literal(true),
   contractVersion: z.literal(2),
   activationId: z.string().uuid(),
   signedEntitlement: z.string().min(1),
@@ -56,7 +57,7 @@ const ActivationResponseSchema = z.object({
   release: entitlementClaimsV2Schema.shape.release,
 }).strict();
 export type WebshopActivationResponse = z.infer<
-  typeof ActivationResponseSchema
+  typeof WebshopActivationResponseSchema
 >;
 export type VerifiedWebshopActivationResponse = WebshopActivationResponse & {
   verifiedClaims: ReturnType<typeof verifyActivationResponse>;
@@ -642,7 +643,7 @@ async function completeV2LicenseExchange(input: {
     const message = await readLicenseServerError(completion, `${input.purpose} was rejected by the license server.`);
     throw new RevalidationFailure(completion.status >= 500 ? "outage" : "invalid", message);
   }
-  const parsed = ActivationResponseSchema.safeParse(await completion.json());
+  const parsed = WebshopActivationResponseSchema.safeParse(await completion.json());
   if (!parsed.success) throw new RevalidationFailure("invalid", "Webshop license server returned an invalid V2 activation response.");
   return parsed.data;
 }

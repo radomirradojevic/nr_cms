@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import type { db } from "@/db";
 import type { AddonI18nContext } from "@/lib/i18n/addon-contract";
 
 export const WEBSHOP_SUPPORTED_PROVIDERS = [
@@ -78,6 +79,11 @@ export type WebshopContentCategoriesBridgeInput = {
   userId: string;
 };
 
+export type WebshopContentProvisioningInput = {
+  contentId: string;
+  transaction: Pick<typeof db, "insert">;
+};
+
 export type WebshopMigration = {
   id: string;
   name: string;
@@ -92,6 +98,9 @@ export type WebshopAddon = {
   renderDashboardPath(input: WebshopDashboardPathInput): Promise<ReactNode>;
   renderStorefrontRoot(input: WebshopStorefrontInput): Promise<ReactNode>;
   renderStorefrontPath(input: WebshopStorefrontPathInput): Promise<ReactNode>;
+  provisionStorefrontContent(
+    input: WebshopContentProvisioningInput,
+  ): Promise<void>;
   generateStorefrontMetadata?(
     input: WebshopStorefrontPathInput,
   ): Promise<Metadata>;
@@ -166,6 +175,7 @@ export function isWebshopAddon(value: unknown): value is WebshopAddon {
     typeof candidate.renderDashboard === "function" &&
     typeof candidate.renderDashboardPath === "function" &&
     typeof candidate.renderStorefrontRoot === "function" &&
-    typeof candidate.renderStorefrontPath === "function"
+    typeof candidate.renderStorefrontPath === "function" &&
+    typeof candidate.provisionStorefrontContent === "function"
   );
 }

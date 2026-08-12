@@ -306,6 +306,63 @@ test("verified activation commits entitlement, desired state, operation, and out
   assert.equal(outbox.rows[1]?.payload.includes("compact-jws"), false);
 });
 
+test("revalidation refreshes an exact ready release without opening another deployment epoch", { skip: !databaseUrl, concurrency: false }, async () => {
+  const { persistVerifiedWebshopActivation } = await import("@/data/webshop-addon-control-plane");
+  const first = await persistVerifiedWebshopActivation({
+    claim,
+    signedEntitlement: "compact-jws-v2-ready-a",
+    updatedBy: "test-admin",
+  });
+  await client!.query(
+    "UPDATE cms_addon_operations SET status='completed', completed_at=now() WHERE id=$1",
+    [first.operationId],
+  );
+  await client!.query(
+    "UPDATE cms_addon_deployment_outbox SET status='completed', completed_at=now() WHERE operation_id=$1",
+    [first.operationId],
+  );
+  await client!.query(
+    `UPDATE cms_addon_installations
+        SET status='ready', runtime_status='ready',
+            installed_release_id=desired_release_id,
+            installed_package_name=desired_package_name,
+            installed_package_version=desired_package_version,
+            installed_artifact_sha256=desired_artifact_sha256,
+            installed_host_capability_descriptor_hash=desired_host_capability_descriptor_hash,
+            installed_build_id=$1
+      WHERE addon_key='webshop'`,
+    ["9".repeat(64)],
+  );
+
+  const refreshed = await persistVerifiedWebshopActivation({
+    claim,
+    signedEntitlement: "compact-jws-v2-ready-b",
+    updatedBy: "system",
+  });
+  assert.equal(refreshed.status, "ready");
+  assert.equal(refreshed.reused, true);
+  assert.equal(refreshed.operationId, first.operationId);
+  const state = await client!.query(
+    `SELECT e.status AS entitlement_status,
+            i.status AS installation_status,
+            i.runtime_status,
+            i.installation_deployment_epoch::text AS epoch,
+            (SELECT count(*)::int FROM cms_addon_operations) AS operations,
+            (SELECT count(*)::int FROM cms_addon_deployment_outbox) AS outbox_rows
+       FROM webshop_addon_entitlements e
+       JOIN cms_addon_installations i ON i.addon_key='webshop'
+      WHERE e.id=1`,
+  );
+  assert.deepEqual(state.rows[0], {
+    entitlement_status: "ready",
+    installation_status: "ready",
+    runtime_status: "ready",
+    epoch: "1",
+    operations: 1,
+    outbox_rows: 1,
+  });
+});
+
 test("legacy cutover terminal never retries its old intent; only fresh host capability opens epoch generation one", { skip: !databaseUrl, concurrency: false }, async () => {
   const { persistVerifiedWebshopActivation } = await import("@/data/webshop-addon-control-plane");
   const first = await persistVerifiedWebshopActivation({ claim, signedEntitlement: "compact-jws-v2-legacy-a", updatedBy: "test-admin" });
