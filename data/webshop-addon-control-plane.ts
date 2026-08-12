@@ -55,7 +55,6 @@ export async function persistVerifiedWebshopActivation(input: {
     packageVersion: release.packageVersion,
     packageInstalledAt: status === "ready" ? new Date() : null,
     features: input.claim.features,
-    metadata: {},
     updatedBy: input.updatedBy,
   });
   return db.transaction(async (tx) => {

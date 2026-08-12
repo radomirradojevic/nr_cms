@@ -331,6 +331,14 @@ test("revalidation refreshes an exact ready release without opening another depl
       WHERE addon_key='webshop'`,
     ["9".repeat(64)],
   );
+  const preservedMetadata = {
+    operatorMarker: "preserve-across-entitlement-refresh",
+    settings: { payments: { enabledMethods: ["stripe"] } },
+  };
+  await client!.query(
+    "UPDATE webshop_addon_entitlements SET metadata=$1::jsonb WHERE id=1",
+    [JSON.stringify(preservedMetadata)],
+  );
 
   const refreshed = await persistVerifiedWebshopActivation({
     claim,
@@ -345,6 +353,7 @@ test("revalidation refreshes an exact ready release without opening another depl
             i.status AS installation_status,
             i.runtime_status,
             i.installation_deployment_epoch::text AS epoch,
+            e.metadata,
             (SELECT count(*)::int FROM cms_addon_operations) AS operations,
             (SELECT count(*)::int FROM cms_addon_deployment_outbox) AS outbox_rows
        FROM webshop_addon_entitlements e
@@ -356,6 +365,7 @@ test("revalidation refreshes an exact ready release without opening another depl
     installation_status: "ready",
     runtime_status: "ready",
     epoch: "1",
+    metadata: preservedMetadata,
     operations: 1,
     outbox_rows: 1,
   });
