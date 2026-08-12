@@ -52,6 +52,11 @@ test("addon deployer public control grants are a closed minimal set", () => {
     "cms_addon_operations",
     "cms_addon_serving_fences",
   ]);
+  assert.deepEqual(__addonDeployerProvisionTesting.ENTITLEMENT_CONTROL_TABLES, [
+    "webshop_addon_entitlements",
+  ]);
+  const source = fs.readFileSync(path.resolve("scripts", "db-addon-deployer-provision.mjs"), "utf8");
+  assert.match(source, /for \(const table of ENTITLEMENT_CONTROL_TABLES\) await client\.query\(`GRANT SELECT,UPDATE ON TABLE/);
 });
 
 test("addon deployer provisioning revokes cross-database and ambient sequence privileges", () => {

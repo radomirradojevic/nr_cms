@@ -31,6 +31,9 @@ const CONTROL_TABLES = Object.freeze([
   "cms_addon_operations",
   "cms_addon_serving_fences",
 ]);
+const ENTITLEMENT_CONTROL_TABLES = Object.freeze([
+  "webshop_addon_entitlements",
+]);
 
 function fail(message) { throw new Error(`[addon-deployer-provision] ${message}`); }
 
@@ -124,9 +127,10 @@ async function reconcileDatabase(client, coreTarget, manifest, password) {
       await client.query(`GRANT USAGE ON SCHEMA public TO ${quoteIdentifier(deployerRole)}`);
       await client.query(`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${quoteIdentifier(deployerRole)}`);
       await client.query(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ${quoteIdentifier(deployerRole)}`);
-      await requireTables(client, "public", [...manifest.allowedPublicReferenceTables, ...CONTROL_TABLES]);
+      await requireTables(client, "public", [...manifest.allowedPublicReferenceTables, ...CONTROL_TABLES, ...ENTITLEMENT_CONTROL_TABLES]);
       for (const table of manifest.allowedPublicReferenceTables) await client.query(`GRANT SELECT,REFERENCES ON TABLE public.${quoteIdentifier(table)} TO ${quoteIdentifier(deployerRole)}`);
       for (const table of CONTROL_TABLES) await client.query(`GRANT SELECT,INSERT,UPDATE ON TABLE public.${quoteIdentifier(table)} TO ${quoteIdentifier(deployerRole)}`);
+      for (const table of ENTITLEMENT_CONTROL_TABLES) await client.query(`GRANT SELECT,UPDATE ON TABLE public.${quoteIdentifier(table)} TO ${quoteIdentifier(deployerRole)}`);
       await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop REVOKE ALL ON TABLES FROM PUBLIC`);
       await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop REVOKE ALL ON SEQUENCES FROM PUBLIC`);
       await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO ${quoteIdentifier(runtimeRole)}`);
@@ -191,4 +195,4 @@ export async function runAddonDeployerProvision(argv = process.argv.slice(2)) {
 
 if (process.argv[1]?.endsWith("db-addon-deployer-provision.mjs")) runAddonDeployerProvision().then((receipt) => console.log(JSON.stringify(receipt))).catch((error) => { console.error(error instanceof Error ? error.message : "[addon-deployer-provision] failed."); process.exitCode = 1; });
 
-export const __addonDeployerProvisionTesting = { CONTROL_TABLES, loadPrivilegeManifest };
+export const __addonDeployerProvisionTesting = { CONTROL_TABLES, ENTITLEMENT_CONTROL_TABLES, loadPrivilegeManifest };

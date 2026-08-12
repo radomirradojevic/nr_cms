@@ -197,15 +197,18 @@ export async function persistVerifiedWebshopActivation(input: {
         terminal: true as const,
       };
     }
-    const sameDesired = Boolean(
+    // Compact JWS bytes are intentionally short-lived and may change on every
+    // revalidation.  They are evidence for an already-open deployment, not a
+    // new deployment intent.  Only a release, lifecycle, or host-capability
+    // change may supersede the current epoch.
+    const sameDeploymentIntent = Boolean(
       existing &&
         existing.desiredReleaseId === input.claim.release.releaseId &&
-        existing.entitlementSnapshotHash === snapshotHash &&
         existing.entitlementLifecycleVersion === input.claim.lifecycleVersion &&
         existing.desiredHostCapabilityDescriptorHash ===
           input.claim.hostCapabilityDescriptorHash,
     );
-    const epoch = sameDesired
+    const epoch = sameDeploymentIntent
       ? existing!.installationDeploymentEpoch
       : (existing?.installationDeploymentEpoch ?? BigInt(0)) + BigInt(1);
     if (epoch < BigInt(1) || epoch > BigInt("9223372036854775807")) {
@@ -214,7 +217,7 @@ export async function persistVerifiedWebshopActivation(input: {
     const deploymentIntentKey = `addon-deploy-intent:v3:${input.claim.installationId}:${epoch}:${input.claim.release.releaseId}`;
     const operationKey = `addon-deploy:v3:${input.claim.installationId}:${epoch}:${input.claim.release.releaseId}:1`;
     const active =
-      existing && sameDesired
+      existing && sameDeploymentIntent
         ? (
             await tx
               .select()
@@ -236,7 +239,7 @@ export async function persistVerifiedWebshopActivation(input: {
         reused: true as const,
       };
     }
-    if (existing && !sameDesired) {
+    if (existing && !sameDeploymentIntent) {
       await tx
         .update(cmsAddonOperations)
         .set({

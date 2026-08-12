@@ -282,28 +282,26 @@ test("verified activation commits entitlement, desired state, operation, and out
     signedEntitlement: "compact-jws-v2-fixture-b",
     updatedBy: "test-admin",
   });
-  assert.equal(changed.reused, false);
+  assert.equal(changed.reused, true);
+  assert.equal(changed.operationId, first.operationId);
   const state = await client!.query(
     "select status, runtime_status, installation_deployment_epoch::text as epoch from cms_addon_installations where addon_key = 'webshop'",
   );
   assert.deepEqual(state.rows[0], {
     status: "install_pending",
     runtime_status: "not_installed",
-    epoch: "2",
+    epoch: "1",
   });
   const operations = await client!.query(
     "select status from cms_addon_operations order by created_at",
   );
-  assert.deepEqual(operations.rows.map((row) => row.status), [
-    "superseded",
-    "pending",
-  ]);
+  assert.deepEqual(operations.rows.map((row) => row.status), ["pending"]);
   const outbox = await client!.query(
     "select payload::text as payload, status from cms_addon_deployment_outbox order by created_at",
   );
-  assert.equal(outbox.rows.length, 2);
-  assert.equal(outbox.rows[1]?.status, "pending");
-  assert.equal(outbox.rows[1]?.payload.includes("compact-jws"), false);
+  assert.equal(outbox.rows.length, 1);
+  assert.equal(outbox.rows[0]?.status, "pending");
+  assert.equal(outbox.rows[0]?.payload.includes("compact-jws"), false);
 });
 
 test("revalidation refreshes an exact ready release without opening another deployment epoch", { skip: !databaseUrl, concurrency: false }, async () => {
