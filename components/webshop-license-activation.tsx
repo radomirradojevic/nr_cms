@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, type FormEvent } from "react";
 import { ExternalLink, KeyRound } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n-provider";
@@ -47,11 +47,22 @@ export function WebshopLicenseActivation({
     action,
     INITIAL_WEBSHOP_ACTIVATION_STATE,
   );
+  const [purchaseHandoffPending, setPurchaseHandoffPending] = useState(false);
   const resolvedBuyLabel = buyLabel ?? t("addons.webshop.buyLicenseKey");
   const resolvedDescription =
     description ?? t("addons.webshop.activationDescription");
   const resolvedSubmitLabel = submitLabel ?? t("addons.webshop.activate");
   const resolvedTitle = title ?? t("addons.webshop.activationTitle");
+
+  function submitPurchaseIntentHandoff(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (purchaseHandoffPending) return;
+    setPurchaseHandoffPending(true);
+    // React handles function-valued form actions. This cross-origin handoff is
+    // deliberately a native HTML POST so the browser owns the vendor's 303
+    // navigation and Set-Cookie response.
+    HTMLFormElement.prototype.submit.call(event.currentTarget);
+  }
 
   return (
     <div className="rounded-lg border bg-background p-5">
@@ -71,16 +82,22 @@ export function WebshopLicenseActivation({
         {purchaseIntentHandoff ? (
           <form
             action={purchaseIntentHandoff.action}
+            aria-busy={purchaseHandoffPending}
             className="flex flex-wrap gap-2"
             encType="application/x-www-form-urlencoded"
             method="post"
+            onSubmit={submitPurchaseIntentHandoff}
           >
             <input
               name="purchaseIntent"
               type="hidden"
               value={purchaseIntentHandoff.purchaseIntent}
             />
-            <Button type="submit" variant="outline">
+            <Button
+              disabled={purchaseHandoffPending}
+              type="submit"
+              variant="outline"
+            >
               <ExternalLink className="h-4 w-4" />
               {resolvedBuyLabel}
             </Button>
