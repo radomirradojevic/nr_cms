@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import { ExternalLink, KeyRound } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n-provider";
@@ -54,14 +54,27 @@ export function WebshopLicenseActivation({
   const resolvedSubmitLabel = submitLabel ?? t("addons.webshop.activate");
   const resolvedTitle = title ?? t("addons.webshop.activationTitle");
 
-  function submitPurchaseIntentHandoff(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (purchaseHandoffPending) return;
+  function submitPurchaseIntentHandoff() {
+    if (purchaseHandoffPending || !purchaseIntentHandoff) return;
     setPurchaseHandoffPending(true);
-    // React handles function-valued form actions. This cross-origin handoff is
-    // deliberately a native HTML POST so the browser owns the vendor's 303
-    // navigation and Set-Cookie response.
-    HTMLFormElement.prototype.submit.call(event.currentTarget);
+
+    // Submit a detached native form from a click event. Calling form.submit()
+    // from inside that same form's submit event can send the cross-origin POST
+    // while leaving Chrome on the original document instead of following the
+    // vendor's Set-Cookie + 303 navigation.
+    const form = document.createElement("form");
+    form.action = purchaseIntentHandoff.action;
+    form.enctype = "application/x-www-form-urlencoded";
+    form.method = "post";
+    form.hidden = true;
+
+    const intent = document.createElement("input");
+    intent.name = "purchaseIntent";
+    intent.type = "hidden";
+    intent.value = purchaseIntentHandoff.purchaseIntent;
+    form.append(intent);
+    document.body.append(form);
+    HTMLFormElement.prototype.submit.call(form);
   }
 
   return (
@@ -80,28 +93,20 @@ export function WebshopLicenseActivation({
         </div>
 
         {purchaseIntentHandoff ? (
-          <form
-            action={purchaseIntentHandoff.action}
+          <div
             aria-busy={purchaseHandoffPending}
             className="flex flex-wrap gap-2"
-            encType="application/x-www-form-urlencoded"
-            method="post"
-            onSubmit={submitPurchaseIntentHandoff}
           >
-            <input
-              name="purchaseIntent"
-              type="hidden"
-              value={purchaseIntentHandoff.purchaseIntent}
-            />
             <Button
               disabled={purchaseHandoffPending}
-              type="submit"
+              onClick={submitPurchaseIntentHandoff}
+              type="button"
               variant="outline"
             >
               <ExternalLink className="h-4 w-4" />
               {resolvedBuyLabel}
             </Button>
-          </form>
+          </div>
         ) : buyUrl ? (
           <Button asChild variant="outline">
             <a href={buyUrl} rel="noopener noreferrer" target="_blank">
