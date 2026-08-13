@@ -12,6 +12,7 @@
     "dev": "next dev --turbopack",
     "build": "node scripts/build-cms.mjs",
     "env:clean": "node scripts/clean-local-runtime-env.mjs",
+    "env:retire-p18-flags": "node scripts/retire-completed-rollout-flags.mjs",
     "env:validate": "node scripts/validate-runtime-env.mjs",
     "prepare:runtime": "node scripts/prepare-dev-runtime.mjs",
     "addons:registry": "node scripts/generate-addon-registry.mjs",

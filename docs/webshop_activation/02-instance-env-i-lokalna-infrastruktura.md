@@ -282,13 +282,10 @@ Webshop:
     WEBSHOP_PUBLIC_BASE_URL=https://vendor.nr.test
     WEBSHOP_LICENSE_ISSUE_CRON_SECRET=<TARGET_DEDICATED_SECRET_AFTER_PHASE_7>
 
-Rollout:
-
-    WEBSHOP_PAYMENT_STATE_V2=true
-    WEBSHOP_LICENSE_OUTBOX_V2=true
-    VENDOR_LICENSE_API_V2=true
-
-`VENDOR_LICENSE_API_V2` je u trenutnom CMS vendor template-u, ali stvarni feature-gate consumer je master proces. Vrednost na vendor CMS-u danas ne dokazuje da je V2 uključen. Ciljna profile/template izmena treba ili da ukloni taj master-only ključ iz CMS ugovora ili da mu uvede jasno, testirano lokalno značenje; do tada se zadržava samo radi exact parity-ja. Autoritativni `true` mora biti na masteru.
+Prompt 18 rollout je završen: `WEBSHOP_PAYMENT_STATE_V2`,
+`WEBSHOP_LICENSE_OUTBOX_V2` i `VENDOR_LICENSE_API_V2` su uklonjeni iz
+CMS/master runtime ugovora. V2 tok je autoritativan i ove promenljive ne treba
+vraćati u `.env`.
 
 `NR_LICENSE_ENVIRONMENT` je jedini CMS-side license environment autoritet i mora biti exact `development|staging|production`. Ne izvodi se iz `NODE_ENV`, deployment profila, URL-a, baze ili Caddy hosta. Activation/revalidation, purchase-intent/catalog/issue/validate/lifecycle requesti, entitlement/installation/operation redovi i deployment job snapshot moraju nositi istu vrednost. Startup odbija mismatch sa master contractom, a worker kasnije proverava job + target config + CMS DB snapshot + `NR_ADDON_DEPLOYMENT_WORKER_ENVIRONMENT`.
 
@@ -327,7 +324,8 @@ Svi `*_DECRYPTION_KEYS_JSON` i `*_OLD_SECRETS_JSON` contracti su JSON objekti ob
 
 Deployment HMAC rotacija je takođe stateful. Svaki CMS deployment outbox red trajno čuva `request_auth_kid` iz trenutka kreiranja, a svaki worker result outbox red `result_auth_kid`; retry istog exact body-ja ostaje na tom KID-u. Workerova per-target statička secret konfiguracija zato ima request-verifier active+old mapu i result-signer active+old mapu, istog sadržaja kao odgovarajući CMS active/old par. Rotacija prvo svuda doda novi KID, zatim ga postavlja active za nove operations, dok stari ostaje u old mapama. Stari se uklanja tek kada SQL/metrics dokažu nula non-terminalnih request/result outbox redova na tom KID-u i prođu replay/idempotency + backup retention rokovi. Ne potpisivati stari durable body novim KID-em bez posebne auditovane transport-resign operation verzije; prvi contract to ne podržava.
 
-Nemoj uključiti payment V2 flagove dok master HMAC V2 credential/scope/catalog popravke i DB migracije ne prođu.
+Payment V2 migracije i HMAC/scope/catalog gateovi su obavezni startup/release
+uslovi; više se ne mogu zaobići rollout flagom.
 
 ## 7. Client CMS env
 
@@ -389,13 +387,10 @@ Activation:
 
 Client nije vendor:
 
-    WEBSHOP_PAYMENT_STATE_V2=false
-    WEBSHOP_LICENSE_OUTBOX_V2=false
-    VENDOR_LICENSE_API_V2=false
     LICENSE_SERVER_ENABLED=false
     LICENSE_SERVER_INSTALL_MODE=disabled
 
-I ovde je `VENDOR_LICENSE_API_V2=false` samo trenutni template-parity ključ bez CMS runtime efekta; ciljni client template ga uklanja ako ne dobije stvarnog consumera.
+Završeni V2 rollout flagovi nisu deo client template-a ni runtime ugovora.
 
 I za client finalni template ne zahteva `WEBSHOP_BUY_LINK_SECRET`. Privremeni shared-secret spike je jedini mogući izuzetak od različitih secret vrednosti, ali se ne koristi za kompletan E2E.
 
@@ -414,7 +409,6 @@ Pošto master validator zahteva tačan key parity sa .env.example, kopirati temp
     NR_MIGRATION_PROVIDER_RESOURCE_ID=<SAME_LOCAL_RESOURCE_ID>
     NRLS_ENVIRONMENT=development
     NRLS_PUBLIC_URL=https://license.nr.test
-    VENDOR_LICENSE_API_V2=true
     NRLS_SECRET_ENCRYPTION_KEY=<32_BYTE_BASE64URL>
     NRLS_SECRET_ENCRYPTION_KID=local-master-v1
     NRLS_SECRET_DECRYPTION_KEYS_JSON={}

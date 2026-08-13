@@ -347,7 +347,6 @@ async function ensureMasterLicenseServerEnv() {
     "https://license.nr.test",
   );
   ensure("NRLS_PUBLIC_URL", "https://license.nr.test");
-  ensure("VENDOR_LICENSE_API_V2", "false");
   ensure("NRLS_RATE_LIMIT_STORE", "postgres");
 
   if (additions.length === 0 && next === current) return;
@@ -467,9 +466,6 @@ async function ensureRootEnv() {
   ensure("LICENSE_SERVER_SECRET_KEY", randomBytes(32).toString("base64url"));
   ensure("WEBSHOP_PAYMENTS_MODE", "test");
   ensure("WEBSHOP_COOKIE_SECURE", "false");
-  ensure("WEBSHOP_PAYMENT_STATE_V2", "false");
-  ensure("WEBSHOP_LICENSE_OUTBOX_V2", "false");
-  ensure("VENDOR_LICENSE_API_V2", "false");
   ensure("STORAGE_PROVIDER", "local");
   ensure("UPLOADS_DIR", "./storage/uploads");
   ensure(

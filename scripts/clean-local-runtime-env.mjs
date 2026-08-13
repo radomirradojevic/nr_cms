@@ -79,18 +79,6 @@ const VARIABLES = [
     "Explicit Secure policy for the Webshop cart cookie.",
   ],
   [
-    "WEBSHOP_PAYMENT_STATE_V2",
-    "Controlled rollout switch for the new payment-state reducer.",
-  ],
-  [
-    "WEBSHOP_LICENSE_OUTBOX_V2",
-    "Controlled rollout switch for the license-fulfillment outbox.",
-  ],
-  [
-    "VENDOR_LICENSE_API_V2",
-    "Vendor-only rollout switch for the V2 license API contract.",
-  ],
-  [
     "WEBSHOP_CART_TOKEN_SALT",
     "Dedicated salt used to hash Webshop cart tokens.",
   ],
@@ -234,9 +222,6 @@ const SECTIONS = [
     description:
       "Internal nrcms.com rollout and payment callback settings that client CMS installations do not require.",
     keys: [
-      "WEBSHOP_PAYMENT_STATE_V2",
-      "WEBSHOP_LICENSE_OUTBOX_V2",
-      "VENDOR_LICENSE_API_V2",
       "WEBSHOP_BANK_REDIRECT_WEBHOOK_SECRET",
     ],
     title: "NRCMS.COM VENDOR CMS ONLY",
@@ -269,6 +254,9 @@ const REMOVED_KEYS = new Set([
   "WEBSHOP_REDEPLOY_WEBHOOK_URL",
   "WEBSHOP_STRIPE_SECRET_KEY",
   "WEBSHOP_STRIPE_WEBHOOK_SECRET",
+  "WEBSHOP_PAYMENT_STATE_V2",
+  "WEBSHOP_LICENSE_OUTBOX_V2",
+  "VENDOR_LICENSE_API_V2",
 ]);
 
 const envPath = resolve(process.cwd(), ".env");

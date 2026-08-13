@@ -4,18 +4,13 @@
 
 Master licenca se izdaje jednom, i samo jednom, nakon autoritativno potvrđene pune uplate. Izdati ključ se čuva šifrovano i kupcu se isporučuje kroz bezbedan order-delivery tok.
 
-## 1. Feature flag precondition
+## 1. Rollout precondition
 
-Na vendor CMS-u željeni tok zahteva:
+Prompt 18 je završio V2 rollout. Promenljive `WEBSHOP_PAYMENT_STATE_V2`,
+`WEBSHOP_LICENSE_OUTBOX_V2` i `VENDOR_LICENSE_API_V2` su uklonjene; payment,
+fulfillment i master API V2 putanje su jedine autoritativne putanje.
 
-    WEBSHOP_PAYMENT_STATE_V2=true
-    WEBSHOP_LICENSE_OUTBOX_V2=true
-
-Na masteru:
-
-    VENDOR_LICENSE_API_V2=true
-
-Flagove uključiti tek kada:
+Release ostaje dozvoljen tek kada:
 
 - sve potrebne migracije postoje;
 - V2 API client/KID/scopes rade;
@@ -23,7 +18,8 @@ Flagove uključiti tek kada:
 - purchase intent i domain snapshot rade;
 - secure delivery radi.
 
-U suprotnom flagovi samo prebacuju promet na nedovršen put.
+Ako bilo koji uslov padne, startup/release gate mora fail-closed; nema legacy
+flag fallback-a.
 
 ## 2. Autoritativno payment stanje
 

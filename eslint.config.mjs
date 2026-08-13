@@ -9,11 +9,10 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
-    ".private/**/.next/**",
-    // Private packages are checked from source. Their signed build products and
-    // vendored host snapshot are generated JavaScript, not lint inputs.
-    ".private/**/dist/**",
-    ".private/**/runtime-snapshot/**",
+    // Private add-on checkouts are separate repositories with their own lint
+    // gates. The public CMS lint result must not depend on whether they happen
+    // to be mounted beside it on a developer or deployment machine.
+    ".private/**",
     // Local diagnostics, extracted release packages, and audit evidence are
     // generated inputs/outputs rather than repository source.
     ".tmp/**",
