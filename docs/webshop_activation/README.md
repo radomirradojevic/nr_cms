@@ -1,6 +1,6 @@
 # Webshop licenca, kupovina i aktivacija — implementaciona dokumentacija
 
-Status dokumenta: autoritativna tehnička specifikacija za implementaciju i lokalni E2E test.
+Status dokumenta: autoritativna tehnička specifikacija i završeni lokalni E2E dokaz. Produkcijski rollout ostaje zaseban gate.
 
 Datum audita koda: 2026-08-01.
 
@@ -66,7 +66,7 @@ Svaki dokument razlikuje četiri vrste informacija:
 - TARGET — obavezno ciljno rešenje;
 - MANUAL — korak koji operator radi ručno.
 
-Dokumentacija nije tvrdnja da je implementacija završena. Posebno, trenutni kod još nema deployment worker koji instalira paket nakon aktivacije, kompletan purchase-intent tok, potpuno operativan HMAC V2 admin setup, niti završenu isporuku spolja izgenerisanog ključa kupcu.
+Implementacija i lokalni Prompt 18 E2E su završeni. Tačni commit/release/job/hash dokazi i preostali production-only blockeri nalaze se u [19 — Prompt 18 završni E2E dokaz](19-prompt18-e2e-evidence-2026-08-13.md).
 
 Za tok opisan u ovom direktorijumu, ova specifikacija ima prednost nad starijim statusnim/PASS tvrdnjama u `docs/addons`. Simulator ili fixture PASS nije dokaz stvarnog CMS → master → worker → vendor payment E2E-a; kompletan rezultat se priznaje samo po runbook-u 09 i gate-ovima iz roadmape 11.
 
@@ -88,6 +88,7 @@ Za tok opisan u ovom direktorijumu, ova specifikacija ima prednost nad starijim 
 14. [13 — CMS core DB operator runbook](13-cms-core-db-operator-runbook.md)
 15. [14 — Webshop schema cutover operator runbook](14-webshop-schema-cutover-operator-runbook.md)
 16. [15 — Solo maintainer release authority](15-solo-maintainer-release-authority.md)
+17. [19 — Prompt 18 završni E2E dokaz](19-prompt18-e2e-evidence-2026-08-13.md)
 
 ## Zaključane odluke
 
