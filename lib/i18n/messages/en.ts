@@ -1641,6 +1641,17 @@ export const en = {
       installPendingTitle: "Waiting for add-on install",
       installPendingDescription:
         "The license was accepted. Install the private Webshop package, set WEBSHOP_ADDON_MODULE, and rebuild or restart the CMS to finish setup.",
+      managedInstallPendingDescription:
+        "The license was accepted. The private Webshop package is being installed automatically; this page will open the dashboard when it is ready.",
+      installProgress: {
+        queued: "Deployment queued",
+        installing: "Installing the Webshop package",
+        finalizing: "Applying migrations and restarting the CMS",
+        ready: "Webshop is ready. Opening the dashboard...",
+        failed: "Installation needs attention. Status checks will continue.",
+        reconnecting: "Reconnecting after the CMS restart...",
+        takingLonger: "This is taking longer than usual.",
+      },
       installLocked: "Webshop install flow is locked",
       licenseRequiredDescription:
         "Buy or enter a valid Webshop license key to activate this paid add-on for this CMS deployment.",

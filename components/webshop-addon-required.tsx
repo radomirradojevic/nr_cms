@@ -7,8 +7,10 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { WebshopInstallProgress } from "@/components/webshop-install-progress";
 import { getTranslations } from "@/lib/i18n/server";
 import type { TranslateFn } from "@/lib/i18n/translate";
+import { getWebshopRuntimeConfig } from "@/lib/webshop-addon/config";
 import type { WebshopAddonState } from "@/lib/webshop-addon/contract";
 
 export async function WebshopAddonRequired({
@@ -20,7 +22,10 @@ export async function WebshopAddonRequired({
   >;
 }) {
   const t = await getTranslations("backend");
-  const content = getStateContent(state, t);
+  const managedInstall =
+    state.status === "install_pending" &&
+    getWebshopRuntimeConfig().installMode === "managed_redeploy";
+  const content = getStateContent(state, t, managedInstall);
   const Icon = content.tone === "success" ? CheckCircle2 : content.icon;
 
   return (
@@ -50,6 +55,19 @@ export async function WebshopAddonRequired({
               })}
             </p>
           ) : null}
+          {managedInstall ? (
+            <WebshopInstallProgress
+              labels={{
+                failed: t("addons.webshop.installProgress.failed"),
+                finalizing: t("addons.webshop.installProgress.finalizing"),
+                installing: t("addons.webshop.installProgress.installing"),
+                queued: t("addons.webshop.installProgress.queued"),
+                ready: t("addons.webshop.installProgress.ready"),
+                reconnecting: t("addons.webshop.installProgress.reconnecting"),
+                takingLonger: t("addons.webshop.installProgress.takingLonger"),
+              }}
+            />
+          ) : null}
         </div>
       </div>
     </div>
@@ -62,6 +80,7 @@ function getStateContent(
     { status: "ready" } | { status: "license_expired" }
   >,
   t: TranslateFn,
+  managedInstall = false,
 ) {
   switch (state.status) {
     case "disabled":
@@ -83,7 +102,9 @@ function getStateContent(
     case "install_pending":
       return {
         badge: t("addons.common.installPending"),
-        description: t("addons.webshop.installPendingDescription"),
+        description: managedInstall
+          ? t("addons.webshop.managedInstallPendingDescription")
+          : t("addons.webshop.installPendingDescription"),
         icon: Store,
         title: t("addons.webshop.installPendingTitle"),
         tone: "success" as const,
