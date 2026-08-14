@@ -1,10 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   cmsAddonDeploymentOutbox,
+  cmsAddonDeploymentResults,
   cmsAddonInstallations,
   cmsAddonMigrations,
   cmsAddonOperations,
@@ -28,9 +29,7 @@ export async function persistVerifiedWebshopActivation(input: {
   const snapshotHash = sha256(input.signedEntitlement);
   const targetProfile = requiredDeploymentProfile();
   const release = input.claim.release;
-  const entitlementValues = (
-    status: "install_pending" | "ready",
-  ) => ({
+  const entitlementValues = (status: "install_pending" | "ready") => ({
     status,
     licenseKeyRef: input.claim.entitlementId.slice(0, 16),
     entitlementToken: input.signedEntitlement,
@@ -69,10 +68,7 @@ export async function persistVerifiedWebshopActivation(input: {
         .where(eq(cmsAddonInstallations.addonKey, ADDON_KEY))
         .limit(1)
     )[0];
-    if (
-      existing &&
-      existing.installationId !== input.claim.installationId
-    ) {
+    if (existing && existing.installationId !== input.claim.installationId) {
       throw new Error(
         "A different installation identity already owns the Webshop control plane; audited transfer is required.",
       );
@@ -83,7 +79,8 @@ export async function persistVerifiedWebshopActivation(input: {
     // new intent after the separately authorized schema cutover.
     if (
       existing &&
-      existing.desiredHostCapabilityDescriptorHash === input.claim.hostCapabilityDescriptorHash
+      existing.desiredHostCapabilityDescriptorHash ===
+        input.claim.hostCapabilityDescriptorHash
     ) {
       const legacyTerminal = (
         await tx
@@ -93,10 +90,16 @@ export async function persistVerifiedWebshopActivation(input: {
             and(
               eq(cmsAddonOperations.addonKey, ADDON_KEY),
               eq(cmsAddonOperations.installationId, input.claim.installationId),
-              eq(cmsAddonOperations.installationDeploymentEpoch, existing.installationDeploymentEpoch),
+              eq(
+                cmsAddonOperations.installationDeploymentEpoch,
+                existing.installationDeploymentEpoch,
+              ),
               eq(cmsAddonOperations.generation, 1),
               eq(cmsAddonOperations.status, "failed"),
-              eq(cmsAddonOperations.errorCode, "operator_schema_cutover_required"),
+              eq(
+                cmsAddonOperations.errorCode,
+                "operator_schema_cutover_required",
+              ),
             ),
           )
           .limit(1)
@@ -113,19 +116,19 @@ export async function persistVerifiedWebshopActivation(input: {
     }
     const alreadyServingExactRelease = Boolean(
       existing &&
-        existing.status === "ready" &&
-        existing.runtimeStatus === "ready" &&
-        existing.desiredReleaseId === release.releaseId &&
-        existing.desiredArtifactSha256 === release.artifactSha256 &&
-        existing.installedReleaseId === release.releaseId &&
-        existing.installedArtifactSha256 === release.artifactSha256 &&
-        existing.installedPackageName === release.packageName &&
-        existing.installedPackageVersion === release.packageVersion &&
-        existing.runtimeContractVersion === release.runtimeContractVersion &&
-        existing.schemaVersion === release.schemaVersion &&
-        existing.installedHostCapabilityDescriptorHash ===
-          input.claim.hostCapabilityDescriptorHash &&
-        existing.entitlementLifecycleVersion === input.claim.lifecycleVersion,
+      existing.status === "ready" &&
+      existing.runtimeStatus === "ready" &&
+      existing.desiredReleaseId === release.releaseId &&
+      existing.desiredArtifactSha256 === release.artifactSha256 &&
+      existing.installedReleaseId === release.releaseId &&
+      existing.installedArtifactSha256 === release.artifactSha256 &&
+      existing.installedPackageName === release.packageName &&
+      existing.installedPackageVersion === release.packageVersion &&
+      existing.runtimeContractVersion === release.runtimeContractVersion &&
+      existing.schemaVersion === release.schemaVersion &&
+      existing.installedHostCapabilityDescriptorHash ===
+        input.claim.hostCapabilityDescriptorHash &&
+      existing.entitlementLifecycleVersion === input.claim.lifecycleVersion,
     );
     if (alreadyServingExactRelease) {
       const completedOperation = (
@@ -135,10 +138,7 @@ export async function persistVerifiedWebshopActivation(input: {
           .where(
             and(
               eq(cmsAddonOperations.addonKey, ADDON_KEY),
-              eq(
-                cmsAddonOperations.installationId,
-                input.claim.installationId,
-              ),
+              eq(cmsAddonOperations.installationId, input.claim.installationId),
               eq(
                 cmsAddonOperations.installationDeploymentEpoch,
                 existing!.installationDeploymentEpoch,
@@ -203,10 +203,10 @@ export async function persistVerifiedWebshopActivation(input: {
     // change may supersede the current epoch.
     const sameDeploymentIntent = Boolean(
       existing &&
-        existing.desiredReleaseId === input.claim.release.releaseId &&
-        existing.entitlementLifecycleVersion === input.claim.lifecycleVersion &&
-        existing.desiredHostCapabilityDescriptorHash ===
-          input.claim.hostCapabilityDescriptorHash,
+      existing.desiredReleaseId === input.claim.release.releaseId &&
+      existing.entitlementLifecycleVersion === input.claim.lifecycleVersion &&
+      existing.desiredHostCapabilityDescriptorHash ===
+        input.claim.hostCapabilityDescriptorHash,
     );
     const epoch = sameDeploymentIntent
       ? existing!.installationDeploymentEpoch
@@ -215,8 +215,7 @@ export async function persistVerifiedWebshopActivation(input: {
       throw new Error("Installation deployment epoch is invalid.");
     }
     const deploymentIntentKey = `addon-deploy-intent:v3:${input.claim.installationId}:${epoch}:${input.claim.release.releaseId}`;
-    const operationKey = `addon-deploy:v3:${input.claim.installationId}:${epoch}:${input.claim.release.releaseId}:1`;
-    const active =
+    const predecessor =
       existing && sameDeploymentIntent
         ? (
             await tx
@@ -225,20 +224,42 @@ export async function persistVerifiedWebshopActivation(input: {
               .where(
                 and(
                   eq(cmsAddonOperations.addonKey, ADDON_KEY),
-                  eq(cmsAddonOperations.operationKey, operationKey),
+                  eq(
+                    cmsAddonOperations.deploymentIntentKey,
+                    deploymentIntentKey,
+                  ),
                 ),
               )
+              .orderBy(desc(cmsAddonOperations.generation))
               .limit(1)
           )[0]
         : null;
-    if (active && ["pending", "running"].includes(active.status)) {
+    if (predecessor && ["pending", "running"].includes(predecessor.status)) {
       return {
-        operationId: active.id,
-        operationKey,
+        operationId: predecessor.id,
+        operationKey: predecessor.operationKey,
         status: "install_pending" as const,
         reused: true as const,
       };
     }
+    const retry = predecessor
+      ? await resolveRetryablePredecessor(tx, predecessor)
+      : null;
+    if (
+      retry &&
+      (!predecessor ||
+        !Number.isInteger(predecessor.generation) ||
+        predecessor.generation === null ||
+        predecessor.generation < 1)
+    ) {
+      throw new Error("Webshop deployment predecessor generation is invalid.");
+    }
+    const generation = retry ? predecessor!.generation! + 1 : 1;
+    if (generation > 2_147_483_647) {
+      throw new Error("Webshop deployment generation is exhausted.");
+    }
+    const supersedesOperationId = retry ? predecessor!.id : null;
+    const operationKey = `addon-deploy:v3:${input.claim.installationId}:${epoch}:${input.claim.release.releaseId}:${generation}`;
     if (existing && !sameDeploymentIntent) {
       await tx
         .update(cmsAddonOperations)
@@ -296,6 +317,8 @@ export async function persistVerifiedWebshopActivation(input: {
       operationKey,
       epoch,
       preOperation,
+      generation,
+      supersedesOperationId,
     );
     const requestHash = sha256(canonicalJson(operationPayload));
     const pendingEntitlement = entitlementValues("install_pending");
@@ -346,7 +369,7 @@ export async function persistVerifiedWebshopActivation(input: {
       runtimeContractVersion: release.runtimeContractVersion,
       schemaVersion: release.schemaVersion,
       status: "install_pending" as const,
-      runtimeStatus: "not_installed" as const,
+      runtimeStatus: existing?.runtimeStatus ?? ("not_installed" as const),
       deploymentJobId: null,
       lastErrorCode: null,
       lastErrorMessage: null,
@@ -365,9 +388,10 @@ export async function persistVerifiedWebshopActivation(input: {
       addonKey: ADDON_KEY,
       installationId: input.claim.installationId,
       installationDeploymentEpoch: epoch,
-      generation: 1,
+      generation,
       deploymentIntentKey,
       operationKey,
+      supersedesOperationId,
       operationType: OPERATION_TYPE,
       status: "pending",
       requestHash,
@@ -380,7 +404,7 @@ export async function persistVerifiedWebshopActivation(input: {
       operationId,
       installationDeploymentEpoch: epoch,
       deploymentIntentKey,
-      generation: 1,
+      generation,
       operationKey,
       requestAuthKid:
         process.env.NR_ADDON_DEPLOYMENT_WORKER_AUTH_KID?.trim() || null,
@@ -411,6 +435,8 @@ function deploymentPayload(
     preOperationMigrationLedgerHash: string;
     preOperationServingStateHash: string;
   },
+  generation: number,
+  supersedesOperationId: string | null,
 ) {
   const release = claim.release;
   return deploymentRequestV2Schema.parse({
@@ -421,8 +447,8 @@ function deploymentPayload(
     deploymentIntentKey,
     installationId: claim.installationId,
     installationDeploymentEpoch: String(epoch),
-    generation: 1,
-    supersedesOperationId: null,
+    generation,
+    supersedesOperationId,
     environment: claim.environment,
     entitlementSnapshotHash,
     entitlementLifecycleVersion: claim.lifecycleVersion,
@@ -457,6 +483,50 @@ function deploymentPayload(
     releaseChannel: release.channel,
   });
 }
+
+async function resolveRetryablePredecessor(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  predecessor: typeof cmsAddonOperations.$inferSelect,
+) {
+  if (predecessor.status !== "failed") {
+    if (predecessor.status === "completed") {
+      throw new Error(
+        "Completed Webshop deployment is not the currently verified serving release.",
+      );
+    }
+    throw new Error(
+      "Webshop deployment intent is terminal and cannot be retried.",
+    );
+  }
+  const result = (
+    await tx
+      .select()
+      .from(cmsAddonDeploymentResults)
+      .where(eq(cmsAddonDeploymentResults.operationId, predecessor.id))
+      .limit(1)
+  )[0];
+  const payload = metadataRecord(result?.receivedPayload);
+  if (
+    !result ||
+    result.initialAck !== "applied" ||
+    result.resultStatus !== "failed" ||
+    !["rejected_before_switch", "rolled_back"].includes(result.finalPhase) ||
+    payload.errorClass !== "retryable" ||
+    typeof payload.errorCode !== "string" ||
+    payload.errorCode.length < 1
+  ) {
+    throw new Error(
+      "Failed Webshop deployment is not eligible for an automatic retry.",
+    );
+  }
+  return result;
+}
+
+function metadataRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
 function preOperationEvidence(
   existing: typeof cmsAddonInstallations.$inferSelect | undefined,
   installationId: string,
@@ -473,17 +543,21 @@ function preOperationEvidence(
     installedPackageName: existing?.installedPackageName ?? null,
     installedPackageVersion: existing?.installedPackageVersion ?? null,
     installedArtifactSha256: existing?.installedArtifactSha256 ?? null,
-    installedDependencyLockSha256: existing?.installedDependencyLockSha256 ?? null,
+    installedDependencyLockSha256:
+      existing?.installedDependencyLockSha256 ?? null,
     installedNpmTarballSha256: existing?.installedNpmTarballSha256 ?? null,
-    installedNpmTarballIntegrity: existing?.installedNpmTarballIntegrity ?? null,
-    installedEmbeddedManifestSha256: existing?.installedEmbeddedManifestSha256 ?? null,
+    installedNpmTarballIntegrity:
+      existing?.installedNpmTarballIntegrity ?? null,
+    installedEmbeddedManifestSha256:
+      existing?.installedEmbeddedManifestSha256 ?? null,
     installedProvenanceSha256: existing?.installedProvenanceSha256 ?? null,
     installedSbomSha256: existing?.installedSbomSha256 ?? null,
     installedPublicationAttestationHash:
       existing?.installedPublicationAttestationHash ?? null,
     installedRegistryPackageVersionId:
       existing?.installedRegistryPackageVersionId ?? null,
-    installedSourceReleasedAt: existing?.installedSourceReleasedAt?.toISOString() ?? null,
+    installedSourceReleasedAt:
+      existing?.installedSourceReleasedAt?.toISOString() ?? null,
     installedPublishedAt: existing?.installedPublishedAt?.toISOString() ?? null,
     installedReleaseSigningKid: existing?.installedReleaseSigningKid ?? null,
     installedRuntimeContractVersion:
@@ -498,8 +572,10 @@ function preOperationEvidence(
       existing?.installedSupportedAddonSchemaVersionMin ?? null,
     installedSupportedAddonSchemaVersionMax:
       existing?.installedSupportedAddonSchemaVersionMax ?? null,
-    installedMigrationBundleHash: existing?.installedMigrationBundleHash ?? null,
-    installedMigrationLedgerHash: existing?.installedMigrationLedgerHash ?? null,
+    installedMigrationBundleHash:
+      existing?.installedMigrationBundleHash ?? null,
+    installedMigrationLedgerHash:
+      existing?.installedMigrationLedgerHash ?? null,
     installedSupportedLicenseEditions:
       existing?.installedSupportedLicenseEditions ?? null,
     installedReleaseChannel: existing?.installedReleaseChannel ?? null,
@@ -531,29 +607,36 @@ function nullableDate(value: string | null) {
 function sha256(value: string) {
   return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
 }
-function migrationLedgerHash(migrationLedger: readonly {
-  checksum: string;
-  migrationId: string;
-  releaseId: string | null;
-  schemaVersion: number;
-  status: string;
-}[]) {
-  const entries = migrationLedger.map((entry) => {
-    if (!entry.releaseId) throw new Error("migration_ledger_release_evidence_missing");
-    return {
-      migrationId: entry.migrationId,
-      releaseId: entry.releaseId,
-      checksum: entry.checksum,
-      schemaVersion: entry.schemaVersion,
-      status: entry.status,
-    };
-  }).sort((left, right) => left.migrationId.localeCompare(right.migrationId));
-  return sha256(canonicalJson({
-    addonKey: ADDON_KEY,
-    contractVersion: 1,
-    entries,
-    purpose: "addon_migration_ledger",
-  }));
+function migrationLedgerHash(
+  migrationLedger: readonly {
+    checksum: string;
+    migrationId: string;
+    releaseId: string | null;
+    schemaVersion: number;
+    status: string;
+  }[],
+) {
+  const entries = migrationLedger
+    .map((entry) => {
+      if (!entry.releaseId)
+        throw new Error("migration_ledger_release_evidence_missing");
+      return {
+        migrationId: entry.migrationId,
+        releaseId: entry.releaseId,
+        checksum: entry.checksum,
+        schemaVersion: entry.schemaVersion,
+        status: entry.status,
+      };
+    })
+    .sort((left, right) => left.migrationId.localeCompare(right.migrationId));
+  return sha256(
+    canonicalJson({
+      addonKey: ADDON_KEY,
+      contractVersion: 1,
+      entries,
+      purpose: "addon_migration_ledger",
+    }),
+  );
 }
 function requiredDeploymentProfile() {
   return parseAddonDeploymentProfile(process.env.NR_CMS_DEPLOYMENT_PROFILE);
