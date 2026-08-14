@@ -209,6 +209,7 @@ export const WEBSHOP_ORDERS_SOURCE_STRINGS = [
   "Refunded",
   "Registration number",
   "Retry issue",
+  "Resend customer receipt",
   "Search",
   "Send fulfillment update",
   "Send missing order emails",
@@ -474,6 +475,7 @@ const SERBIAN_EXACT: Partial<
     "Refund: return money for an already paid order. Use a reason for the audit trail.":
       "Refundiranje: vraća novac za već plaćenu porudžbinu. Unesi razlog za audit trag.",
     "Registration number": "Matični broj",
+    "Resend customer receipt": "Ponovo pošalji račun kupcu",
     "Shipping method": "Metod dostave",
     "Showing {start}-{end} of {total} orders":
       "Prikazano {start}-{end} od {total} porudžbina",

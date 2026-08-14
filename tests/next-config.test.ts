@@ -15,3 +15,7 @@ test("Next development resources allow only the three CMS Caddy hostnames", () =
     false,
   );
 });
+
+test("PDFKit stays external so its standard font assets remain runtime-addressable", () => {
+  assert.equal(nextConfig.serverExternalPackages?.includes("pdfkit"), true);
+});
