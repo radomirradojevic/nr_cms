@@ -28,7 +28,7 @@ export type DeploymentRequestV2 = z.infer<typeof deploymentRequestV2Schema>;
 
 export const noMutationTerminalEvidenceV1Schema = z.object({
   contractVersion: z.literal(1), purpose: z.literal("addon_deployment_no_mutation"), operationId: uuid, workerJobId: uuid,
-  targetProfile: z.enum(["vendor", "client"]), installationId: uuid, installationDeploymentEpoch: epoch, generation: z.number().int().positive(), releaseId: uuid,
+  targetProfile: z.enum(["vendor", "client", "paypal"]), installationId: uuid, installationDeploymentEpoch: epoch, generation: z.number().int().positive(), releaseId: uuid,
   preOperationServingStateHash: hashRef, preOperationMigrationLedgerHash: hashRef, cmsControlPlanePhase: z.enum(["install_pending", "installed", "migration_pending"]),
   addonSchemaMutationStarted: z.literal(false), serviceMutationStarted: z.literal(false), pointerMutationStarted: z.literal(false),
   observedActiveReleaseId: uuid.nullable(), observedServicePointerReleaseId: uuid.nullable(), lastCompletedWorkerPhase: z.enum(["accepted", "source_exported", "root_verified", "cache_verified", "offline_installed", "built", "db_preflight"]),
@@ -37,7 +37,7 @@ export const noMutationTerminalEvidenceV1Schema = z.object({
 const deploymentResultBaseV2Schema = z.object({
   version: z.literal(2), resultId: uuid, operationId: uuid, installationId: uuid, installationDeploymentEpoch: epoch,
   deploymentIntentKey: z.string().min(1), generation: z.number().int().positive(), operationKey: z.string().min(1), workerJobId: uuid,
-  targetProfile: z.enum(["vendor", "client"]), environment: z.enum(["development", "staging", "production"]), status: z.literal("failed"), finalPhase: z.literal("rejected_before_switch"), runtimeStatus: z.literal("not_installed"),
+  targetProfile: z.enum(["vendor", "client", "paypal"]), environment: z.enum(["development", "staging", "production"]), status: z.literal("failed"), finalPhase: z.literal("rejected_before_switch"), runtimeStatus: z.literal("not_installed"),
   releaseId: uuid, packageName: z.literal("@radomirradojevic/webshop"), packageVersion: semver, npmTarballSha256: hash, npmTarballIntegrity: z.string().regex(/^sha512-[A-Za-z0-9+/]+={0,2}$/),
   artifactSha256: hash, dependencyLockSha256: hash, embeddedManifestSha256: hash, provenanceSha256: hash, sbomSha256: hash, publicationAttestationHash: hash,
   registryPackageVersionId: z.string().regex(/^[1-9][0-9]*$/), sourceReleasedAt: timestamp, publishedAt: timestamp, releaseSigningKid: z.string().min(1), runtimeContractVersion: z.literal("1"),

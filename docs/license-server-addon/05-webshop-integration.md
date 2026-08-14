@@ -1,241 +1,202 @@
-# Webshop Integration
+# 05 — Integracija sa Webshop add-on-om
 
-> Historical implementation note: this document describes a removed legacy `/api/v1/licenses` flow. Current Webshop activation uses the add-on entitlement API.
+## 1. Korisnički model
 
-## Existing Integration
+Webshop nudi tri načina da digitalni proizvod isporuči kao licencu:
 
-The private Webshop already supports digital license delivery policies:
+1. **Manual** — administrator ručno unosi ključ posle porudžbine;
+2. **License pool** — Webshop rezerviše unapred uneti ključ iz pool-a;
+3. **License Server** — Webshop traži generisanje od izabrane konekcije.
 
-- `none`
-- `manual`
-- `pool`
-- `license_server`
+`License Server` je jedini javni naziv generatora. Korisnik ne bira interne
+pojmove `customer_issuer` naspram `license_server`. Transport je osobina
+konekcije:
 
-For `license_server`, Webshop already stores:
+- `Local License Server add-on` — zaseban add-on u istom CMS-u;
+- `Remote NR License Server` — add-on na drugoj NR CMS instalaciji.
 
-- selected license server id;
-- external product type id;
-- SKU snapshot;
-- order and order item refs;
-- issue status;
-- issued license key;
-- issue failure message.
+Centralni autorov Master konektor za prodaju Night Raven add-on-a je sistemski,
+odvojen i nije ponuđen klijentu kao generator njegovih proizvoda.
 
-The paid order flow already creates `webshop_license_server_issues`, then a
-processor calls the selected license server.
+## 2. Podešavanje konekcije
 
-This should be kept and hardened.
+### Lokalna konekcija
 
-## Required API Base URL Change
+Webshop prikazuje opciju samo kada host potvrdi da je License Server add-on:
 
-Current issue processor uses a fixed path:
+- instaliran i učitan;
+- u `ready` modu;
+- podržava `customerLicenseIssuer.v2`;
+- ima inicijalizovan issuer identity.
 
-`/api/v1/licenses`
+Administrator daje display name, environment i potvrđuje issuerRef. Nema URL-a
+ni HMAC secret-a. Webshop čuva capability contract verziju i health rezultat.
 
-Target behavior:
+### Udaljena konekcija
 
-1. Store `baseApiUrl` as the versioned API root.
-2. Build final URLs by appending endpoint name.
-3. Sign the actual URL pathname.
+Administrator unosi:
 
-Examples:
+- HTTPS base URL;
+- client ID i secret prikazan na udaljenom License Server-u;
+- environment;
+- opcioni očekivani issuerRef.
 
-Master:
+`Test connection` radi health, issuer, TLS/host proveru i scope-ovani catalog
+poziv. Posle prve potvrde Webshop pin-uje issuerRef; promena zahteva ručnu
+reautorizaciju. Secret se envelope-encryptuje i nikad se ponovo ne prikazuje.
 
-- `baseApiUrl = https://licenses.nrcms.com/api/v1`
-- issue URL: `https://licenses.nrcms.com/api/v1/licenses`
-- canonical path: `/api/v1/licenses`
+### Status konekcije
 
-Embedded client add-on:
+Najmanje: `active`, `degraded`, `auth_failed`, `issuer_changed`, `disabled`.
+Admin vidi poslednji uspešan health/catalog sync, revision, sanitized error code
+i `Rotate credentials`, `Disable`, `Sync now` radnje.
 
-- `baseApiUrl = https://client-site.com/api/license-server/v1`
-- issue URL: `https://client-site.com/api/license-server/v1/licenses`
-- canonical path: `/api/license-server/v1/licenses`
+## 3. Sinhronizacija kataloga
 
-This lets the same Webshop code work with both master and client add-on.
+Webshop čuva lokalni read model, ne kopira issuer privatne podatke:
 
-## Webshop Connection Manager
+- issuerRef i catalog revision/ETag;
+- Product Type ref/name/audience;
+- Profile SKU/name/revision/status;
+- policy summary, features/limits i trajanje;
+- claim schema version/hash;
+- dozvoljeni claim input-i i mapping izvori;
+- deprecation/compatibility flagovi.
 
-Enhance `.private/webshop/src/admin/settings/license-servers-manager.tsx`.
+Sinhronizacija je ručna i periodična. `304` ne menja podatke. Nestanak profila ne
+briše istorijske order snapshot-e. Novi checkout se blokira ako izabrana
+revizija više nije aktivna ili nije potvrđena.
 
-Add:
+## 4. Podešavanje digitalnog proizvoda
 
-- health check button;
-- detected API version;
-- detected server kind: `master` or `client_addon`;
-- catalog sync button;
-- last health result;
-- last catalog sync timestamp;
-- warnings for path mismatch and bad credentials.
+Kada je delivery `license` ili `file_license`, administrator bira:
 
-Connection fields:
+- source: manual, pool ili License Server;
+- License Server connection;
+- Product Type i License Profile;
+- način prikaza: reveal key, download signed license file, oba;
+- claim mapping, samo iz issuer-ove allowliste;
+- fallback ponašanje: standardno **bez fallback-a** na pool/drugi issuer.
 
-- title;
-- versioned API base URL;
-- auth type;
-- client id;
-- shared secret;
-- status;
-- show in product policy menu.
+UI prikazuje šta će biti vezano: domen, organization/tenant, customer ref,
+edition, seat limit i druga polja. Obavezna potvrda binding-a na storefront-u
+koristi se samo kada je to poslovno pravilo konkretnog proizvoda; License Server
+add-on ne zahteva univerzalni checkbox za svaku licencu.
 
-## Product Manager Integration
+## 5. Claim mapping
 
-Current product UI requires manual external product type ID.
+Početno podržani izvori:
 
-Target:
+- konstanta definisana na Webshop proizvodu/varijanti;
+- product ID/slug i variant ID/SKU;
+- order ID i order item ID;
+- pseudonimizovani customer external ref;
+- organization/tenant ID iz autentifikovanog naloga;
+- normalizovan domen koji je kupac eksplicitno potvrdio;
+- quantity/seat count uz issuer-ov min/max;
+- unapred definisana, validirana checkout polja.
 
-- list product types and SKUs from `GET /catalog`;
-- allow selecting product type and SKU mapping;
-- keep manual entry fallback for external/custom servers;
-- validate selected SKU exists before product can become active;
-- show policy summary:
-  - duration;
-  - max devices;
-  - max domains;
-  - features;
-  - validation interval.
+Nisu dozvoljeni proizvoljni JS, template eval, SQL/JSONPath nad celim orderom,
+payment tokeni, session/cookie podaci ili neograničeni PII. Preview mora prikazati
+efektivne claims i validacionu grešku pre publish-a proizvoda.
 
-Recommended storage in digital fields:
+Mapping konfiguracija ima revision/hash i pin-uje se na order item.
 
-```json
-{
-  "licenseKeyPolicy": "license_server",
-  "licenseServerId": "uuid",
-  "licenseServerProductTypeId": "uuid",
-  "licenseServerSku": "PRO-1Y",
-  "licenseServerPolicySnapshot": {
-    "durationDays": 365,
-    "maxDevices": 2,
-    "maxDomains": null,
-    "features": ["pro"]
-  }
-}
+## 6. Fulfillment state machine
+
+```text
+not_required
+pending_payment
+ready_to_issue
+issue_pending
+issued
+delivered
+
+issue_pending -> retry_wait -> issue_pending
+issue_pending -> failed | dead_letter
+issued -> delivery_failed -> delivered
 ```
 
-## Paid Order Flow
+Pravila:
 
-When an order becomes paid:
+1. Issue počinje samo iz autoritativnog, idempotentnog `paid` događaja.
+2. Webshop operation key je stabilan po order item-u i nameni, npr.
+   `webshop:<storeId>:<orderItemId>:issue:v1`.
+3. Local i remote konekcija koriste isti Webshop operation/receipt zapis.
+4. HTTP/capability timeout znači „status nepoznat”, ne „izdaj ponovo”. Prvo se
+   čita postojeća operacija.
+5. `issued` zahteva trajni receipt. `delivered` zahteva uspešno bezbedno
+   skladištenje/isporuku.
+6. Admin može retry/reconcile; ne može promeniti operation key radi zaobilaženja
+   idempotency konflikta bez posebnog audited recovery toka.
 
-1. Create download entitlements for file delivery.
-2. Assign a key from local pool if policy is `pool`.
-3. Create issue row if policy is `license_server`.
-4. Commit transaction.
-5. Process pending license server issues after commit.
+## 7. Snapshot na order item-u
 
-Issue request body:
+Najmanje:
 
-```json
-{
-  "productTypeId": "license-server-product-type-id",
-  "sku": "SKU-SNAPSHOT",
-  "domain": "optional-domain",
-  "customerEmail": "buyer@example.com",
-  "customerName": "Buyer Name",
-  "orderRef": "webshop-order-id",
-  "orderItemRef": "webshop-order-item-id",
-  "metadata": {
-    "webshopId": "webshop-content-id",
-    "productId": "webshop-product-id",
-    "variantId": "webshop-variant-id"
-  }
-}
-```
+- connection ID/transport i issuerRef;
+- Product Type ref, Profile SKU i revision;
+- catalog/schema/policy/mapping hash;
+- sanitized claim input hash i efektivni claim snapshot bez tajni;
+- issue operation/receipt/license reference;
+- fulfillment/lifecycle status i last error code;
+- timestamps i correlation ID.
 
-Idempotency key:
+Snapshot ne sadrži HMAC secret, privatni ključ ili plaintext licencni ključ u
+običnom JSON-u.
 
-`webshop-order-item:<orderItemId>:license-server`
+## 8. Digitalna isporuka
 
-## Email Delivery
+Receipt se deli na:
 
-Digital delivery email must include:
+- javne/sigurne podatke za listing: masked key, Product/Profile, status, rok;
+- reveal secret: plaintext key, envelope-encrypted sa auditom;
+- signed assertion/license file: integritet zaštićen potpisom, ali može sadržati
+  customer-visible claims;
+- internal-only issuer/Webshop metadata koja se nikad ne isporučuje kupcu.
 
-- license key;
-- expiration date if any;
-- product name;
-- activation/validation API URL if useful for developer products;
-- customer portal/order link.
+E-mail sadrži link ka autentifikovanoj order/download strani, ne plaintext ključ.
+Download/reveal ima rate limit, expiration po potrebi i audit. Signed assertion
+nije tajna, ali privatni/PII claims se ipak minimizuju.
 
-If issue is pending:
+## 9. Lifecycle sinhronizacija
 
-- email should either wait until issue finishes or send a clear "license is
-  being prepared" message and follow-up email after issue succeeds.
+- refund pre issue-a otkazuje pending operation gde je bezbedno;
+- refund posle issue-a šalje `refund`;
+- chargeback šalje `chargeback`;
+- subscription renewal šalje `renew` sa novim expiry-jem tek posle uspešne
+  naplate;
+- cancellation po isteku ne mora odmah revoke-ovati već plaćeni period;
+- admin suspend/resume mora imati razlog i permission;
+- svaka komanda je idempotentna i ima sopstveni operation key.
 
-MVP recommendation:
+Ako je issuer nedostupan, Webshop ne lažno prikazuje uspeh: lifecycle ostaje
+pending/retry/dead-letter i alarmira administratora.
 
-- process issue immediately after payment;
-- if success, include license in placement email;
-- if failure, send placement email without key and flag admin retry.
+## 10. Migracija postojećeg koda
 
-Production recommendation:
+1. Zadržati postojeći `license_server` UI naziv.
+2. Uvesti connection transport/kind i mapirati postojeće remote zapise.
+3. Sakriveni `customer_issuer` policy migrirati na `license_server` + lokalnu
+   konekciju, bez menjanja istorijskih snapshot-a.
+4. Uvesti zajednički V2 adapter koji vraća isti operation/receipt za capability i
+   HTTP.
+5. Postojeći autorov Master entitlement tok ostaviti u posebnom namespace-u i
+   ne koristiti ga kao customer issuer API.
+6. V1 fallback održati samo tokom vremenski ograničene migracije, uz metriku
+   korišćenja i datum uklanjanja.
 
-- queue issue;
-- send license delivery email after issue succeeds;
-- show pending state in customer order page.
+## 11. E2E acceptance scenario
 
-## Refunds, Revokes, And Chargebacks
+Produkcioni scenario mora dokazati:
 
-When Webshop refund fully succeeds:
-
-- revoke download entitlements;
-- revoke local pool keys;
-- call client license server status endpoint for external licenses;
-- set external license status to `refunded` or `revoked`;
-- update `webshop_license_server_issues.status`.
-
-When payment provider reports chargeback:
-
-- call status endpoint with `chargeback`;
-- block future validations.
-
-## Author Webshop On nrcms.com
-
-The author's own Webshop should use the same Webshop license server integration.
-
-Configure master license server:
-
-- `baseApiUrl = https://licenses.nrcms.com/api/v1`
-- product type: `webshop`
-- product type: `license-server`
-- product type: `webConference`
-
-When a customer buys `License Server add-on` from nrcms.com:
-
-1. Webshop asks master server to issue a license.
-2. Customer receives that license key.
-3. Customer CMS activates `/dashboard/license-server` with that key.
-4. Master checks `addonKey = license-server`.
-5. CMS loads the private client add-on package if installed.
-
-For author CMS add-on sales, the master license server should validate the CMS
-deployment domain/site binding. It does not need the full device/domain/seat
-policy matrix used by the client product licensing engine.
-
-## Client Webshop With Embedded License Server Add-on
-
-The client configures its own embedded add-on as a Webshop license server:
-
-`baseApiUrl = https://client-site.com/api/license-server/v1`
-
-Then client products can issue keys from the embedded add-on.
-
-This is independent from the master server except for the add-on entitlement
-check.
-
-For client product sales, Webshop should expose the License Server add-on's SKU
-policy summary while configuring a digital product. The product editor should
-make clear whether the selected license is device-bound, domain-bound,
-seat-based, subscription, trial, maintenance, or file-plus-license.
-
-## Required Webshop Tests
-
-Add tests for:
-
-- API base URL path building for master and embedded add-on;
-- HMAC canonical path uses actual URL pathname;
-- paid order creates one issue row per item;
-- duplicate payment webhook does not duplicate issue;
-- successful issue stores license key in fulfillment snapshot;
-- failed issue stores safe error;
-- customer order page renders pending, failed, and issued states;
-- refund calls external revoke/status update endpoint;
-- product manager catalog sync maps product type and SKU.
+1. korisnik kupi i instalira License Server add-on;
+2. kreira Product Type, custom schema i Profile;
+3. Webshop uspostavi lokalnu ili udaljenu konekciju;
+4. kreira digitalni proizvod sa mapping-om;
+5. test order pre plaćanja ne izdaje licencu;
+6. jedan `paid` događaj uz višestruke retry-je izdaje tačno jednu licencu;
+7. kupac otvori reveal/download i aplikacija verifikuje potpis/claims;
+8. aktivacioni limit izdrži konkurentne pozive;
+9. refund/chargeback promeni online odluku;
+10. key rotation i restart/redeploy ne prekidaju postojeću validaciju.

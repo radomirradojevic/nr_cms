@@ -1,92 +1,98 @@
-# Client License Server Add-on - Implementation Plan
+# License Server add-on — tehnička dokumentacija
 
-## Purpose
+Ovaj direktorijum je autoritativna specifikacija za razvoj i produkciono
+puštanje plaćenog `@nr-cms/license-server` add-on-a. Dokumentacija je revidirana
+13. avgusta 2026. poređenjem sa stvarnim stanjem u:
 
-This folder is the technical implementation plan for turning
-`D:\nr_cms\.private\license-server-addon` from the current MVP into a paid
-client-facing License Server add-on.
+- `.private/license-server-addon`;
+- javnom CMS ugovoru u `lib/license-server-addon` i `packages/addon-sdk`;
+- Webshop modelu, podešavanjima i fulfillment tokovima;
+- centralnom `.private/license-server` sistemu.
 
-The add-on is sold through the author's master system, then runs inside the
-client CMS and licenses products sold by that client through the Webshop add-on.
+## Tri odvojena proizvoda/sistema
 
-## Product Boundary
+| Sistem | Vlasnik i svrha | Šta ne radi |
+| --- | --- | --- |
+| Centralni Master License Server | Isključivo autor Night Raven CMS-a. Prodaje i licencira plaćene add-on-e: Webshop, License Server add-on i budući Web Conference add-on. | Ne generiše licence za proizvode krajnjih kupaca korisnika add-on-a. |
+| License Server add-on | Plaćeni, zasebno instaliran NR CMS add-on. Njegov vlasnik definiše sopstvene proizvode, profile licenci, custom claims i izdaje licence za svoje aplikacije. | Ne instalira se „u Webshop”, ne dobija Master privatne ključeve i ne deli Master bazu. |
+| Webshop add-on | Prodaje digitalne i fizičke proizvode. Za digitalni proizvod-licencu bira `pool` ili konfigurisani License Server. | Ne implementira sopstveni generator i ne pristupa privatnim tabelama License Server add-on-a. |
 
-There are two license server products in this architecture.
+License Server i Webshop mogu biti instalirani u istom CMS-u, ali su i tada
+nezavisni add-on-i. Komuniciraju kroz verzionisan javni capability ugovor. Kada
+su na različitim instalacijama, koriste HTTPS API sa HMAC autentikacijom.
 
-`D:\nr_cms\.private\license-server`
+## Redosled čitanja
 
-- Master license server owned by the author.
-- Licenses paid CMS add-ons: `webshop`, `license-server`, and `webConference`.
-- Runs as an independent service and must not depend on a client CMS database.
-- Used by the author's own Webshop on `nrcms.com` to issue licenses for paid
-  CMS add-ons.
+1. [01-current-state-and-gaps.md](./01-current-state-and-gaps.md) — provereno
+   postojeće stanje i stvarni jazovi.
+2. [02-target-architecture.md](./02-target-architecture.md) — granice sistema,
+   tokovi i trust model.
+3. [03-data-model-and-engine.md](./03-data-model-and-engine.md) — entiteti,
+   invarianti, migracije i transakcije.
+4. [04-documented-api-contract.md](./04-documented-api-contract.md) — lokalni i
+   udaljeni API ugovori.
+5. [05-webshop-integration.md](./05-webshop-integration.md) — podešavanje
+   konekcije, katalog, izdavanje i digitalna isporuka.
+6. [06-implementation-phases.md](./06-implementation-phases.md) — faze i gate-ovi.
+7. [07-security-operations-and-tests.md](./07-security-operations-and-tests.md)
+   — zaštita, operacije, backup i test matrica.
+8. [08-developer-examples.md](./08-developer-examples.md) — primeri integracije
+   aplikacija koje proveravaju licence.
+9. [09-release-runbook.md](./09-release-runbook.md) — build, publish, install,
+   upgrade, rollback i recovery.
+10. [10-custom-license-profiles-and-signed-claims.md](./10-custom-license-profiles-and-signed-claims.md)
+    — tipovi licenci, custom podaci i potpisani assertion-i.
+11. [11-production-acceptance-and-traceability.md](./11-production-acceptance-and-traceability.md)
+    — Definition of Done i sledljivost zahteva.
+12. [12-implementation-prompts.md](./12-implementation-prompts.md) — preporučeni
+    promptovi koji se izvršavaju redom.
 
-`D:\nr_cms\.private\license-server-addon`
+## Oznake stanja
 
-- Paid client License Server add-on.
-- Runs embedded in a client CMS installation after activation by the master
-  license server.
-- Issues and validates licenses for digital products sold by that client's
-  Webshop.
-- Must not be its own activation authority.
+Dokumenti razlikuju sledeće oznake:
 
-## Current Code Map
+- **POSTOJI** — potvrđeno u trenutnom kodu ili testovima;
+- **DELIMIČNO** — osnova postoji, ali ugovor ili produkcioni tok nije završen;
+- **CILJ** — normativni zahtev za novu implementaciju;
+- **VAN OPSEGA** — nije deo ovog add-on-a.
 
-Master license server:
+Opis ciljnog ponašanja nije tvrdnja da je ono već implementirano.
 
-- `.private/license-server/src/db/schema.ts`
-- `.private/license-server/src/data/licenses.ts`
-- `.private/license-server/src/data/addon-activation.ts`
-- `.private/license-server/app/api/v1/entitlements/route.ts`
-- `.private/license-server/app/api/v1/entitlements/validate/route.ts`
-- `.private/license-server/app/api/addons/licenses/activate/route.ts`
+## Nepromenljiva pravila proizvoda
 
-CMS bridge for the client add-on:
+1. Master License Server i customer License Server nikada nisu ista instanca ili
+   isti trust domen.
+2. Master samo odlučuje da li instalacija sme da koristi License Server add-on.
+   On ne učestvuje u svakoj licenci koju korisnik add-on-a izdaje.
+3. License Server add-on je zaseban proizvod i ima sopstveni lifecycle,
+   administraciju, ključeve, backup i API.
+4. Webshop bira izvor licence po proizvodu: ručni unos, pool ili konfigurisani
+   License Server. Generator pripada License Server-u.
+5. Lokalna integracija ne sme da zavisi od privatnih importa ili direktnog upisa
+   u tuđe tabele. Koristi `customerLicenseIssuer.v1` ili njegovu naslednu verziju.
+6. Udaljena integracija mora koristiti TLS, scope-ovan HMAC klijent,
+   anti-replay zaštitu i idempotency ključ.
+7. Izdavanje mora biti tačno-jednom sa stanovišta poslovnog rezultata, čak i kada
+   se transport ponovi.
+8. Custom claims su validirani podaci, ne izvršivi kod i ne tajno skladište.
+9. Privatni signing ključ nikada se ne vraća Webshop-u niti klijentskoj
+   aplikaciji.
+10. Release se ne proglašava produkcionim dok su build artefakt, migracije,
+    instalacija i E2E test provereni iz spakovanog paketa.
 
-- `lib/license-server-addon/*`
-- `data/license-server-addon-entitlement.ts`
-- `components/license-server-addon-required.tsx`
-- `app/dashboard/license-server/*`
-- `app/api/license-server/[...licenseServerPath]/route.ts`
-- `db/schema.ts` tables prefixed with `license_server_`
+## Autoritativni izvori u kodu
 
-Client License Server add-on MVP:
+Dok se implementacija ne uskladi sa ciljem, trenutno stanje proveravati u:
 
-- `.private/license-server-addon/src/addon.tsx`
+- `lib/license-server-addon/contract.ts` — CMS runtime ugovor;
+- `packages/addon-sdk/src/customer-license-issuer-v1.ts` — lokalni capability;
+- `.private/license-server-addon/src/api/routes.ts` — postojeće HTTP rute;
+- `.private/license-server-addon/src/data` — izdavanje, aktivacije i outbox;
+- `.private/license-server-addon/src/lib/policies.ts` — postojeći policy šabloni;
+- `.private/license-server-addon/src/data/customer-issuer.ts` — identitet,
+  rotacija i potpisivanje;
+- `.private/license-server-addon/src/release-addon.tsx` — stvarni release ulaz;
+- Webshop schema/actions/fulfillment kod — postojeće konekcije i delivery tokovi.
 
-Webshop integration points:
-
-- `.private/webshop/src/data/webshop-license-servers.ts`
-- `.private/webshop/src/data/webshop-license-server-issues.ts`
-- `.private/webshop/src/data/webshop-orders.ts`
-- `.private/webshop/src/admin/settings/license-servers-manager.tsx`
-- `.private/webshop/src/admin/products/product-manager.tsx`
-- `app/api/cron/webshop-license-issues/route.ts`
-
-## Key Decisions
-
-1. The master server activates the client License Server add-on.
-2. After activation, the client License Server add-on issues and validates the
-   client's product licenses locally through its own API.
-3. The client add-on should reuse the same engine concepts as the master server,
-   but must not call the master server for every license issued to client
-   customers.
-4. The add-on must expose a documented API for server-to-server issuing and for
-   runtime license activation/validation by software products.
-5. Desktop applications must not embed HMAC shared secrets. They should use a
-   runtime activation token flow instead.
-6. Webshop must support both:
-   - author's Webshop issuing CMS add-on licenses from the master server;
-   - client Webshop issuing client product licenses from the embedded add-on.
-
-## Phase Documents
-
-1. [Current State And Gaps](./01-current-state-and-gaps.md)
-2. [Target Architecture](./02-target-architecture.md)
-3. [Data Model And Engine](./03-data-model-and-engine.md)
-4. [Documented API Contract](./04-documented-api-contract.md)
-5. [Webshop Integration](./05-webshop-integration.md)
-6. [Implementation Phases](./06-implementation-phases.md)
-7. [Security, Operations, And Tests](./07-security-operations-and-tests.md)
-8. [Developer Examples](./08-developer-examples.md)
-9. [Release Runbook](./09-release-runbook.md)
+Ako se kod i ova specifikacija razlikuju, `01-current-state-and-gaps.md` opisuje
+jaz, a dokumenti 02–12 opisuju cilj koji implementacija treba da dostigne.

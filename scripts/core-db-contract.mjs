@@ -12,7 +12,7 @@ const MANIFEST_PATH = path.join(
   "contracts",
   "cms-core-privilege-manifest-v1.json",
 );
-const TARGET_NAMES = new Set(["vendor", "client"]);
+const TARGET_NAMES = new Set(["vendor", "client", "paypal"]);
 const POSTGRES_IDENTIFIER = /^[a-z_][a-z0-9_]{0,62}$/;
 const SAFE_PASSWORD_FILE_MAX_BYTES = 16 * 1024;
 
@@ -96,7 +96,7 @@ export function resolveCmsCoreTarget(
   manifest = loadCmsCorePrivilegeManifest(),
 ) {
   if (!TARGET_NAMES.has(targetName)) {
-    fail("--target must be exactly vendor or client.");
+    fail("--target must be exactly vendor, client, or paypal.");
   }
   const target = manifest.targets[targetName];
   return Object.freeze({

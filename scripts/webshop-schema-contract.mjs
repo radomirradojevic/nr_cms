@@ -49,7 +49,7 @@ export function loadWebshopSchemaManifest() {
   if (tableSet.size !== 45 || [...tableSet].some((table) => !/^webshop_[a-z0-9_]+$/.test(table))) {
     fail("WebshopSchemaPrivilegeManifestV1 must contain exactly the static 45-table allowlist.");
   }
-  for (const target of ["vendor", "client"]) {
+  for (const target of ["vendor", "client", "paypal"]) {
     const roles = manifest.targets?.[target];
     if (!roles) fail(`WebshopSchemaPrivilegeManifestV1 is missing ${target}.`);
     quoteWebshopIdentifier(roles.deployerRole);
@@ -59,7 +59,7 @@ export function loadWebshopSchemaManifest() {
 }
 
 export function resolveWebshopTarget(target, manifest = loadWebshopSchemaManifest()) {
-  if (target !== "vendor" && target !== "client") fail("--target must be exactly vendor or client.");
+  if (!["vendor", "client", "paypal"].includes(target)) fail("--target must be exactly vendor, client, or paypal.");
   return Object.freeze({
     ...manifest.targets[target],
     manifestHash: manifest.manifestHash,

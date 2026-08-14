@@ -49,6 +49,23 @@
       },
       "migratorSecretRef": "dpapi-machine://nr-cms-core/client/migrator/v1",
       "migratorSecretPath": "D:\\nr_runtime\\operator-secrets\\client-cms-core-migrator.v1.dpapi"
+    },
+    "paypal": {
+      "databaseResourceId": "nr-cms-core/paypal/v1",
+      "databaseName": "nr_cms_paypal_test",
+      "localPostgres": {
+        "host": "127.0.0.1",
+        "port": 5432,
+        "adminDatabase": "postgres",
+        "adminUsername": "postgres"
+      },
+      "roles": {
+        "owner": "nr_cms_paypal_core_owner",
+        "migrator": "nr_cms_paypal_core_migrator",
+        "runtime": "nr_cms_paypal_runtime"
+      },
+      "migratorSecretRef": "dpapi-machine://nr-cms-core/paypal/migrator/v1",
+      "migratorSecretPath": "D:\\nr_runtime\\operator-secrets\\paypal-cms-core-migrator.v1.dpapi"
     }
   }
 }

@@ -155,10 +155,14 @@ Namerno zadržano:
 
 ## Preostali produkcijski blockeri
 
+Detaljan redosled implementacije, provisioninga, staging/canary provera i
+završna GO/NO-GO matrica nalaze se u
+[production tehničkom runbook-u](production/README.md).
+
 Pre produkcije operator mora zasebno dokazati i odobriti:
 
 1. stvarne javne domene sa HTTPS well-known domain-control i SSRF/DNS pinningom, bez `.nr.test` izuzetka;
-2. `WEBSHOP_PAYMENTS_MODE=live`, produkcijske Stripe naloge/ključeve i potpisane javne webhookove;
+2. najmanje jedan zasebno prihvaćen live payment provider: Stripe sa produkcijskim nalogom/ključevima ili PayPal tek posle [realnog Sandbox E2E-a](20-paypal-sandbox-e2e-runbook.md), verifikovanog Business naloga i potpisanog javnog Live webhook-a;
 3. production-only signing/HMAC/encryption KID allowliste, vlasnike i izvedenu rotaciju bez development KID-eva;
 4. cloud/service threat-model review, production worker credential adapter, backup/restore i alert runbook na stvarnoj infrastrukturi;
 5. produkcijski email provider retrieval/idempotency i log/APM canary dokaz;

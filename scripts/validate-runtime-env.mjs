@@ -24,7 +24,7 @@ const CORE_REQUIRED = [
   "TURNSTILE_SECRET_KEY",
 ];
 
-const DEPLOYMENT_PROFILES = ["development", "vendor", "client"];
+const DEPLOYMENT_PROFILES = ["development", "vendor", "client", "paypal"];
 const LICENSE_ENVIRONMENTS = ["development", "staging", "production"];
 const ADDON_SOURCE_MODES = ["private_workspace", "registry", "empty"];
 
@@ -108,7 +108,7 @@ export function validateRuntimeEnv(env = process.env) {
   );
   assertProfileSourceMode(deploymentProfile, addonSourceMode);
   if (
-    (deploymentProfile === "vendor" || deploymentProfile === "client") &&
+    ["vendor", "client", "paypal"].includes(deploymentProfile) &&
     env.NR_CMS_ENV_PHASE !== "build" &&
     !/^[a-f0-9]{40}$/.test(env.NR_CMS_RELEASE_SHA?.trim() ?? "")
   ) {
@@ -150,7 +150,7 @@ export function validateRuntimeEnv(env = process.env) {
     fail(`missing required variables: ${missing.join(", ")}`);
   }
 
-  if (deploymentProfile === "vendor" || deploymentProfile === "client") {
+  if (["vendor", "client", "paypal"].includes(deploymentProfile)) {
     const target = resolveCmsCoreTarget(
       deploymentProfile,
       loadCmsCorePrivilegeManifest(),
@@ -368,6 +368,7 @@ function assertProfileSourceMode(profile, sourceMode) {
     development: new Set(["private_workspace", "empty"]),
     vendor: new Set(["registry", "empty"]),
     client: new Set(["registry", "empty"]),
+    paypal: new Set(["registry", "empty"]),
   };
   if (!allowed[profile].has(sourceMode)) {
     fail(
@@ -453,8 +454,8 @@ function assertManagedRedeployTransport(
   deploymentProfile,
   licenseEnvironment,
 ) {
-  if (deploymentProfile !== "vendor" && deploymentProfile !== "client") {
-    fail("managed redeploy requires the vendor or client deployment profile");
+  if (!["vendor", "client", "paypal"].includes(deploymentProfile)) {
+    fail("managed redeploy requires the vendor, client, or paypal deployment profile");
   }
   const workerUrl = parseExactHttpsOrigin(
     "NR_ADDON_DEPLOYMENT_WORKER_URL",

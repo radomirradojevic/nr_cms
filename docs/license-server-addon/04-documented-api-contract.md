@@ -1,402 +1,337 @@
-# Documented API Contract
+# 04 — API i capability ugovor
 
-## API Root
+## 1. Verzije i status
 
-The API root is versioned.
+- **V1 / POSTOJI:** rute navedene u dokumentu 01. Održavaju se bez breaking
+  izmene tokom migracije.
+- **V2 / CILJ:** ugovor ispod. Namenjen je Webshop fulfillment-u, custom claims,
+  operacijama, signed assertions i stabilnom lifecycle-u.
+- **Local capability V1 / POSTOJI:** enqueue-only ugovor.
+- **Local capability V2 / CILJ:** semantički isti rezultat kao HTTP V2, bez
+  mrežne autentikacije.
 
-Standalone master example:
-
-`https://licenses.nrcms.com/api/v1`
-
-Embedded client add-on example:
-
-`https://client-site.com/api/license-server/v1`
-
-All endpoint paths below are relative to that API root.
-
-## Authentication Models
-
-### Server-to-server HMAC
-
-Used by:
-
-- Webshop issuing licenses after paid orders;
-- admin integrations;
-- trusted backend services.
-
-Headers:
-
-- `Content-Type: application/json`
-- `Idempotency-Key: <required for issue>`
-- `X-NRLS-Client-Id: <client id>`
-- `X-NRLS-Timestamp: <ISO timestamp>`
-- `X-NRLS-Nonce: <random base64url nonce>`
-- `X-NRLS-Signature: <base64url hmac sha256>`
-
-Canonical string:
+V2 endpoint root za udaljenu instalaciju:
 
 ```text
-<METHOD>
-<ACTUAL_URL_PATHNAME>
-<X-NRLS-Timestamp>
-<X-NRLS-Nonce>
-<sha256(raw request body)>
+https://licenses.example.com/api/license-server/v2
 ```
 
-Example actual path for embedded add-on:
+Centralni Master `/api/v1/entitlements` nije deo ovog ugovora.
 
-`/api/license-server/v1/licenses`
+## 2. Zajednička pravila
 
-The server must reject:
+- `Content-Type: application/json`;
+- UTF-8, UTC RFC 3339 datumi;
+- request i response imaju `contractVersion: "2"` gde telo postoji;
+- svaki odgovor nosi `X-NRLS-Request-Id`;
+- mutacije zahtevaju `Idempotency-Key`;
+- tajne i puni licencni ključ se nikad ne pojavljuju u error-u ili logu;
+- nepoznata polja se odbijaju za security-sensitive komande;
+- endpoint vraća strukturisani error, ne HTML i ne redirect.
 
-- missing auth headers;
-- timestamp outside 5 minutes;
-- replayed nonce;
-- bad signature;
-- inactive/revoked API client;
-- missing idempotency key on issue endpoint.
-
-### Runtime activation token
-
-Used by:
-
-- desktop apps;
-- WordPress/plugin style products;
-- downloadable tools;
-- domains that need runtime checks.
-
-Do not put HMAC shared secrets in desktop apps.
-
-Runtime flow:
-
-1. App calls activation endpoint with license key and device/domain data.
-2. Server creates or reuses an activation if policy allows it.
-3. Server returns an activation token once.
-4. App stores activation token locally.
-5. Future validations use activation id and activation token.
-
-The license key itself is the credential for first activation, so rate limiting
-and abuse detection are required.
-
-## Endpoint: Health
-
-`GET /health`
-
-Auth:
-
-- none, or optional HMAC if deployment wants private health.
-
-Response:
+Error envelope:
 
 ```json
 {
-  "ok": true,
-  "name": "night-raven-client-license-server",
-  "version": "1.0.0",
-  "apiVersion": "v1"
-}
-```
-
-## Endpoint: Catalog
-
-`GET /catalog`
-
-Auth:
-
-- HMAC.
-
-Purpose:
-
-- Webshop can discover product types and SKUs instead of requiring manual UUID
-  copy/paste.
-
-Response:
-
-```json
-{
-  "productTypes": [
-    {
-      "id": "uuid",
-      "externalRef": "desktop-app-pro",
-      "title": "Desktop App Pro",
-      "status": "active",
-      "skus": [
-        {
-          "id": "uuid",
-          "sku": "PRO-1Y",
-          "status": "active",
-          "durationDays": 365,
-          "licenseType": "subscription",
-          "policyTemplate": "subscription_device",
-          "maxDevices": 2,
-          "maxDomains": null,
-          "maxSeats": null,
-          "features": ["pro"]
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Endpoint: Issue License
-
-`POST /licenses`
-
-Auth:
-
-- HMAC.
-
-Request:
-
-```json
-{
-  "productTypeId": "uuid",
-  "sku": "PRO-1Y",
-  "domain": "example.com",
-  "customerEmail": "buyer@example.com",
-  "customerName": "Buyer Name",
-  "orderRef": "order uuid",
-  "orderItemRef": "order item uuid",
-  "metadata": {
-    "source": "webshop"
+  "contractVersion": "2",
+  "error": {
+    "code": "profile_revision_mismatch",
+    "message": "The selected license profile changed. Refresh the catalog.",
+    "retryable": false,
+    "requestId": "req_...",
+    "details": {}
   }
 }
 ```
 
-Response:
+`message` je bezbedan za administratora; aplikacija odlučuje na osnovu stabilnog
+`code`, ne teksta.
+
+## 3. Autentikacioni profili
+
+### 3.1 Public
+
+Bez HMAC-a:
+
+- health sa minimalnim podacima;
+- issuer identitet i javni keyset;
+- runtime activation/validation uz licencni/activation credential.
+
+Rate limit se primenjuje pre skupe kriptografije i DB rada.
+
+### 3.2 Integrator HMAC
+
+Webshop remote konekcija šalje:
+
+```text
+Authorization: NRLS-HMAC-SHA256 Credential=<clientId>,Signature=<base64url>
+X-NRLS-Timestamp: <unix-seconds>
+X-NRLS-Nonce: <random-128-bit-base64url>
+Idempotency-Key: <namespaced-operation-key>   # za mutacije
+```
+
+V2 canonical string:
+
+```text
+NRLS2
+<UPPERCASE_METHOD>
+<normalized_path_and_sorted_query>
+<timestamp>
+<nonce>
+<lowercase_sha256_hex_of_exact_body_bytes>
+```
+
+Server proverava:
+
+- TLS i dozvoljeni host/proxy kontekst;
+- timestamp u konfigurisanom kratkom prozoru;
+- nonce uniqueness u persistent bazi;
+- timing-safe potpis;
+- client status, environment, action i product/profile scope;
+- request size pre JSON parse-a.
+
+Secret se prikazuje samo jednom pri kreiranju/rotaciji. Overlap dva secret-a je
+vremenski ograničen i auditovan.
+
+### 3.3 Runtime aplikacija
+
+Aplikacija šalje licencni ključ samo prilikom aktivacije ili kontrolisanog
+recovery-ja. Posle toga koristi random activation token. Baza čuva hash tokena.
+Public client nikad ne dobija HMAC issue secret.
+
+## 4. Discovery i katalog
+
+### `GET /health`
+
+Public, bez business podataka:
 
 ```json
 {
-  "licenseId": "uuid",
-  "licenseKey": "NRLS-XXXX-XXXX-XXXX-XXXX-XXXX",
-  "issuedAt": "2026-07-06T12:00:00.000Z",
-  "expiresAt": "2027-07-06T12:00:00.000Z",
-  "status": "active",
-  "domain": "example.com",
-  "policy": {
-    "template": "subscription_device",
-    "licenseType": "subscription",
-    "maxDevices": 2,
-    "maxDomains": null,
-    "maxSeats": null,
-    "validationIntervalSeconds": 86400,
-    "offlineGraceSeconds": 604800
-  }
+  "contractVersion": "2",
+  "service": "nr-license-server",
+  "status": "ok",
+  "apiVersions": ["1", "2"]
 }
 ```
 
-Idempotency:
+Ne otkriva broj licenci, e-mailove, build secret ili stack trace.
 
-- same API client + same idempotency key must return the same license;
-- must not create duplicate licenses if payment webhook retries.
+### `GET /issuer`
 
-## Endpoint: Runtime Activate
-
-`POST /licenses/activate`
-
-Auth:
-
-- license key;
-- rate limit;
-- optional product public id.
-
-Request for desktop device:
+Public:
 
 ```json
 {
-  "licenseKey": "NRLS-XXXX-XXXX-XXXX-XXXX-XXXX",
-  "activationType": "device",
-  "deviceFingerprint": "client-calculated-stable-fingerprint",
-  "deviceLabel": "Rade Windows laptop",
-  "appId": "com.example.desktop",
-  "appVersion": "1.4.2",
-  "platform": "windows"
+  "contractVersion": "2",
+  "issuerRef": "cms-a1b2c3d4",
+  "issuer": "urn:nrc:customer:cms-a1b2c3d4",
+  "keysetUrl": "/api/license-server/v2/keys",
+  "keysetRevision": 4,
+  "assertionTypes": ["NRC-CUSTOMER-LICENSE+JWT"],
+  "algorithms": ["EdDSA"]
 }
 ```
 
-Request for domain:
+Webshop pri povezivanju pin-uje potvrđeni `issuerRef`. Promena bez eksplicitne
+administratorske potvrde je security greška.
+
+### `GET /keys`
+
+Public JWK Set sa `Cache-Control` i `ETag`. Sadrži samo aktivne i još važeće
+verification-only javne ključeve. Privatni ili šifrovani materijal nikad ne
+napušta issuer.
+
+### `GET /catalog`
+
+Zahteva `catalog.read`. Podržava `If-None-Match` i vraća:
+
+- issuerRef, environment, catalog revision i ETag;
+- aktivne Product Type-ove;
+- objavljene Profile ID/SKU/revision;
+- audience, trajanje, features/limits, delivery/assertion sposobnosti;
+- claim schema ID/version/hash;
+- dozvoljena Webshop mapiranja bez internih default tajni;
+- compatibility/deprecation podatke.
+
+Webshop ne sme koristiti draft/archived profil. Order item pin-uje izabranu
+reviziju iz kataloga.
+
+## 5. Issue operacije
+
+### `POST /operations/issues`
+
+Zahteva `license.issue` i `Idempotency-Key`.
 
 ```json
 {
-  "licenseKey": "NRLS-XXXX-XXXX-XXXX-XXXX-XXXX",
-  "activationType": "domain",
-  "domain": "customer-site.com",
-  "appId": "wordpress-plugin",
-  "appVersion": "2.0.0"
-}
-```
-
-Response:
-
-```json
-{
-  "valid": true,
-  "licenseId": "uuid",
-  "activationId": "uuid",
-  "activationToken": "nrls_act_...",
-  "status": "active",
-  "expiresAt": "2027-07-06T12:00:00.000Z",
-  "validationIntervalSeconds": 86400,
-  "offlineGraceSeconds": 604800,
-  "features": ["pro"],
-  "policy": {
-    "template": "subscription_device",
-    "maxDevices": 2,
-    "maxDomains": null,
-    "maxSeats": null
+  "contractVersion": "2",
+  "productTypeRef": "acme-desktop",
+  "profile": { "sku": "desktop-pro", "revision": 7 },
+  "customer": {
+    "externalRef": "cus_9ca...",
+    "displayName": "Example Company"
   },
-  "reason": null
+  "source": {
+    "system": "webshop",
+    "orderRef": "WEB-1008",
+    "orderItemRef": "item_..."
+  },
+  "claimInput": {
+    "organizationId": "org_42",
+    "edition": "pro",
+    "maxProjects": 25
+  }
 }
 ```
 
-If activation limit is reached:
+E-mail je opcioni kontakt podatak i ne postaje assertion subject po default-u.
+`claimInput` se prihvata samo prema objavljenoj schema-i i override pravilima.
+
+Odgovor `202 Accepted`:
 
 ```json
 {
-  "valid": false,
-  "reason": "activation_limit_reached",
-  "status": "active"
+  "contractVersion": "2",
+  "operation": {
+    "id": "op_...",
+    "status": "pending",
+    "statusUrl": "/api/license-server/v2/operations/op_..."
+  }
 }
 ```
 
-Activation rules depend on the SKU policy snapshot stored on the license.
+Ako je sinhrono završeno, server može vratiti `200` sa `status: "succeeded"` i
+istim receipt formatom kao status endpoint. Retry istog ključa i istog payload
+hash-a vraća istu operaciju. Drugi payload vraća `409 idempotency_conflict`.
 
-Examples:
+### `GET /operations/{operationId}`
 
-- `perpetual_single_device`: second device returns
-  `activation_limit_reached`.
-- `domain_license`: different domain returns `domain_mismatch` or
-  `activation_limit_reached`.
-- `seat_based`: new seat above limit returns `seat_limit_reached`.
-- `subscription_device`: expired license returns `expired`.
+Zahteva `operation.read` i ownership/scope proveru.
 
-## Endpoint: Runtime Validate
-
-`POST /licenses/validate`
-
-Auth:
-
-- runtime activation token for apps and plugins;
-- HMAC allowed for server-to-server validation;
-- license key only validation may be allowed for low-risk products but should
-  be rate-limited.
-
-Request:
+Uspešan rezultat:
 
 ```json
 {
-  "licenseKey": "NRLS-XXXX-XXXX-XXXX-XXXX-XXXX",
-  "activationId": "uuid",
-  "activationToken": "nrls_act_...",
-  "deviceFingerprint": "same-fingerprint",
-  "domain": null,
-  "appVersion": "1.4.2"
+  "contractVersion": "2",
+  "operation": {
+    "id": "op_...",
+    "status": "succeeded",
+    "receipt": {
+      "id": "rcpt_...",
+      "licenseId": "lic_...",
+      "licenseKey": "NRLS-...",
+      "licenseKeyMasked": "NRLS-****-7K2P",
+      "assertion": "eyJ...",
+      "issuerRef": "cms-a1b2c3d4",
+      "profile": { "sku": "desktop-pro", "revision": 7 },
+      "issuedAt": "2026-08-13T10:00:00Z",
+      "expiresAt": null,
+      "claimSchema": { "version": "2.0.0", "hash": "sha256:..." }
+    }
+  }
 }
 ```
 
-Response:
+Plaintext `licenseKey` je reveal-once podatak. Server mora označiti/ograničiti
+ponovni reveal ili koristiti envelope-encrypted receipt. Webshop ga odmah
+prebacuje u secure digital delivery skladište.
+
+Terminalne greške imaju `failed`; iscrpljeni privremeni pokušaji `dead_letter`.
+Interni stack/SQL/provider odgovor nije deo javnog error-a.
+
+## 6. Lifecycle operacije
+
+### `POST /operations/lifecycle`
+
+Zahteva `lifecycle.write` i idempotency key:
 
 ```json
 {
-  "valid": true,
-  "licenseId": "uuid",
-  "activationId": "uuid",
-  "status": "active",
-  "expiresAt": "2027-07-06T12:00:00.000Z",
-  "features": ["pro"],
-  "nextValidationAfter": "2026-07-07T12:00:00.000Z",
-  "offlineGraceEndsAt": "2026-07-13T12:00:00.000Z",
-  "reason": null
+  "contractVersion": "2",
+  "licenseRef": { "sourceOrderItemRef": "item_..." },
+  "action": "revoke",
+  "reason": "refund",
+  "effectiveAt": "2026-08-13T12:00:00Z",
+  "newExpiresAt": null
 }
 ```
 
-Invalid response:
+Dozvoljene akcije po permission-u: `renew`, `suspend`, `resume`, `revoke`,
+`refund`, `chargeback`. `resume` nakon revoked/refunded/chargeback nije obična
+akcija; zahteva poseban privileged recovery tok.
 
-```json
-{
-  "valid": false,
-  "licenseId": "uuid",
-  "activationId": "uuid",
-  "status": "suspended",
-  "reason": "suspended"
-}
+Lifecycle koristi isti operation status ugovor i mora naći tačno jednu licencu
+u scope-u pozivaoca.
+
+## 7. Runtime endpoint-i
+
+### `POST /licenses/activate`
+
+Ulaz: license key, audience, activation type, normalizovani fingerprint/domain i
+client request ID. Izlaz:
+
+- activation ID i reveal-once activation token;
+- signed kratkoživi lease/assertion;
+- effective policy/limits potrebni aplikaciji;
+- `nextValidationAt` i `offlineGraceEndsAt`.
+
+Generički javni error ne otkriva da li konkretan ključ postoji pre nego što se
+primeni odgovarajući abuse control.
+
+### `POST /licenses/validate`
+
+Ulaz: activation ID/token, audience i opcioni current assertion ID. Izlaz:
+
+- `valid: true/false`;
+- stabilni reason code;
+- status, server time, next validation/grace;
+- novi signed lease kada je validno;
+- effective features/limits/custom claims.
+
+### `POST /licenses/deactivate`
+
+Idempotentno deaktivira samo aktivaciju koju token autorizuje. Ne opoziva celu
+licencu.
+
+## 8. Local capability V2
+
+Javni SDK treba da uvede ugovor bez privatnih tipova add-on-a:
+
+```ts
+type CustomerLicenseIssuerV2 = {
+  contractVersion: "2";
+  describe(): Promise<IssuerDescriptorV2>;
+  getCatalog(input: CatalogRequestV2): Promise<CatalogResultV2>;
+  enqueueIssue(input: IssueCommandV2): Promise<OperationAcceptedV2>;
+  getOperation(input: OperationQueryV2): Promise<OperationResultV2>;
+  enqueueLifecycle(input: LifecycleCommandV2): Promise<OperationAcceptedV2>;
+};
 ```
 
-## Endpoint: Deactivate
+Local poziv koristi host auth/source context i ne prima HMAC secret. Business
+payload, idempotency, validation, operation i receipt semantika moraju biti isti
+kao HTTP V2. Adapter sme menjati transport, ne rezultat.
 
-`POST /licenses/deactivate`
+## 9. Status kodovi
 
-Auth:
+- `200` čitanje ili završena idempotentna komanda;
+- `202` operacija prihvaćena;
+- `304` nepromenjen katalog/keyset;
+- `400` schema/format;
+- `401` nedostaje/nevažeća autentikacija;
+- `403` validan identitet bez scope-a ili add-on nije u `ready` modu;
+- `404` resurs nije vidljiv pozivaocu;
+- `409` idempotency/revision/state konflikt;
+- `413` payload prevelik;
+- `422` poslovno nevažeći claim/policy/binding;
+- `429` rate limit;
+- `503` privremeno nedostupan issuer/job/dependency.
 
-- runtime activation token or HMAC.
+## 10. Kompatibilnost
 
-Request:
-
-```json
-{
-  "licenseKey": "NRLS-XXXX-XXXX-XXXX-XXXX-XXXX",
-  "activationId": "uuid",
-  "activationToken": "nrls_act_..."
-}
-```
-
-Response:
-
-```json
-{
-  "ok": true,
-  "activationId": "uuid",
-  "status": "deactivated"
-}
-```
-
-## Endpoint: Admin License Status Update
-
-`PATCH /licenses/{licenseId}`
-
-Auth:
-
-- HMAC or admin UI action.
-
-Request:
-
-```json
-{
-  "status": "suspended",
-  "reason": "payment_failed"
-}
-```
-
-Allowed transitions must be explicit.
-
-Examples:
-
-- `active -> suspended`
-- `suspended -> active`
-- `active -> revoked`
-- `active -> refunded`
-- `active -> chargeback`
-
-Do not allow revoked licenses to silently become active without an audit event.
-
-## Error Format
-
-All API errors should use:
-
-```json
-{
-  "error": "Human readable message.",
-  "code": "machine_readable_code"
-}
-```
-
-Common HTTP status:
-
-- `400` invalid request;
-- `401` missing/invalid API authentication;
-- `403` license not allowed or activation policy blocked;
-- `404` product/license not found;
-- `409` state conflict;
-- `429` rate limited;
-- `503` add-on not licensed or temporarily unavailable.
+- V1 se zamrzava i dobija datum deprecation-a tek kada V2 E2E prođe.
+- Capability V1 ostaje adapter dok svi Webshop release-i ne pređu na V2.
+- Catalog oglašava minimalnu i maksimalnu podržanu contract verziju.
+- Breaking claim/profile promena zahteva novu profile revision, ne tiho menjanje.
+- Consumer mora ignorisati samo eksplicitno označena forward-compatible polja;
+  security-critical nepoznati `alg`, `typ`, version ili action se odbijaju.

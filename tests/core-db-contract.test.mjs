@@ -24,10 +24,11 @@ import {
   loadMigrations,
 } from "../scripts/run-drizzle-migrations.mjs";
 
-test("CmsCorePrivilegeManifestV1 fixes the two target role triplets", () => {
+test("CmsCorePrivilegeManifestV1 fixes the three target role triplets", () => {
   const manifest = loadCmsCorePrivilegeManifest();
   const vendor = resolveCmsCoreTarget("vendor", manifest);
   const client = resolveCmsCoreTarget("client", manifest);
+  const paypal = resolveCmsCoreTarget("paypal", manifest);
 
   assert.equal(manifest.manifestType, "CmsCorePrivilegeManifestV1");
   assert.equal(manifest.contractVersion, 1);
@@ -37,7 +38,11 @@ test("CmsCorePrivilegeManifestV1 fixes the two target role triplets", () => {
   assert.equal(client.roles.owner, "nr_cms_client_core_owner");
   assert.equal(client.roles.migrator, "nr_cms_client_core_migrator");
   assert.equal(client.roles.runtime, "nr_cms_client_runtime");
+  assert.equal(paypal.roles.owner, "nr_cms_paypal_core_owner");
+  assert.equal(paypal.roles.migrator, "nr_cms_paypal_core_migrator");
+  assert.equal(paypal.roles.runtime, "nr_cms_paypal_runtime");
   assert.notEqual(vendor.databaseResourceId, client.databaseResourceId);
+  assert.notEqual(client.databaseResourceId, paypal.databaseResourceId);
   assert.notEqual(vendor.manifestHash, "");
 });
 

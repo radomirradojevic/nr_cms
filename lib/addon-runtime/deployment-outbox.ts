@@ -104,7 +104,7 @@ function deploymentWorkerConfig() {
   const kid = process.env.NR_ADDON_DEPLOYMENT_WORKER_AUTH_KID?.trim();
   const secret = process.env.NR_ADDON_DEPLOYMENT_WORKER_AUTH_SECRET?.trim();
   const profile = process.env.NR_CMS_DEPLOYMENT_PROFILE?.trim();
-  if (!url || !kid || !secret || (profile !== "vendor" && profile !== "client")) throw new Error("worker_dispatch_configuration_missing");
+  if (!url || !kid || !secret || (profile !== "vendor" && profile !== "client" && profile !== "paypal")) throw new Error("worker_dispatch_configuration_missing");
   const parsed = new URL(url);
   if (parsed.protocol !== "https:" || parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.username || parsed.password) throw new Error("worker_dispatch_url_invalid");
   return { url: parsed.toString(), kid, secret, path: `/v1/hooks/${profile}/webshop` };

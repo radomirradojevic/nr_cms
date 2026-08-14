@@ -4,7 +4,7 @@ param(
   [ValidateSet('seal', 'audit', 'unseal')]
   [string]$Mode,
   [Parameter(Mandatory = $true)]
-  [ValidateSet('vendor', 'client')]
+  [ValidateSet('vendor', 'client', 'paypal')]
   [string]$Target
 )
 
@@ -16,8 +16,8 @@ $systemSid = 'S-1-5-18'
 $administratorsSid = 'S-1-5-32-544'
 $root = 'D:\nr_runtime\worker-secrets\db-deployer'
 $path = Join-Path $root "$Target-webshop-db-deployer.v1.dpapi"
-$database = if ($Target -eq 'vendor') { 'nr_cms_vendor_test' } else { 'nr_cms_client_test' }
-$username = if ($Target -eq 'vendor') { 'nr_cms_vendor_webshop_deployer' } else { 'nr_cms_client_webshop_deployer' }
+$database = if ($Target -eq 'vendor') { 'nr_cms_vendor_test' } elseif ($Target -eq 'client') { 'nr_cms_client_test' } else { 'nr_cms_paypal_test' }
+$username = if ($Target -eq 'vendor') { 'nr_cms_vendor_webshop_deployer' } elseif ($Target -eq 'client') { 'nr_cms_client_webshop_deployer' } else { 'nr_cms_paypal_webshop_deployer' }
 $secretRef = "dpapi-machine://nr-addon-worker/$Target/webshop-db-deployer/v1"
 
 function Assert-Administrator {

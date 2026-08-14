@@ -46,7 +46,7 @@ async function retireFlags(envPath) {
     ?.slice("NR_CMS_DEPLOYMENT_PROFILE=".length)
     .trim()
     .replace(/^(?:"([^"]*)"|'([^']*)')$/u, "$1$2");
-  if (!profile || !["development", "vendor", "client"].includes(profile)) {
+  if (!profile || !["development", "vendor", "client", "paypal"].includes(profile)) {
     throw new Error("retired_rollout_env_profile_invalid");
   }
 

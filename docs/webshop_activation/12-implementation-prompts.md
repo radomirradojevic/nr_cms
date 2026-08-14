@@ -641,6 +641,14 @@ Završni izveštaj mora sadržati:
 Full PASS smeš proglasiti samo ako oba CMS-a završe ready kroz pravi worker, licenca nastane iz autoritativnog captured paymenta, delivery je bezbedan i svi no-go kriterijumi iz 11 su zatvoreni.
 ```
 
+## PayPal nastavak posle Prompta 18
+
+Prompt 18 je završen sa Stripe test providerom. PayPal nije novi Prompt 18 niti
+razlog da se menja njegov istorijski evidence. Zaseban, autoritativni copy/paste
+prompt za PayPal V2 hardening i realan Sandbox E2E nalazi se u
+[21 — Prompt 19](21-prompt19-paypal-sandbox-e2e.md), a njegova acceptance matrica
+u [20 — PayPal Sandbox E2E runbook-u](20-paypal-sandbox-e2e-runbook.md).
+
 ## Pravilo između promptova
 
 Ako faza završi sa blockerom, ne šalji sledeći prompt samo da bi se „nastavilo”. Najpre reši blocker ili napravi eksplicitnu novu odluku u autoritativnoj dokumentaciji. Posebno, Prompte 17 i 18 ne koristiti dok svi raniji contract i fixture gate-ovi nisu zeleni.

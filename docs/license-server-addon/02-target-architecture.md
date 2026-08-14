@@ -1,221 +1,214 @@
-# Target Architecture
+# 02 — Ciljna arhitektura
 
-## Actors
+## 1. Komponente i odgovornost
 
-Author:
+### A. Centralni Master License Server
 
-- owns `nrcms.com`;
-- owns the master license server;
-- sells paid CMS add-ons through the author's Webshop.
+Privatni sistem autora Night Raven CMS-a:
 
-Client:
+- prodaje licencu za `webshop`, `license-server` i buduće add-on-e;
+- aktivira entitlement na CMS installation fingerprint i dozvoljeni domen;
+- izdaje kratkoživeći install token deployment worker-u;
+- periodično potvrđuje pravo korišćenja add-on-a;
+- može add-on prebaciti u `edit_existing_only` kada entitlement više ne važi.
 
-- installs the free CMS;
-- buys Webshop add-on if commerce is needed;
-- buys License Server add-on if the client wants to sell licensed products;
-- uses the embedded License Server add-on to license the client's own products.
+Master nikada ne izdaje licence za aplikacije kupca License Server add-on-a.
 
-Client customer:
+### B. NR CMS host
 
-- buys a digital product from the client's Webshop;
-- receives a license key;
-- activates or validates the key through the client's License Server add-on API.
+- autentifikuje administratora i proverava permission-e;
+- učitava samo add-on iz verifikovanog build-time registry-ja;
+- pruža verzionisani SDK/host services;
+- izvršava migracije, job scheduler i audit integraciju;
+- usmerava `/dashboard/license-server/*` i `/api/license-server/*` ka add-on-u;
+- čuva samo Master entitlement potreban da gate-uje add-on.
 
-## Author Selling CMS Add-ons
+### C. License Server add-on
 
-Flow:
+Zasebno instaliran plaćeni add-on:
 
-1. Author creates product types on master license server:
-   - `webshop`
-   - `license-server`
-   - `webConference`
-2. Author Webshop on `nrcms.com` sells these products.
-3. When a paid order is completed, Webshop issues a license through the master
-   license server.
-4. Customer receives a license key.
-5. Customer CMS activates the paid add-on against the master license server.
+- poseduje customer issuer identity i signing ključeve;
+- poseduje product types, license profiles/SKU-ove i claim schema verzije;
+- izdaje, aktivira, validira, obnavlja, suspenduje i opoziva licence;
+- pruža lokalni capability i udaljeni HTTPS API;
+- pruža admin UI, audit, outbox, backup i javni keyset;
+- radi samo u okviru Master entitlement stanja koje mu host prosledi.
 
-Important rule:
+### D. Webshop add-on
 
-The author's Webshop should configure the master license server as an external
-license server connection.
+Nezavisan commerce add-on:
 
-## Client Selling Licensed Products
+- prodaje digitalni proizvod;
+- bira način isporuke licence: ručni unos, pool ili License Server konekcija;
+- sinhronizuje issuer katalog i pin-uje profil/reviziju na order item;
+- šalje idempotent issue/lifecycle komande;
+- čuva receipt i tajnu isporuke po svojim secure-delivery pravilima;
+- ne zna privatni signing ključ i ne upisuje direktno u issuer tabele.
 
-Flow:
+### E. Licencirana aplikacija
 
-1. Client buys and activates Webshop add-on through the master server.
-2. Client buys and activates License Server add-on through the master server.
-3. Client configures digital products in Webshop.
-4. Product delivery type is `license` or `file_license`.
-5. Product license key policy is `license_server`.
-6. Webshop issues the product license from the embedded License Server add-on
-   after payment.
-7. Client customer's app/plugin/domain validates against the client's API.
+Aplikacija koju pravi korisnik License Server add-on-a:
 
-Important rule:
+- prihvata licencni ključ ili potpisani `.nrls.json`/assertion;
+- proverava potpis, audience, vreme, policy i custom claims;
+- po potrebi aktivira uređaj/domen/seat;
+- periodično online validira status ili poštuje offline lease/grace;
+- nema HMAC administrative/issue secret.
 
-The client License Server add-on validates the client's customer licenses
-without asking the author's master server on every validation.
+### F. Add-on deployment worker
 
-## Master Entitlement Revalidation
+Operativni servis za instalaciju privatnog paketa:
 
-The client add-on must periodically re-check its own entitlement with the master
-server.
+- preuzima jednokratni install token;
+- verifikuje digest, potpis, provenance, SBOM i kompatibilnost;
+- priprema novu verziju, izvršava migracije i redeploy;
+- vodi state machine i omogućava kontrolisan rollback.
 
-Recommended behavior:
+To nije deo runtime licenciranja aplikacija niti proizvod za krajnjeg kupca.
 
-- on activation: master returns signed entitlement and package metadata;
-- on normal operation: CMS stores entitlement snapshot;
-- on scheduled revalidation: CMS asks master whether the add-on entitlement is
-  still active;
-- if active: issue and validate continue;
-- if expired: new issue requests stop, admin enters `edit_existing_only`;
-- validation of already issued client licenses may continue in read-only mode;
-- if revoked/fraudulent: both issue and runtime validation may be disabled by
-  policy.
+## 2. Topologija instalacije
 
-Recommended minimum interval:
+### 2.1 Webshop i License Server u istom CMS-u
 
-- check on admin open;
-- check on issue requests if last check is older than 24 hours;
-- cron daily for production.
+Add-on-i su zasebno instalirani, ali koriste lokalni transport:
 
-## Master Add-on Domain Validation
+```text
+Webshop fulfillment
+    -> Addon SDK customerLicenseIssuer.v2
+        -> License Server issue outbox
+            -> issuer engine
+                -> receipt nazad u Webshop
+```
 
-The master license server validates paid CMS add-on licenses for the CMS
-installation that runs the add-on.
+Nema HTTP HMAC secret-a, ali ima auth kontekst, permission, idempotency,
+durable operation i audit. „Lokalno” ne znači direktan import privatnog modula
+ili direktan DB upis.
 
-For `webshop`, `license-server`, and `webConference`, master licensing should
-care about:
+### 2.2 Webshop i License Server na različitim CMS instalacijama
 
-- add-on key;
-- canonical CMS domain;
-- stable site/deployment id;
-- provider/project id when a managed platform is used;
-- deployment environment;
-- license status;
-- expiration;
-- revocation, refund, and chargeback state.
+```text
+Webshop fulfillment
+    -> HTTPS + HMAC + nonce + idempotency key
+        -> /api/license-server/v2/operations/issues
+            -> issuer outbox/engine
+                -> poll ili potpisani webhook receipt
+```
 
-The master server should keep this policy intentionally narrow. Its job is to
-answer: "May this CMS installation run this paid CMS add-on?"
+Konekcija čuva base URL, client ID, šifrovan secret, environment, scopes,
+issuer reference i poslednju potvrđenu catalog revision.
 
-Recommended behavior:
+### 2.3 Aplikacija krajnjeg kupca
 
-- first activation binds license to `addonKey + siteId + canonicalDomain`;
-- the same license cannot activate another add-on key;
-- the same license cannot silently move to another domain or site id;
-- domain/site transfer requires an admin reset or a controlled transfer flow;
-- expired licenses enter `edit_existing_only` if the add-on supports it;
-- revoked, refunded, and chargeback licenses fail closed.
+```text
+application
+    -> offline: verify signed assertion with cached public keyset
+    -> online: activate/validate with license key + activation token
+```
 
-## Shared Engine Concepts
+Javni keyset nije tajna. Issue HMAC secret nikada ne ide u desktop, mobile,
+browser ili distribuirani server binary.
 
-Both master and client servers should support:
+## 3. Trust granice
 
-- API clients;
-- products/product types;
-- SKUs/plans;
-- license key issue;
-- idempotency;
-- validation;
-- status transitions;
-- validation events;
-- audit events;
-- rate limits;
-- admin search and management.
+```text
+[Author Master]
+  potpisuje pravo na add-on
+        |
+        v
+[Customer CMS host] --učitava--> [License Server add-on]
+        |                              |
+        | local capability             | public runtime API/keyset
+        v                              v
+    [Webshop] ----------------> [Customer application]
+        |
+        | order/payment authority
+        v
+ [Webshop customer]
+```
 
-Differences:
+- Master i customer issuer imaju različite issuer ID-eve i keyset-ove.
+- CMS entitlement dokazuje pravo korišćenja add-on-a; customer license assertion
+  dokazuje pravo korišćenja aplikacije korisnika add-on-a.
+- Nijedan token ne sme biti prihvaćen u pogrešnom trust domenu.
+- `iss`, `aud`, `typ`, `kid` i verzija ugovora obavezno se proveravaju.
 
-Master server:
+## 4. Kanonski tokovi
 
-- licenses CMS add-ons;
-- owns add-on activation endpoint;
-- binds add-on license to CMS site/domain/deployment;
-- returns package install token and entitlement token.
+### 4.1 Kupovina i instalacija add-on-a
 
-Client add-on:
+1. CMS administrator kupuje License Server add-on od autora.
+2. Master veže entitlement za CMS installation fingerprint/domen.
+3. CMS aktivira entitlement i traži kratkoživeći install token.
+4. Deployment worker instalira verifikovani paket i pokreće migracije.
+5. CMS redeploy učitava paket iz registry-ja.
+6. Add-on kreira customer issuer identity; privatni ključ ostaje šifrovan lokalno.
+7. Periodična Master revalidacija održava `ready` ili restriktivni režim.
 
-- licenses client products;
-- exposes runtime API for apps, plugins, domains, and services;
-- stores activations/devices/domains;
-- manages limits and customer-facing validation.
+### 4.2 Kreiranje proizvoda za licenciranje
 
-## Client Product Licensing Policies
+1. Administrator kreira Product Type za svoju aplikaciju.
+2. Objavljuje verziju custom claim schema-e.
+3. Kreira License Profile/SKU, npr. `desktop-pro`, i pin-uje schema verziju.
+4. Definiše trajanje, aktivacije, features, limite, audience, offline pravila,
+   default claims i dozvoljene order override-e.
+5. Objavljena revizija postaje immutable; promena stvara novu reviziju.
 
-The client License Server add-on should be a flexible product licensing engine.
-It should support the common licensing models clients expect when selling
-software, plugins, files, and service-backed digital products.
+### 4.3 Webshop izdavanje
 
-Recommended policy templates:
+1. Administrator u Webshop-u kreira License Server konekciju.
+2. Webshop proverava health/issuer identitet i sinhronizuje katalog.
+3. Na digitalnom proizvodu bira konekciju i profil.
+4. Pri checkout-u order item čuva snapshot veze, profile ID/revision i mapiranja.
+5. Tek nakon autoritativnog `paid` događaja Webshop kreira issue operation.
+6. License Server atomarno validira profil/claims i izdaje licencu jednom.
+7. Webshop dobija receipt, šifruje delivery secret i označava item fulfilled.
+8. Retry sa istim operation key-em vraća isti rezultat, ne novu licencu.
 
-- `perpetual_single_device`: one device, no expiry unless revoked.
-- `perpetual_multi_device`: fixed maximum device count.
-- `domain_license`: one or more allowed domains.
-- `subscription_device`: device-limited license with expiry/renewal.
-- `subscription_domain`: domain-limited license with expiry/renewal.
-- `trial`: short duration with optional device/domain binding.
-- `seat_based`: maximum named users/seats.
-- `floating_seat`: maximum concurrent seats, later/advanced.
-- `file_license`: file delivery plus runtime license validation.
-- `maintenance`: perpetual use with separate updates/support expiry.
+### 4.4 Runtime validacija
 
-Each SKU should be able to define:
+1. Aplikacija proverava lokalni potpisani assertion.
+2. Ako policy zahteva, šalje activate sa normalizovanim fingerprint-om.
+3. Server proverava status, rok, audience, binding i limit u transakciji.
+4. Vraća activation token i kratkoživi signed lease/assertion.
+5. Aplikacija online validira pre isteka intervala; offline radi najduže do
+   `offlineGraceEndsAt`.
 
-- license type;
-- duration;
-- maximum devices;
-- maximum domains;
-- maximum seats;
-- activation reset policy;
-- validation interval;
-- offline grace period;
-- feature list;
-- metadata for the protected product.
+### 4.5 Refund, chargeback i opoziv
 
-This is the main product value of the add-on: the same engine can license a
-desktop app, WordPress plugin, SaaS connector, downloadable file, or
-file-plus-license product sold through Webshop.
+1. Webshop emituje idempotent lifecycle operation sa originalnim order item ref.
+2. License Server menja status i piše audit događaj.
+3. Sledeća online validacija odbija licencu; offline assertion ostaje ograničen
+   sopstvenim kratkim rokom/grace pravilom.
+4. Webshop prikazuje konačan ili pending/dead-letter status administratoru.
 
-## Deployment Modes
+## 5. Stanja
 
-Master server:
+### Add-on runtime
 
-- separate app;
-- separate database;
-- independent deployment;
-- should not be embedded in CMS.
+`not_installed -> install_pending -> license_required -> ready`
 
-Client add-on:
+Greške vode u `license_invalid`, `license_expired/edit_existing_only` ili
+`disabled`, bez brisanja customer podataka.
 
-- embedded in CMS;
-- uses CMS database tables prefixed with `license_server_`;
-- loaded through `lib/license-server-addon/loader.ts`;
-- gated by `license_server_addon_entitlements`.
+### Issue operation
 
-## API Base URL Standard
+`pending -> processing -> succeeded`
 
-Use a versioned API base URL.
+Privremena greška: `processing -> retry_wait -> processing`.
+Trajna greška: `processing -> failed` ili posle limita `dead_letter`.
+Ponovljeni isti operation key vraća postojeću operaciju/receipt.
 
-Master standalone:
+### Licenca
 
-`https://licenses.nrcms.com/api/v1`
+`active -> suspended -> active`, ili `active/suspended -> revoked|refunded|chargeback`.
+Vremenski istek daje efektivni `expired`, bez menjanja istorijskog snapshot-a.
 
-Embedded client add-on:
+## 6. Zabranjene prečice
 
-`https://client-site.com/api/license-server/v1`
-
-Endpoint examples:
-
-- `${apiBaseUrl}/health`
-- `${apiBaseUrl}/catalog`
-- `${apiBaseUrl}/licenses`
-- `${apiBaseUrl}/licenses/validate`
-- `${apiBaseUrl}/licenses/activate`
-
-HMAC canonical path is always the actual pathname of the final URL.
-
-Example:
-
-`/api/license-server/v1/licenses`
+- Webshop ne importuje `.private/license-server-addon/src/*`.
+- Add-on ne koristi centralni Master za izdavanje customer licenci.
+- Browser ne dobija issuer HMAC secret niti privatni signing ključ.
+- Lokalni tok nije „fire and forget”; mora imati proverljiv receipt.
+- Metadata nije nevalidiran proizvoljni payload.
+- Promena SKU-a ne menja policy već izdate licence.
+- Release paket ne sme imati drugačiji proizvodni UI/ugovor od testiranog izvora.

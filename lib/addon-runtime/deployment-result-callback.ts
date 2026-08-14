@@ -150,7 +150,7 @@ export function resolveDeploymentResultSecret(kid: string) {
   try { const parsed: unknown = JSON.parse(old); if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) { const value = (parsed as Record<string, unknown>)[kid]; return typeof value === "string" && value.length >= 16 ? value : undefined; } } catch { return undefined; }
   return undefined;
 }
-function requiredProfile() { const value = process.env.NR_CMS_DEPLOYMENT_PROFILE?.trim(); if (value !== "vendor" && value !== "client") throw new CallbackFailure("invalid_result_tuple"); return value; }
+function requiredProfile() { const value = process.env.NR_CMS_DEPLOYMENT_PROFILE?.trim(); if (value !== "vendor" && value !== "client" && value !== "paypal") throw new CallbackFailure("invalid_result_tuple"); return value; }
 function signedResponse(auth: { kid: string; requestId: string; secret: string }, status: number, value: unknown) {
   const body = Buffer.from(canonicalJson(value), "utf8");
   return { status, body, headers: { "Content-Type": "application/json", ...signDeployResponse({ secret: auth.secret, kid: auth.kid, requestId: auth.requestId, status, body }) } };

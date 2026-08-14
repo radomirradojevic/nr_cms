@@ -66,7 +66,7 @@ Svaki dokument razlikuje četiri vrste informacija:
 - TARGET — obavezno ciljno rešenje;
 - MANUAL — korak koji operator radi ručno.
 
-Implementacija i lokalni Prompt 18 E2E su završeni. Tačni commit/release/job/hash dokazi i preostali production-only blockeri nalaze se u [19 — Prompt 18 završni E2E dokaz](19-prompt18-e2e-evidence-2026-08-13.md).
+Implementacija i lokalni Prompt 18 Stripe E2E su završeni. Tačni commit/release/job/hash dokazi i preostali production-only blockeri nalaze se u [19 — Prompt 18 završni E2E dokaz](19-prompt18-e2e-evidence-2026-08-13.md). PayPal Prompt 19 P0 code gate je lokalno završen za Webshop `0.6.25`, dok realan Sandbox E2E još nije izvršen jer nisu provisionovani Sandbox credentiali i javni signed-webhook ingress; tačan dokaz i blocker su u dokumentu 22.
 
 Za tok opisan u ovom direktorijumu, ova specifikacija ima prednost nad starijim statusnim/PASS tvrdnjama u `docs/addons`. Simulator ili fixture PASS nije dokaz stvarnog CMS → master → worker → vendor payment E2E-a; kompletan rezultat se priznaje samo po runbook-u 09 i gate-ovima iz roadmape 11.
 
@@ -89,6 +89,10 @@ Za tok opisan u ovom direktorijumu, ova specifikacija ima prednost nad starijim 
 15. [14 — Webshop schema cutover operator runbook](14-webshop-schema-cutover-operator-runbook.md)
 16. [15 — Solo maintainer release authority](15-solo-maintainer-release-authority.md)
 17. [19 — Prompt 18 završni E2E dokaz](19-prompt18-e2e-evidence-2026-08-13.md)
+18. [20 — PayPal Sandbox E2E runbook](20-paypal-sandbox-e2e-runbook.md)
+19. [21 — Prompt 19 za PayPal Sandbox E2E](21-prompt19-paypal-sandbox-e2e.md)
+20. [22 — Prompt 19 PayPal evidence i trenutni NO-GO](22-prompt19-paypal-sandbox-evidence-2026-08-14.md)
+21. [Production — tehnički runbook za izlazak iz lokalnog Prompt 18 PASS-a](production/README.md)
 
 ## Zaključane odluke
 

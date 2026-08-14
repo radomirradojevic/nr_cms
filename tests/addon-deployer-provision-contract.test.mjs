@@ -16,6 +16,7 @@ const workerManifestPath = path.join(
 const cases = [
   ["vendor", "d89dbb3be2d0c2ea9568b0a9a92b990fbe9252df1d3ef96c0a417addef506bd3"],
   ["client", "a3ec57f8a506ef9ff0696f5496877c99356f884171adea1cb8497efe091abb77"],
+  ["paypal", "33fb55f99c4d29c97d4174024b6b077479d96a77413846f84b4573063312971b"],
 ];
 
 test(

@@ -21,7 +21,7 @@ export async function receiveCandidateReadinessV1(input: { body: Buffer; headers
   try {
     const request = requestSchema.parse(JSON.parse(input.body.toString("utf8")));
     const targetProfile = process.env.NR_CMS_DEPLOYMENT_PROFILE?.trim();
-    if (targetProfile !== "vendor" && targetProfile !== "client") throw new CandidateReadinessFailure();
+    if (targetProfile !== "vendor" && targetProfile !== "client" && targetProfile !== "paypal") throw new CandidateReadinessFailure();
     const deploymentEpoch = BigInt(request.installationDeploymentEpoch);
     const [candidate, fence, addon] = await Promise.all([
       db.select().from(cmsAddonDeploymentCandidates).where(and(eq(cmsAddonDeploymentCandidates.operationId, request.operationId), eq(cmsAddonDeploymentCandidates.workerJobId, request.workerJobId), eq(cmsAddonDeploymentCandidates.installationDeploymentEpoch, deploymentEpoch), eq(cmsAddonDeploymentCandidates.generation, request.generation))).limit(1).then((rows) => rows[0]),

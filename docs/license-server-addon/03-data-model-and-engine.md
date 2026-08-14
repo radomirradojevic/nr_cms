@@ -1,347 +1,239 @@
-# Data Model And Engine
-
-## Current Tables
-
-The CMS already has these client add-on tables:
-
-- `license_server_addon_entitlements`
-- `license_server_api_clients`
-- `license_server_api_client_nonces`
-- `license_server_product_types`
-- `license_server_product_type_skus`
-- `license_server_licenses`
-- `license_server_validation_events`
-
-These are enough for an MVP but not enough for a production licensing product.
-
-## Required New Tables
-
-### `license_server_license_activations`
-
-Tracks domain/device/app activations for each license.
-
-Recommended columns:
+# 03 — Model podataka i issuer engine
 
-- `id uuid primary key`
-- `license_id uuid not null`
-- `api_client_id uuid`
-- `activation_type text not null`
-- `activation_fingerprint_hash text not null`
-- `activation_label text`
-- `domain text`
-- `device_id_hash text`
-- `machine_fingerprint_hash text`
-- `app_id text`
-- `app_version text`
-- `platform text`
-- `activation_token_hash text not null`
-- `status text not null default 'active'`
-- `first_seen_at timestamp with time zone not null`
-- `last_seen_at timestamp with time zone not null`
-- `expires_at timestamp with time zone`
-- `deactivated_at timestamp with time zone`
-- `revoked_at timestamp with time zone`
-- `metadata jsonb not null default '{}'::jsonb`
-- `created_at timestamp with time zone not null default now()`
-- `updated_at timestamp with time zone not null default now()`
+## 1. Princip vlasništva
 
-Statuses:
+License Server add-on je kanonski vlasnik svojih domenskih podataka. CMS pruža
+Drizzle/PostgreSQL migration runner i transakcioni host servis. Ciljno stanje je
+da verzionisane migracije putuju u potpisanom add-on paketu.
 
-- `active`
-- `deactivated`
-- `revoked`
-- `expired`
+Dok je tranzicija u toku, postojeće tabele u root CMS schema-i ostaju
+kompatibilne; ne smeju se duplirati ili obrisati bez eksplicitne data migracije.
 
-Activation types:
+Svaka promena schema-e mora imati:
 
-- `domain`
-- `device`
-- `server`
-- `seat`
+- monotoni migration ID i checksum;
+- minimalnu kompatibilnu CMS/add-on verziju;
+- upgrade test nad praznom i realističnom prethodnom bazom;
+- forward-fix strategiju; rollback aplikacije ne sme pretpostaviti da sme
+  destruktivno vratiti bazu;
+- backup/restore dokaz pre produkcije.
 
-Unique:
+## 2. Postojeći entiteti — POSTOJI
 
-- `license_id + activation_fingerprint_hash`
+Trenutni root schema već sadrži sledeće porodice tabela:
 
-Indexes:
+- `license_server_product_types`;
+- `license_server_product_type_skus`;
+- `license_server_licenses`;
+- `license_server_license_activations`;
+- `license_server_api_clients` i nonce zapise;
+- customer issuer identity, keys i client scopes;
+- customer issuer issue outbox;
+- audit i validation events;
+- persistent security rate-limit buckets.
 
-- `license_id, status`
-- `activation_token_hash`
-- `domain`
-- `device_id_hash`
-- `last_seen_at`
+Njih treba migrirati/evoluirati, ne paralelno iznova izmisliti.
 
-### `license_server_audit_events`
+## 3. Ciljni agregati
 
-Tracks admin and API state changes.
+### 3.1 IssuerIdentity
 
-Recommended columns:
+Jedan aktivan customer issuer po single-tenant CMS instalaciji:
 
-- `id uuid primary key`
-- `actor_user_id text`
-- `api_client_id uuid`
-- `license_id uuid`
-- `activation_id uuid`
-- `action text not null`
-- `entity_type text not null`
-- `entity_id text`
-- `metadata jsonb not null default '{}'::jsonb`
-- `created_at timestamp with time zone not null default now()`
-
-Examples:
-
-- `license.issued`
-- `license.activated`
-- `license.validated`
-- `license.suspended`
-- `license.revoked`
-- `license.reactivated`
-- `activation.revoked`
-- `api_client.created`
-- `api_client.rotated`
-
-### `license_server_rate_limit_events`
+- `issuerRef` — stabilan javni identifikator, nikad installation secret;
+- `activeSigningKid` i `keysetRevision`;
+- `status` — active, recovery_required, signing_disabled;
+- `createdAt`, `updatedAt`;
+- javni keyset cache snapshot.
 
-Optional but recommended for production if in-memory rate limits are not enough.
+`issuerRef` se čuva pri restore-u. Novi issuer se ne generiše automatski preko
+postojećeg različitog identiteta.
 
-Recommended columns:
+### 3.2 IssuerSigningKey
 
-- `id uuid primary key`
-- `scope text not null`
-- `key_hash text not null`
-- `window_start timestamp with time zone not null`
-- `count integer not null`
-- `created_at timestamp with time zone not null default now()`
-- `updated_at timestamp with time zone not null default now()`
+- `kid`, algoritam (`Ed25519`/`EdDSA`);
+- šifrovan PKCS#8 privatni ključ;
+- SPKI/JWK javni ključ;
+- `active`, `verification_only`, `compromised`, `retired`;
+- signing/verification početak i kraj;
+- key wrapping/encryption key version.
 
-Unique:
+Samo jedan ključ sme biti `active` za potpisivanje. Stari javni ključ ostaje u
+keyset-u bar do isteka svih assertion-a koje je mogao da potpiše plus cache
+overlap.
 
-- `scope + key_hash + window_start`
+### 3.3 ProductType
+
+Predstavlja porodicu aplikacije/proizvoda, npr. `acme-desktop`:
+
+- stabilni ID i `externalRef`/slug;
+- naziv, opis i status draft/active/archived;
+- podrazumevani `audience`/application ID;
+- metadata samo za issuer administraciju;
+- latest published catalog revision.
 
-## Required Table Extensions
+Product Type nije Webshop proizvod. Više Webshop proizvoda/varijanti može
+mapirati na različite profile istog Product Type-a.
 
-### `license_server_product_types`
+### 3.4 LicenseProfile i ProfileRevision
 
-Add:
+Postojeći SKU se u UI-u predstavlja kao **License Profile**, a `sku` ostaje
+stabilni integracioni identifikator. Objavljena revizija sadrži:
+
+- license type i policy template;
+- duration/expiry/maintenance pravila;
+- max devices/domains/seats i reset pravila;
+- validation interval i offline grace;
+- features i strukturisane limits;
+- audience i dozvoljene environment-e;
+- key namespace;
+- pin-ovan `claimSchemaVersionId`;
+- default custom claims i override policy;
+- `policyHash`, revision, publishedAt.
 
-- `public_key text`
-- `metadata jsonb not null default '{}'::jsonb`
+Objavljena revizija je immutable. Edit kreira draft nove revizije. Licenca čuva
+snapshot, pa kasnija promena profila ne menja već prodata prava.
 
-`public_key` is optional for signed runtime responses and offline verification.
+### 3.5 ClaimSchema i ClaimSchemaVersion
+
+Detaljan ugovor je u dokumentu 10. Minimalna polja:
 
-### `license_server_product_type_skus`
-
-Add a policy object or explicit columns.
-
-Recommended explicit columns:
-
-- `license_type text not null default 'perpetual'`
-- `policy_template text not null default 'perpetual_single_device'`
-- `max_devices integer`
-- `max_domains integer`
-- `max_seats integer`
-- `activation_reset_limit integer`
-- `activation_reset_window_days integer`
-- `validation_interval_seconds integer`
-- `offline_grace_seconds integer`
-- `features jsonb not null default '[]'::jsonb`
-- `policy jsonb not null default '{}'::jsonb`
-
-License types:
-
-- `perpetual`
-- `subscription`
-- `trial`
-- `maintenance`
-
-Policy templates:
-
-- `perpetual_single_device`
-- `perpetual_multi_device`
-- `domain_license`
-- `subscription_device`
-- `subscription_domain`
-- `trial`
-- `seat_based`
-- `floating_seat`
-- `file_license`
-- `maintenance`
-
-The template sets defaults only. The SKU row remains the source of truth after
-the admin customizes limits.
-
-### `license_server_licenses`
-
-Add:
-
-- `customer_email text`
-- `customer_name text`
-- `source text`
-- `source_order_ref text`
-- `source_order_item_ref text`
-- `license_type text not null default 'perpetual'`
-- `max_devices integer`
-- `max_domains integer`
-- `max_seats integer`
-- `features jsonb not null default '[]'::jsonb`
-- `suspended_at timestamp with time zone`
-- `suspended_reason text`
-- `revoked_reason text`
-- `grace_ends_at timestamp with time zone`
-- `last_validated_at timestamp with time zone`
-- `encrypted_license_key text`
-
-Statuses:
-
-- `active`
-- `suspended`
-- `revoked`
-- `expired`
-- `refunded`
-- `chargeback`
-
-## License Key Generation
-
-The current MVP derives license keys from:
-
-- API client id;
-- idempotency key;
-- SKU namespace.
-
-This works for MVP idempotency, but production should use one of these safer
-patterns.
-
-Preferred:
-
-1. Generate random license key using CSPRNG.
-2. Store `license_key_hash` for lookup.
-3. Store `encrypted_license_key` only if idempotent replay or admin re-display
-   is required.
-4. Encrypt with `LICENSE_SERVER_SECRET_KEY`.
-
-Alternative:
-
-1. Derive deterministic keys with an HMAC.
-2. Include a server-only secret not stored in the same row as public policy.
-3. Keep per-SKU namespace as an additional input.
-
-Do not rely on human-entered salts.
-
-## Activation Fingerprint Rules
-
-For domains:
-
-- canonicalize to hostname;
-- lowercase;
-- strip protocol, path, port unless policy requires port;
-- optionally support wildcard policy explicitly.
-
-For devices:
-
-- client sends a stable device fingerprint;
-- server stores only a hash;
-- hash should include a server-side salt or secret;
-- do not store raw hardware identifiers if avoidable.
-
-For seats:
-
-- use user email or account id hash;
-- keep seat label separately for admin readability.
-
-## Standard License Generation Modes
-
-The client License Server add-on should generate a license from a SKU policy
-snapshot, not from one hard-coded behavior.
-
-### Device-bound license
-
-Use for desktop apps.
-
-- license can activate on up to `max_devices`;
-- each activation stores hashed device fingerprint;
-- validation requires matching activation token and fingerprint;
-- admin can revoke or reset one device activation.
-
-### Domain-bound license
-
-Use for websites, plugins, and self-hosted software.
-
-- license can bind to up to `max_domains`;
-- canonical domain is stored;
-- validation checks current domain;
-- wildcard domains must be explicit and admin-controlled.
-
-### Seat-based license
-
-Use for business software or team products.
-
-- license can activate up to `max_seats`;
-- seat identity is email/account hash;
-- admin can remove or reassign seats;
-- optional seat labels help customer support.
-
-### Subscription license
-
-Use for renewable software access.
-
-- `expires_at` controls validity;
-- renewal extends expiry;
-- validation returns next validation interval and expiry;
-- expired license returns `expired` unless grace is configured.
-
-### Trial license
-
-Use for limited evaluation.
-
-- short duration;
-- usually lower activation limits;
-- optional conversion metadata links trial to paid license.
-
-### File plus license
-
-Use for Webshop products that deliver a file and a license key.
-
-- Webshop creates download entitlement;
-- License Server add-on issues key;
-- customer gets both download access and runtime license key;
-- refund revokes both download entitlement and license.
-
-### Maintenance license
-
-Use when software use is perpetual but updates/support expire.
-
-- validation may return `valid: true`;
-- response includes `maintenanceExpiresAt`;
-- protected app decides whether updates are allowed.
-
-## Validation Rules
-
-A validation is valid only when:
-
-- license exists;
-- license status is `active`;
-- current time is before `expires_at`, unless in configured grace period;
-- activation exists or can be created within policy;
-- activation status is `active`;
-- domain/device/seat matches policy;
-- product/SKU is still valid according to policy;
-- API client or runtime channel is allowed for the product.
-
-Validation should return a machine-readable reason when invalid.
-
-Recommended reasons:
-
-- `not_found`
-- `expired`
-- `suspended`
-- `revoked`
-- `refunded`
-- `chargeback`
-- `domain_mismatch`
-- `device_mismatch`
-- `activation_limit_reached`
-- `seat_limit_reached`
-- `activation_revoked`
-- `product_inactive`
-- `sku_inactive`
-- `rate_limited`
+- schema ID, Product Type ID, semantic version i integer revision;
+- status draft/published/deprecated;
+- dozvoljeni JSON Schema subset;
+- canonical schema JSON i SHA-256 hash;
+- maksimalna veličina/depth/broj polja;
+- classification po claim-u: public, customer_visible, internal_only;
+- dozvoljeni override source-ovi;
+- created/published by i timestamps.
+
+Objavljena schema verzija je immutable i ne može se obrisati dok je referencira
+profil ili licenca.
+
+### 3.6 ApiClient i ApiClientScope
+
+- javni client ID;
+- samo hash/encrypted oblik secret-a;
+- status, environment, allowed origins/IP policy po potrebi;
+- scopes: catalog.read, license.issue, operation.read, lifecycle.write,
+  license.validate;
+- ograničenje na Product Type/Profile;
+- rotation overlap i revokedAt;
+- nonce/replay prozor i poslednja upotreba.
+
+Browser/runtime aplikacija nikad ne dobija ovaj client secret.
+
+### 3.7 IssueOperation
+
+Jedinstvena durable komanda nezavisno od transporta:
+
+- `operationId`, `operationKey`, source connection/ref;
+- order/orderItem/external customer reference;
+- Product Type, Profile i revision;
+- canonical validated claim input i hash;
+- status/attempt/lease/retry/dead-letter polja;
+- rezultat `licenseId`, receipt ID i sanitizovan error code;
+- correlation ID i timestamps.
+
+Unique indeks je najmanje `(issuerRef, sourceClientRef, operationKey)`.
+Payload sa istim ključem ali drugim hash-om mora vratiti
+`idempotency_conflict`, ne stari rezultat i ne novu licencu.
+
+### 3.8 License
+
+- stabilni UUID i bezbedan javni reference;
+- key namespace, hash i opcioni šifrovani reveal secret;
+- customer external ref; e-mail je opcioni PII i nije subject assertion-a;
+- Product Type/Profile/revision;
+- source order/order item/source system;
+- issuedAt/notBefore/expiresAt/maintenanceExpiresAt/graceEndsAt;
+- status i reason timestamps;
+- immutable policy snapshot, custom claim snapshot, schema hash i policy hash;
+- trenutno signing `kid` za izdati dokument, kada postoji;
+- assertion/certificate digest, ne obavezno plaintext kopija.
+
+Plaintext ključ sme postojati samo koliko je potrebno za kontrolisanu isporuku.
+Ako je potreban ponovni reveal, čuva se envelope-encrypted, sa auditovanim
+pristupom i rotacijom data-encryption ključa.
+
+### 3.9 Activation
+
+- license ID, type device/server/domain/seat;
+- normalizovana javna oznaka i hashovan fingerprint;
+- activation token hash;
+- status active/deactivated/reset/revoked;
+- first/last seen i validation interval;
+- signed lease ID/expiry;
+- metadata strogo ograničena, bez sirovog hardware inventara.
+
+Limit se proverava atomarno zaključavanjem licence/agregata. Konkurentni zahtevi
+ne smeju preći max limit.
+
+### 3.10 AuditEvent i ValidationEvent
+
+Audit beleži ko/šta/kada i sanitized metadata za:
+
+- profile/schema publish;
+- issue/lifecycle/reveal;
+- activation reset;
+- API client/key rotaciju;
+- backup/export/restore;
+- permission i security događaje.
+
+Validation događaji su high-volume i imaju zaseban retention/aggregation režim.
+Licencni ključ, secret, privatni ključ, puna adresa i nepotreban PII se ne loguju.
+
+## 4. Webshop-side model konekcije — CILJ
+
+Webshop poseduje `LicenseServerConnection`:
+
+- `id`, display name;
+- `transport`: `local_addon` ili `remote_nrls_v2`;
+- `baseUrl` samo za remote;
+- `clientId` i envelope-encrypted secret samo za remote;
+- očekivani/pin-ovani `issuerRef`;
+- environment, status i scopes;
+- catalog ETag/revision/lastSyncAt;
+- health/error kodovi bez secret-a.
+
+Webshop product/variant snapshot čuva connection ID, issuerRef, Product Type,
+Profile, profile revision, mapping revision i način delivery-ja. Promena aktivne
+konekcije ne sme retroaktivno promeniti postojeće order item-e.
+
+## 5. Transakcioni invarianti
+
+1. Isti validan issue operation daje jednu licencu i isti receipt.
+2. Isti operation key sa drugačijim payload hash-om je konflikt.
+3. Objavljene profile/schema revizije i izdati snapshot-i su immutable.
+4. Aktivacioni limit se ne može probiti konkurentnim zahtevima.
+5. Status `revoked/refunded/chargeback` ne može biti slučajno vraćen u active;
+   potrebna je eksplicitna, privilegovana komanda sa audit razlogom.
+6. Webshop označava fulfillment uspešnim tek kada primi trajni receipt.
+7. Outbox claim koristi lease + `SKIP LOCKED`/ekvivalent i bounded retry.
+8. Dead-letter se ne briše automatski; administrator može retry nakon ispravke.
+9. Signing i encryption key rotacija su odvojene operacije.
+10. Master entitlement gubitak ne briše customer licence ili ključeve.
+
+## 6. Veličine i validacija
+
+Preporučene početne granice:
+
+- request body 16 KiB za runtime, 64 KiB za admin schema/profile operacije;
+- najviše 64 custom claim polja, dubina 5, canonical payload 16 KiB;
+- string 1 KiB, array 100 elemenata, bez binary/base64 blob-ova;
+- metadata/claims moraju proći allowlist i schema validaciju;
+- svi datumi su UTC RFC 3339; svi finansijski podaci ostaju u Webshop-u;
+- domeni su normalizovani IDNA/lowercase bez scheme/path dela;
+- operation key je nepredvidiv ili namespaced i maksimalno 128 znakova.
+
+Granice moraju biti konfigurabilne samo unutar sigurnog server-side maksimuma.
+
+## 7. Retention i brisanje
+
+- izdati license/policy/claim snapshot čuva se koliko zahtevaju ugovor i audit;
+- validation events mogu se agregirati i skratiti pre business audit-a;
+- customer PII se minimizuje i može pseudonimizovati bez uništenja licence;
+- key history se čuva dok može validirati važeći dokument;
+- uninstall je `retain_by_default`; destruktivni purge je posebna potvrđena radnja;
+- backup mora obuhvatiti bazu, issuer identitet, šifrovane signing ključeve i
+  verziju wrapping ključa.

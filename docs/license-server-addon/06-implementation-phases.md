@@ -1,228 +1,195 @@
-# Implementation Phases
+# 06 — Faze implementacije
 
-> Historical implementation note: this plan includes a removed legacy `/api/v1/licenses` route. Current integrations use the entitlement API.
+Faze se izvršavaju redom. „Kod postoji” nije dovoljan: gate zahteva dokaz iz
+spakovanog add-on-a i odgovarajuće testove. Detaljni radni promptovi su u
+`12-implementation-prompts.md`.
 
-## Phase 0 - Stabilize Current State
+## Faza 0 — Zaključavanje ugovora i baseline-a
 
-Goal:
+Ishod:
 
-- preserve current working master/Webshop activation behavior;
-- avoid breaking paid Webshop add-on activation.
+- dokumentovana granica Master / License Server add-on / Webshop;
+- inventar V1 i capability V1;
+- imenovani vlasnik svake tabele, secret-a i operacije;
+- sačuvan baseline build/test rezultat;
+- odluka o V2 endpoint/capability tipovima i compatibility periodu.
 
-Tasks:
+Gate:
 
-- run typecheck and tests before changes;
-- document current routes and environment variables;
-- add tests around current `license-server-addon` bridge state resolution;
-- verify migrations are applied for root CMS tables.
+- nijedna aktivna specifikacija ne tvrdi da se License Server instalira unutar
+  Webshop add-on-a;
+- contract testovi zaključavaju postojeće V1 ponašanje;
+- postoji ADR za lokalni/remote jedinstveni issuer model.
 
-Acceptance:
+## Faza 1 — Package/schema/release paritet
 
-- existing Webshop activation against master still passes;
-- `/dashboard/license-server` still shows activation/install states;
-- no change to master activation API behavior.
+Ishod:
 
-## Phase 1 - Normalize Webshop License Server API Base URL
+- add-on poseduje verzionisane migracije ili eksplicitno dokumentovan prelazni
+  host-owned plan;
+- `release-addon` izlaže puni podržani admin dashboard;
+- package manifest, runtime ugovor, capability i jobs su tipizovani javnim SDK
+  tipovima;
+- build iz čistog checkout-a daje reproducibilan paket;
+- izolirani Next.js 16.3 host instalira taj isti tarball.
 
-Goal:
+Gate:
 
-- make Webshop work with both standalone master and embedded client add-on.
+- empty DB install, upgrade sa prethodne schema-e i host restart prolaze;
+- source-vs-packed feature parity test prolazi;
+- nema privatnog source importa iz Webshop-a.
 
-Tasks:
+## Faza 2 — Product/Profile revision i custom schema
 
-- change Webshop issue processor to treat `baseApiUrl` as versioned API root;
-- build endpoint URL by appending `/licenses`;
-- sign actual URL pathname;
-- update request snapshot path;
-- add health check URL `${baseApiUrl}/health`;
-- update settings UI placeholder to versioned API root.
+Ishod:
 
-Acceptance:
+- Product Type i objavljivi License Profile revision model;
+- verzionisan JSON Schema subset i UI editor/preview;
+- default claims, override allowlist i mapping contract;
+- canonicalization, schemaHash i policyHash;
+- migracija postojećih SKU-ova bez promene izdatih snapshot-a.
 
-- master URL `https://licenses.nrcms.com/api/v1` calls `/api/v1/licenses`;
-- embedded URL `https://client.com/api/license-server/v1` calls
-  `/api/license-server/v1/licenses`;
-- HMAC signature verifies in both cases.
+Gate:
 
-## Phase 2 - Split Client Add-on Engine Into Modules
+- objavljena revizija je immutable;
+- invalid/oversized/deep/polluting claim payload se odbija;
+- schema/profile change ne menja postojeću licencu;
+- permission i audit testovi pokrivaju publish/deprecate.
 
-Goal:
+## Faza 3 — Jedinstveni issuer operation engine
 
-- turn `.private/license-server-addon/src/addon.tsx` from a monolith into a
-  maintainable product.
+Ishod:
 
-Target structure:
+- durable IssueOperation i LifecycleOperation;
+- exact business-once idempotency sa payload hash konfliktom;
+- standardni receipt i kontrolisan reveal;
+- local capability V2 i HTTP V2 adapteri nad istim application service-om;
+- scheduler, lease, retry i dead-letter administracija.
 
-- `src/addon.tsx`
-- `src/admin/*`
-- `src/api/*`
-- `src/data/api-clients.ts`
-- `src/data/products.ts`
-- `src/data/licenses.ts`
-- `src/data/activations.ts`
-- `src/data/audit.ts`
-- `src/lib/api-auth.ts`
-- `src/lib/license-keys.ts`
-- `src/lib/runtime-auth.ts`
-- `src/lib/rate-limit.ts`
+Gate:
 
-Acceptance:
+- local i remote contract vectors daju semantički isti rezultat;
+- 100+ konkurentnih istih zahteva daje jednu licencu;
+- crash u svakoj granici transakcije može bezbedno da se nastavi;
+- receipt nikad ne curi u log/error.
 
-- no behavior loss;
-- typecheck passes;
-- tests cover moved issue/validate behavior.
+## Faza 4 — Webshop konekcije i fulfillment
 
-## Phase 3 - Add Production Licensing Schema
+Ishod:
 
-Goal:
+- `LicenseServerConnection` sa local/remote transportom;
+- issuer pinning, health i catalog sync;
+- jedan `license_server` izbor u product UI-u;
+- claim mapping preview/revision;
+- zajednički issue/status/receipt/delivery state machine;
+- migracija skrivenog `customer_issuer` puta;
+- lifecycle outbox za renew/refund/chargeback.
 
-- support real device/domain/seat licensing.
+Gate:
 
-Tasks:
+- plaćeni order se izdaje/dostavlja jednom za oba transporta;
+- timeout/restart/redeploy ne pravi duplikat;
+- connection/profile/schema mismatch blokira novi checkout jasnom greškom;
+- refund i chargeback su dokazano eventualno konzistentni.
 
-- add `license_server_license_activations`;
-- add `license_server_audit_events`;
-- extend product SKU policy;
-- extend license rows with customer, features, limits, status reasons;
-- add migration and schema tests.
-- add standard policy templates:
-  - `perpetual_single_device`
-  - `perpetual_multi_device`
-  - `domain_license`
-  - `subscription_device`
-  - `subscription_domain`
-  - `trial`
-  - `seat_based`
-  - `floating_seat`
-  - `file_license`
-  - `maintenance`
+## Faza 5 — Potpisani claims i verifier
 
-Acceptance:
+Ishod:
 
-- issue endpoint stores policy snapshot on license;
-- activation endpoint can create domain/device activation;
-- validation endpoint can check activation token and limits.
-- policy tests cover device limit, domain limit, seat limit, subscription
-  expiry, trial expiry, and maintenance expiry.
+- versioned signed customer license assertion;
+- public issuer/keyset endpoint sa ETag/cache pravilima;
+- key rotation overlap i compromised-key procedura;
+- `.nrls.json` license file format;
+- TypeScript verifier paket/reference implementacija i language-neutral test
+  vectors;
+- kratkoživi signed online lease za status-sensitive offline rad.
 
-## Phase 4 - Implement Runtime API
+Gate:
 
-Goal:
+- valid/tampered/expired/wrong-audience/unknown-kid test vectors prolaze;
+- stari assertion radi posle normalne rotacije;
+- compromised ključ se može povući po dokumentovanom postupku;
+- verifier ne zahteva privatni ili HMAC secret.
 
-- expose a documented API usable by desktop apps, plugins, and services.
+## Faza 6 — Runtime lifecycle i admin proizvod
 
-Tasks:
+Ishod:
 
-- `POST /licenses/activate`;
-- `POST /licenses/validate` with activation token support;
-- `POST /licenses/deactivate`;
-- signed validation response optional but designed;
-- strict error codes and reason codes;
-- rate limit by IP, license hash, and activation id.
+- puna activation/validate/deactivate semantika;
+- renew/suspend/resume/revoke/refund/chargeback operacije;
+- product/profile/schema/license/activation/client/operation admin UI;
+- search, pagination, permission-i, audit i safe error UX;
+- activation reset i support notes bez curenja PII/tajni.
 
-Acceptance:
+Gate:
 
-- desktop-like test can activate once and validate repeatedly;
-- second device is blocked when `maxDevices = 1`;
-- domain mismatch is rejected;
-- revoked activation is rejected;
-- no HMAC secret is required in desktop test.
+- device/domain/seat concurrency limiti se ne mogu probiti;
+- add-on u `edit_existing_only` ne izdaje novo, ali omogućava bezbedno upravljanje
+  postojećim podacima prema policy-ju;
+- packed release UI E2E prolazi ključne administrativne tokove.
 
-## Phase 5 - Implement Admin Product UI
+## Faza 7 — Security i operativna spremnost
 
-Goal:
+Ishod:
 
-- make the client add-on usable as a product, not just an API.
+- envelope encryption i verzije encryption ključa;
+- backup/export/restore UI i runbook;
+- HMAC/signing/encryption rotacija;
+- persistent rate limits, anti-replay i abuse monitoring;
+- metrike, structured sanitized logs, trace/correlation IDs i alarmi;
+- retention, privacy export/pseudonymization i uninstall policy.
 
-Tasks:
+Gate:
 
-- product type list/detail with search and pagination;
-- SKU policy editor;
-- license list/detail;
-- activation list/detail;
-- revoke/suspend/reactivate actions;
-- API client secret rotation and revoke;
-- validation event filters;
-- audit event filters.
+- restore na novu instancu sa istim issuerRef validira stare licence;
+- izgubljen wrapping ključ ima jasno deklarisan, testiran ishod;
+- secret scan, dependency audit i threat-model review su čisti;
+- dead-letter/queue/validation failure alarmi su dokazani.
 
-Acceptance:
+## Faza 8 — Release candidate i kontrolisani rollout
 
-- admin can issue manual test license;
-- admin can revoke license;
-- admin can reset/revoke one activation;
-- admin can see why validation failed.
+Ishod:
 
-## Phase 6 - Webshop Catalog Sync And Fulfillment
+- verzionisan, potpisan paket sa SBOM/provenance/digestom;
+- Master release i entitlement mapa za tačnu verziju;
+- install worker preflight/dry-run/rollback;
+- staging local i remote E2E;
+- canary instalacija i monitoring;
+- operativni rollback/forward-fix paket.
 
-Goal:
+Gate:
 
-- remove manual copy/paste for product type IDs and make fulfillment reliable.
+- kompletan checklist iz dokumenta 11 je zelen;
+- nema otvorenog critical/high security problema;
+- backup je provereno obnovljiv;
+- canary period nema duplikate, izgubljene receipt-e ili issuer mismatch;
+- produkcioni release zahteva eksplicitno ljudsko odobrenje.
 
-Tasks:
+## Paralelizacija koja je bezbedna
 
-- implement `GET /catalog`;
-- add Webshop catalog sync button;
-- let product manager select product type and SKU from synced catalog;
-- include customer email/name in issue request;
-- update email/order rendering for pending, issued, failed;
-- add manual retry action for failed external issue.
+Posle faze 1 mogu paralelno:
 
-Acceptance:
+- schema/profile UI i assertion specifikacija;
+- verifier test vectors;
+- Webshop read-only connection/catalog UI;
+- observability model.
 
-- Webshop product can select a client License Server product/SKU;
-- paid order issues a license from embedded add-on;
-- license key appears in customer order page;
-- failed issue can be retried by admin.
+Ne treba paralelizovati pre zaključavanja ugovora:
 
-## Phase 7 - Master Entitlement Revalidation
+- issue engine i Webshop fulfillment;
+- package migracije i domenske schema izmene;
+- signing format i verifier implementaciju;
+- release publish i install/redeploy.
 
-Goal:
+## Commit disciplina
 
-- keep the paid add-on entitlement honest without making master server handle
-  every client customer validation.
+Preporučen je mali, proverljiv commit po promptu/fazi. Svaki commit navodi:
 
-Tasks:
+- zahtev/gap koji zatvara;
+- migraciju i compatibility uticaj;
+- izvršene testove;
+- preostali rizik;
+- da li menja javni ugovor.
 
-- add master revalidation endpoint if missing;
-- add CMS scheduled check for License Server add-on entitlement;
-- store last checked timestamp and result in entitlement metadata;
-- block new issue if entitlement is expired/revoked;
-- define policy for validating existing licenses when entitlement expires.
-
-Acceptance:
-
-- expired add-on license blocks new issue;
-- existing validation can continue in `edit_existing_only` unless revoked;
-- admin sees clear renewal state.
-
-## Phase 8 - Hardening And Release
-
-Goal:
-
-- release as a paid product.
-
-Tasks:
-
-- API docs page inside admin;
-- external developer examples;
-- migration check;
-- abuse/rate limit tests;
-- secret rotation tests;
-- backup/restore notes;
-- production rollout checklist.
-
-Acceptance:
-
-- full `npm run typecheck`;
-- full `npm run lint`;
-- full `npm run test`;
-- manual end-to-end:
-  - buy License Server add-on from author Webshop;
-  - activate in CMS;
-  - configure Webshop product;
-  - buy client product;
-  - issue license;
-  - activate license from sample desktop script;
-  - validate license;
-  - revoke license;
-  - validation fails with correct reason.
+Ne objavljivati/push-ovati samo zato što je lokalni kod završen; publish i
+deployment su zasebni, odobreni koraci release runbook-a.

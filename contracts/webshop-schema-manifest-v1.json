@@ -56,6 +56,10 @@
       "deployerRole": "nr_cms_client_webshop_deployer",
       "runtimeRole": "nr_cms_client_runtime"
     },
+    "paypal": {
+      "deployerRole": "nr_cms_paypal_webshop_deployer",
+      "runtimeRole": "nr_cms_paypal_runtime"
+    },
     "vendor": {
       "deployerRole": "nr_cms_vendor_webshop_deployer",
       "runtimeRole": "nr_cms_vendor_runtime"

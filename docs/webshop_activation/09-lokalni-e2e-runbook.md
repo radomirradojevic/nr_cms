@@ -509,6 +509,11 @@ Za svaku aktivnu varijantu vendor mora pre objave proveriti da external SKU post
 
 ## 13. Faza F — checkout, payment i issuance
 
+Prompt 18 je ovu fazu stvarno dokazao sa Stripe test providerom. PayPal koristi
+isti provider-agnostic purchase/authorization/reducer/issuance ugovor, ali mora
+zasebno proći [PayPal Sandbox E2E runbook](20-paypal-sandbox-e2e-runbook.md) i
+P0 adapter gate pre nego što se PayPal označi kao E2E PASS.
+
 1. Završiti checkout test kupcem i potvrditi email adresu.
 2. Payment provider mora poslati validno potpisan event sa stvarnim event i transaction ID-em.
 3. Payment inbox mora deduplikovati event.
