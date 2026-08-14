@@ -66,17 +66,23 @@ Tokom redeploy-a otkriven je i ispravljen Node 24 ESM/CJS interop u CMS
 deployment-outbox launcher-u. Ispravka je na `origin/master` kao commit
 `29836ef`; lint, typecheck i bezmutaciona provera export resolution-a su PASS.
 
-Sledeći lokalno verifikovan kandidat je Webshop `0.6.29`:
+Konačni autoritativno objavljen i vendor-deployovan release je Webshop
+`0.6.29`:
 
 | Polje | Vrednost |
 | --- | --- |
 | Webshop source commit | `cef008fa33dfa83a4fc68e354fba20b35fcc44a0` |
+| CMS source commit | `d4bf59dc7ecf20ed56f39850cc079322d9bca30b` |
 | Package | `@radomirradojevic/webshop@0.6.29` |
-| Release ID | `39f9da7c-c9c8-5f6c-8f24-ee51784c9ea9` |
+| Release ID | `af059dab-26d8-5ea8-87c4-04cf6d0de771` |
 | Artifact SHA-256 | `30c81fd736c15ebfa9c03f531cabeb584bdc50adbb7b0f389d7e00759c555439` |
 | Dependency lock SHA-256 | `106e5a57fbde18037b298b9472dcd02dc383edf5d5d4cac36b3520286a72a7c2` |
 | Migration bundle SHA-256 | `2c3237a859c4679f7d41a17cb7b30cb2846bb07fd6d5f744f952be65c190f2a2` |
-| npm tarball SHA-256 | `b9deb47fd75c3cd873682a9f5ebb805729f8b3acdc6e1a056118b6c93a70b10b` |
+| npm tarball SHA-256 | `8521c6444fd21c438f7622500f9641ad65f7e7061e75dcd23a832b88d149b3c4` |
+| npm integrity | `sha512-0WNXRVb/K/M3SWgm/EjgCbxCXHz1mwIvsDsTOIBcyIfmJFDR0lT0ZQirMfd1CvZX+68XT/xtv3Iol5QwVXX6/g==` |
+| Publication attestation SHA-256 | `8d0a3b356e0b3700ce50ad10b91aff155c76d02030ebd8b0b0bc73ecb2e1bad4` |
+| Registry package version ID | `1133483463` |
+| CI run | `31811384227` — PASS |
 
 Kandidat `0.6.29` zabranjuje anonimnu kupovinu u UI, Server Actions i data
 sloju. Katalog ostaje javno čitljiv, ali dodavanje u korpu, izmena korpe,
@@ -84,6 +90,14 @@ kuponi, checkout, kreiranje narudžbine i prikaz confirmation statusa zahtevaju
 ulogovanog korisnika; confirmation token dodatno mora pripadati istom
 `customer_user_id`. Guest-checkout kontrola je uklonjena iz administratorskog
 UI-ja i novi podrazumevani settings ugovor je `false`.
+
+Authority publish, Master import/publish i vendor managed redeploy su PASS.
+Vendor worker job `6f323614-d7e4-4e75-b280-7632bb922f5d` završio je kao
+`callback_acked`, sa `final_status=succeeded`, `final_phase=ready` i
+`reconciliation_receipt` dokazom. Vendor desired/installed release, artifact
+i verzija su identični, `runtime_status=ready`, nema aktivnog serving fence-a,
+a javni storefront i proizvod vraćaju HTTP 200. Anonimni proizvod prikazuje
+`Sign in to purchase` i ne nudi guest checkout.
 
 ## 2.1 Provider-real WEB-1010 dokaz
 
@@ -131,9 +145,23 @@ Uzrok je precizno izolovan: `requiredDeploymentProfile()` je dozvoljavao samo
 `vendor|client|paypal`. Allowlist je usklađen, validator je izdvojen u čistu
 biblioteku, a izolovani PostgreSQL test sada potvrđuje da profil `paypal`
 atomski upisuje durable installation/operation/outbox sa
-`target_profile=paypal`. Test je PASS 8/8; root typecheck je PASS. Korekcija još
-mora biti commitovana, pushovana i redeployovana pre ponovnog klika na
-`Activate Webshop`.
+`target_profile=paypal`. Test je PASS 8/8; root typecheck je PASS. Korekcija je
+commitovana i pushovana kao CMS commit
+`d4bf59dc7ecf20ed56f39850cc079322d9bca30b`. PayPal disposable core je zatim
+redeployovan na immutable bootstrap
+`8a75722b57ea46453c5dc03f58a2fcc66de882d25fe012dbe393b9f729ee93f4`;
+`NRPaypalCms` je running, javni origin vraća HTTP 200, a dashboard ruta
+fail-closed preusmerava neautentifikovan zahtev. Ponovni korisnički klik na
+`Activate Webshop` ostaje poslednji korak za potvrdu disposable customer
+`ready` stanja.
+
+Tokom core redeploy-a operator je dopunjen da Windows PowerShell kompatibilno
+menja target env i da verifikovani immutable managed release može biti
+bezbedan predecessor addon-free core redeploy-a. Worker testovi su PASS 74/74
+(5 DB testova je namerno skipovano izvan izolovane baze), lint i typecheck su
+PASS. Lokalni worker commitovi su `7672adc` i `a81e7d3`; worker/broker runtime
+je usklađen na `a81e7d3` i policy hash
+`d2b286fad7704f5880f370329ffed01739b97f9e333e5c22cbb67dcbc9c7192f`.
 
 ## 3. Implementirani P0 ugovori
 
@@ -222,11 +250,12 @@ provider-real PASS.
 ## 7. Tačan blocker i sledeći bezbedan korak
 
 Credentiali, webhook ID i javni ograničeni HTTPS ingress su provisionovani;
-realni signed webhook, paid, issuance i secure delivery su dokazani. Neposredni
-koraci su objava/redeploy korekcije, idempotentan retry aktivacije do disposable
-customer `ready`, zatim full Sandbox refund naloga `WEB-1012`, lifecycle
-reconciliation i redigovan log/DB scan. Real dispute ostaje poseban production
-NO-GO ako PayPal Sandbox nalog ne omogući njegovo pokretanje.
+realni signed webhook, paid, issuance i secure delivery su dokazani. Release
+`0.6.29`, Master import/publish, vendor redeploy i PayPal core redeploy su
+završeni. Neposredni koraci su idempotentan korisnički retry aktivacije do
+disposable customer `ready`, zatim full Sandbox refund naloga `WEB-1012`,
+lifecycle reconciliation i redigovan log/DB scan. Real dispute ostaje poseban
+production NO-GO ako PayPal Sandbox nalog ne omogući njegovo pokretanje.
 
 Dok disposable `ready`, refund i završni scan nisu završeni, autoritativni
 status ostaje: **PAYPAL SANDBOX E2E PARTIAL / PAYPAL LIVE NO-GO**.
