@@ -3,13 +3,21 @@
 ## 1. Rezultat
 
 **PAYPAL P0 CODE GATE: PASS (LOCAL)**  
-**PAYPAL REAL-SANDBOX E2E: BLOCKED / NOT EXECUTED**  
+**PAYPAL REAL-SANDBOX PAYMENT + LICENSE ISSUANCE: PASS**
+**PAYPAL REFUND/DISPUTE I PRODUKCIJA: IN PROGRESS / NO-GO**
 **PAYPAL LIVE I PRODUKCIJA: NO-GO**
 
-Lokalni PayPal V2 adapter, reducer ugovori, bezbednosne provere i release
-candidate su završeni i regresije su zelene. Stvarni PayPal Sandbox tok nije
-predstavljen kao PASS: vendor test runtime nema provisionovane Sandbox
-credentiale i webhook ID, a ne postoji ni odobren javni HTTPS webhook ingress.
+Lokalni PayPal V2 adapter, reducer ugovori i bezbednosne provere su završeni,
+a stvarni PayPal Sandbox order/capture/signed-webhook tok je izvršen do
+autoritativnog `paid` stanja. Prvi provider-real nalog `WEB-1010` nije lažno
+proglašen happy-path PASS-om: seller je ručno prihvatio pending uplatu nakon
+isteka Master payment-authorization prozora, pa je izdavanje licence ispravno
+zaustavljeno sa `issuance_security_review`. Dva naredna naloga, `WEB-1011` i
+`WEB-1012`, završena su u važećem autorizacionom prozoru: oba su plaćena, oba
+su izdala tačno jednu licencu, Master stanje je `active/resolved_active`, a obe
+secure-delivery poruke su prihvaćene od e-mail provajdera. Disposable customer
+aktivacija je stigla do uspešne Master verifikacije, ali je otkrila zaseban CMS
+profilni bug opisan u odeljku 2.3; zbog toga customer `ready` još nije PASS.
 
 Ovaj dokument ne menja završni Stripe Prompt 18 dokaz. On beleži tačno šta je
 dokazano za PayPal i šta još zahteva spoljašnji Sandbox/operator korak.
@@ -29,10 +37,103 @@ dokazano za PayPal i šta još zahteva spoljašnji Sandbox/operator korak.
 | Dependency lock SHA-256 | `5d419a3afe432bbe0c9cfafb1669e525e18697f4839d1487991f67bafa9fd87d` |
 | Migration bundle SHA-256 | `2c3237a859c4679f7d41a17cb7b30cb2846bb07fd6d5f744f952be65c190f2a2` |
 
-Ovo je lokalno verifikovan release candidate. Paket `0.6.25` nije objavljen,
-release nije importovan/publikovan u Master, target nije redeployovan i Git
-push nije izvršen u ovom Prompt 19 prolazu. Sve su to zasebne spoljašnje
-mutacije koje zahtevaju eksplicitno odobrenje.
+Tabela iznad ostaje istorijski P0 kandidat. Provider-real prolaz je zatim
+izveo korektivne release-ove zaključno sa sledećim autoritativnim tuple-om:
+
+| Polje | Vrednost |
+| --- | --- |
+| Webshop source commit | `e8bf1662d623b23fd9b163bf702316f2d9102813` |
+| Package | `@radomirradojevic/webshop@0.6.28` |
+| Release ID | `746921ed-63ce-5797-bdd3-fccb3f73f369` |
+| Artifact SHA-256 | `1c9de81b6c28d35b0e931f98fb2f38d38f4a4c167b62f30c3cd17d2f17bfd9e8` |
+| Dependency lock SHA-256 | `7af4dfd7e117a1a48e84b9cde1b3ec3ecc49cca28b60ade576d15ee535679c27` |
+| Migration bundle SHA-256 | `2c3237a859c4679f7d41a17cb7b30cb2846bb07fd6d5f744f952be65c190f2a2` |
+| npm tarball SHA-256 | `a97198f0131e302c41c932493ae09175955f44dd9a253672dc5bc05fbc022faf` |
+| Publication attestation SHA-256 | `f85633eeda63e1d23f9e9af4340fce105ce3a004947b332ce0cc63870e3100a8` |
+| Registry package version ID | `1133048726` |
+
+Release `0.6.28` je objavljen, importovan/publikovan u Master i redeployovan na
+vendor. Deployment job `90766c9d…` završio je kao `callback_acked`, vendor
+control plane je `ready`, desired/installed tuple je identičan, jedini serving
+fence je `resolved_success`, a javni vendor storefront vraća HTTP 200.
+
+Korekcija u `0.6.28` rešava PayPal return origin iza reverse proxy-ja: finalni
+redirect koristi konfigurisani javni base URL umesto internog
+`https://localhost:3000` origin-a. Cela Webshop suite je **PASS — 166/166**,
+typecheck je PASS i CI run `31800456439` je PASS.
+
+Tokom redeploy-a otkriven je i ispravljen Node 24 ESM/CJS interop u CMS
+deployment-outbox launcher-u. Ispravka je na `origin/master` kao commit
+`29836ef`; lint, typecheck i bezmutaciona provera export resolution-a su PASS.
+
+Sledeći lokalno verifikovan kandidat je Webshop `0.6.29`:
+
+| Polje | Vrednost |
+| --- | --- |
+| Webshop source commit | `cef008fa33dfa83a4fc68e354fba20b35fcc44a0` |
+| Package | `@radomirradojevic/webshop@0.6.29` |
+| Release ID | `39f9da7c-c9c8-5f6c-8f24-ee51784c9ea9` |
+| Artifact SHA-256 | `30c81fd736c15ebfa9c03f531cabeb584bdc50adbb7b0f389d7e00759c555439` |
+| Dependency lock SHA-256 | `106e5a57fbde18037b298b9472dcd02dc383edf5d5d4cac36b3520286a72a7c2` |
+| Migration bundle SHA-256 | `2c3237a859c4679f7d41a17cb7b30cb2846bb07fd6d5f744f952be65c190f2a2` |
+| npm tarball SHA-256 | `b9deb47fd75c3cd873682a9f5ebb805729f8b3acdc6e1a056118b6c93a70b10b` |
+
+Kandidat `0.6.29` zabranjuje anonimnu kupovinu u UI, Server Actions i data
+sloju. Katalog ostaje javno čitljiv, ali dodavanje u korpu, izmena korpe,
+kuponi, checkout, kreiranje narudžbine i prikaz confirmation statusa zahtevaju
+ulogovanog korisnika; confirmation token dodatno mora pripadati istom
+`customer_user_id`. Guest-checkout kontrola je uklonjena iz administratorskog
+UI-ja i novi podrazumevani settings ugovor je `false`.
+
+## 2.1 Provider-real WEB-1010 dokaz
+
+- PayPal Sandbox order je kreiran preko stvarnog Business/Personal para.
+- `CHECKOUT.ORDER.APPROVED`/pending stanje nije izdalo licencu.
+- Seller je prihvatio uplatu u Sandbox Business nalogu; PayPal je prikazao
+  `Payment Accepted`.
+- Signed completed-capture webhook je prihvaćen i isti payment je postao
+  `paid`, sa tačno jednim capture evidence zapisom i tačno jednom license issue
+  operacijom.
+- Order `WEB-1010` je ostao `processing/unfulfilled`; license issue je ostao
+  `pending`, a durable issue operacija je prešla u
+  `issuance_security_review` zato što je Master `usedExpiresAt` bio istekao.
+- Nije vršena ručna izmena baze niti zaobilaženje authorization/security gate-a.
+
+Ovo je pozitivan dokaz za realni create/approval/pending/completed/signed
+webhook i deduplikaciju, ali istovremeno negativan/bezbednosni dokaz da kasni
+capture ne sme automatski izdati licencu. Nije happy-path fulfillment PASS.
+
+## 2.2 Provider-real WEB-1011 i WEB-1012 dokaz
+
+- Oba PayPal Sandbox plaćanja seller je prihvatio u važećem Master
+  authorization prozoru.
+- `WEB-1011` i `WEB-1012` su `paid`, svaki sa tačno jednim capture evidence
+  zapisom i tačno jednom license issue operacijom.
+- Obe centralne licence su `active`; post-issue reconciliation je za obe
+  `resolved_active`.
+- Fulfillment cron je izdao obe licence, a delivery cron je obe secure-delivery
+  poruke preveo u `accepted`, sa po jednim pokušajem i provider message ID-em.
+- Nije vršena ručna promena payment/order/license stanja u bazi.
+
+`WEB-1011` je namenjen aktivaciji disposable customer instance. `WEB-1012`
+ostaje kontrolni plaćeni nalog za završni full-refund i lifecycle test.
+
+## 2.3 Disposable activation regresija i korekcija
+
+Aktivacija isporučenom licencom na `paypal.nr.test` vratila je poruku
+`Webshop license was verified, but durable installation state could not be
+committed.` Master verifikacija je prošla, ali lokalne tabele
+`cms_addon_installations`, `cms_addon_operations` i
+`cms_addon_deployment_outbox` nisu dobile nijedan Webshop zapis.
+
+Uzrok je precizno izolovan: `requiredDeploymentProfile()` je dozvoljavao samo
+`vendor|client`, iako svi ostali deployment ugovori pravilno podržavaju
+`vendor|client|paypal`. Allowlist je usklađen, validator je izdvojen u čistu
+biblioteku, a izolovani PostgreSQL test sada potvrđuje da profil `paypal`
+atomski upisuje durable installation/operation/outbox sa
+`target_profile=paypal`. Test je PASS 8/8; root typecheck je PASS. Korekcija još
+mora biti commitovana, pushovana i redeployovana pre ponovnog klika na
+`Activate Webshop`.
 
 ## 3. Implementirani P0 ugovori
 
@@ -65,12 +166,15 @@ mutacije koje zahtevaju eksplicitno odobrenje.
 | --- | --- |
 | Targetirani PayPal/DB testovi | **PASS — 17/17** |
 | Disposable PostgreSQL suite | **PASS — 3/3** |
-| Cela Webshop test suite | **PASS — 165/165** |
+| Cela Webshop 0.6.29 test suite | **PASS — 170/170** |
 | TypeScript typecheck | **PASS** |
 | `npm run build:local` | **PASS** |
 | `npm run release:check:local` | **PASS** |
 | `npm run release:reproducible:local` | **PASS** |
-| Webshop source worktree posle commita | **CLEAN** |
+| Webshop 0.6.29 release check | **PASS** |
+| Webshop 0.6.29 reproducibility | **PASS — exact artifact tuple** |
+| CMS PayPal activation DB regresija | **PASS — 8/8** |
+| CMS root TypeScript typecheck | **PASS** |
 
 Novi provider testovi eksplicitno pokrivaju create/capture/refund request ID,
 approved/pending/completed/failed događaje, refund stanja, dispute mapiranje,
@@ -86,11 +190,11 @@ provider-real PASS.
 
 | ID | Lokalni dokaz | Provider-real stanje | Zaključak |
 | --- | --- | --- | --- |
-| PP-01 | Create order, sandbox host i stabilan request ID: PASS-LOCAL | OAuth/order nisu pozvani sa pravim Sandbox credentialom | BLOCKED-EXTERNAL |
-| PP-02 | Completed direct-capture V2 contract i issuance gate: PASS-LOCAL | Nema Sandbox buyer approval/browser capture-a | BLOCKED-EXTERNAL |
-| PP-03 | Signed-event verification contract i same-capture dedupe: PASS-LOCAL | Nema stvarnog signed Sandbox webhook-a | BLOCKED-EXTERNAL |
+| PP-01 | Create order, sandbox host i stabilan request ID: PASS-LOCAL | Stvarni Sandbox OAuth/order i buyer approval izvršeni | PASS-PROVIDER-REAL |
+| PP-02 | Completed direct-capture V2 contract i issuance gate: PASS-LOCAL | `WEB-1011` i `WEB-1012` završili paid + issued; `WEB-1010` kasni capture ostao na review gate-u | PASS-PROVIDER-REAL |
+| PP-03 | Signed-event verification contract i same-capture dedupe: PASS-LOCAL | Stvarni signed completed-capture webhook prihvaćen | PASS-PROVIDER-REAL |
 | PP-04 | Return pa webhook isti capture: PASS-LOCAL u PostgreSQL-u | Obrnuti provider-real redosled nije izvršen | PARTIAL / NO-GO |
-| PP-05 | Pending/approved bez issuance-a: PASS-LOCAL | Buyer cancel nije izvršen u Sandbox browseru | BLOCKED-EXTERNAL |
+| PP-05 | Pending/approved bez issuance-a: PASS-LOCAL | Stvarni pending/approved period nije izdao licencu; buyer cancel još nije izvršen | PARTIAL-PROVIDER-REAL |
 | PP-06 | Approval URL allowlist i durable token binding: PASS-LOCAL | Prekid/resume istog Sandbox ordera nije izvršen | BLOCKED-EXTERNAL |
 | PP-07 | Duplicate capture/event dedupe: PASS-LOCAL | Sandbox webhook resend nije izvršen | BLOCKED-EXTERNAL |
 | PP-08 | Stable capture request ID i response-loss ugovor: PASS-LOCAL | Kontrolisan stvarni Sandbox retry nije izvršen | PARTIAL / NO-GO |
@@ -117,27 +221,12 @@ provider-real PASS.
 
 ## 7. Tačan blocker i sledeći bezbedan korak
 
-U `D:\nr_cms-vendor\.env` potvrđen je `WEBSHOP_PAYMENTS_MODE=test`, ali nedostaju:
+Credentiali, webhook ID i javni ograničeni HTTPS ingress su provisionovani;
+realni signed webhook, paid, issuance i secure delivery su dokazani. Neposredni
+koraci su objava/redeploy korekcije, idempotentan retry aktivacije do disposable
+customer `ready`, zatim full Sandbox refund naloga `WEB-1012`, lifecycle
+reconciliation i redigovan log/DB scan. Real dispute ostaje poseban production
+NO-GO ako PayPal Sandbox nalog ne omogući njegovo pokretanje.
 
-- `WEBSHOP_PAYPAL_CLIENT_ID`;
-- `WEBSHOP_PAYPAL_CLIENT_SECRET`;
-- `WEBSHOP_PAYPAL_WEBHOOK_ID`.
-
-Za nastavak su potrebni i zaseban Sandbox Business seller, Sandbox Personal
-buyer i javni HTTPS ingress koji izlaže samo:
-
-```text
-POST /api/webshop/payments/webhooks/paypal
-```
-
-Operator credentiale unosi direktno u lokalni test secret store/env i ne šalje
-ih kroz chat. Posle toga, uz eksplicitno odobrenje, redosled je:
-
-1. push/CI verifikacija commita;
-2. publish paketa `0.6.25`, Master import/publish i disposable target redeploy;
-3. ručni Sandbox buyer login/approval;
-4. PP-01..PP-18 provider-real prolaz, refund i redigovan evidence scan;
-5. gašenje privremenog ingress-a i konačna Sandbox GO/NO-GO odluka.
-
-Dok ove stavke nisu završene, autoritativni status ostaje:
-**PAYPAL SANDBOX E2E NOT PROVEN / PAYPAL LIVE NO-GO**.
+Dok disposable `ready`, refund i završni scan nisu završeni, autoritativni
+status ostaje: **PAYPAL SANDBOX E2E PARTIAL / PAYPAL LIVE NO-GO**.

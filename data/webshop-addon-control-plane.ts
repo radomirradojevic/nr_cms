@@ -15,6 +15,7 @@ import {
   type AddonEntitlementClaimsV2,
 } from "@/lib/vendor-addon-entitlements/activation-v2-contract";
 import { deploymentRequestV2Schema } from "@/lib/addon-runtime/deployment-contract-v2";
+import { parseAddonDeploymentProfile } from "@/lib/addon-runtime/deployment-profile";
 
 const ADDON_KEY = "webshop";
 const OPERATION_TYPE = "deployment_v3";
@@ -555,11 +556,5 @@ function migrationLedgerHash(migrationLedger: readonly {
   }));
 }
 function requiredDeploymentProfile() {
-  const value = process.env.NR_CMS_DEPLOYMENT_PROFILE?.trim();
-  if (value !== "vendor" && value !== "client") {
-    throw new Error(
-      "NR_CMS_DEPLOYMENT_PROFILE is required for deployment control-plane state.",
-    );
-  }
-  return value;
+  return parseAddonDeploymentProfile(process.env.NR_CMS_DEPLOYMENT_PROFILE);
 }

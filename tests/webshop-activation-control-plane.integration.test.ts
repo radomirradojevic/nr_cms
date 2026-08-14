@@ -171,6 +171,14 @@ test("CMS lifecycle migration durably fences finalization and receipt evidence",
   assert.deepEqual(rows.rows, [{ state: "lifecycle_finalization_pending", receipt_role: "deactivation" }]);
 });
 
+test("PayPal target persists a durable Webshop deployment intent", { skip: !databaseUrl, concurrency: false }, async () => {
+  process.env.NR_CMS_DEPLOYMENT_PROFILE = "paypal";
+  const { persistVerifiedWebshopActivation } = await import("@/data/webshop-addon-control-plane");
+  const accepted = await persistVerifiedWebshopActivation({ claim, signedEntitlement: "compact-jws-v2-paypal-target", updatedBy: "test-admin" });
+  const rows = await client!.query("SELECT target_profile, status FROM cms_addon_deployment_outbox WHERE operation_id = $1", [accepted.operationId]);
+  assert.deepEqual(rows.rows, [{ status: "pending", target_profile: "paypal" }]);
+});
+
 test("authenticated worker callback stores one immutable result and returns duplicate or stale ACK without serving-state writes", { skip: !databaseUrl, concurrency: false }, async () => {
   const { persistVerifiedWebshopActivation } = await import("@/data/webshop-addon-control-plane");
   const { receiveDeploymentResultV2 } = await import("@/lib/addon-runtime/deployment-result-callback");
