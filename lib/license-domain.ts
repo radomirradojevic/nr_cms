@@ -12,6 +12,7 @@ export type CanonicalDomainOptions = {
 const DEFAULT_DEVELOPMENT_ALLOWED_DOMAINS = [
   "vendor.nr.test",
   "client.nr.test",
+  "paypal.nr.test",
 ] as const;
 
 /**

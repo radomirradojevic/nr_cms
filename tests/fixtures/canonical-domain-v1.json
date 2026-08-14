@@ -1,6 +1,6 @@
 {
   "contractVersion": 1,
-  "developmentAllowedDomains": ["vendor.nr.test", "client.nr.test"],
+  "developmentAllowedDomains": ["vendor.nr.test", "client.nr.test", "paypal.nr.test"],
   "vectors": [
     {
       "input": "https://Client.NR.Test",
@@ -16,6 +16,11 @@
       "input": "https://client.nr.test./",
       "environment": "development",
       "expected": "client.nr.test"
+    },
+    {
+      "input": "https://paypal.nr.test",
+      "environment": "development",
+      "expected": "paypal.nr.test"
     },
     {
       "input": "https://shop.example.test",
