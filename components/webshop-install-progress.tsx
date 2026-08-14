@@ -57,6 +57,7 @@ export function WebshopInstallProgress({ labels }: { labels: ProgressLabels }) {
       controller = new AbortController();
       try {
         const response = await fetch("/api/webshop/installation-status", {
+          method: "POST",
           cache: "no-store",
           credentials: "same-origin",
           headers: { Accept: "application/json" },

@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { persistVerifiedWebshopActivation } from "@/data/webshop-addon-control-plane";
 import { getGlobalSettings } from "@/data/global-settings";
+import { dispatchOneAddonDeploymentOutbox } from "@/lib/addon-runtime/deployment-outbox";
 import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
@@ -112,6 +113,15 @@ export async function activateWebshopAddonAction(
       status: "success",
       message: "Webshop license refreshed. The installed release remains ready.",
     };
+  }
+  // The activation request owns the first durable dispatch attempt. If the
+  // worker is temporarily unavailable, the progress endpoint keeps draining
+  // the same idempotent outbox row while the administrator watches the install.
+  try {
+    await dispatchOneAddonDeploymentOutbox();
+  } catch {
+    // The committed outbox row remains authoritative and retryable. Never turn
+    // a transient dispatch problem into a second activation or lose the job.
   }
   return {
     status: "success",
