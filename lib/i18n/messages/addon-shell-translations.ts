@@ -29,6 +29,14 @@ export const ADDON_SHELL_SOURCE_STRINGS = [
   "Buy webshop license key",
   "Webshop cannot be installed",
   "Waiting for add-on install",
+  "The license was accepted. The private Webshop package is being installed automatically; this page will open the dashboard when it is ready.",
+  "Deployment queued",
+  "Installing the Webshop package",
+  "Applying migrations and restarting the CMS",
+  "Webshop is ready. Opening the dashboard...",
+  "Installation needs attention. Status checks will continue.",
+  "Reconnecting after the CMS restart...",
+  "This is taking longer than usual.",
   "The license was accepted. Install the private Webshop package, set WEBSHOP_ADDON_MODULE, and rebuild or restart the CMS to finish setup.",
   "Webshop install flow is locked",
   "Buy or enter a valid Webshop license key to activate this paid add-on for this CMS deployment.",
@@ -262,6 +270,26 @@ function buildAddonShellTranslations(
       "WEBSHOP_ADDON_MODULE",
     ),
     "Waiting for add-on install": terms.labels.waitingForInstall,
+    "The license was accepted. The private Webshop package is being installed automatically; this page will open the dashboard when it is ready.":
+      product("pendingSuccess", terms, webshop, "WEBSHOP_ADDON_MODULE"),
+    "Deployment queued": terms.common.installPending,
+    "Installing the Webshop package": terms.labels.waitingForInstall,
+    "Applying migrations and restarting the CMS": product(
+      "pendingSuccess",
+      terms,
+      webshop,
+      "WEBSHOP_ADDON_MODULE",
+    ),
+    "Webshop is ready. Opening the dashboard...": product(
+      "ready",
+      terms,
+      webshop,
+      "WEBSHOP_ADDON_MODULE",
+    ),
+    "Installation needs attention. Status checks will continue.":
+      terms.common.licenseNeedsAttention,
+    "Reconnecting after the CMS restart...": terms.common.installPending,
+    "This is taking longer than usual.": terms.common.licenseNeedsAttention,
     "The license was accepted. Install the private Webshop package, set WEBSHOP_ADDON_MODULE, and rebuild or restart the CMS to finish setup.":
       product(
         "pendingInstallDescription",

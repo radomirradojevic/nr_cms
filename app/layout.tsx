@@ -26,6 +26,7 @@ import { cssVarsToInlineStyle, resolveAppearance } from "@/lib/appearance";
 import { resolveAppearanceMotionAttributes } from "@/lib/appearance-recipe";
 import { resolveGlowCssVars } from "@/lib/glow";
 import { resolveHasLicenseServerShellForMenu } from "@/lib/license-server-addon/menu-access";
+import { resolveHasWebshopAdminForMenu } from "@/lib/webshop-addon/menu-access";
 import { loadShellRouteIndex } from "@/lib/shell-visibility";
 import {
   resolveShellRenderTargetForPathname,
@@ -71,11 +72,10 @@ export default async function RootLayout({
   const isAdmin = hasRole(roles, "admin");
   const settings = await getGlobalSettings();
   const shellRouteIndex = await loadShellRouteIndex();
-  const hasWebshopShell = shellRouteIndex.contents.some(
-    (item) => item.contentType === "webshop",
-  );
-  const hasLicenseServerShell =
-    await resolveHasLicenseServerShellForMenu(isAdmin);
+  const [hasLicenseServerShell, hasWebshopAdmin] = await Promise.all([
+    resolveHasLicenseServerShellForMenu(isAdmin),
+    resolveHasWebshopAdminForMenu(isAdmin),
+  ]);
   const requestHeaders = await headers();
   const currentPathname = requestHeaders.get("x-nr-pathname") ?? "/";
   const frontendLanguage = settings.languages.frontendLanguage;
@@ -214,7 +214,7 @@ export default async function RootLayout({
                   isAdmin={isAdmin}
                   isLoggedIn={!!user}
                   hasLicenseServerShell={hasLicenseServerShell}
-                  hasWebshopShell={hasWebshopShell}
+                  hasWebshopShell={hasWebshopAdmin}
                   t={frontendTranslator}
                 />
                 <SiteMain region={mainRegion}>{children}</SiteMain>

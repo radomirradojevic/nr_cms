@@ -1,9 +1,9 @@
 import { HeroSliderRenderer } from "@/components/hero-slider-renderer";
-import { listContentTargetOptions } from "@/data/content";
 import { collectHeroSliderMenuIds } from "@/lib/hero-slider";
 import { getTopMenuTreeForViewer, type TopMenuTreeNode } from "@/data/top-menu";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { resolveHasLicenseServerShellForMenu } from "@/lib/license-server-addon/menu-access";
+import { resolveHasWebshopAdminForMenu } from "@/lib/webshop-addon/menu-access";
 import { getRoles, hasRole, type Role } from "@/lib/roles";
 
 type Props = {
@@ -31,7 +31,7 @@ export async function HeroSliderRendererWithMenus({
     await Promise.all([
       getInitialMenuTrees(data, viewerRoles),
       resolveHasLicenseServerShellForMenu(isAdmin),
-      getHasWebshopShell(),
+      resolveHasWebshopAdminForMenu(isAdmin),
     ]);
   return (
     <HeroSliderRenderer
@@ -46,11 +46,6 @@ export async function HeroSliderRendererWithMenus({
       hasWebshopShell={hasWebshopShell}
     />
   );
-}
-
-async function getHasWebshopShell() {
-  const contents = await listContentTargetOptions();
-  return contents.some((item) => item.contentType === "webshop");
 }
 
 async function getInitialMenuTrees(data: unknown, viewerRoles: Role[] | null) {
