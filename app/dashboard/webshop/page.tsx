@@ -124,14 +124,7 @@ export default async function WebshopDashboardPage() {
               </Link>
             </Button>
           </div>
-        ) : (
-          <Button asChild>
-            <Link href="/dashboard/content/new/webshop">
-              <Plus className="h-4 w-4" />
-              {t("addons.webshop.setUp")}
-            </Link>
-          </Button>
-        )}
+        ) : null}
       </div>
 
       {needsLicenseActivation ? (
