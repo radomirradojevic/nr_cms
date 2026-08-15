@@ -41,14 +41,14 @@ export const ADDON_SHELL_SOURCE_STRINGS = [
   "Webshop install flow is locked",
   "Buy or enter a valid Webshop license key to activate this paid add-on for this CMS deployment.",
   "Webshop add-on is not installed",
-  "The public CMS shell is ready. Activate the license, install the private Webshop add-on package, and configure WEBSHOP_ADDON_MODULE before commerce features are available.",
+  "Activate a valid license to install the private Webshop add-on. Storefront setup becomes available after installation.",
   "Webshop is disabled",
   "Edit shell",
   "View storefront",
   "Set up Webshop",
-  "No Webshop shell yet",
-  "Create the CMS entry that owns the shop slug, SEO, status, visibility, and routing.",
-  "Create CMS shell",
+  "Set up your storefront",
+  "The Webshop add-on is ready. Create the storefront entry that controls the public shop URL, SEO, visibility, and routing.",
+  "Create storefront",
   "Public Preview",
   "Uses the CMS shell renderer.",
   "Webshop categories",
@@ -316,8 +316,13 @@ function buildAddonShellTranslations(
       webshop,
       "WEBSHOP_ADDON_MODULE",
     ),
-    "The public CMS shell is ready. Activate the license, install the private Webshop add-on package, and configure WEBSHOP_ADDON_MODULE before commerce features are available.":
-      terms.webshop.notInstalledDescription,
+    "Activate a valid license to install the private Webshop add-on. Storefront setup becomes available after installation.":
+      product(
+        "licenseRequiredDescription",
+        terms,
+        webshop,
+        "WEBSHOP_ADDON_MODULE",
+      ),
     "Webshop is disabled": product(
       "disabledTitle",
       terms,
@@ -327,10 +332,10 @@ function buildAddonShellTranslations(
     "Edit shell": terms.webshop.editShell,
     "View storefront": terms.webshop.viewStorefront,
     "Set up Webshop": terms.webshop.setUp,
-    "No Webshop shell yet": terms.webshop.noShellTitle,
-    "Create the CMS entry that owns the shop slug, SEO, status, visibility, and routing.":
+    "Set up your storefront": terms.webshop.setUp,
+    "The Webshop add-on is ready. Create the storefront entry that controls the public shop URL, SEO, visibility, and routing.":
       terms.webshop.shellEntryDescription,
-    "Create CMS shell": terms.webshop.createCmsShell,
+    "Create storefront": terms.webshop.createCmsShell,
     "Public Preview": terms.webshop.publicPreview,
     "Uses the CMS shell renderer.": terms.webshop.usesShellRenderer,
     "Webshop categories": terms.webshop.categories,

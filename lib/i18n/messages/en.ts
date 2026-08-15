@@ -1657,15 +1657,15 @@ export const en = {
         "Buy or enter a valid Webshop license key to activate this paid add-on for this CMS deployment.",
       notInstalledTitle: "Webshop add-on is not installed",
       notInstalledDescription:
-        "The public CMS shell is ready. Activate the license, install the private Webshop add-on package, and configure WEBSHOP_ADDON_MODULE before commerce features are available.",
+        "Activate a valid license to install the private Webshop add-on. Storefront setup becomes available after installation.",
       disabledTitle: "Webshop is disabled",
       editShell: "Edit shell",
       viewStorefront: "View storefront",
       setUp: "Set up Webshop",
-      noShellTitle: "No Webshop shell yet",
+      noShellTitle: "Set up your storefront",
       noShellDescription:
-        "Create the CMS entry that owns the shop slug, SEO, status, visibility, and routing.",
-      createCmsShell: "Create CMS shell",
+        "The Webshop add-on is ready. Create the storefront entry that controls the public shop URL, SEO, visibility, and routing.",
+      createCmsShell: "Create storefront",
       publicPreview: "Public Preview",
       usesCmsShellRenderer: "Uses the CMS shell renderer.",
       categoryBridge: {
