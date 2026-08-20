@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -49,10 +50,27 @@ test("GitHub workflows are pinned, least-privilege, and never run untrusted PR c
   const ci = readWorkflow("ci.yml");
   assert.match(ci, /NR_ADDON_SOURCE_MODE:\s*empty/);
   assert.match(ci, /npm run addons:registry/);
+  assert.match(ci, /npm run supply-chain:audit:public/);
   assert.ok(
     ci.indexOf("npm run addons:registry") < ci.indexOf("npm run typecheck"),
     "clean public CI must generate the empty registry before typecheck",
   );
+});
+
+test("public supply-chain audit is explicit and never requires private checkouts", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      resolve("scripts/audit-npm-supply-chain.ts"),
+      "--public-only",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /CMS:/);
+  assert.doesNotMatch(result.stdout, /Webshop addon|License Server addon/);
 });
 
 test("Night Raven private, staging, and production gates require protected manual environments", () => {

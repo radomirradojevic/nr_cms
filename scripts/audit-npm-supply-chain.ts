@@ -158,9 +158,18 @@ const PROJECTS = [
     root: ".private/license-server",
   },
 ];
+const cliArguments = process.argv.slice(2);
+for (const argument of cliArguments) {
+  if (argument !== "--public-only") {
+    throw new Error(`Unknown supply-chain audit option: ${argument}`);
+  }
+}
+const selectedProjects = cliArguments.includes("--public-only")
+  ? PROJECTS.slice(0, 1)
+  : PROJECTS;
 
 console.log("npm supply-chain audit");
-for (const project of PROJECTS) {
+for (const project of selectedProjects) {
   auditProject(
     project.label,
     project.root,

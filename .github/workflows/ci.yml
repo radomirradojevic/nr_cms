@@ -64,5 +64,5 @@ jobs:
 
       - name: Supply-chain and runtime dependency audit
         run: |
-          npm run supply-chain:audit
+          npm run supply-chain:audit:public
           npm audit --omit=dev --audit-level=low
