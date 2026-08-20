@@ -464,6 +464,11 @@ async function ensureRootEnv() {
   ensure("WEBSHOP_POST_ISSUE_LICENSE_STATUS_MAX_AGE_SECONDS", "60");
   ensure("WEBSHOP_DELIVERY_EMAIL_PROVIDER", "fixture");
   ensure("LICENSE_SERVER_SECRET_KEY", randomBytes(32).toString("base64url"));
+  ensure(
+    "LICENSE_SERVER_RUNTIME_HASH_SECRET",
+    randomBytes(32).toString("base64url"),
+  );
+  ensure("LICENSE_SERVER_TRUSTED_PROXY_HOPS", "1");
   ensure("WEBSHOP_PAYMENTS_MODE", "test");
   ensure("WEBSHOP_COOKIE_SECURE", "false");
   ensure("STORAGE_PROVIDER", "local");

@@ -306,7 +306,7 @@ unit/DB granica i zajednički distributed bucket su dokazani ovim promptom.
 ## 15. As-built produkcioni admin posle Prompt-a 12
 
 - canonical `license_server.*` permission-i i `edit_existing_only` operation
-  matrica koriste se i u UI-u i nezavisno na svakoj od 23 server action granice;
+  matrica koriste se i u UI-u i nezavisno na svakoj od 24 server action granice;
   host admin/session provera, permission i license mode fail-uju zatvoreno;
 - API client secret, manual license key, backup, claim preview i verifier rezultat
   su envelope-encrypted, actor-bound, kratkoživeći reveal-once artifact-i. Token
@@ -324,3 +324,30 @@ unit/DB granica i zajednički distributed bucket su dokazani ovim promptom.
 
 Kompletna matrica i reproducibilni rezultati su u
 [Prompt 12 evidence dokumentu](./23-prompt-12-production-admin-evidence.md).
+
+## 16. As-built hardening i recovery posle Prompt-a 13
+
+- signing private key, current/previous HMAC secret, license reveal i admin reveal
+  koriste isti versioned A256GCM envelope ugovor sa eksplicitnim aktivnim `kid`-om,
+  bounded old-key keyring čitanjem i audited `skip locked` batch rewrap-om;
+- production env contract prihvata samo eksplicitni 32-byte legacy KEK ili
+  keyring+active KID, zahteva odvojeni runtime hash secret i eksplicitan trusted
+  proxy hop count; nema razvojni fallback;
+- public V1/V2, HMAC pre-auth, activation/license/fingerprint, reveal i svaka admin
+  mutacija koriste zajednički PostgreSQL limiter. DB time i atomic upsert dele isti
+  budžet između runtime instanci, a public greške ostaju anti-enumeration;
+- Webshop remote transport eksplicitno zahteva TLS 1.2+, CA proveru i direct pinned
+  Undici Agent, odbija forwarding/proxy/host header-e, redirect, private/mapped IP,
+  DNS rebinding i oversized odgovor;
+- centralni audit i structured logger redaction uklanjaju secret/PII-shaped polja i
+  vrednosti. Operational health dashboard prikazuje queue/issue/validate/auth/key/
+  catalog/lifecycle metrike, stable alarm code i poslednji correlation ID;
+- issuer backup v3 vezuje manifest za format/verziju/issuerRef/keyset/wrapping-key
+  verziju, proverava manifest i ciphertext SHA-256 pre A256GCM restore-a i zadržava
+  kompatibilni v2 restore reader;
+- threat model i incident runbook su executable-contract testirani, a datirani
+  drill se ponavlja komandom `npm run test:recovery:db:local`.
+
+Detaljna kontrola i rezultati su u [Prompt 13 evidence dokumentu](./24-prompt-13-security-recovery-evidence.md),
+[threat modelu](./security-threat-model.md) i
+[incident runbook-u](./incident-response-runbook.md).

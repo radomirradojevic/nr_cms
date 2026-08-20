@@ -3,7 +3,15 @@ import { NextResponse } from "next/server";
 import { isCronRequestAuthorized } from "@/lib/cron-auth";
 import { runLicenseServerOperationScheduler } from "@/lib/license-server-addon/operations-cron-adapter";
 
+export async function GET(request: Request) {
+  return run(request);
+}
+
 export async function POST(request: Request) {
+  return run(request);
+}
+
+async function run(request: Request) {
   if (!isCronRequestAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }

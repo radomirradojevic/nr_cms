@@ -1,7 +1,7 @@
 # License Server add-on — tehnička dokumentacija
 
 Ovaj direktorijum je autoritativna specifikacija za razvoj i produkciono
-puštanje plaćenog `@nr-cms/license-server` add-on-a. Dokumentacija je revidirana 16. avgusta 2026. poređenjem sa stvarnim stanjem u:
+puštanje plaćenog `@nr-cms/license-server` add-on-a. Dokumentacija je revidirana 20. avgusta 2026. poređenjem sa stvarnim stanjem u:
 
 - `.private/license-server-addon`;
 - javnom CMS ugovoru u `lib/license-server-addon` i `packages/addon-sdk`;
@@ -107,6 +107,12 @@ izdaje licence za proizvode tog kupca.
 24. [23-prompt-12-production-admin-evidence.md](./23-prompt-12-production-admin-evidence.md)
     — Prompt 12 packed produkcioni admin, granularni permission-i, support
     mutacije, šifrovani reveal-once artifact-i i clean Next host dokaz.
+25. [24-prompt-13-security-recovery-evidence.md](./24-prompt-13-security-recovery-evidence.md)
+    — Prompt 13 threat model, envelope rotacija, persistent abuse kontrole,
+    observability/alarmi, v3 backup/restore drill, incident runbook i scan dokaz.
+26. [security-threat-model.md](./security-threat-model.md) i
+    [incident-response-runbook.md](./incident-response-runbook.md) — operativni
+    trust-boundary pregled i procedure za security/recovery incidente.
 
 ## Oznake stanja
 

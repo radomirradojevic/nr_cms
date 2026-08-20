@@ -372,7 +372,7 @@ Prompt 12 evidence:
 
 | ID          | Status                                    | Dokaz / preostali gate                                                                                                                                                                                                           |
 | ----------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SEC-01      | **zelen**                                 | Svih 23 server action tokova ponavlja host/admin, canonical granular permission i license-mode proveru. Admin reveal route je trusted-host-auth, permission i actor-bound; UI visibility nije jedina kontrola.                   |
+| SEC-01      | **zelen**                                 | Svih 24 server action tokova ponavlja host/admin, canonical granular permission i license-mode proveru. Admin reveal route je trusted-host-auth, permission i actor-bound; UI visibility nije jedina kontrola.                   |
 | DX-03       | **zelen**                                 | Packed Profile/Schema wizard ima source-allowlisted effective-claims preview, a assertion verifier proverava audience i potpis. Rezultati su encrypted reveal-once download, ne query/log payload.                               |
 | PKG-02      | **zelen za Prompt 12 parity**             | Packed Next 16.3 host renderuje overview, API clients/scopes, products, profiles/schemas, licenses, activations, operations/dead letters, events, docs, keys/backup, audit i verifier; API/capability/jobs parity ostaje zelena. |
 | DATA-01..04 | **zeleni, potvrđeni schema 8 upgrade-om** | `0008_production_admin_support.sql` je aditivan, checksum/inventory-bound i retain-by-default; empty/upgrade/rerun/old-write PostgreSQL test prolazi.                                                                            |
@@ -381,3 +381,28 @@ Live Clerk permission provisioning, production publish/deploy, alerting i
 periodični operator restore drill ostaju release gate-ovi. Lokalni CMS build je
 zaustavljen pre Next faze jer lokalni `.env` nema managed deployment worker
 credential-e; clean packed Next 16.3 production build i HTTP render su zeleni.
+
+## 23. Status posle Prompt-a 13
+
+Prompt 13 evidence:
+[24-prompt-13-security-recovery-evidence.md](./24-prompt-13-security-recovery-evidence.md).
+Threat model i operativne procedure su u
+[security-threat-model.md](./security-threat-model.md) i
+[incident-response-runbook.md](./incident-response-runbook.md).
+
+| ID     | Status                                     | Dokaz / preostali gate                                                                                                                                                        |
+| ------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-02 | **zelen**                                  | HMAC nonce/timestamp/scope/constant-time matrica ostaje zelena; current/previous secret sada dele versioned envelope i audited rewrap bez fallback-a.                         |
+| SEC-03 | **zelen za code/DB multi-process granicu** | Public, HMAC, activation/runtime, reveal i admin koriste persistent DB limiter; dve nezavisne instance dele isti atomic budžet. Production capacity load ostaje rollout gate. |
+| SEC-04 | **zelen za code/contract granicu**         | Remote connector zahteva TLS 1.2+/CA/direct pinned agent, blokira proxy/forward header-e, private/mapped IP, rebinding i redirect. Live egress probe ostaje rollout gate.     |
+| SEC-05 | **zelen**                                  | Audit/log/error/reveal redaction i bounded serialization su centralizovani; secret/log/PII acceptance je 25/25.                                                               |
+| OPS-01 | **zelen za deploy config/DB tok**          | Vercel minute cron, auth GET/POST, singleton lease, retry/backoff/dead-letter/replay i restart su testirani. Live scheduler observation ostaje rollout gate.                  |
+| OPS-02 | **zelen za packed app signal/alert tok**   | Queue/issue/validate/auth/key/catalog/lifecycle snapshot, alarm code i correlation ID su testirani i renderovani; external pager wiring je deployment obaveza.                |
+| OPS-03 | **zelen**                                  | V3 restore drill završen 2026-08-20T12:00:15.195Z čuva issuerRef i verifikuje assertion izdat pre backup-a.                                                                   |
+| OPS-04 | **zelen za fault-E2E granicu**             | Master outage ne ulazi u customer issue/verify put; datirani drill i boundary test to potvrđuju.                                                                              |
+| OPS-05 | **zelen**                                  | Versioned runbook pokriva Master/issuer outage, lost wrapping key, compromised signing/HMAC i inconsistent receipt, uz contract test.                                         |
+
+Sva četiri `npm audit --audit-level=high` stabla imaju 0 vulnerabilities. Jedini
+rezidualni supply-chain warning je šest optional Tailwind WASI lockfile zapisa
+bez `resolved/integrity` metadata-e; nije critical/high i eksplicitno je opisan u
+Prompt 13 evidence-u. Production publish/deploy i live traffic nisu izvršeni.

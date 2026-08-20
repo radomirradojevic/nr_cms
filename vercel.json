@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/license-server-entitlement",
       "schedule": "31 3 * * *"
+    },
+    {
+      "path": "/api/cron/license-server-operations",
+      "schedule": "* * * * *"
     }
   ]
 }

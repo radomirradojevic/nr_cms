@@ -53,7 +53,8 @@ const LICENSE_SERVER_REQUIRED_WHEN_ENABLED = [
   "LICENSE_SERVER_CUSTOMER_ENVIRONMENT",
   "LICENSE_SERVER_DEPLOYMENT_MODE",
   "LICENSE_SERVER_INSTALL_MODE",
-  "LICENSE_SERVER_SECRET_KEY",
+  "LICENSE_SERVER_RUNTIME_HASH_SECRET",
+  "LICENSE_SERVER_TRUSTED_PROXY_HOPS",
 ];
 
 const ADDON_SHARED_REQUIRED = [
@@ -88,7 +89,7 @@ const WEBSHOP_SECRET_KEYS = [
   "WEBSHOP_LICENSE_SERVER_SECRET_KEY",
 ];
 
-const LICENSE_SERVER_SECRET_KEYS = ["LICENSE_SERVER_SECRET_KEY"];
+const LICENSE_SERVER_SECRET_KEYS = ["LICENSE_SERVER_RUNTIME_HASH_SECRET"];
 
 export function validateRuntimeEnv(env = process.env) {
   const deploymentProfile = readRequiredEnum(
@@ -139,9 +140,7 @@ export function validateRuntimeEnv(env = process.env) {
   const required = [
     ...CORE_REQUIRED,
     ...(webshopEnabled ? WEBSHOP_REQUIRED_WHEN_ENABLED : []),
-    ...(webshopManagedRedeploy
-      ? WEBSHOP_REQUIRED_FOR_MANAGED_REDEPLOY
-      : []),
+    ...(webshopManagedRedeploy ? WEBSHOP_REQUIRED_FOR_MANAGED_REDEPLOY : []),
     ...(licenseServerEnabled ? LICENSE_SERVER_REQUIRED_WHEN_ENABLED : []),
     ...(addonEnabled ? ADDON_SHARED_REQUIRED : []),
   ];
@@ -155,7 +154,11 @@ export function validateRuntimeEnv(env = process.env) {
       deploymentProfile,
       loadCmsCorePrivilegeManifest(),
     );
-    assertExactTargetDatabaseUrl(env.DATABASE_URL, target, target.roles.runtime);
+    assertExactTargetDatabaseUrl(
+      env.DATABASE_URL,
+      target,
+      target.roles.runtime,
+    );
   }
 
   const forbidden = FORBIDDEN.filter((key) => env[key] !== undefined);
@@ -201,6 +204,10 @@ export function validateRuntimeEnv(env = process.env) {
   }
   if (licenseServerEnabled) {
     for (const key of LICENSE_SERVER_SECRET_KEYS) assertSecret(env, key);
+    assertLicenseServerEncryptionContract(env);
+    if (!/^[1-8]$/.test(env.LICENSE_SERVER_TRUSTED_PROXY_HOPS?.trim() ?? "")) {
+      fail("LICENSE_SERVER_TRUSTED_PROXY_HOPS must be an integer from 1 to 8");
+    }
   }
   if (addonEnabled) {
     assertAddonInstallationEncryptionKey(env);
@@ -238,41 +245,59 @@ function assertOptionalPostIssueDeliveryContract(env) {
   const key = env.WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY?.trim();
   const kid = env.WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KID?.trim();
   if (Boolean(key) !== Boolean(kid)) {
-    fail("WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY and _KID must be configured together");
+    fail(
+      "WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY and _KID must be configured together",
+    );
   }
   if (key) {
     if (Buffer.from(key, "base64url").length !== 32) {
-      fail("WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY must be a 32-byte base64url value");
+      fail(
+        "WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY must be a 32-byte base64url value",
+      );
     }
     if (key === env.WEBSHOP_LICENSE_SERVER_SECRET_KEY?.trim()) {
-      fail("WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY must differ from WEBSHOP_LICENSE_SERVER_SECRET_KEY");
+      fail(
+        "WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY must differ from WEBSHOP_LICENSE_SERVER_SECRET_KEY",
+      );
     }
   }
   if (kid && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(kid)) {
     fail("WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KID is invalid");
   }
   const maxAge = env.WEBSHOP_POST_ISSUE_LICENSE_STATUS_MAX_AGE_SECONDS?.trim();
-  if (maxAge && (!/^\d+$/.test(maxAge) || Number(maxAge) < 15 || Number(maxAge) > 300)) {
+  if (
+    maxAge &&
+    (!/^\d+$/.test(maxAge) || Number(maxAge) < 15 || Number(maxAge) > 300)
+  ) {
     fail("WEBSHOP_POST_ISSUE_LICENSE_STATUS_MAX_AGE_SECONDS must be 15..300");
   }
   const workerSecret = env.WEBSHOP_DELIVERY_WORKER_SECRET?.trim();
   if (workerSecret && workerSecret.length < 32) {
     fail("WEBSHOP_DELIVERY_WORKER_SECRET must contain at least 32 characters");
   }
-  const entitlementWorkerSecret = env.WEBSHOP_ENTITLEMENT_REVALIDATION_WORKER_SECRET?.trim();
+  const entitlementWorkerSecret =
+    env.WEBSHOP_ENTITLEMENT_REVALIDATION_WORKER_SECRET?.trim();
   if (entitlementWorkerSecret && entitlementWorkerSecret.length < 32) {
-    fail("WEBSHOP_ENTITLEMENT_REVALIDATION_WORKER_SECRET must contain at least 32 characters");
+    fail(
+      "WEBSHOP_ENTITLEMENT_REVALIDATION_WORKER_SECRET must contain at least 32 characters",
+    );
   }
   const transferSecret = env.NR_ADDON_TRANSFER_APPROVAL_SECRET?.trim();
   const transferKid = env.NR_ADDON_TRANSFER_APPROVAL_KID?.trim();
   if (Boolean(transferSecret) !== Boolean(transferKid)) {
-    fail("NR_ADDON_TRANSFER_APPROVAL_SECRET and NR_ADDON_TRANSFER_APPROVAL_KID must be configured together");
+    fail(
+      "NR_ADDON_TRANSFER_APPROVAL_SECRET and NR_ADDON_TRANSFER_APPROVAL_KID must be configured together",
+    );
   }
   if (transferSecret && transferSecret.length < 32) {
-    fail("NR_ADDON_TRANSFER_APPROVAL_SECRET must contain at least 32 characters");
+    fail(
+      "NR_ADDON_TRANSFER_APPROVAL_SECRET must contain at least 32 characters",
+    );
   }
   if (transferKid && !/^[A-Za-z0-9._-]{1,100}$/.test(transferKid)) {
-    fail("NR_ADDON_TRANSFER_APPROVAL_KID must match the lifecycle transfer KID contract");
+    fail(
+      "NR_ADDON_TRANSFER_APPROVAL_KID must match the lifecycle transfer KID contract",
+    );
   }
 }
 
@@ -383,6 +408,64 @@ function assertSecret(env, key) {
   }
 }
 
+function assertLicenseServerEncryptionContract(env) {
+  const legacy = env.LICENSE_SERVER_SECRET_KEY?.trim();
+  const keyringValue = env.LICENSE_SERVER_ENCRYPTION_KEYS_JSON?.trim();
+  const activeKeyId = env.LICENSE_SERVER_ACTIVE_ENCRYPTION_KEY_ID?.trim();
+  if (Boolean(keyringValue) !== Boolean(activeKeyId)) {
+    fail(
+      "LICENSE_SERVER_ENCRYPTION_KEYS_JSON and LICENSE_SERVER_ACTIVE_ENCRYPTION_KEY_ID must be configured together",
+    );
+  }
+  if (!keyringValue) {
+    if (!isEncoded32ByteKey(legacy)) {
+      fail("LICENSE_SERVER_SECRET_KEY must be an explicit encoded 32-byte key");
+    }
+    return;
+  }
+  let keyring;
+  try {
+    keyring = JSON.parse(keyringValue);
+  } catch {
+    fail("LICENSE_SERVER_ENCRYPTION_KEYS_JSON must be valid JSON");
+  }
+  if (!keyring || typeof keyring !== "object" || Array.isArray(keyring)) {
+    fail("LICENSE_SERVER_ENCRYPTION_KEYS_JSON must be a key object");
+  }
+  const entries = Object.entries(keyring);
+  if (entries.length < 1 || entries.length > 16) {
+    fail("LICENSE_SERVER_ENCRYPTION_KEYS_JSON must contain 1..16 keys");
+  }
+  for (const [keyId, value] of entries) {
+    if (
+      !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(keyId) ||
+      typeof value !== "string" ||
+      !isEncoded32ByteKey(value)
+    ) {
+      fail("LICENSE_SERVER_ENCRYPTION_KEYS_JSON contains an invalid key");
+    }
+  }
+  if (!Object.hasOwn(keyring, activeKeyId)) {
+    fail("LICENSE_SERVER_ACTIVE_ENCRYPTION_KEY_ID must reference the keyring");
+  }
+  if (legacy && !isEncoded32ByteKey(legacy)) {
+    fail("LICENSE_SERVER_SECRET_KEY must be an encoded 32-byte legacy key");
+  }
+}
+
+function isEncoded32ByteKey(value) {
+  const trimmed = value?.trim();
+  if (!trimmed) return false;
+  if (/^[a-f0-9]{64}$/i.test(trimmed)) return true;
+  if (/^[A-Za-z0-9_-]+$/.test(trimmed)) {
+    const decoded = Buffer.from(trimmed, "base64url");
+    return decoded.length === 32 && decoded.toString("base64url") === trimmed;
+  }
+  if (!/^[A-Za-z0-9+/]{43}=$/.test(trimmed)) return false;
+  const decoded = Buffer.from(trimmed, "base64");
+  return decoded.length === 32 && decoded.toString("base64") === trimmed;
+}
+
 function assertAddonInstallationEncryptionKey(env) {
   const value = env.NR_ADDON_INSTALLATION_ENCRYPTION_KEY?.trim() ?? "";
   if (Buffer.from(value, "base64url").length !== 32) {
@@ -455,7 +538,9 @@ function assertManagedRedeployTransport(
   licenseEnvironment,
 ) {
   if (!["vendor", "client", "paypal"].includes(deploymentProfile)) {
-    fail("managed redeploy requires the vendor, client, or paypal deployment profile");
+    fail(
+      "managed redeploy requires the vendor, client, or paypal deployment profile",
+    );
   }
   const workerUrl = parseExactHttpsOrigin(
     "NR_ADDON_DEPLOYMENT_WORKER_URL",
@@ -481,7 +566,9 @@ function assertManagedRedeployTransport(
       fail("local .nr.test deployment worker is allowed only in development");
     }
     if (readBoolean(env, "NRLS_ALLOW_SELF_HOSTED_OUTBOUND", false) !== true) {
-      fail("local deployment worker requires NRLS_ALLOW_SELF_HOSTED_OUTBOUND=true");
+      fail(
+        "local deployment worker requires NRLS_ALLOW_SELF_HOSTED_OUTBOUND=true",
+      );
     }
     const allowedHosts = new Set(
       (env.NRLS_ALLOWED_OUTBOUND_HOSTS ?? "")
@@ -490,7 +577,9 @@ function assertManagedRedeployTransport(
         .filter(Boolean),
     );
     if (!allowedHosts.has(workerUrl.hostname.toLowerCase())) {
-      fail("NRLS_ALLOWED_OUTBOUND_HOSTS must include the deployment worker host");
+      fail(
+        "NRLS_ALLOWED_OUTBOUND_HOSTS must include the deployment worker host",
+      );
     }
   }
 }

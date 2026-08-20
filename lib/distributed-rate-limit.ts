@@ -16,17 +16,17 @@ export async function checkDistributedRateLimit(input: {
   windowMs: number;
 }): Promise<DistributedRateLimitResult> {
   const now = Date.now();
-  const reset = new Date(now + input.windowMs);
+  const fallbackReset = new Date(now + input.windowMs);
   const bucket = createHash("sha256")
     .update(`${input.namespace}:${input.key.slice(0, 512)}:${input.windowMs}`)
     .digest("hex");
   try {
     const result = await db.execute(sql`
       INSERT INTO security_rate_limit_buckets (bucket_hash, count, reset_at, updated_at)
-      VALUES (${bucket}, 1, ${reset}, now())
+      VALUES (${bucket}, 1, now() + (${input.windowMs} * interval '1 millisecond'), now())
       ON CONFLICT (bucket_hash) DO UPDATE SET
         count = CASE WHEN security_rate_limit_buckets.reset_at <= now() THEN 1 ELSE security_rate_limit_buckets.count + 1 END,
-        reset_at = CASE WHEN security_rate_limit_buckets.reset_at <= now() THEN ${reset} ELSE security_rate_limit_buckets.reset_at END,
+        reset_at = CASE WHEN security_rate_limit_buckets.reset_at <= now() THEN now() + (${input.windowMs} * interval '1 millisecond') ELSE security_rate_limit_buckets.reset_at END,
         updated_at = now()
       RETURNING count, reset_at
     `);
@@ -35,7 +35,7 @@ export async function checkDistributedRateLimit(input: {
       return {
         allowed: true,
         remaining: Math.max(0, input.limit - (row?.count ?? 1)),
-        resetAt: new Date(row?.reset_at ?? reset),
+        resetAt: new Date(row?.reset_at ?? fallbackReset),
       };
     return {
       allowed: false,

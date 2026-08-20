@@ -22,6 +22,7 @@ const baseEnvironment = {
 };
 
 const addonEncryptionKey = Buffer.alloc(32, 7).toString("base64url");
+const licenseServerEncryptionKey = Buffer.alloc(32, 9).toString("base64url");
 
 function enabledWebshopEnvironment() {
   return {
@@ -49,7 +50,9 @@ function enabledLicenseServerEnvironment() {
     LICENSE_SERVER_DEPLOYMENT_MODE: "vercel",
     LICENSE_SERVER_ENABLED: "true",
     LICENSE_SERVER_INSTALL_MODE: "disabled",
-    LICENSE_SERVER_SECRET_KEY: "s".repeat(32),
+    LICENSE_SERVER_RUNTIME_HASH_SECRET: "r".repeat(32),
+    LICENSE_SERVER_SECRET_KEY: licenseServerEncryptionKey,
+    LICENSE_SERVER_TRUSTED_PROXY_HOPS: "1",
     NEXT_PUBLIC_APP_URL: "https://cms.example.test",
     NR_ADDON_INSTALLATION_ENCRYPTION_KEY: addonEncryptionKey,
   };
@@ -112,7 +115,7 @@ test("enabled add-ons require their own settings and the shared encryption key",
         NR_ADDON_SOURCE_MODE: "registry",
         LICENSE_SERVER_ENABLED: "true",
       }),
-    /LICENSE_SERVER_CUSTOMER_ENVIRONMENT.*LICENSE_SERVER_SECRET_KEY.*NR_ADDON_INSTALLATION_ENCRYPTION_KEY/,
+    /LICENSE_SERVER_CUSTOMER_ENVIRONMENT.*LICENSE_SERVER_RUNTIME_HASH_SECRET.*LICENSE_SERVER_TRUSTED_PROXY_HOPS.*NR_ADDON_INSTALLATION_ENCRYPTION_KEY/,
   );
 });
 
@@ -249,5 +252,34 @@ test("fully configured add-ons validate while malformed feature configuration fa
         NR_ADDON_INSTALLATION_ENCRYPTION_KEY: "x".repeat(32),
       }),
     /NR_ADDON_INSTALLATION_ENCRYPTION_KEY must be a 32-byte base64url value/,
+  );
+  const keyringEnvironment = {
+    ...baseEnvironment,
+    ...enabledLicenseServerEnvironment(),
+    LICENSE_SERVER_ACTIVE_ENCRYPTION_KEY_ID: "wrap-2026-08",
+    LICENSE_SERVER_ENCRYPTION_KEYS_JSON: JSON.stringify({
+      "wrap-2026-01": licenseServerEncryptionKey,
+      "wrap-2026-08": Buffer.alloc(32, 10).toString("base64url"),
+    }),
+    LICENSE_SERVER_SECRET_KEY: undefined,
+  };
+  assert.doesNotThrow(() => validateRuntimeEnv(keyringEnvironment));
+  assert.throws(
+    () =>
+      validateRuntimeEnv({
+        ...keyringEnvironment,
+        LICENSE_SERVER_ACTIVE_ENCRYPTION_KEY_ID: "missing",
+      }),
+    /must reference the keyring/,
+  );
+  assert.throws(
+    () =>
+      validateRuntimeEnv({
+        ...keyringEnvironment,
+        LICENSE_SERVER_ENCRYPTION_KEYS_JSON: JSON.stringify({
+          "wrap-2026-08": `${licenseServerEncryptionKey}***`,
+        }),
+      }),
+    /contains an invalid key/,
   );
 });

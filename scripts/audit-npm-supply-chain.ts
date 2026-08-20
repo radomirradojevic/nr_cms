@@ -2,6 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 type PackageJson = {
+  name?: string;
+  private?: boolean;
+  version?: string;
   packageManager?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -35,6 +38,7 @@ const ALLOWED_INSTALL_SCRIPTS = new Set([
   "esbuild@0.18.20",
   "esbuild@0.25.12",
   "esbuild@0.27.7",
+  "esbuild@0.28.2",
   "fsevents@2.3.3",
   "msw@2.14.6",
   "sharp@0.34.5",
@@ -126,29 +130,78 @@ const REQUIRED_NPMRC = new Map([
   ["registry", REGISTRY_URL],
 ]);
 const PROJECTS = [
-  { label: "CMS", root: ".", requireCompleteLockEvidence: true },
-  { label: "Webshop addon", root: ".private/webshop" },
-  { label: "License Server addon", root: ".private/license-server-addon" },
-  { label: "Central License Server", root: ".private/license-server" },
+  {
+    approvedWorkspace: {
+      dependency: "@nr-cms/addon-sdk",
+      lockPath: "node_modules/@nr-cms/addon-sdk",
+      packagePath: "packages/addon-sdk",
+      spec: "file:packages/addon-sdk",
+      version: "1.0.0",
+    },
+    label: "CMS",
+    requireCompleteLockEvidence: true,
+    root: ".",
+  },
+  {
+    approvedWorkspace: undefined,
+    label: "Webshop addon",
+    root: ".private/webshop",
+  },
+  {
+    approvedWorkspace: undefined,
+    label: "License Server addon",
+    root: ".private/license-server-addon",
+  },
+  {
+    approvedWorkspace: undefined,
+    label: "Central License Server",
+    root: ".private/license-server",
+  },
 ];
 
 console.log("npm supply-chain audit");
 for (const project of PROJECTS) {
-  auditProject(project.label, project.root, project.requireCompleteLockEvidence ?? false);
+  auditProject(
+    project.label,
+    project.root,
+    project.requireCompleteLockEvidence ?? false,
+    project.approvedWorkspace,
+  );
 }
 
-function auditProject(label: string, projectRoot: string, requireCompleteLockEvidence: boolean) {
-  const packageJson = readJson<PackageJson>(path.join(projectRoot, "package.json"));
-  const lock = readJson<PackageLock>(path.join(projectRoot, "package-lock.json"));
-  const packages = Object.entries(lock.packages ?? {}).filter(([packagePath]) => packagePath);
+function auditProject(
+  label: string,
+  projectRoot: string,
+  requireCompleteLockEvidence: boolean,
+  approvedWorkspace?: {
+    dependency: string;
+    lockPath: string;
+    packagePath: string;
+    spec: string;
+    version: string;
+  },
+) {
+  const packageJson = readJson<PackageJson>(
+    path.join(projectRoot, "package.json"),
+  );
+  const lock = readJson<PackageLock>(
+    path.join(projectRoot, "package-lock.json"),
+  );
+  const packages = Object.entries(lock.packages ?? {}).filter(
+    ([packagePath]) => packagePath,
+  );
   const prefix = `${label}:`;
 
   if (packageJson.packageManager !== EXPECTED_NPM_VERSION) {
-    failures.push(`${prefix} package.json must pin packageManager to ${EXPECTED_NPM_VERSION}.`);
+    failures.push(
+      `${prefix} package.json must pin packageManager to ${EXPECTED_NPM_VERSION}.`,
+    );
   }
 
   if (lock.lockfileVersion !== 3) {
-    failures.push(`${prefix} expected package-lock lockfileVersion 3, got ${lock.lockfileVersion}.`);
+    failures.push(
+      `${prefix} expected package-lock lockfileVersion 3, got ${lock.lockfileVersion}.`,
+    );
   }
 
   const npmrc = parseNpmrc(path.join(projectRoot, ".npmrc"));
@@ -159,8 +212,36 @@ function auditProject(label: string, projectRoot: string, requireCompleteLockEvi
   }
 
   for (const dep of collectDirectSpecs(packageJson)) {
-    if (!exactVersionRe.test(dep.spec)) {
-      failures.push(`${prefix} ${dep.section}.${dep.name} is not exact: ${dep.spec}`);
+    const approvedLocal =
+      approvedWorkspace &&
+      dep.name === approvedWorkspace.dependency &&
+      dep.section === "dependencies" &&
+      dep.spec === approvedWorkspace.spec;
+    if (!exactVersionRe.test(dep.spec) && !approvedLocal) {
+      failures.push(
+        `${prefix} ${dep.section}.${dep.name} is not exact: ${dep.spec}`,
+      );
+    }
+  }
+
+  if (approvedWorkspace) {
+    const link = lock.packages?.[approvedWorkspace.lockPath];
+    const workspacePackage = lock.packages?.[approvedWorkspace.packagePath];
+    const workspaceManifest = readJson<PackageJson>(
+      path.join(projectRoot, approvedWorkspace.packagePath, "package.json"),
+    );
+    if (
+      link?.link !== true ||
+      link.resolved !== approvedWorkspace.packagePath ||
+      workspacePackage?.name !== approvedWorkspace.dependency ||
+      workspacePackage.version !== approvedWorkspace.version ||
+      workspaceManifest.name !== approvedWorkspace.dependency ||
+      workspaceManifest.version !== approvedWorkspace.version ||
+      workspaceManifest.private !== true
+    ) {
+      failures.push(
+        `${prefix} approved workspace dependency identity/path/version drifted.`,
+      );
     }
   }
 
@@ -172,24 +253,35 @@ function auditProject(label: string, projectRoot: string, requireCompleteLockEvi
   }
 
   const nonRegistry = packages.filter(([, pkg]) => {
-    return pkg.resolved && !pkg.resolved.startsWith(REGISTRY_URL);
+    return pkg.resolved && !pkg.link && !pkg.resolved.startsWith(REGISTRY_URL);
   });
   for (const [packagePath, pkg] of nonRegistry) {
-    failures.push(`${prefix} ${packageId(packagePath, pkg)} resolves outside npm registry: ${pkg.resolved}`);
+    failures.push(
+      `${prefix} ${packageId(packagePath, pkg)} resolves outside npm registry: ${pkg.resolved}`,
+    );
   }
 
   const missingIntegrity = packages.filter(([, pkg]) => {
-    return pkg.resolved && !pkg.integrity;
+    return pkg.resolved && !pkg.link && !pkg.integrity;
   });
   for (const [packagePath, pkg] of missingIntegrity) {
-    failures.push(`${prefix} ${packageId(packagePath, pkg)} has a resolved tarball without integrity.`);
+    failures.push(
+      `${prefix} ${packageId(packagePath, pkg)} has a resolved tarball without integrity.`,
+    );
   }
 
   const missingLockMetadata = packages.filter(([, pkg]) => {
     return !pkg.link && !pkg.resolved && !pkg.integrity;
   });
-  if (missingLockMetadata.length) {
-    const message = `${prefix} ${missingLockMetadata.length} lockfile package entries omit resolved/integrity metadata.`;
+  const unexplainedMissingLockMetadata = missingLockMetadata.filter(
+    ([packagePath]) => packagePath !== approvedWorkspace?.packagePath,
+  );
+  if (unexplainedMissingLockMetadata.length) {
+    const paths = unexplainedMissingLockMetadata
+      .map(([packagePath]) => packagePath)
+      .sort()
+      .join(", ");
+    const message = `${prefix} ${unexplainedMissingLockMetadata.length} lockfile package entries omit resolved/integrity metadata: ${paths}.`;
     if (requireCompleteLockEvidence) {
       failures.push(message);
     } else {
@@ -201,14 +293,18 @@ function auditProject(label: string, projectRoot: string, requireCompleteLockEvi
   for (const [packagePath, pkg] of installScripts) {
     const id = packageId(packagePath, pkg);
     if (!ALLOWED_INSTALL_SCRIPTS.has(id)) {
-      failures.push(`${prefix} ${id} has an unapproved install lifecycle script at ${packagePath}.`);
+      failures.push(
+        `${prefix} ${id} has an unapproved install lifecycle script at ${packagePath}.`,
+      );
     }
   }
 
   for (const [packagePath, pkg] of packages) {
     const blocked = BLOCKED_PACKAGE_VERSIONS.get(packageName(packagePath, pkg));
     if (pkg.version && blocked?.has(pkg.version)) {
-      failures.push(`${prefix} ${packageId(packagePath, pkg)} matches a known malicious npm release.`);
+      failures.push(
+        `${prefix} ${packageId(packagePath, pkg)} matches a known malicious npm release.`,
+      );
     }
   }
 
@@ -216,18 +312,26 @@ function auditProject(label: string, projectRoot: string, requireCompleteLockEvi
     .filter(([, pkg]) => !pkg.dev)
     .map(([packagePath, pkg]) => packageId(packagePath, pkg));
 
-  console.log(`- ${label}: ${packages.length} packages; ${installScripts.length} install scripts; production scripts: ${prodInstallScripts.join(", ") || "none"}`);
-  console.log(`  non-registry tarballs: ${nonRegistry.length}; resolved tarballs missing integrity: ${missingIntegrity.length}`);
+  console.log(
+    `- ${label}: ${packages.length} packages; ${installScripts.length} install scripts; production scripts: ${prodInstallScripts.join(", ") || "none"}`,
+  );
+  console.log(
+    `  non-registry tarballs: ${nonRegistry.length}; resolved tarballs missing integrity: ${missingIntegrity.length}`,
+  );
 }
 
 function parseNpmrc(file: string) {
   const entries = new Map<string, string>();
   for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith(";")) continue;
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith(";"))
+      continue;
     const separator = trimmed.indexOf("=");
     if (separator === -1) continue;
-    entries.set(trimmed.slice(0, separator).trim(), trimmed.slice(separator + 1).trim());
+    entries.set(
+      trimmed.slice(0, separator).trim(),
+      trimmed.slice(separator + 1).trim(),
+    );
   }
   return entries;
 }

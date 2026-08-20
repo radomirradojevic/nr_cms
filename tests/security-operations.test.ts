@@ -30,6 +30,18 @@ test("structured redaction keeps a sentinel out of error objects", () => {
   assert.equal(output.includes(SENTINEL), false);
 });
 
+test("structured redaction removes PII and secret-shaped values under generic fields", () => {
+  const output = JSON.stringify(
+    redactForLog({
+      detail: "buyer@example.test",
+      material: "nrls_secret_abcdefghijklmnopqrstuvwxyz0123456789",
+      safeCode: "issuer_unavailable",
+    }),
+  );
+  assert.doesNotMatch(output, /buyer@example\.test|nrls_secret_/);
+  assert.match(output, /issuer_unavailable/);
+});
+
 test("outbound guard rejects HTTP, loopback and credential URLs", () => {
   for (const value of [
     "http://license-server.nrcms.com",
