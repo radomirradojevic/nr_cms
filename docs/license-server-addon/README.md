@@ -113,6 +113,9 @@ izdaje licence za proizvode tog kupca.
 26. [security-threat-model.md](./security-threat-model.md) i
     [incident-response-runbook.md](./incident-response-runbook.md) — operativni
     trust-boundary pregled i procedure za security/recovery incidente.
+27. [25-prompt-14-sdk-consumer-evidence.md](./25-prompt-14-sdk-consumer-evidence.md)
+    — Prompt 14 dependency-free verifier, pinned keyset cache/refresh, javni
+    vektori, clean consumer fixture, finalni OpenAPI modeli i V1 → V2 vodič.
 
 ## Oznake stanja
 
@@ -181,8 +184,13 @@ Dok se implementacija ne uskladi sa ciljem, trenutno stanje proveravati u:
 - `.private/license-server-addon/src/lib/customer-license-assertion-v2.ts` —
   strogi V2 assertion, JWK verifier i `.nrls.json` envelope;
 - `.private/license-server-addon/src/lib/customer-license-verifier.ts` i
-  `test-vectors/customer-license-assertion-v2.json` — CMS-nezavisni javni
-  verifier i jezički neutralni vektori;
+  `src/lib/customer-license-consumer.ts` — CMS-nezavisni strogi verifier i
+  pinned issuer/keyset cache/refresh klijent;
+- `.private/license-server-addon/test-vectors/customer-license-assertion-v2.json`,
+  `customer-license-consumer-v2.json` i `examples/typescript-consumer/` —
+  jezički neutralni vektori i clean copyable consumer fixture;
+- `.private/license-server-addon/src/api/v2-contract.ts` — autoritativne stroge
+  V2 request/response schema-e iz kojih nastaje packed OpenAPI 3.1 dokument;
 - `.private/license-server-addon/src/addon.tsx` — jedini funkcionalni
   development/release ulaz; `src/release-addon.tsx` je compatibility re-export;
 - `lib/license-server-addon/operations-cron-adapter.ts` i

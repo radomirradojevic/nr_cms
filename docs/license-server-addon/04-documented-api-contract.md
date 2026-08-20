@@ -135,12 +135,15 @@ Public:
 ```json
 {
   "contractVersion": "2",
+  "apiVersions": ["1", "2"],
   "issuerRef": "cms-a1b2c3d4",
   "issuer": "urn:nrc:customer:cms-a1b2c3d4",
+  "environment": "production",
   "keysetUrl": "/api/license-server/v2/keys",
   "keysetRevision": 4,
   "assertionTypes": ["NRC-CUSTOMER-LICENSE+JWT"],
-  "algorithms": ["EdDSA"]
+  "algorithms": ["EdDSA"],
+  "status": "active"
 }
 ```
 
@@ -241,7 +244,11 @@ Uspešan rezultat:
       "profile": { "sku": "desktop-pro", "revision": 7 },
       "issuedAt": "2026-08-13T10:00:00Z",
       "expiresAt": null,
-      "claimSchema": { "version": "2.0.0", "hash": "sha256:..." }
+      "claimSchema": {
+        "id": "studio-claims",
+        "version": "2.0.0",
+        "hash": "sha256:..."
+      }
     }
   }
 }
@@ -288,23 +295,47 @@ ne resume-uje suspendovanu licencu.
 
 ### `POST /licenses/activate`
 
-Ulaz: license key, audience, activation type, normalizovani fingerprint/domain i
-client request ID. Izlaz:
+Tačan ulaz ima `contractVersion`, `licenseKey`, `audience`, `activationType` i
+`clientRequestId`, uz opcione `appId`, `appVersion`, `deviceFingerprint`,
+`deviceLabel`, `domain`, `platform` i `seatId`. Ne postoji ugnježdeno
+`activation` request polje. Izlaz:
 
 - activation ID i reveal-once activation token;
 - signed kratkoživi lease/assertion;
-- effective policy/limits potrebni aplikaciji;
+- `customClaims`, `features`, `limits`, `licenseId`, business `status` i expiry;
 - `nextValidationAt` i `offlineGraceEndsAt`.
+
+Tačan response envelope je:
+
+```json
+{
+  "activation": { "id": "act_...", "token": "reveal-once-token" },
+  "assertion": "eyJ...",
+  "assertionExpiresAt": "2026-08-13T11:00:00.000Z",
+  "contractVersion": "2",
+  "customClaims": { "organizationId": "org_42" },
+  "expiresAt": "2027-08-13T10:00:00.000Z",
+  "features": ["reports"],
+  "licenseId": "lic_...",
+  "limits": { "devices": 2, "domains": null, "seats": null },
+  "nextValidationAt": "2026-08-14T10:00:00.000Z",
+  "offlineGraceEndsAt": "2026-08-20T10:00:00.000Z",
+  "serverTime": "2026-08-13T10:00:00.000Z",
+  "status": "active"
+}
+```
 
 Generički javni error ne otkriva da li konkretan ključ postoji pre nego što se
 primeni odgovarajući abuse control.
 
 ### `POST /licenses/validate`
 
-Ulaz: activation ID/token, audience i opcioni current assertion ID. Izlaz:
+Ulaz ima `contractVersion`, `activationId`, `activationToken` i `audience`, uz
+opcione `currentAssertionId`, `appVersion`, `deviceFingerprint`, `domain` i
+`seatId`. Izlaz:
 
 - `valid: true/false`;
-- stabilni reason code;
+- `reason: null` kada je validno ili stabilni `license_not_valid` kada nije;
 - status, server time, next validation/grace;
 - novi signed lease kada je validno;
 - effective features/limits/custom claims.
@@ -371,28 +402,48 @@ privremeni V1 wrapper nad istim scheduler-om.
 
 ## 10. Mašinski proverljiv ugovor
 
-OpenAPI 3.1 dokument se generiše iz istih Zod request schema-a koje runtime
-primenjuje. Dostupan je kao `GET /api/license-server/v2/openapi.json`, ulazi u
-release artifact inventory i paket ga izvozi kao
-`@nr-cms/license-server/openapi-v2`. Statički NRLS2 exact-byte vektor paket
-izvozi kao `@nr-cms/license-server/test-vectors/nrls2-hmac-v2`.
+OpenAPI 3.1 dokument se generiše iz istih strogih Zod request i response schema-a
+za health, issuer, keyset, catalog, operation i runtime tokove. Dostupan je kao
+`GET /api/license-server/v2/openapi.json`, ulazi u release artifact inventory i
+paket ga izvozi kao `@nr-cms/license-server/openapi-v2`. Javni error-i svuda
+referenciraju isti `ErrorEnvelope`.
 
-## 11. Kompatibilnost
+Language-neutral export-i su:
 
-- V1 je zamrznut. V2 odgovori dokumentovano nose samo contract/supported-version
-  headere iz odeljka 2; `Deprecation` i `Sunset` se još ne šalju jer datum nije
-  odobren.
-- Datum V1 deprecation-a određuje se tek kada local V2, HTTP V2 i podržani
-  Webshop E2E tokovi prođu, uz release notes i period migracije.
-- Capability V1 i postojeći SDK import ostaju bez breaking izmene dok svi
-  podržani Webshop release-i ne pređu na V2.
-- V1 adapter mapira samo podatke koje V1 zaista poseduje. Ne izmišlja profile
-  revision, custom claims, lifecycle rezultat ili receipt; novi V2 tok zato
-  fail-uje kontrolisano kada V2 nije izložen.
-- Catalog oglašava minimalnu i maksimalnu podržanu contract verziju.
-- Breaking claim/profile promena zahteva novu profile revision, ne tiho menjanje.
-- Consumer mora ignorisati samo eksplicitno označena forward-compatible polja;
-  security-critical nepoznati `alg`, `typ`, version ili action se odbijaju.
+- `@nr-cms/license-server/test-vectors/nrls2-hmac-v2` — integrator HMAC;
+- `@nr-cms/license-server/test-vectors/customer-license-assertion-v2` — strogi
+  potpis/time/rotation vektori;
+- `@nr-cms/license-server/test-vectors/customer-license-consumer-v2` — issuer,
+  keyset, activation, validate, file, feature, quota i organization primeri;
+- `@nr-cms/license-server/verifier` — dependency-free sync i pinned/cache klijent;
+- `@nr-cms/license-server/examples/typescript-consumer` — kopirljiv consumer
+  modul koji koristi samo javne endpoint-e.
+
+## 11. V1 → V2 upgrade i deprecation vodič
+
+1. **Inventar:** postojeći integrator beleži da li koristi HTTP V1 ili local
+   `customerLicenseIssuer.v1`; V1 ostaje zamrznut i ne dobija V2 claims,
+   lifecycle ili receipt semantiku.
+2. **Discovery/pin:** pre issue migracije čita V2 `/issuer`, administratorski
+   potvrđuje `issuerRef`, čuva očekivani `issuer` i preuzima V2 katalog.
+3. **Dual-read, single-write:** consumer aplikacije prvo uvode Assertion V2
+   verifier i vektore. Novi issue se zatim prebacuje na V2; isti order item se ne
+   šalje paralelno kroz V1 i V2.
+4. **Operation model:** timeout postaje poll iste V2 operacije. Ne emulira se V1
+   sinhroni rezultat, niti se generiše novi idempotency key.
+5. **Runtime:** activation/validate koriste samo public runtime credential-e;
+   HMAC ostaje isključivo server-to-server integrator tajna.
+6. **Cutover dokaz:** local V2, HTTP V2, Webshop restart/duplicate i clean
+   consumer test moraju biti zeleni pre gašenja V1 poziva.
+7. **Deprecation:** `Deprecation`/`Sunset` header i datum nisu objavljeni dok
+   vlasnik proizvoda ne odobri release notes, support period i rollback plan.
+   Do tada capability V1 i postojeći SDK import ostaju kompatibilni.
+
+V1 adapter mapira samo podatke koje V1 zaista poseduje; ne izmišlja profile
+revision, custom claims, lifecycle rezultat ili receipt. Issuer descriptor
+oglašava podržane API verzije. Breaking claim/profile promena zahteva novu
+immutable profile revision. Security-critical nepoznati `alg`, `typ`, `v`,
+issuer, audience ili action se uvek odbijaju.
 
 Formalna odluka i deprecation uslovi su u
 [`ADR-0001`](./adr/0001-customer-issuer-v2-boundary.md).

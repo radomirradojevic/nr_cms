@@ -61,12 +61,12 @@ Zabranjeno:
 
 Svaki claim ima jednu klasu:
 
-| Klasa | Potpisani assertion | Customer prikaz/download | Admin/audit |
-| --- | --- | --- | --- |
-| `public_runtime` | Da | Da | Da |
-| `customer_visible` | Da | Da | Da |
-| `runtime_hidden_ui` | Da | Ne prikazuje se običnom UI-u | Da, uz permission |
-| `internal_only` | Ne | Ne | Ograničeno |
+| Klasa               | Potpisani assertion | Customer prikaz/download     | Admin/audit       |
+| ------------------- | ------------------- | ---------------------------- | ----------------- |
+| `public_runtime`    | Da                  | Da                           | Da                |
+| `customer_visible`  | Da                  | Da                           | Da                |
+| `runtime_hidden_ui` | Da                  | Ne prikazuje se običnom UI-u | Da, uz permission |
+| `internal_only`     | Ne                  | Ne                           | Ograničeno        |
 
 `runtime_hidden_ui` nije tajna: svako ko poseduje assertion može dekodirati
 payload. Za pravu tajnu koristiti drugi namenski secrets/provisioning sistem.
@@ -279,10 +279,10 @@ Payload V2 ima tačno sledeća polja:
 - `profile: { sku, revision, hash }`;
 - `schema: { id, version, hash } | null`;
 - `policy: { hash, features, limits: { devices, domains, seats },
-  validationIntervalSeconds, offlineGraceSeconds }`;
+validationIntervalSeconds, offlineGraceSeconds }`;
 - `claims`, iz kojih je `internal_only` fail-closed projekcijom isključen;
 - `business: { status, notBefore, licenseValidUntil,
-  maintenanceValidUntil, graceEndsAt }`;
+maintenanceValidUntil, graceEndsAt }`;
 - `receipt: { id } | null` i `activation: { id } | null`.
 
 Assertion se potpisuje Ed25519 customer issuer ključem isključivo iz DB reda
@@ -296,8 +296,9 @@ a business validity se proverava zasebno od kratkog `exp`.
 Javni verification metadata endpoint-i su:
 
 - `GET /api/license-server/v2/issuer` — descriptor sa nepromenljivim
-  `issuerRef`, `issuer`, statusom `active|recovery_required`, aktivnim `kid`-om i
-  `keysetRevision`;
+  `issuerRef`, `issuer`, environment/API verzijama, statusom
+  `active|recovery_required`, `keysetUrl` i `keysetRevision`; descriptor ne bira
+  ključ iz assertion-a;
 - `GET /api/license-server/v2/keys` — verification-only Ed25519 JWK Set (`OKP`,
   `Ed25519`, bez privatnog materijala).
 
@@ -308,13 +309,21 @@ clock-skew prozora, pa se više ne objavljuje. Ako aktivni privatni ključ ne mo
 da se dešifruje/proveri, issuer prelazi u `recovery_required`; sistem ne generiše
 tiho novi issuer ili ključ.
 
-Paket izvozi CMS-nezavisni TypeScript/JavaScript reference verifier preko
-`@nr-cms/license-server/verifier` i jezički neutralne vektore preko
-`@nr-cms/license-server/test-vectors/customer-license-assertion-v2`. Vektori
-pokrivaju valid, tampered, expired, not-yet-valid, pogrešan issuer/audience/
-version/typ/alg, nepoznat `kid`, normalnu rotaciju i malformed token. Legacy V1
-ostaje eksplicitno `v: 1` sa `typ: NRC-CUSTOMER-LICENSE-V1+JWT`; V2 verifier ga
-odbija i nema silent reinterpretacije.
+Paket izvozi CMS-nezavisni TypeScript/JavaScript verifier preko
+`@nr-cms/license-server/verifier`. Pored sinhronog verifier-a sa eksplicitnim
+keyset-om, export sadrži pinned issuer klijent sa bounded ETag/cache ponašanjem,
+deduplikovanim refresh-om i tačno jednim refresh pokušajem za nepoznat `kid`.
+Jezički neutralni assertion vektori su u
+`@nr-cms/license-server/test-vectors/customer-license-assertion-v2`, a javni
+issuer/runtime/file/feature/quota/organization primeri u
+`@nr-cms/license-server/test-vectors/customer-license-consumer-v2`. Kopirljiv
+modul je `@nr-cms/license-server/examples/typescript-consumer`.
+
+Vektori pokrivaju valid, tampered, expired, not-yet-valid, pogrešan issuer/
+audience/version/typ/alg, nepoznat `kid`, normalnu rotaciju i malformed token.
+Legacy V1 ostaje eksplicitno `v: 1` sa
+`typ: NRC-CUSTOMER-LICENSE-V1+JWT`; V2 verifier ga odbija i nema silent
+reinterpretacije.
 
 Za download se koristi `.nrls.json` envelope:
 

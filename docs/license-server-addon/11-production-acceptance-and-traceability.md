@@ -406,3 +406,22 @@ Sva četiri `npm audit --audit-level=high` stabla imaju 0 vulnerabilities. Jedin
 rezidualni supply-chain warning je šest optional Tailwind WASI lockfile zapisa
 bez `resolved/integrity` metadata-e; nije critical/high i eksplicitno je opisan u
 Prompt 13 evidence-u. Production publish/deploy i live traffic nisu izvršeni.
+
+## 24. Status posle Prompt-a 14
+
+Prompt 14 evidence:
+[25-prompt-14-sdk-consumer-evidence.md](./25-prompt-14-sdk-consumer-evidence.md).
+
+| ID            | Status                                  | Dokaz / preostali gate                                                                                                                                                                                  |
+| ------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DX-01         | **zelen**                               | OpenAPI 3.1 sada generiše stroge request i response modele za public discovery/runtime, catalog i operation tokove; error envelope i finalna imena se proveravaju protiv consumer vektora.              |
+| DX-02         | **zelen**                               | Release izvozi dependency-free verifier, pinned issuer/keyset cache klijent i dva language-neutral vector export-a; čist projekat instalira samo packed paket, TypeScript-kompajlira i izvršava primer. |
+| DX-04         | **zelen**                               | Copyable fixture koristi samo public package export-e i public issuer/runtime endpoint-e; static/pack scan odbija privatne importe, HMAC, private/Master i server secret materijal.                     |
+| DX-05         | **zelen**                               | Docs/04 ima eksplicitan V1 → V2 discovery, dual-read/single-write, operation, runtime, cutover i deprecation vodič bez izmišljenog Sunset datuma.                                                       |
+| CRYPTO-01..03 | **zeleni, potvrđeni consumer matricom** | Strogi `alg/typ/v/iss/aud/kid/signature/time`, normalna old/new rotacija, ETag cache i tačno jedan unknown-kid refresh prolaze u source i packed clean-consumer testu.                                  |
+
+`npm run test:consumer` ne koristi monorepo source import: pravi novi privremeni
+projekat, instalira samo lokalni tarball, proverava lockfile dependency granicu,
+kompajlira packed TypeScript primer i izvršava offline file, activation, online
+validate, feature, quota i organization binding. Production publish/deploy i
+live customer issuer nisu pozvani.
