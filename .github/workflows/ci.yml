@@ -45,6 +45,11 @@ jobs:
       - name: Frozen install
         run: npm ci --ignore-scripts
 
+      - name: Generate fail-closed public add-on registry
+        env:
+          NR_ADDON_SOURCE_MODE: empty
+        run: npm run addons:registry
+
       - name: Test database migration
         run: npm run db:migrate:test
 

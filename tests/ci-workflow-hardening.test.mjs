@@ -45,6 +45,14 @@ test("GitHub workflows are pinned, least-privilege, and never run untrusted PR c
     assert.match(source, new RegExp(PINNED_ACTIONS.checkout));
     assert.match(source, new RegExp(PINNED_ACTIONS.setupNode));
   }
+
+  const ci = readWorkflow("ci.yml");
+  assert.match(ci, /NR_ADDON_SOURCE_MODE:\s*empty/);
+  assert.match(ci, /npm run addons:registry/);
+  assert.ok(
+    ci.indexOf("npm run addons:registry") < ci.indexOf("npm run typecheck"),
+    "clean public CI must generate the empty registry before typecheck",
+  );
 });
 
 test("Night Raven private, staging, and production gates require protected manual environments", () => {
