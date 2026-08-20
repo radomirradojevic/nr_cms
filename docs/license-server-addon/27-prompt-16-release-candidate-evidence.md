@@ -151,6 +151,7 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | GitHub Private Release Verification, run `32413928892` | **PASS** — protected GitHub-hosted clean checkout, staging potpis, oba add-on build/test/pack ciklusa i isolated packed-host smoke              |
 | GitHub Public CI, commit `8046d94`, run `32416627151`  | **PASS** — sva četiri workflow-a kroz checksum-pinovan actionlint/hosted ShellCheck, zatim kompletan frozen public verification                 |
 | GitHub Public CI, commit `824ff0b`, run `32418106892`  | **PASS** — evidence-directory binding, fail-closed input provisioner, 391 test, packed build/NFT i supply-chain audit                           |
+| GitHub Public CI, commit `2111122`, run `32420508525`  | **PASS** — prenosivi runner, odvojen operator identitet, exact Playwright/control-plane evidence, 398 testova i packed/NFT/supply-chain gate    |
 | GitHub Actions runtime pinovi                          | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti            |
 
 Master DB suite uključuje generički immutable draft/import/publish/select
@@ -215,6 +216,13 @@ pokrenut sa `--apply` bez tih operator-kontrolisanih ulaza. Commit
 `824ff0b6a3498a234f382aa5908bf06ea43c2b6a` potvrđen je GitHub Public CI run-om
 [`32418106892`](https://github.com/radomirradojevic/nr_cms/actions/runs/32418106892),
 završenim u `21:14:11Z` statusom **success** za 2m46s.
+
+Runner source/build i stroži harness zatim su potvrđeni na commit-u
+`211112261076d438c4347ebbcf5ddbd545b22e4b` kroz GitHub Public CI run
+[`32420508525`](https://github.com/radomirradojevic/nr_cms/actions/runs/32420508525),
+završen u `21:41:59Z` statusom **success** za 2m19s. Ovaj hosted dokaz ne menja
+NO-GO: acceptance control-plane, tri stvarna credential-a i staging scenario
+rezultati još nisu provisionovani.
 
 ## 7. Canary i rollback/forward-fix plan
 

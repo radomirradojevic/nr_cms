@@ -298,3 +298,14 @@ nastao implicitni invalid-workflow failure za manualni staging workflow.
 Acceptance config/identity secrets, pregledani Linux scenario-runner artefakt sa
 pinovanim digestom i dostupni HTTPS staging endpoint-i još nisu potvrđeni. Zato
 puni staging workflow još nije pokrenut i ova stavka ostaje staging `NO_GO`.
+
+Prenosivi launcher, odvojeni operator identitet i stroža Playwright/control-plane
+evidence granica implementirani su na commit-u
+`211112261076d438c4347ebbcf5ddbd545b22e4b`. GitHub Public CI run
+[`32420508525`](https://github.com/radomirradojevic/nr_cms/actions/runs/32420508525)
+je 20. avgusta 2026. od `21:39:40Z` do `21:41:59Z` završio statusom
+**success**: workflow validation, frozen install, test DB migracija, 398-test
+matrica, packed public-copy build/NFT boundary i supply-chain audit su zeleni.
+To potvrđuje launcher i njegov GitHub-hosted ugovor, ali nije dokaz da postoji
+stvarni staging acceptance control-plane niti da je ijedan staging scenario
+izvršen.
