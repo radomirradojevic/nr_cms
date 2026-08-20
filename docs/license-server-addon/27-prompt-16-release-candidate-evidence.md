@@ -1,7 +1,7 @@
 # Prompt 16 — release candidate i kontrolisani rollout evidence
 
 Datum pripreme: **20. avgust 2026.**  
-Odluka: **NO-GO / LOCAL RC PIPELINE READY / NOT PUBLISHED**
+Odluka: **NO-GO / GITHUB-HOSTED RC VERIFICATION READY / NOT PUBLISHED**
 
 Ovaj zapis primenjuje `09-release-runbook.md` na finalni Prompt 15 audit. U ovom
 koraku nisu izvršeni package publish, stvarni Master draft import/publish,
@@ -59,13 +59,13 @@ gate, ne SemVer sufiksom.
 | ----------------------- | ----------------------------------------------- |
 | package                 | `@nr-cms/license-server@0.2.0`                  |
 | License Server source   | `6bdb1c8c06a062bd98313af941d774fa535b1f99`      |
-| CMS baseline            | `6ec56554b1fd902c546c5e7d6bd669b15c857001`      |
+| CMS baseline            | `9c1ed9042642e9c82cd57d26db4f481ac2c537c6`      |
 | centralni Master        | `8fa03719a6040613ab6c796a31b2b87ff5640dcf`      |
 | deployment worker       | `e6c5755a93e4c6cba534caa4262cfdcf6273b406`      |
 | manifest contract       | `NRV-ADDON-RELEASE-MANIFEST-V2+JWS`             |
 | publication contract    | `NRV-ADDON-RELEASE-PUBLICATION-ATTESTATION+JWS` |
-| release ID              | `e7a58f8a-d02e-54c9-98ec-3de822647613`          |
-| source `releasedAt`     | `2026-08-20T17:47:21.000Z`                      |
+| release ID              | `4b7e7030-4b72-5399-a008-b84765213d4a`          |
+| source `releasedAt`     | `2026-08-20T20:22:49.000Z`                      |
 | add-on schema           | `8`, supported `1..8`                           |
 | CMS / Next / Node range | `^0.1.0` / `16.3.0` / `>=20.9.0 <25.0.0`        |
 | lokalni toolchain       | Node `24.15.0`, npm `11.12.1`, Next `16.3.0`    |
@@ -135,20 +135,21 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 
 ## 6. Izvršene lokalne kapije
 
-| Komponenta / komanda                                  | Rezultat                                                                                                                                        |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| License Server `npm run test:db:local`                | **113/113 PASS**, 0 skip                                                                                                                        |
-| License Server `npm run typecheck`                    | **PASS** release + host                                                                                                                         |
-| License Server `npm run pack:verify`                  | **PASS**, dva byte-identical pack-a za isti build/key                                                                                           |
-| `npm run test:release:master-roundtrip`               | **PASS**, producer/Master/worker/packed CMS                                                                                                     |
-| centralni Master `npm run test:db`                    | **81/81 PASS**, 0 skip                                                                                                                          |
-| centralni Master `npm run typecheck`                  | **PASS**                                                                                                                                        |
-| deployment worker `npm run test:db`                   | **85/85 PASS**, 0 skip                                                                                                                          |
-| deployment worker `npm run lint` / `typecheck`        | **PASS / PASS**                                                                                                                                 |
-| root CMS `npm run test`                               | **378 PASS**, 0 fail, 10 environment-gated skip                                                                                                 |
-| root CMS `npm run lint` / `typecheck`                 | **PASS sa 12 postojećih warning-a / PASS**                                                                                                      |
-| GitHub Public CI, commit `6c82666`, run `32405089428` | **PASS** — clean checkout/install, fail-closed registry, DB migracije, testovi, packed public-copy build/NFT boundary i public dependency audit |
-| GitHub Actions runtime pinovi                         | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti            |
+| Komponenta / komanda                                   | Rezultat                                                                                                                                        |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| License Server `npm run test:db:local`                 | **113/113 PASS**, 0 skip                                                                                                                        |
+| License Server `npm run typecheck`                     | **PASS** release + host                                                                                                                         |
+| License Server `npm run pack:verify`                   | **PASS**, dva byte-identical pack-a za isti build/key                                                                                           |
+| `npm run test:release:master-roundtrip`                | **PASS**, producer/Master/worker/packed CMS                                                                                                     |
+| centralni Master `npm run test:db`                     | **81/81 PASS**, 0 skip                                                                                                                          |
+| centralni Master `npm run typecheck`                   | **PASS**                                                                                                                                        |
+| deployment worker `npm run test:db`                    | **85/85 PASS**, 0 skip                                                                                                                          |
+| deployment worker `npm run lint` / `typecheck`         | **PASS / PASS**                                                                                                                                 |
+| root CMS `npm run test`                                | **378 PASS**, 0 fail, 10 environment-gated skip                                                                                                 |
+| root CMS `npm run lint` / `typecheck`                  | **PASS sa 12 postojećih warning-a / PASS**                                                                                                      |
+| GitHub Public CI, commit `9c1ed90`, run `32413917814`  | **PASS** — clean checkout/install, fail-closed registry, DB migracije, testovi, packed public-copy build/NFT boundary i public dependency audit |
+| GitHub Private Release Verification, run `32413928892` | **PASS** — protected GitHub-hosted clean checkout, staging potpis, oba add-on build/test/pack ciklusa i isolated packed-host smoke              |
+| GitHub Actions runtime pinovi                          | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti            |
 
 Master DB suite uključuje generički immutable draft/import/publish/select
 catalog contract i poseban paid License Server staging-entitlement izbor.
@@ -163,6 +164,30 @@ checkout-ima. Rezultat je ostao zelen: release ID
 lokalni publication-attestation SHA-256
 `a095bbedcfb523fe710342703e4ec7234f6220b5d0cbd34873f86d293957ed8f`.
 Ovo je i dalje ephemeral lokalni authority dokaz, ne publish artefakt.
+
+Zaštićeni GitHub-hosted verification zatim je izvršen na `ubuntu-24.04`, Node
+`24.15.0`, nad CMS commit-om
+`9c1ed9042642e9c82cd57d26db4f481ac2c537c6` i tačno pinovanim privatnim
+source commit-ima iz odeljka 3. Run
+[`32413928892`](https://github.com/radomirradojevic/nr_cms/actions/runs/32413928892)
+završen je 20. avgusta 2026. u `20:29:13Z`, statusom **success**, posle 4m21s.
+Ručni environment approval komentar bio je
+`verification-only-no-publish-or-deployment`.
+
+| Hosted verification izlaz         | SHA-256                                                            |
+| --------------------------------- | ------------------------------------------------------------------ |
+| Webshop artifact inventory        | `33456bd9e2a496c4ba2b4329eb85f18641d8264293c6daffd8f14a91c4a9e70c` |
+| Webshop signed tarball            | `fc71fff1b26a1123facfdc5b01b8938f7222c2487401091108a5971e1ea5a555` |
+| License Server artifact inventory | `db9288fba679b103f9227e2edfbca535683f6b79dbbff4777e770ca624cdea4a` |
+| License Server signed tarball     | `e99bee337f972cc4f6701e45b6ccde707bb4490aa730f12715a6497941d1d308` |
+
+Webshop isolated host je potvrdio frozen install, Next `16.3.0` build, RSC,
+route i client import granice nad 384 runtime modula. License Server isolated
+host je potvrdio frozen install, Next `16.3.0` build, RSC/route import i
+`tarball-self-reference` granicu. Oba su potpisana staging-only KID-em
+`staging-release:1c78bf2cb70b0717`; production registry publish authority nije
+korišćen niti je kreiran publication attestation sa stvarnim registry version
+ID-em.
 
 ## 7. Canary i rollback/forward-fix plan
 

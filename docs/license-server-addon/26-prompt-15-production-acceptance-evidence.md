@@ -231,8 +231,15 @@ credential-i ostaju step-scoped i nisu dostupni checkout/setup/install
 koracima.
 
 Environment je kreiran 20. avgusta 2026. sa obaveznim ručnim reviewer gate-om
-za `radomirradojevic` i deployment politikom ograničenom na `master`. GitHub
-hosted workflow je pripremljen; repo deploy-key i staging signing reference su
-provisionovane, ali acceptance config/identity secrets i dostupni HTTPS staging
-endpoint-i još nisu potvrđeni. Zato puni staging workflow još nije pokrenut i
-ova stavka ostaje staging `NO_GO`.
+za `radomirradojevic` i deployment politikom ograničenom na `master`.
+GitHub-hosted private release verification je izvršen na CMS commit-u
+`9c1ed9042642e9c82cd57d26db4f481ac2c537c6`: run
+[`32413928892`](https://github.com/radomirradojevic/nr_cms/actions/runs/32413928892)
+je **PASS**. Prošao je sva četiri pinned checkout-a, staging signing,
+Webshop/License Server build-test-pack i oba isolated packed-host smoke-a.
+Webshop/License Server tarball SHA-256 vrednosti su redom
+`fc71fff1b26a1123facfdc5b01b8938f7222c2487401091108a5971e1ea5a555` i
+`e99bee337f972cc4f6701e45b6ccde707bb4490aa730f12715a6497941d1d308`.
+Acceptance config/identity secrets i dostupni HTTPS staging endpoint-i još nisu
+potvrđeni. Zato puni staging workflow još nije pokrenut i ova stavka ostaje
+staging `NO_GO`.
