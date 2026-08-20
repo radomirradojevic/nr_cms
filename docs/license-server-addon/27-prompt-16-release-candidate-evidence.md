@@ -149,6 +149,7 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | root CMS `npm run lint` / `typecheck`                  | **PASS sa 12 postojećih warning-a / PASS**                                                                                                      |
 | GitHub Public CI, commit `9c1ed90`, run `32413917814`  | **PASS** — clean checkout/install, fail-closed registry, DB migracije, testovi, packed public-copy build/NFT boundary i public dependency audit |
 | GitHub Private Release Verification, run `32413928892` | **PASS** — protected GitHub-hosted clean checkout, staging potpis, oba add-on build/test/pack ciklusa i isolated packed-host smoke              |
+| GitHub Public CI, commit `8046d94`, run `32416627151`  | **PASS** — sva četiri workflow-a kroz checksum-pinovan actionlint/hosted ShellCheck, zatim kompletan frozen public verification                 |
 | GitHub Actions runtime pinovi                          | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti            |
 
 Master DB suite uključuje generički immutable draft/import/publish/select
@@ -188,6 +189,19 @@ host je potvrdio frozen install, Next `16.3.0` build, RSC/route import i
 `staging-release:1c78bf2cb70b0717`; production registry publish authority nije
 korišćen niti je kreiran publication attestation sa stvarnim registry version
 ID-em.
+
+Staging workflow je dodatno zatvoren za GitHub-hosted izvršavanje na CMS
+commit-u `8046d94023347a9ed9e524d8d25a42e686d213f3`. Uklonjena je ranija
+nevažeća job-level upotreba `runner.temp`; ephemeral putanje se sada objavljuju
+iz runtime koraka preko `GITHUB_ENV`. Public CI run
+[`32416627151`](https://github.com/radomirradojevic/nr_cms/actions/runs/32416627151)
+je završio u `20:58:08Z` statusom **success** za 3m27s. Novi gate pre ostatka
+build-a preuzima tačno pinovan `actionlint 1.7.12`, proverava njegov Linux
+artefakt prema SHA-256
+`8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8` i
+validira sva četiri workflow-a uz hosted ShellCheck. Staging workflow je sada
+validan manualni `workflow_dispatch`; nije pokrenut niti je preskočen njegov
+environment approval.
 
 ## 7. Canary i rollback/forward-fix plan
 

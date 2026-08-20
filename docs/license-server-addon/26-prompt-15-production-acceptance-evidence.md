@@ -246,6 +246,14 @@ Webshop/License Server build-test-pack i oba isolated packed-host smoke-a.
 Webshop/License Server tarball SHA-256 vrednosti su redom
 `fc71fff1b26a1123facfdc5b01b8938f7222c2487401091108a5971e1ea5a555` i
 `e99bee337f972cc4f6701e45b6ccde707bb4490aa730f12715a6497941d1d308`.
+Hosted staging workflow portability i integritet runnera zatim su provereni na
+CMS commit-u `8046d94023347a9ed9e524d8d25a42e686d213f3`. GitHub Public CI run
+[`32416627151`](https://github.com/radomirradojevic/nr_cms/actions/runs/32416627151)
+je 20. avgusta 2026. završio statusom **PASS** u `20:58:08Z`. Njegov novi,
+checksum-pinovan `actionlint 1.7.12` + hosted ShellCheck gate proverio je sva
+četiri workflow-a; zatim su prošli frozen install, test DB migracija, static/unit,
+isolated public-copy build/NFT i supply-chain audit. Na tom commit-u više nije
+nastao implicitni invalid-workflow failure za manualni staging workflow.
 Acceptance config/identity secrets, pregledani Linux scenario-runner artefakt sa
 pinovanim digestom i dostupni HTTPS staging endpoint-i još nisu potvrđeni. Zato
 puni staging workflow još nije pokrenut i ova stavka ostaje staging `NO_GO`.
