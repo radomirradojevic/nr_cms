@@ -1,7 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
 
 import { getAddonI18nContext } from "@/lib/i18n/addon-server";
+import { readLicenseServerPermissionClaimsFromMetadata } from "@/lib/license-server-addon/contract";
 import { resolveLicenseServerAddonState } from "@/lib/license-server-addon/license";
+import { getOptionalCurrentUser } from "@/lib/optional-current-user";
+import { getRoles, hasRole } from "@/lib/roles";
 
 type RouteContext = {
   params: Promise<{ licenseServerPath?: string[] }>;
@@ -10,6 +13,16 @@ type RouteContext = {
 async function handleLicenseServerApi(request: Request, context: RouteContext) {
   const { userId } = await auth();
   const { licenseServerPath = [] } = await context.params;
+  const isAdminRoute = licenseServerPath[0] === "admin";
+  const user = isAdminRoute ? await getOptionalCurrentUser() : null;
+  const isAdmin = Boolean(
+    userId &&
+    user?.id === userId &&
+    hasRole(getRoles(user.publicMetadata), "admin"),
+  );
+  const permissionClaims = isAdminRoute
+    ? readLicenseServerPermissionClaimsFromMetadata(user?.publicMetadata)
+    : [];
   const addonState = await resolveLicenseServerAddonState();
 
   if (
@@ -21,10 +34,12 @@ async function handleLicenseServerApi(request: Request, context: RouteContext) {
 
     return addonState.addon.handleApiRoute({
       i18n,
+      isAdmin,
       licenseMode:
         addonState.status === "ready" ? "ready" : "edit_existing_only",
       method: request.method,
       path: licenseServerPath,
+      permissionClaims,
       request,
       userId,
     });

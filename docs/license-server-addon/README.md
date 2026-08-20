@@ -104,6 +104,9 @@ izdaje licence za proizvode tog kupca.
 23. [22-prompt-11-runtime-lifecycle-evidence.md](./22-prompt-11-runtime-lifecycle-evidence.md)
     — Prompt 11 runtime aktivacija, atomic limit, signed lease/offline odluka i
     Webshop-to-issuer lifecycle dokaz.
+24. [23-prompt-12-production-admin-evidence.md](./23-prompt-12-production-admin-evidence.md)
+    — Prompt 12 packed produkcioni admin, granularni permission-i, support
+    mutacije, šifrovani reveal-once artifact-i i clean Next host dokaz.
 
 ## Oznake stanja
 

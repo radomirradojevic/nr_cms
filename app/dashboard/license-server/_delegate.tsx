@@ -13,6 +13,7 @@ import type { TextDirection } from "@/lib/i18n/types";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { resolveLicenseServerAddonState } from "@/lib/license-server-addon/license";
+import { readLicenseServerPermissionClaimsFromMetadata } from "@/lib/license-server-addon/contract";
 
 export async function renderLicenseServerDashboardPath(
   path: string[],
@@ -21,6 +22,9 @@ export async function renderLicenseServerDashboardPath(
   const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) redirect("/dashboard");
+  const permissionClaims = readLicenseServerPermissionClaimsFromMetadata(
+    user?.publicMetadata,
+  );
 
   const addonState = await resolveLicenseServerAddonState();
   const i18n = await getAddonI18nContext();
@@ -31,6 +35,7 @@ export async function renderLicenseServerDashboardPath(
       i18n,
       licenseMode: "ready",
       path,
+      permissionClaims,
       searchParams,
       userId: user!.id,
     });
@@ -47,6 +52,7 @@ export async function renderLicenseServerDashboardPath(
       i18n,
       licenseMode: "edit_existing_only",
       path,
+      permissionClaims,
       searchParams,
       userId: user!.id,
     });

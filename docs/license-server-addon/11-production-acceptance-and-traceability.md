@@ -352,15 +352,32 @@ izolovani DB, contract, package i Next 16.3 host dokaz iz evidence dokumenta.
 Prompt 11 evidence:
 [22-prompt-11-runtime-lifecycle-evidence.md](./22-prompt-11-runtime-lifecycle-evidence.md).
 
-| ID | Status | Dokaz / preostali gate |
-| --- | --- | --- |
-| LIFE-01 | **zelen** | Issuer i Webshop imaju strogu idempotentnu renew/suspend/resume/revoke/refund/chargeback state mašinu; terminalna licenca nema običan resume, a reason code/hash je auditovan. |
+| ID      | Status                            | Dokaz / preostali gate                                                                                                                                                                                                   |
+| ------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| LIFE-01 | **zelen**                         | Issuer i Webshop imaju strogu idempotentnu renew/suspend/resume/revoke/refund/chargeback state mašinu; terminalna licenca nema običan resume, a reason code/hash je auditovan.                                           |
 | LIFE-02 | **zelen za code/isolated DB tok** | Samo prihvaćen payment/subscription fact pravi outbox; customer local/remote lifecycle polluje durable issuer operation, a refund/chargeback opoziva activations i online validaciju. Live provider ostaje staging gate. |
-| RUN-01 | **zelen** | Izolovani PostgreSQL test sa 128 paralelnih zahteva potvrđuje da device/server shared bucket nikad ne prelazi `maxDevices`. |
-| RUN-02 | **zelen** | Device/server/domain/seat/floating matrica, kanonizacija/hash i hash-only activation token su pokriveni unit + DB testom. |
-| RUN-03 | **zelen** | Assertion TTL ≤ 3600 s, 60 s default skew, online reject, issuer-outage grace i grace-expired clock vektori daju eksplicitnu odluku. |
-| RUN-04 | **zelen** | Suspend/refund/revoke/chargeback odbijaju online validate; terminalna akcija opoziva aktivacije i kasni resume ostaje dead-letter bez promene statusa. |
+| RUN-01  | **zelen**                         | Izolovani PostgreSQL test sa 128 paralelnih zahteva potvrđuje da device/server shared bucket nikad ne prelazi `maxDevices`.                                                                                              |
+| RUN-02  | **zelen**                         | Device/server/domain/seat/floating matrica, kanonizacija/hash i hash-only activation token su pokriveni unit + DB testom.                                                                                                |
+| RUN-03  | **zelen**                         | Assertion TTL ≤ 3600 s, 60 s default skew, online reject, issuer-outage grace i grace-expired clock vektori daju eksplicitnu odluku.                                                                                     |
+| RUN-04  | **zelen**                         | Suspend/refund/revoke/chargeback odbijaju online validate; terminalna akcija opoziva aktivacije i kasni resume ostaje dead-letter bez promene statusa.                                                                   |
 
 Admin UI eksplicitno upozorava da refund/revoke ne može retroaktivno poništiti
 već izdat dugovečni offline dokument. Production outage drill, live subscription
 provider i publish/deploy ostaju release gate-ovi.
+
+## 22. Status posle Prompt-a 12
+
+Prompt 12 evidence:
+[23-prompt-12-production-admin-evidence.md](./23-prompt-12-production-admin-evidence.md).
+
+| ID          | Status                                    | Dokaz / preostali gate                                                                                                                                                                                                           |
+| ----------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-01      | **zelen**                                 | Svih 23 server action tokova ponavlja host/admin, canonical granular permission i license-mode proveru. Admin reveal route je trusted-host-auth, permission i actor-bound; UI visibility nije jedina kontrola.                   |
+| DX-03       | **zelen**                                 | Packed Profile/Schema wizard ima source-allowlisted effective-claims preview, a assertion verifier proverava audience i potpis. Rezultati su encrypted reveal-once download, ne query/log payload.                               |
+| PKG-02      | **zelen za Prompt 12 parity**             | Packed Next 16.3 host renderuje overview, API clients/scopes, products, profiles/schemas, licenses, activations, operations/dead letters, events, docs, keys/backup, audit i verifier; API/capability/jobs parity ostaje zelena. |
+| DATA-01..04 | **zeleni, potvrđeni schema 8 upgrade-om** | `0008_production_admin_support.sql` je aditivan, checksum/inventory-bound i retain-by-default; empty/upgrade/rerun/old-write PostgreSQL test prolazi.                                                                            |
+
+Live Clerk permission provisioning, production publish/deploy, alerting i
+periodični operator restore drill ostaju release gate-ovi. Lokalni CMS build je
+zaustavljen pre Next faze jer lokalni `.env` nema managed deployment worker
+credential-e; clean packed Next 16.3 production build i HTTP render su zeleni.

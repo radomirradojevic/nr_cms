@@ -20,6 +20,9 @@ export type LicenseServerDashboardInput = {
   i18n?: AddonI18nContext;
   licenseMode: LicenseServerLicenseMode;
   path: readonly string[];
+  /** null preserves the legacy all-permissions admin contract; an explicit
+   * array is granular and fail-closed inside the packed add-on. */
+  permissionClaims?: readonly string[] | null;
   searchParams?: Record<string, string | string[] | undefined>;
   userId: string;
 };
@@ -28,9 +31,12 @@ export type LicenseServerDashboardPathInput = LicenseServerDashboardInput;
 
 export type LicenseServerApiRouteInput = {
   i18n?: AddonI18nContext;
+  /** Trusted host authorization snapshot. Admin routes fail closed when absent. */
+  isAdmin?: boolean;
   licenseMode: LicenseServerLicenseMode;
   method: string;
   path: readonly string[];
+  permissionClaims?: readonly string[] | null;
   request: Request;
   userId: string | null;
 };
@@ -130,6 +136,21 @@ export type LicenseServerAddonModule =
         | LicenseServerAddon
         | Promise<LicenseServerAddon>;
     };
+
+export function readLicenseServerPermissionClaimsFromMetadata(
+  publicMetadata: unknown,
+): readonly string[] | null {
+  if (!publicMetadata || typeof publicMetadata !== "object") return null;
+  const value = (publicMetadata as Record<string, unknown>)[
+    "licenseServerPermissions"
+  ];
+  if (value === undefined) return null;
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (entry): entry is string =>
+      typeof entry === "string" && entry.length > 0 && entry.length <= 160,
+  );
+}
 
 export function isLicenseServerAddon(
   value: unknown,

@@ -1701,6 +1701,40 @@ export const licenseServerAuditEvents = pgTable(
   ],
 );
 
+/** Short-lived, actor-bound handoff for admin secrets and encrypted backup
+ * artifacts. Only the token hash and an envelope-encrypted payload are stored. */
+export const licenseServerAdminReveals = pgTable(
+  "license_server_admin_reveals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tokenHash: text("token_hash").notNull(),
+    actorUserId: text("actor_user_id").notNull(),
+    kind: text("kind").notNull(),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    payloadEncrypted: text("payload_encrypted").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("license_server_admin_reveals_token_hash_unique").on(
+      table.tokenHash,
+    ),
+    check(
+      "license_server_admin_reveals_kind_check",
+      sql`${table.kind} IN ('api_client_secret','license_key','issuer_backup','assertion_verification','claim_preview')`,
+    ),
+    index("license_server_admin_reveals_expiry_idx").on(table.expiresAt),
+    index("license_server_admin_reveals_actor_idx").on(
+      table.actorUserId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const licenseServerValidationEvents = pgTable(
   "license_server_validation_events",
   {

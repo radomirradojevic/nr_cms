@@ -44,6 +44,7 @@ odvojene privilegije:
 - `license_server.license.lifecycle`;
 - `license_server.activation.reset`;
 - `license_server.client.manage`;
+- `license_server.operation.replay`;
 - `license_server.keys.manage`;
 - `license_server.backup.export_restore`;
 - `license_server.audit.view`.
@@ -301,3 +302,25 @@ Konkretne komande, contract/security/DB rezultati i paket digest nalaze se u
 [Prompt 07 evidence dokumentu](./18-prompt-07-http-api-evidence.md). Full
 multi-process/load dokaz za produkcioni rate-limit kapacitet ostaje release gate;
 unit/DB granica i zajednički distributed bucket su dokazani ovim promptom.
+
+## 15. As-built produkcioni admin posle Prompt-a 12
+
+- canonical `license_server.*` permission-i i `edit_existing_only` operation
+  matrica koriste se i u UI-u i nezavisno na svakoj od 23 server action granice;
+  host admin/session provera, permission i license mode fail-uju zatvoreno;
+- API client secret, manual license key, backup, claim preview i verifier rezultat
+  su envelope-encrypted, actor-bound, kratkoživeći reveal-once artifact-i. Token
+  je hashovan u bazi i nikada se ne pojavljuje u audit metadata-i;
+- packed admin prikazuje product/profile/schema/license/activation/client/scope/
+  operation/key/backup/audit/verifier tokove sa bounded search/filter/pagination
+  i maskiranim PII detaljima;
+- critical support mutacije su auditovane i permission-ovane na serveru;
+  publish, create, issue, resume, grant i replay imaju eksplicitnu mode odluku,
+  pa skriveno dugme nije security kontrola;
+- safe admin error sadrži samo user-actionable code i correlation ID. Download
+  koristi `no-store`, `no-referrer`, attachment, CSP i same-origin zaštitu;
+- schema 8 i release manifest su aditivni; empty/upgrade PostgreSQL i clean
+  frozen Next.js 16.3 tarball host prolaze bez private source coupling-a.
+
+Kompletna matrica i reproducibilni rezultati su u
+[Prompt 12 evidence dokumentu](./23-prompt-12-production-admin-evidence.md).

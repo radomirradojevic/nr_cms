@@ -14,6 +14,7 @@ import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
 import { resolveLicenseServerAddonState } from "@/lib/license-server-addon/license";
+import { readLicenseServerPermissionClaimsFromMetadata } from "@/lib/license-server-addon/contract";
 import { createLicenseServerPurchaseIntentHandoff } from "@/lib/webshop-addon/purchase-intent";
 import { activateLicenseServerAddonAction } from "./actions";
 
@@ -44,6 +45,9 @@ export default async function LicenseServerDashboardPage() {
   const user = await getOptionalCurrentUser();
   const roles = getRoles(user?.publicMetadata);
   if (!hasRole(roles, "admin")) redirect("/dashboard");
+  const permissionClaims = readLicenseServerPermissionClaimsFromMetadata(
+    user?.publicMetadata,
+  );
 
   const addonState = await resolveLicenseServerAddonState();
   const needsLicenseActivation =
@@ -69,6 +73,7 @@ export default async function LicenseServerDashboardPage() {
       i18n,
       licenseMode: "ready",
       path: [],
+      permissionClaims,
       userId: user!.id,
     });
   }
@@ -77,6 +82,7 @@ export default async function LicenseServerDashboardPage() {
       i18n,
       licenseMode: "edit_existing_only",
       path: [],
+      permissionClaims,
       userId: user!.id,
     });
   }
