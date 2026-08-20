@@ -209,14 +209,22 @@ bez secret vrednosti u repository-ju:
 
 - environment var: `NR_ADDON_RELEASE_SIGNING_KID`;
 - environment secrets: `NR_ACCEPTANCE_STAGING_IDENTITY` i
-  `NR_ACCEPTANCE_PROVIDER_IDENTITY`, read-only fine-grained
-  `NR_PRIVATE_REPO_TOKEN`, `NR_ACCEPTANCE_CONFIG_B64`,
+  `NR_ACCEPTANCE_PROVIDER_IDENTITY`, repo-specifični read-only
+  `NR_WEBSHOP_DEPLOY_KEY`, `NR_LICENSE_SERVER_ADDON_DEPLOY_KEY`,
+  `NR_MASTER_DEPLOY_KEY`, `NR_DEPLOYMENT_WORKER_DEPLOY_KEY`,
+  `NR_ACCEPTANCE_CONFIG_B64`,
   `NR_ADDON_RELEASE_SIGNING_KEY_B64` i
   `NR_ADDON_RELEASE_PUBLIC_KEYS_B64`.
 
 GitHub-hosted `ubuntu-24.04` runner checkout-uje četiri privatna repozitorijuma
-na tačno pinovane commit SHA vrednosti. Repo token je dostupan samo checkout
-action-ima i koristi se sa `persist-credentials: false`. Konfiguracija i key
+na tačno pinovane commit SHA vrednosti. Svaki checkout koristi zaseban read-only
+SSH deploy ključ i `persist-credentials: false`; nema zajedničkog PAT-a. Ključevi
+su provisionovani 20. avgusta 2026. operator skriptom koji privatni materijal
+šalje direktno na GitHub secret stdin i briše lokalni privremeni direktorijum.
+Staging-only release authority je takođe provisionovan: KID
+`staging-release:1c78bf2cb70b0717`, javni ključ SHA-256
+`1c78bf2cb70b07170c2f63cbc046b12f782679d0c7e229acbfd86f205dc26486`.
+On nije production publish authority. Konfiguracija i key
 fajlovi dekodiraju se sa `umask 077` u ephemeral `$RUNNER_TEMP`, njihove putanje
 se prosleđuju harness-u i fajlovi se brišu u `always()` koraku. Identity
 credential-i ostaju step-scoped i nisu dostupni checkout/setup/install
@@ -224,6 +232,7 @@ koracima.
 
 Environment je kreiran 20. avgusta 2026. sa obaveznim ručnim reviewer gate-om
 za `radomirradojevic` i deployment politikom ograničenom na `master`. GitHub
-hosted workflow je pripremljen, ali secrets/var i dostupni HTTPS staging
-endpoint-i još nisu potvrđeni; zato workflow još nije pokrenut i ova stavka
-ostaje staging `NO_GO`.
+hosted workflow je pripremljen; repo deploy-key i staging signing reference su
+provisionovane, ali acceptance config/identity secrets i dostupni HTTPS staging
+endpoint-i još nisu potvrđeni. Zato puni staging workflow još nije pokrenut i
+ova stavka ostaje staging `NO_GO`.

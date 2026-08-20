@@ -94,12 +94,19 @@ test("Night Raven private, staging, and production gates use protected GitHub-ho
       source,
       /repository:\s*radomirradojevic\/addon-deployment-worker/,
     );
-    assert.match(source, /token:\s*\$\{\{ secrets\.NR_PRIVATE_REPO_TOKEN \}\}/);
+    for (const secret of [
+      "NR_WEBSHOP_DEPLOY_KEY",
+      "NR_LICENSE_SERVER_ADDON_DEPLOY_KEY",
+      "NR_MASTER_DEPLOY_KEY",
+      "NR_DEPLOYMENT_WORKER_DEPLOY_KEY",
+    ]) {
+      assert.match(
+        source,
+        new RegExp(`ssh-key:\\s*\\$\\{\\{ secrets\\.${secret} \\}\\}`),
+      );
+    }
     assert.match(source, /persist-credentials:\s*false/);
-    assert.doesNotMatch(
-      source,
-      /^\s+NR_PRIVATE_REPO_TOKEN:\s*\$\{\{ secrets\./m,
-    );
+    assert.doesNotMatch(source, /token:\s*\$\{\{ secrets\./);
   }
 
   const staging = readWorkflow("staging-acceptance.yml");

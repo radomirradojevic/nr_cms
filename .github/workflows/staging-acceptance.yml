@@ -35,7 +35,7 @@ jobs:
         with:
           repository: radomirradojevic/webshop
           ref: ${{ env.NR_WEBSHOP_GIT_SHA }}
-          token: ${{ secrets.NR_PRIVATE_REPO_TOKEN }}
+          ssh-key: ${{ secrets.NR_WEBSHOP_DEPLOY_KEY }}
           path: .private/webshop
           persist-credentials: false
 
@@ -44,7 +44,7 @@ jobs:
         with:
           repository: radomirradojevic/license-server-addon
           ref: ${{ env.NR_LICENSE_SERVER_ADDON_GIT_SHA }}
-          token: ${{ secrets.NR_PRIVATE_REPO_TOKEN }}
+          ssh-key: ${{ secrets.NR_LICENSE_SERVER_ADDON_DEPLOY_KEY }}
           path: .private/license-server-addon
           persist-credentials: false
 
@@ -53,7 +53,7 @@ jobs:
         with:
           repository: radomirradojevic/license-server
           ref: ${{ env.NR_MASTER_GIT_SHA }}
-          token: ${{ secrets.NR_PRIVATE_REPO_TOKEN }}
+          ssh-key: ${{ secrets.NR_MASTER_DEPLOY_KEY }}
           path: .private/license-server
           persist-credentials: false
 
@@ -62,7 +62,7 @@ jobs:
         with:
           repository: radomirradojevic/addon-deployment-worker
           ref: ${{ env.NR_DEPLOYMENT_WORKER_GIT_SHA }}
-          token: ${{ secrets.NR_PRIVATE_REPO_TOKEN }}
+          ssh-key: ${{ secrets.NR_DEPLOYMENT_WORKER_DEPLOY_KEY }}
           path: .private/addon-deployment-worker
           persist-credentials: false
 

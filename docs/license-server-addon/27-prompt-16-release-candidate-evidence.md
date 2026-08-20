@@ -208,9 +208,15 @@ za `radomirradojevic` i samo `master` deployment policy. Postojeći Vercel
 dozvoljava samo GitHub-owned actions i zahteva puni commit SHA. Workflow-i su
 prebačeni na GitHub-hosted `ubuntu-24.04`; Webshop, License Server add-on,
 centralni Master i deployment worker checkout-uju se iz privatnih remote-a na
-tačno pinovane commit SHA vrednosti. Environment secrets/var i dostupni HTTPS
-staging endpoint-i još nisu provisionovani; vrednosti tajni se ne unose u
-source niti u ovaj evidence zapis.
+tačno pinovane commit SHA vrednosti. Četiri različita read-only SSH deploy
+ključa provisionovana su u sva tri environment-a bez zajedničkog PAT-a;
+provisioner odbija overwrite i radi rollback parcijalne operacije. Preostali
+staging-only Ed25519 authority ima KID `staging-release:1c78bf2cb70b0717` i
+javni ključ SHA-256
+`1c78bf2cb70b07170c2f63cbc046b12f782679d0c7e229acbfd86f205dc26486`;
+to nije production publish authority. Acceptance config/identity secrets i
+dostupni HTTPS staging endpoint-i još nisu provisionovani; vrednosti tajni se
+ne unose u source niti u ovaj evidence zapis.
 
 GitHub REST API ostavlja `can_admins_bypass: true`; pre prvog release workflow
 run-a vlasnik mora u UI-u da isključi **Allow administrators to bypass
