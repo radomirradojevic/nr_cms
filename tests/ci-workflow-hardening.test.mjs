@@ -15,6 +15,23 @@ function readWorkflow(name) {
   return readFileSync(resolve(WORKFLOW_DIRECTORY, name), "utf8");
 }
 
+test("reviewed workflow gates are publishable while local GitHub agent files remain ignored", () => {
+  const ignore = readFileSync(resolve(".gitignore"), "utf8");
+  assert.match(ignore, /^\.github\/\*$/m);
+  for (const name of [
+    "ci.yml",
+    "private-release.yml",
+    "staging-acceptance.yml",
+    "production-rollout.yml",
+  ]) {
+    assert.match(
+      ignore,
+      new RegExp(`^!\\.github/workflows/${name.replace(".", "\\.")}$`, "m"),
+    );
+  }
+  assert.doesNotMatch(ignore, /^!\.github\/(?:prompts|hooks|instructions)\//m);
+});
+
 test("GitHub workflows are pinned, least-privilege, and never run untrusted PR code with secrets", () => {
   for (const name of [
     "ci.yml",
@@ -44,6 +61,22 @@ test("Night Raven private, staging, and production gates require protected manua
 
   const staging = readWorkflow("staging-acceptance.yml");
   assert.match(staging, new RegExp(PINNED_ACTIONS.uploadArtifact));
+  assert.match(
+    staging,
+    /NR_ACCEPTANCE_STAGING_IDENTITY:\s*\$\{\{ secrets\.NR_ACCEPTANCE_STAGING_IDENTITY \}\}/,
+  );
+  assert.match(
+    staging,
+    /NR_ACCEPTANCE_PROVIDER_IDENTITY:\s*\$\{\{ secrets\.NR_ACCEPTANCE_PROVIDER_IDENTITY \}\}/,
+  );
+  assert.match(staging, /NR_ADDON_RELEASE_SIGNING_KEY_FILE:\s*\$\{\{ vars\./);
+  assert.match(staging, /test -r "\$NR_ADDON_RELEASE_SIGNING_KEY_FILE"/);
+  assert.match(staging, /npm run acceptance:preflight/);
+  assert.ok(
+    staging.indexOf("npm run acceptance:preflight") <
+      staging.indexOf("npm run acceptance\n"),
+    "staging preflight must run before the mutating acceptance matrix",
+  );
 
   const production = readWorkflow("production-rollout.yml");
   assert.match(production, /db:migrate:production:dry-run/);

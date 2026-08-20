@@ -1,0 +1,50 @@
+name: Private Release Verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: night-raven-private-release
+  cancel-in-progress: false
+
+jobs:
+  verify-private-release:
+    name: Private package provenance and clean-host gate
+    runs-on: [self-hosted, Linux, night-raven-private]
+    environment: private-release
+    timeout-minutes: 45
+    env:
+      NR_ADDON_RELEASE_PUBLIC_KEYS_FILE: ${{ vars.NR_ADDON_RELEASE_PUBLIC_KEYS_FILE }}
+      NR_ADDON_RELEASE_SIGNING_KEY_FILE: ${{ vars.NR_ADDON_RELEASE_SIGNING_KEY_FILE }}
+      NR_ADDON_RELEASE_SIGNING_KID: ${{ vars.NR_ADDON_RELEASE_SIGNING_KID }}
+      NR_PRIVATE_WORKSPACE_ROOT: ${{ vars.NR_PRIVATE_WORKSPACE_ROOT }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.15.0
+          cache: npm
+
+      - name: Verify operator-owned private workspace and signing references
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in NR_PRIVATE_WORKSPACE_ROOT NR_ADDON_RELEASE_SIGNING_KEY_FILE NR_ADDON_RELEASE_SIGNING_KID NR_ADDON_RELEASE_PUBLIC_KEYS_FILE; do
+            test -n "${!name:-}" || { echo "$name is not configured"; exit 1; }
+          done
+          test -d "$NR_PRIVATE_WORKSPACE_ROOT/.private"
+          test -r "$NR_ADDON_RELEASE_SIGNING_KEY_FILE"
+          test -r "$NR_ADDON_RELEASE_PUBLIC_KEYS_FILE"
+          test "$(git -C "$NR_PRIVATE_WORKSPACE_ROOT" rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Verify signed private packages without revealing key material
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$NR_PRIVATE_WORKSPACE_ROOT"
+          npm ci --ignore-scripts
+          npm run acceptance:private-packages

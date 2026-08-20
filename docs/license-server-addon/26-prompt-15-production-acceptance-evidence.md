@@ -203,3 +203,18 @@ poziva endpoint-e ni scenario runner. Kada stvarni run počne, runner dobija sam
 minimalne OS varijable, dve eksplicitno imenovane staging credential reference i
 `NR_ACCEPTANCE_*` kontrolni skup; release/KMS i ostale ambient tajne se ne
 nasleđuju.
+
+Protected `staging-acceptance` GitHub environment mora imati sledeće reference,
+bez secret vrednosti u repository-ju:
+
+- environment vars: `NR_STAGING_WORKSPACE_ROOT`, `NR_ACCEPTANCE_CONFIG_PATH`,
+  `NR_STAGING_EVIDENCE_DIRECTORY`, `NR_ADDON_RELEASE_SIGNING_KEY_FILE`,
+  `NR_ADDON_RELEASE_SIGNING_KID`, `NR_ADDON_RELEASE_PUBLIC_KEYS_FILE`;
+- environment secrets: `NR_ACCEPTANCE_STAGING_IDENTITY` i
+  `NR_ACCEPTANCE_PROVIDER_IDENTITY`.
+
+Signing key/public-key vrednosti nisu GitHub input: varijable su samo putanje ka
+operator-provisioned, ACL-zaštićenim fajlovima na self-hosted runner-u. Workflow
+prvo proverava reference i commit pin, instalira dependency-je bez tajni, zatim
+pokreće read-only preflight i tek nakon njega puni acceptance. Credential secret-i
+su step-scoped i nisu dostupni checkout/setup/install koracima.

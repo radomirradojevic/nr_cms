@@ -1,0 +1,52 @@
+name: Production Rollout Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: night-raven-production-rollout
+  cancel-in-progress: false
+
+jobs:
+  production-preflight:
+    name: Production migration and release preflight
+    runs-on: [self-hosted, Linux, night-raven-production-release]
+    environment: production
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.CMS_PRODUCTION_DATABASE_URL }}
+      NR_PRODUCTION_WORKSPACE_ROOT: ${{ vars.NR_PRODUCTION_WORKSPACE_ROOT }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.15.0
+          cache: npm
+
+      - name: Verify protected production preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DATABASE_URL:-}" || { echo "CMS_PRODUCTION_DATABASE_URL is not configured"; exit 1; }
+          test -n "${NR_PRODUCTION_WORKSPACE_ROOT:-}" || { echo "NR_PRODUCTION_WORKSPACE_ROOT is not configured"; exit 1; }
+          test -d "$NR_PRODUCTION_WORKSPACE_ROOT/.private"
+          test "$(git -C "$NR_PRODUCTION_WORKSPACE_ROOT" rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Run migration checksum and production dry-run only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$NR_PRODUCTION_WORKSPACE_ROOT"
+          npm ci --ignore-scripts
+          npm run deploy:verify
+          npm run db:migrate:production:dry-run
+
+      - name: Stop before irreversible promotion
+        shell: bash
+        run: |
+          echo "Production promotion is intentionally not automated."
+          echo "An approved operator must attach staging evidence, immutable backups, and provider deployment authority before migration apply or deploy."

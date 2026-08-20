@@ -1,0 +1,85 @@
+name: Staging Acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: night-raven-staging-acceptance
+  cancel-in-progress: false
+
+jobs:
+  run-staging-acceptance:
+    name: Operator-owned staging E2E and recovery drills
+    runs-on: [self-hosted, Linux, night-raven-staging]
+    environment: staging-acceptance
+    timeout-minutes: 90
+    env:
+      NR_ACCEPTANCE_CONFIG_PATH: ${{ vars.NR_ACCEPTANCE_CONFIG_PATH }}
+      NR_ACCEPTANCE_TARGET: staging
+      NR_ADDON_RELEASE_PUBLIC_KEYS_FILE: ${{ vars.NR_ADDON_RELEASE_PUBLIC_KEYS_FILE }}
+      NR_ADDON_RELEASE_SIGNING_KEY_FILE: ${{ vars.NR_ADDON_RELEASE_SIGNING_KEY_FILE }}
+      NR_ADDON_RELEASE_SIGNING_KID: ${{ vars.NR_ADDON_RELEASE_SIGNING_KID }}
+      NR_STAGING_EVIDENCE_DIRECTORY: ${{ vars.NR_STAGING_EVIDENCE_DIRECTORY }}
+      NR_STAGING_WORKSPACE_ROOT: ${{ vars.NR_STAGING_WORKSPACE_ROOT }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.15.0
+          cache: npm
+
+      - name: Verify isolated staging runner configuration
+        shell: bash
+        env:
+          NR_ACCEPTANCE_PROVIDER_IDENTITY: ${{ secrets.NR_ACCEPTANCE_PROVIDER_IDENTITY }}
+          NR_ACCEPTANCE_STAGING_IDENTITY: ${{ secrets.NR_ACCEPTANCE_STAGING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          for name in NR_STAGING_WORKSPACE_ROOT NR_ACCEPTANCE_CONFIG_PATH NR_STAGING_EVIDENCE_DIRECTORY NR_ACCEPTANCE_PROVIDER_IDENTITY NR_ACCEPTANCE_STAGING_IDENTITY NR_ADDON_RELEASE_SIGNING_KEY_FILE NR_ADDON_RELEASE_SIGNING_KID NR_ADDON_RELEASE_PUBLIC_KEYS_FILE; do
+            test -n "${!name:-}" || { echo "$name is not configured"; exit 1; }
+          done
+          test -d "$NR_STAGING_WORKSPACE_ROOT/.private"
+          test -r "$NR_ACCEPTANCE_CONFIG_PATH"
+          test -r "$NR_ADDON_RELEASE_SIGNING_KEY_FILE"
+          test -r "$NR_ADDON_RELEASE_PUBLIC_KEYS_FILE"
+          test "$(git -C "$NR_STAGING_WORKSPACE_ROOT" rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Install pinned acceptance dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$NR_STAGING_WORKSPACE_ROOT"
+          npm ci --ignore-scripts
+
+      - name: Run read-only staging acceptance preflight
+        shell: bash
+        env:
+          NR_ACCEPTANCE_PROVIDER_IDENTITY: ${{ secrets.NR_ACCEPTANCE_PROVIDER_IDENTITY }}
+          NR_ACCEPTANCE_STAGING_IDENTITY: ${{ secrets.NR_ACCEPTANCE_STAGING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          cd "$NR_STAGING_WORKSPACE_ROOT"
+          npm run acceptance:preflight
+
+      - name: Run strict versioned staging acceptance
+        shell: bash
+        env:
+          NR_ACCEPTANCE_PROVIDER_IDENTITY: ${{ secrets.NR_ACCEPTANCE_PROVIDER_IDENTITY }}
+          NR_ACCEPTANCE_STAGING_IDENTITY: ${{ secrets.NR_ACCEPTANCE_STAGING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          cd "$NR_STAGING_WORKSPACE_ROOT"
+          npm run acceptance
+
+      - name: Archive redacted staging evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: night-raven-staging-acceptance-${{ github.run_id }}
+          path: ${{ vars.NR_STAGING_EVIDENCE_DIRECTORY }}
+          if-no-files-found: error
+          retention-days: 90

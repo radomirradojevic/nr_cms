@@ -1,0 +1,63 @@
+name: Public CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-public-copy:
+    name: Frozen public verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16.11-alpine
+        env:
+          POSTGRES_DB: nr_cms_ci_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nr_cms_ci_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nr_cms_ci_test
+      DRIZZLE_AUTO_MIGRATE: "false"
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nr_cms_ci_test
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.15.0
+          cache: npm
+
+      - name: Frozen install
+        run: npm ci --ignore-scripts
+
+      - name: Test database migration
+        run: npm run db:migrate:test
+
+      - name: Static and unit verification
+        run: |
+          npm run lint -- --quiet
+          npm run typecheck
+          npm run test
+
+      - name: Public-copy install, test, build, and NFT boundary gate
+        run: npm run acceptance:public-copy
+
+      - name: Supply-chain and runtime dependency audit
+        run: |
+          npm run supply-chain:audit
+          npm audit --omit=dev --audit-level=low
