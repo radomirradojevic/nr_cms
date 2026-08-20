@@ -684,6 +684,7 @@ export function validateStagingConfig(
     "customerWebshop",
     "customerLicenseServer",
     "deploymentWorker",
+    "acceptanceControl",
   ];
   const endpoints = Object.fromEntries(
     endpointNames.map((name) => [
@@ -719,7 +720,30 @@ export function validateStagingConfig(
     fail("identity.credentialEnv must be NR_ACCEPTANCE_STAGING_IDENTITY.");
   if (providerCredentialEnv !== "NR_ACCEPTANCE_PROVIDER_IDENTITY")
     fail("provider.credentialEnv must be NR_ACCEPTANCE_PROVIDER_IDENTITY.");
-  for (const credentialEnv of [identityCredentialEnv, providerCredentialEnv]) {
+  const operatorKind = requireNonEmptyString(
+    config.operator?.kind,
+    "operator.kind",
+  );
+  const operatorCredentialEnv = assertEnvReference(
+    config.operator?.credentialEnv,
+    "operator.credentialEnv",
+    env,
+  );
+  if (operatorCredentialEnv !== "NR_ACCEPTANCE_OPERATOR_IDENTITY")
+    fail("operator.credentialEnv must be NR_ACCEPTANCE_OPERATOR_IDENTITY.");
+  if (
+    new Set([
+      identityCredentialEnv,
+      providerCredentialEnv,
+      operatorCredentialEnv,
+    ]).size !== 3
+  )
+    fail("identity, provider and operator credentials must be separate.");
+  for (const credentialEnv of [
+    identityCredentialEnv,
+    providerCredentialEnv,
+    operatorCredentialEnv,
+  ]) {
     if (STAGING_RUNNER_CONTROL_ENV.has(credentialEnv))
       fail(`${credentialEnv} is reserved for acceptance runner control.`);
   }
@@ -769,6 +793,20 @@ export function validateStagingConfig(
     fail(
       "scenarioRunner.command SHA-256 does not match scenarioRunner.sha256.",
     );
+  const runnerPollIntervalMs = Number(config.scenarioRunner?.pollIntervalMs);
+  const runnerTimeoutSeconds = Number(config.scenarioRunner?.timeoutSeconds);
+  if (
+    !Number.isInteger(runnerPollIntervalMs) ||
+    runnerPollIntervalMs < 250 ||
+    runnerPollIntervalMs > 10_000
+  )
+    fail("scenarioRunner.pollIntervalMs must be an integer from 250 to 10000.");
+  if (
+    !Number.isInteger(runnerTimeoutSeconds) ||
+    runnerTimeoutSeconds < 60 ||
+    runnerTimeoutSeconds > 3_600
+  )
+    fail("scenarioRunner.timeoutSeconds must be an integer from 60 to 3600.");
   const configuredEvidenceDirectory = config.evidenceDirectory;
   const configuredEvidenceDirectoryEnv = config.evidenceDirectoryEnv;
   const hasEvidenceDirectory =
@@ -841,6 +879,10 @@ export function validateStagingConfig(
     performanceSlo.soakSeconds < 60
   )
     fail("performanceSlo requires positive p95 limits and soakSeconds >= 60.");
+  if (runnerTimeoutSeconds < performanceSlo.soakSeconds + 60)
+    fail(
+      "scenarioRunner.timeoutSeconds must exceed performanceSlo.soakSeconds by at least 60 seconds.",
+    );
   return {
     endpoints,
     identityKind,
@@ -848,9 +890,13 @@ export function validateStagingConfig(
     providerKind,
     providerCredentialEnv,
     providerWebhookEndpoint,
+    operatorKind,
+    operatorCredentialEnv,
     command,
     commandEnv,
     commandSha256,
+    runnerPollIntervalMs,
+    runnerTimeoutMs: runnerTimeoutSeconds * 1_000,
     artifactSetId,
     packageDigests,
     previousPackageDigest,
@@ -870,6 +916,7 @@ export function buildStagingRunnerEnvironment(config, env = process.env) {
   for (const name of [
     config.identityCredentialEnv,
     config.providerCredentialEnv,
+    config.operatorCredentialEnv,
   ]) {
     if (!env[name])
       fail(`${name} is absent from the staging runner environment.`);
@@ -899,6 +946,7 @@ export function buildStagingPreflightSummary(config) {
     credentialReferences: [
       config.identityCredentialEnv,
       config.providerCredentialEnv,
+      config.operatorCredentialEnv,
     ],
     scenarioCount: ALL_STAGING_SCENARIOS.length,
     drillCount: OPERATOR_DRILLS.length,
@@ -982,12 +1030,27 @@ export function validateEvidence(evidence, id, kind, config) {
     "runtime",
     "metrics",
   ]);
+  const allowedRuntimeKeys = new Set([
+    "sourceMode",
+    "workspaceImports",
+    "isolated",
+    "driver",
+    "controlPlane",
+    "components",
+  ]);
   if (
     !evidence ||
     typeof evidence !== "object" ||
     Object.keys(evidence).some((key) => !allowedKeys.has(key))
   )
     fail(`${id} evidence has unsupported or unsafe fields.`);
+  if (
+    !evidence.runtime ||
+    typeof evidence.runtime !== "object" ||
+    Object.keys(evidence.runtime).some((key) => !allowedRuntimeKeys.has(key)) ||
+    Object.keys(evidence.runtime).length !== allowedRuntimeKeys.size
+  )
+    fail(`${id} evidence runtime has unsupported or missing fields.`);
   if (
     evidence.version !== NIGHT_RAVEN_ACCEPTANCE_VERSION ||
     evidence.scenario !== id ||
@@ -1017,6 +1080,11 @@ export function validateEvidence(evidence, id, kind, config) {
     evidence.runtime?.sourceMode !== "signed-rc-artifacts" ||
     evidence.runtime?.workspaceImports !== false ||
     evidence.runtime?.isolated !== true ||
+    evidence.runtime?.driver !==
+      (kind === "staging-e2e"
+        ? "playwright-chromium"
+        : "operator-control-v1") ||
+    evidence.runtime?.controlPlane !== "night-raven-acceptance-control-v1" ||
     !Array.isArray(evidence.runtime?.components) ||
     safeJson([...evidence.runtime.components].sort()) !==
       safeJson([...REQUIRED_STAGING_COMPONENTS].sort())

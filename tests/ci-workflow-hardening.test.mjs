@@ -130,6 +130,10 @@ test("Night Raven private, staging, and production gates use protected GitHub-ho
     staging,
     /NR_ACCEPTANCE_PROVIDER_IDENTITY:\s*\$\{\{ secrets\.NR_ACCEPTANCE_PROVIDER_IDENTITY \}\}/,
   );
+  assert.match(
+    staging,
+    /NR_ACCEPTANCE_OPERATOR_IDENTITY:\s*\$\{\{ secrets\.NR_ACCEPTANCE_OPERATOR_IDENTITY \}\}/,
+  );
   assert.match(staging, /NR_ACCEPTANCE_CONFIG_B64:\s*\$\{\{ secrets\./);
   assert.match(
     staging,

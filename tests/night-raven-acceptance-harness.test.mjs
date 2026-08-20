@@ -22,6 +22,7 @@ import {
   resolveAcceptanceTarget,
   shouldIncludePublicCopyPath,
   validateLocalEvidence,
+  validateEvidence,
   validateStagingConfig,
 } from "../scripts/night-raven-acceptance-harness.mjs";
 import { buildMigrationMatrixPlan } from "../scripts/migration-matrix-harness.mjs";
@@ -76,6 +77,8 @@ function stagingConfigFixture() {
       customerLicenseServer:
         "https://customer-issuer.staging.nightraven.example.com",
       deploymentWorker: "https://worker.staging.nightraven.example.com",
+      acceptanceControl:
+        "https://acceptance-control.staging.nightraven.example.com",
     },
     identity: {
       kind: "oidc",
@@ -88,9 +91,15 @@ function stagingConfigFixture() {
       webhookEndpoint:
         "https://customer-cms.staging.nightraven.example.com/api/webhooks/provider",
     },
+    operator: {
+      kind: "oauth2-bearer",
+      credentialEnv: "NR_ACCEPTANCE_OPERATOR_IDENTITY",
+    },
     scenarioRunner: {
       commandEnv: "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH",
       sha256: STAGING_RUNNER_SHA256,
+      pollIntervalMs: 250,
+      timeoutSeconds: 1_000,
     },
     releaseCandidate: {
       sourceMode: "signed-rc-artifacts",
@@ -229,6 +238,7 @@ test("staging E2E configuration is fail-closed before any runner can be called",
   const env = {
     NR_ACCEPTANCE_STAGING_IDENTITY: "opaque-identity",
     NR_ACCEPTANCE_PROVIDER_IDENTITY: "opaque-provider",
+    NR_ACCEPTANCE_OPERATOR_IDENTITY: "opaque-operator",
   };
   const validated = validateStagingConfig(
     stagingConfigFixture(),
@@ -238,7 +248,7 @@ test("staging E2E configuration is fail-closed before any runner can be called",
   assert.equal(summary.status, "CONFIG_READY");
   assert.equal(summary.mutationPerformed, false);
   assert.equal(summary.gateEligible, false);
-  assert.equal(summary.endpointCount, 7);
+  assert.equal(summary.endpointCount, 8);
   assert.equal(summary.scenarioCount, 50);
   assert.equal(summary.drillCount, 11);
   assert.equal(summary.runnerReference, "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH");
@@ -379,6 +389,7 @@ test("staging runner inherits only required credentials and non-secret runtime s
     NR_ACCEPTANCE_CONFIG_PATH: "D:/secure/staging.json",
     NR_ACCEPTANCE_STAGING_IDENTITY: "opaque-identity",
     NR_ACCEPTANCE_PROVIDER_IDENTITY: "opaque-provider",
+    NR_ACCEPTANCE_OPERATOR_IDENTITY: "opaque-operator",
     NR_ADDON_RELEASE_SIGNING_KEY_FILE: "D:/kms/release-private.pem",
     NRLS_SECRET_ENCRYPTION_KEY: "must-not-reach-runner",
     DATABASE_URL: "postgresql://secret@production.example/db",
@@ -397,6 +408,10 @@ test("staging runner inherits only required credentials and non-secret runtime s
     ambient.NR_ACCEPTANCE_PROVIDER_IDENTITY,
   );
   assert.equal(
+    runnerEnv.NR_ACCEPTANCE_OPERATOR_IDENTITY,
+    ambient.NR_ACCEPTANCE_OPERATOR_IDENTITY,
+  );
+  assert.equal(
     runnerEnv.NR_ACCEPTANCE_CONFIG_PATH,
     ambient.NR_ACCEPTANCE_CONFIG_PATH,
   );
@@ -404,6 +419,80 @@ test("staging runner inherits only required credentials and non-secret runtime s
   assert.equal(runnerEnv.NR_ADDON_RELEASE_SIGNING_KEY_FILE, undefined);
   assert.equal(runnerEnv.NRLS_SECRET_ENCRYPTION_KEY, undefined);
   assert.equal(runnerEnv.DATABASE_URL, undefined);
+});
+
+test("harness independently rejects staging evidence without the required driver", () => {
+  const env = {
+    NR_ACCEPTANCE_STAGING_IDENTITY: "opaque-identity",
+    NR_ACCEPTANCE_PROVIDER_IDENTITY: "opaque-provider",
+    NR_ACCEPTANCE_OPERATOR_IDENTITY: "opaque-operator",
+  };
+  const config = validateStagingConfig(
+    stagingConfigFixture(),
+    stagingValidationOptions(env),
+  );
+  const evidence = {
+    version: NIGHT_RAVEN_ACCEPTANCE_VERSION,
+    scenario: "webshop_purchase",
+    kind: "staging-e2e",
+    status: "passed",
+    runId: "staging-run-12345678",
+    completedAt: "2026-08-20T20:00:00.000Z",
+    references: ["runs/staging-run-12345678/summary.json"],
+    artifactSetId: config.artifactSetId,
+    packageDigests: config.packageDigests,
+    runtime: {
+      sourceMode: "signed-rc-artifacts",
+      workspaceImports: false,
+      isolated: true,
+      driver: "playwright-chromium",
+      controlPlane: "night-raven-acceptance-control-v1",
+      components: [
+        "master",
+        "vendor-cms",
+        "customer-cms",
+        "vendor-webshop",
+        "customer-webshop",
+        "license-server-addon",
+        "deployment-worker",
+        "test-databases",
+      ],
+    },
+    metrics: { assertions: 8, invariantViolations: 0 },
+  };
+  assert.equal(
+    validateEvidence(evidence, "webshop_purchase", "staging-e2e", config),
+    evidence,
+  );
+  assert.throws(
+    () =>
+      validateEvidence(
+        {
+          ...evidence,
+          runtime: { ...evidence.runtime, driver: "api-mock" },
+        },
+        "webshop_purchase",
+        "staging-e2e",
+        config,
+      ),
+    /topology/i,
+  );
+  assert.throws(
+    () =>
+      validateEvidence(
+        {
+          ...evidence,
+          runtime: {
+            ...evidence.runtime,
+            diagnosticToken: "must-never-be-uploaded",
+          },
+        },
+        "webshop_purchase",
+        "staging-e2e",
+        config,
+      ),
+    /unsupported or missing fields/i,
+  );
 });
 
 test("local acceptance is explicit and production is never a valid target", () => {

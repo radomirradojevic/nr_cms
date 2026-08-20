@@ -28,6 +28,8 @@ function fixture() {
       customerLicenseServer:
         "https://customer-issuer.staging.nightraven.example.com",
       deploymentWorker: "https://worker.staging.nightraven.example.com",
+      acceptanceControl:
+        "https://acceptance-control.staging.nightraven.example.com",
     },
     identity: {
       kind: "oidc",
@@ -40,9 +42,15 @@ function fixture() {
       webhookEndpoint:
         "https://customer-cms.staging.nightraven.example.com/api/webhooks/provider",
     },
+    operator: {
+      kind: "oauth2-bearer",
+      credentialEnv: "NR_ACCEPTANCE_OPERATOR_IDENTITY",
+    },
     scenarioRunner: {
       commandEnv: "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH",
       sha256: runnerSha256,
+      pollIntervalMs: 250,
+      timeoutSeconds: 1_000,
     },
     releaseCandidate: {
       sourceMode: "signed-rc-artifacts",
@@ -84,6 +92,8 @@ test("staging input provisioner parses only explicit external-file arguments", (
     "../secure/staging.identity",
     "--provider-identity-file",
     "../secure/provider.identity",
+    "--operator-identity-file",
+    "../secure/operator.identity",
     "--apply",
   ]);
   assert.equal(parsed.apply, true);
@@ -107,6 +117,7 @@ test("staging input provisioner binds exact config, runner and opaque identities
     runnerBytes,
     stagingIdentityBytes: Buffer.from("opaque-staging-identity"),
     providerIdentityBytes: Buffer.from("opaque-provider-identity"),
+    operatorIdentityBytes: Buffer.from("opaque-operator-identity"),
     runnerPath,
     cwd,
   });
@@ -123,6 +134,10 @@ test("staging input provisioner binds exact config, runner and opaque identities
     runnerBytes,
   );
   assert.equal(prepared.summary.target, "staging");
+  assert.equal(
+    prepared.secretValues.NR_ACCEPTANCE_OPERATOR_IDENTITY,
+    "opaque-operator-identity",
+  );
   assert.doesNotMatch(JSON.stringify(prepared.summary), /opaque/i);
 });
 
@@ -151,6 +166,7 @@ test("staging input provisioner rejects workspace files and runner digest drift"
         runnerBytes,
         stagingIdentityBytes: Buffer.from("opaque-staging-identity"),
         providerIdentityBytes: Buffer.from("opaque-provider-identity"),
+        operatorIdentityBytes: Buffer.from("opaque-operator-identity"),
         runnerPath: resolve("operator-fixture", "runner"),
         cwd,
       }),

@@ -205,7 +205,7 @@ validan manualni `workflow_dispatch`; nije pokrenut niti je preskočen njegov
 environment approval.
 
 Poslednji lokalni input gap je zatvoren fail-closed operator provisionerom
-`acceptance:staging:provision`. On uzima config, Linux scenario runner i dva
+`acceptance:staging:provision`. On uzima config, Linux scenario runner i tri
 credential-a isključivo iz fajlova van checkout-a, ponavlja punu staging config
 i runner SHA proveru, koristi stdin za GitHub secret-e i zahteva zaseban
 `--apply`. Refuse-overwrite, prerequisite provera, projektni secret-size limit,
@@ -270,7 +270,11 @@ to nije production publish authority. Hosted acceptance više ne zavisi od
 Windows operator putanje: workflow materijalizuje Linux scenario runner u
 `$RUNNER_TEMP`, proverava protected-environment SHA-256 pre `chmod 700`, a
 harness ponavlja proveru prema digestu iz konfiguracije i odbija runner ili
-evidence direktorijum iz workspace checkout-a. Stvarni pregledani runner
+evidence direktorijum iz workspace checkout-a. Pregledani runner se sada
+create-only gradi komandom `acceptance:staging:runner:build`; njegov launcher
+prihvata samo poznatu matricu, zaseban operator bearer i same-origin HTTPS
+control-plane rezultat vezan za tačan RC artifact set. Staging E2E evidence mora
+atestirati `playwright-chromium`, a drill `operator-control-v1`. Stvarni runner
 artefakt i njegov digest,
 acceptance config/identity secrets i dostupni HTTPS staging endpoint-i još nisu
 provisionovani; vrednosti tajni se ne unose u source niti u ovaj evidence zapis.

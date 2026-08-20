@@ -45,13 +45,16 @@ rezultat nikada ne može da zatvori staging kapiju, a konačna odluka može biti
 Staging ugovor sada zahteva:
 
 - zasebne HTTPS endpoint-e za Master, vendor/customer CMS, vendor/customer
-  Webshop, customer License Server i deployment worker;
+  Webshop, customer License Server, deployment worker i zaseban acceptance
+  control-plane;
 - tačan signed-RC artifact-set ID i SHA-256 za Master, CMS host, Webshop,
   License Server add-on/service i worker;
 - dokaz da runtime koristi samo potpisane RC artefakte, bez workspace importa;
 - prethodni package digest za upgrade/rollback;
 - eksplicitne p95 pragove i soak trajanje;
 - redigovane, verzionisane scenario/drill JSON zapise sa istim artifact pin-om.
+- odvojene customer, payment-sandbox i operator identitete; fault/restart/restore
+  ovlašćenje nikada ne ulazi u browser ili payment credential.
 
 Svaki od pet component gate-ova takođe se fizički čuva u `component/*.json`;
 audit referencira SHA-256 stvarnog redigovanog zapisa, ne nesnimljeni in-memory
@@ -59,6 +62,19 @@ rezultat.
 
 Primer v2 konfiguracije je u
 `docs/addons/night-raven-acceptance.staging.example.json`.
+
+Prenosivi Linux launcher je u
+`scripts/night-raven-staging-scenario-runner.mjs`. On ne simulira scenario i ne
+može sam da proglasi prolaz: startuje verzionisani scenario na zasebnom HTTPS
+control-plane-u, zabranjuje redirect i cross-origin poll, a zatim prihvata samo
+evidence vezan za isti run, RC artifact set i package digest-e. Staging E2E
+zapis mora atestirati `playwright-chromium`; operator drill mora atestirati
+`operator-control-v1`. Build komanda pravi create-only executable van checkout-a
+i ispisuje njegov SHA-256:
+
+```powershell
+npm run acceptance:staging:runner:build -- --output D:\secure\night-raven-staging-scenario-runner
+```
 
 ## 3. Finalni package i component dokaz
 
@@ -191,7 +207,7 @@ Pravi staging acceptance koristi popunjenu kopiju v2 primera i operator runner:
 ```powershell
 $env:NR_ACCEPTANCE_TARGET = "staging"
 $env:NR_ACCEPTANCE_CONFIG_PATH = "D:\secure\night-raven-acceptance.staging.json"
-$env:NR_ACCEPTANCE_SCENARIO_RUNNER_PATH = "D:\secure\night-raven-staging-scenario-runner.exe"
+$env:NR_ACCEPTANCE_SCENARIO_RUNNER_PATH = "D:\secure\night-raven-staging-scenario-runner"
 $env:NR_STAGING_EVIDENCE_DIRECTORY = "D:\secure\night-raven-staging-evidence"
 npm run acceptance:preflight
 npm run acceptance
@@ -204,7 +220,7 @@ tom digestu, evidence direktorijum unutar workspace checkout-a, nedostajuću
 prethodnu verziju, nepotpune metrike i svaki
 scenario/drill bez redigovanog evidence zapisa. Preflight je read-only i ne
 poziva endpoint-e ni scenario runner. Kada stvarni run počne, runner dobija samo
-minimalne OS varijable, dve eksplicitno imenovane staging credential reference i
+minimalne OS varijable, tri eksplicitno imenovane staging credential reference i
 `NR_ACCEPTANCE_*` kontrolni skup; release/KMS i ostale ambient tajne se ne
 nasleđuju.
 
@@ -213,22 +229,23 @@ bez secret vrednosti u repository-ju:
 
 - environment vars: `NR_ADDON_RELEASE_SIGNING_KID` i
   `NR_ACCEPTANCE_SCENARIO_RUNNER_SHA256`;
-- environment secrets: `NR_ACCEPTANCE_STAGING_IDENTITY` i
-  `NR_ACCEPTANCE_PROVIDER_IDENTITY`, repo-specifični read-only
+- environment secrets: međusobno odvojeni `NR_ACCEPTANCE_STAGING_IDENTITY`,
+  `NR_ACCEPTANCE_PROVIDER_IDENTITY` i `NR_ACCEPTANCE_OPERATOR_IDENTITY`,
+  repo-specifični read-only
   `NR_WEBSHOP_DEPLOY_KEY`, `NR_LICENSE_SERVER_ADDON_DEPLOY_KEY`,
   `NR_MASTER_DEPLOY_KEY`, `NR_DEPLOYMENT_WORKER_DEPLOY_KEY`,
   `NR_ACCEPTANCE_CONFIG_B64`, `NR_ACCEPTANCE_SCENARIO_RUNNER_B64`,
   `NR_ADDON_RELEASE_SIGNING_KEY_B64` i
   `NR_ADDON_RELEASE_PUBLIC_KEYS_B64`.
 
-Ove četiri preostale acceptance vrednosti provisionuju se samo iz fajlova van
+Ovih pet preostalih acceptance vrednosti provisionuju se samo iz fajlova van
 workspace checkout-a. Prva komanda je read-only dry run; druga je eksplicitna
 GitHub environment mutacija i izvršava se tek kada su pregledani stvarni runner,
 konfiguracija i staging credential fajlovi:
 
 ```powershell
-npm run acceptance:staging:provision -- --config-file D:\secure\night-raven-acceptance.staging.json --runner-file D:\secure\night-raven-staging-scenario-runner --staging-identity-file D:\secure\staging.identity --provider-identity-file D:\secure\provider.identity
-npm run acceptance:staging:provision -- --config-file D:\secure\night-raven-acceptance.staging.json --runner-file D:\secure\night-raven-staging-scenario-runner --staging-identity-file D:\secure\staging.identity --provider-identity-file D:\secure\provider.identity --apply
+npm run acceptance:staging:provision -- --config-file D:\secure\night-raven-acceptance.staging.json --runner-file D:\secure\night-raven-staging-scenario-runner --staging-identity-file D:\secure\staging.identity --provider-identity-file D:\secure\provider.identity --operator-identity-file D:\secure\operator.identity
+npm run acceptance:staging:provision -- --config-file D:\secure\night-raven-acceptance.staging.json --runner-file D:\secure\night-raven-staging-scenario-runner --staging-identity-file D:\secure\staging.identity --provider-identity-file D:\secure\provider.identity --operator-identity-file D:\secure\operator.identity --apply
 ```
 
 Provisioner odbija source/workspace putanje i symlink povratak u checkout,

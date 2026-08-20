@@ -8,7 +8,8 @@
     "vendorWebshop": "https://vendor-shop.staging.example.invalid",
     "customerWebshop": "https://customer-shop.staging.example.invalid",
     "customerLicenseServer": "https://customer-issuer.staging.example.invalid",
-    "deploymentWorker": "https://deploy-worker.staging.example.invalid"
+    "deploymentWorker": "https://deploy-worker.staging.example.invalid",
+    "acceptanceControl": "https://acceptance-control.staging.example.invalid"
   },
   "identity": {
     "kind": "oidc",
@@ -20,9 +21,15 @@
     "credentialEnv": "NR_ACCEPTANCE_PROVIDER_IDENTITY",
     "webhookEndpoint": "https://cms.staging.example.invalid/api/webhooks/provider"
   },
+  "operator": {
+    "kind": "oauth2-bearer",
+    "credentialEnv": "NR_ACCEPTANCE_OPERATOR_IDENTITY"
+  },
   "scenarioRunner": {
     "commandEnv": "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH",
-    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "pollIntervalMs": 2000,
+    "timeoutSeconds": 1800
   },
   "releaseCandidate": {
     "sourceMode": "signed-rc-artifacts",

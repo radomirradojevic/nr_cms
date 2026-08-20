@@ -15,12 +15,14 @@ const INPUT_FLAGS = new Map([
   ["--runner-file", "runnerFile"],
   ["--staging-identity-file", "stagingIdentityFile"],
   ["--provider-identity-file", "providerIdentityFile"],
+  ["--operator-identity-file", "operatorIdentityFile"],
 ]);
 const TARGET_SECRET_NAMES = [
   "NR_ACCEPTANCE_CONFIG_B64",
   "NR_ACCEPTANCE_SCENARIO_RUNNER_B64",
   "NR_ACCEPTANCE_STAGING_IDENTITY",
   "NR_ACCEPTANCE_PROVIDER_IDENTITY",
+  "NR_ACCEPTANCE_OPERATOR_IDENTITY",
 ];
 const RUNNER_DIGEST_VARIABLE = "NR_ACCEPTANCE_SCENARIO_RUNNER_SHA256";
 const REQUIRED_EXISTING_SECRETS = [
@@ -99,6 +101,7 @@ export function prepareStagingAcceptanceInputs({
   runnerBytes,
   stagingIdentityBytes,
   providerIdentityBytes,
+  operatorIdentityBytes,
   runnerPath,
   cwd = process.cwd(),
 }) {
@@ -120,6 +123,10 @@ export function prepareStagingAcceptanceInputs({
     providerIdentityBytes,
     "Provider identity file",
   );
+  const operatorIdentity = normalizeCredential(
+    operatorIdentityBytes,
+    "Operator identity file",
+  );
   const absoluteRunnerPath = assertOutsideWorkspacePath(
     runnerPath,
     "Scenario runner file",
@@ -135,6 +142,7 @@ export function prepareStagingAcceptanceInputs({
     cwd,
     env: {
       NR_ACCEPTANCE_PROVIDER_IDENTITY: providerIdentity,
+      NR_ACCEPTANCE_OPERATOR_IDENTITY: operatorIdentity,
       NR_ACCEPTANCE_SCENARIO_RUNNER_PATH: absoluteRunnerPath,
       NR_ACCEPTANCE_STAGING_IDENTITY: stagingIdentity,
       NR_STAGING_EVIDENCE_DIRECTORY: preflightEvidenceDirectory,
@@ -150,6 +158,7 @@ export function prepareStagingAcceptanceInputs({
     NR_ACCEPTANCE_SCENARIO_RUNNER_B64: runnerBytes.toString("base64"),
     NR_ACCEPTANCE_STAGING_IDENTITY: stagingIdentity,
     NR_ACCEPTANCE_PROVIDER_IDENTITY: providerIdentity,
+    NR_ACCEPTANCE_OPERATOR_IDENTITY: operatorIdentity,
   };
   for (const [name, value] of Object.entries(secretValues))
     assertProjectSecretSize(name, value);
@@ -283,6 +292,11 @@ async function main() {
       "Provider identity file",
       cwd,
     ),
+    readExternalFile(
+      options.operatorIdentityFile,
+      "Operator identity file",
+      cwd,
+    ),
   ];
   try {
     const prepared = prepareStagingAcceptanceInputs({
@@ -290,6 +304,7 @@ async function main() {
       runnerBytes: inputs[1].bytes,
       stagingIdentityBytes: inputs[2].bytes,
       providerIdentityBytes: inputs[3].bytes,
+      operatorIdentityBytes: inputs[4].bytes,
       runnerPath: inputs[1].path,
       cwd,
     });
