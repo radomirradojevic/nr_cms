@@ -131,11 +131,14 @@ export function readProtectedOperatorPasswordFile(filePath) {
 }
 
 export function assertStaticMigratorSecretPath(target) {
-  const expected = path.resolve(
+  // The provisioning contract is intentionally Windows/DPAPI-only. Use the
+  // Windows path implementation even when contract tests run on a Linux CI
+  // host, otherwise `D:\\...` is interpreted as a relative POSIX filename.
+  const expected = path.win32.resolve(
     OPERATOR_ROOT,
     `${target.targetName}-cms-core-migrator.v1.dpapi`,
   );
-  if (path.resolve(target.migratorSecretPath) !== expected) {
+  if (path.win32.resolve(target.migratorSecretPath) !== expected) {
     fail(
       "CmsCorePrivilegeManifestV1 migrator secret path is not the static operator root.",
     );

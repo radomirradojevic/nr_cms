@@ -192,12 +192,12 @@ test("outbound fetch enforces the byte limit without a Content-Length header", a
   globalThis.fetch = async () => new Response("0123456789", { status: 200 });
   try {
     await assert.rejects(
-      safeFetch("https://license.nr.test/fixture", {
+      safeFetch("https://93.184.216.34/fixture", {
         allowSelfHosted: true,
         outboundEnvironment: {
           NR_LICENSE_ENVIRONMENT: "development",
           NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true",
-          NRLS_ALLOWED_OUTBOUND_HOSTS: "license.nr.test",
+          NRLS_ALLOWED_OUTBOUND_HOSTS: "93.184.216.34",
         },
         maxResponseBytes: 8,
         purpose: "test",
@@ -219,12 +219,12 @@ test("outbound fetch pins the preflight DNS result for the connection", async ()
     return new Response("ok", { status: 200 });
   };
   try {
-    await safeFetch("https://license.nr.test/fixture", {
+    await safeFetch("https://93.184.216.34/fixture", {
       allowSelfHosted: true,
       outboundEnvironment: {
         NR_LICENSE_ENVIRONMENT: "development",
         NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true",
-        NRLS_ALLOWED_OUTBOUND_HOSTS: "license.nr.test",
+        NRLS_ALLOWED_OUTBOUND_HOSTS: "93.184.216.34",
       },
       purpose: "test",
     });
@@ -266,12 +266,12 @@ test("outbound fetch cancels a rejected response body before closing its dispatc
     );
   try {
     await assert.rejects(
-      safeFetch("https://license.nr.test/fixture", {
+      safeFetch("https://93.184.216.34/fixture", {
         allowSelfHosted: true,
         outboundEnvironment: {
           NR_LICENSE_ENVIRONMENT: "development",
           NRLS_ALLOW_SELF_HOSTED_OUTBOUND: "true",
-          NRLS_ALLOWED_OUTBOUND_HOSTS: "license.nr.test",
+          NRLS_ALLOWED_OUTBOUND_HOSTS: "93.184.216.34",
         },
         purpose: "test",
       }),
