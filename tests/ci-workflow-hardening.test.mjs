@@ -132,6 +132,14 @@ test("Night Raven private, staging, and production gates use protected GitHub-ho
   assert.match(staging, /NR_ADDON_RELEASE_PUBLIC_KEYS_B64:\s*\$\{\{ secrets\./);
   assert.match(staging, /base64 --decode/);
   assert.match(staging, /\$RUNNER_TEMP\/night-raven-acceptance\.staging\.json/);
+  assert.doesNotMatch(
+    staging,
+    /NR_STAGING_EVIDENCE_DIRECTORY:\s*\$\{\{ runner\.temp \}\}/,
+  );
+  assert.match(
+    staging,
+    /NR_STAGING_EVIDENCE_DIRECTORY=\$RUNNER_TEMP\/night-raven-staging-evidence/,
+  );
   assert.match(staging, /sha256sum --check --strict/);
   assert.match(
     staging,

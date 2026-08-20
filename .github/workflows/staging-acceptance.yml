@@ -23,7 +23,6 @@ jobs:
       # Keep the strict non-local release contract fail-closed while trusting
       # only this protected environment's staging-only signing KID.
       NR_ADDON_RELEASE_PRODUCTION_KIDS: ${{ vars.NR_ADDON_RELEASE_SIGNING_KID }}
-      NR_STAGING_EVIDENCE_DIRECTORY: ${{ runner.temp }}/night-raven-staging-evidence
       NR_STAGING_WORKSPACE_ROOT: ${{ github.workspace }}
       NR_WEBSHOP_GIT_SHA: 2fa623a0912f72b15025712d8e2ca906946ed19e
       NR_LICENSE_SERVER_ADDON_GIT_SHA: 6bdb1c8c06a062bd98313af941d774fa535b1f99
@@ -96,11 +95,12 @@ jobs:
           chmod 700 "$RUNNER_TEMP/night-raven-staging-scenario-runner"
           printf '%s' "$NR_ADDON_RELEASE_PUBLIC_KEYS_B64" | base64 --decode > "$RUNNER_TEMP/addon-release-public-keys.json"
           printf '%s' "$NR_ADDON_RELEASE_SIGNING_KEY_B64" | base64 --decode > "$RUNNER_TEMP/addon-release-signing-key.pem"
-          mkdir -p "$NR_STAGING_EVIDENCE_DIRECTORY"
+          mkdir -p "$RUNNER_TEMP/night-raven-staging-evidence"
           echo "NR_ACCEPTANCE_CONFIG_PATH=$RUNNER_TEMP/night-raven-acceptance.staging.json" >> "$GITHUB_ENV"
           echo "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH=$RUNNER_TEMP/night-raven-staging-scenario-runner" >> "$GITHUB_ENV"
           echo "NR_ADDON_RELEASE_PUBLIC_KEYS_FILE=$RUNNER_TEMP/addon-release-public-keys.json" >> "$GITHUB_ENV"
           echo "NR_ADDON_RELEASE_SIGNING_KEY_FILE=$RUNNER_TEMP/addon-release-signing-key.pem" >> "$GITHUB_ENV"
+          echo "NR_STAGING_EVIDENCE_DIRECTORY=$RUNNER_TEMP/night-raven-staging-evidence" >> "$GITHUB_ENV"
 
       - name: Verify isolated GitHub-hosted staging configuration
         shell: bash
