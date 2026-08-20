@@ -106,6 +106,7 @@ jobs:
           set -euo pipefail
           cd "$NR_PRIVATE_WORKSPACE_ROOT"
           npm ci --ignore-scripts
+          NR_ADDON_SOURCE_MODE=empty npm run addons:registry
           npm run acceptance:private-packages
 
       - name: Remove ephemeral release authority files

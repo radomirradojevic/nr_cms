@@ -132,6 +132,17 @@ test("Night Raven private, staging, and production gates use protected GitHub-ho
     "staging preflight must run before the mutating acceptance matrix",
   );
 
+  const privateRelease = readWorkflow("private-release.yml");
+  assert.match(
+    privateRelease,
+    /NR_ADDON_SOURCE_MODE=empty npm run addons:registry/,
+  );
+  assert.ok(
+    privateRelease.indexOf("npm run addons:registry") <
+      privateRelease.indexOf("npm run acceptance:private-packages"),
+    "private release must generate the fail-closed root registry before package verification",
+  );
+
   const production = readWorkflow("production-rollout.yml");
   assert.doesNotMatch(production, /environment:\s*production(?:\s|$)/);
   assert.match(production, /db:migrate:production:dry-run/);
