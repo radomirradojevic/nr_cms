@@ -239,9 +239,13 @@ provisioner odbija overwrite i radi rollback parcijalne operacije. Preostali
 staging-only Ed25519 authority ima KID `staging-release:1c78bf2cb70b0717` i
 javni ključ SHA-256
 `1c78bf2cb70b07170c2f63cbc046b12f782679d0c7e229acbfd86f205dc26486`;
-to nije production publish authority. Acceptance config/identity secrets i
-dostupni HTTPS staging endpoint-i još nisu provisionovani; vrednosti tajni se
-ne unose u source niti u ovaj evidence zapis.
+to nije production publish authority. Hosted acceptance više ne zavisi od
+Windows operator putanje: workflow materijalizuje Linux scenario runner u
+`$RUNNER_TEMP`, proverava protected-environment SHA-256 pre `chmod 700`, a
+harness ponavlja proveru prema digestu iz konfiguracije i odbija runner iz
+workspace checkout-a. Stvarni pregledani runner artefakt i njegov digest,
+acceptance config/identity secrets i dostupni HTTPS staging endpoint-i još nisu
+provisionovani; vrednosti tajni se ne unose u source niti u ovaj evidence zapis.
 
 GitHub REST API ostavlja `can_admins_bypass: true`; pre prvog release workflow
 run-a vlasnik mora u UI-u da isključi **Allow administrators to bypass

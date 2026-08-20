@@ -36,6 +36,27 @@ function fixtureDigest(label) {
   return createHash("sha256").update(label).digest("hex");
 }
 
+const STAGING_RUNNER_PATH = resolve(
+  "..",
+  "night-raven-operator",
+  "scenario-runner",
+);
+const STAGING_RUNNER_BYTES = Buffer.from("night-raven-staging-runner-fixture");
+const STAGING_RUNNER_SHA256 = createHash("sha256")
+  .update(STAGING_RUNNER_BYTES)
+  .digest("hex");
+
+function stagingValidationOptions(env) {
+  return {
+    env: {
+      NR_ACCEPTANCE_SCENARIO_RUNNER_PATH: STAGING_RUNNER_PATH,
+      ...env,
+    },
+    exists: () => true,
+    readBinary: () => STAGING_RUNNER_BYTES,
+  };
+}
+
 function stagingConfigFixture() {
   return {
     version: NIGHT_RAVEN_ACCEPTANCE_VERSION,
@@ -62,7 +83,8 @@ function stagingConfigFixture() {
         "https://customer-cms.staging.nightraven.example.com/api/webhooks/provider",
     },
     scenarioRunner: {
-      command: resolve("..", "night-raven-operator", "scenario-runner.exe"),
+      commandEnv: "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH",
+      sha256: STAGING_RUNNER_SHA256,
     },
     releaseCandidate: {
       sourceMode: "signed-rc-artifacts",
@@ -201,10 +223,10 @@ test("staging E2E configuration is fail-closed before any runner can be called",
     NR_ACCEPTANCE_STAGING_IDENTITY: "opaque-identity",
     NR_ACCEPTANCE_PROVIDER_IDENTITY: "opaque-provider",
   };
-  const validated = validateStagingConfig(stagingConfigFixture(), {
-    env,
-    exists: () => true,
-  });
+  const validated = validateStagingConfig(
+    stagingConfigFixture(),
+    stagingValidationOptions(env),
+  );
   const summary = buildStagingPreflightSummary(validated);
   assert.equal(summary.status, "CONFIG_READY");
   assert.equal(summary.mutationPerformed, false);
@@ -212,6 +234,9 @@ test("staging E2E configuration is fail-closed before any runner can be called",
   assert.equal(summary.endpointCount, 7);
   assert.equal(summary.scenarioCount, 50);
   assert.equal(summary.drillCount, 11);
+  assert.equal(summary.runnerReference, "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH");
+  assert.equal(summary.runnerSha256, STAGING_RUNNER_SHA256);
+  assert.doesNotMatch(JSON.stringify(summary), /night-raven-operator/i);
 
   assert.throws(
     () =>
@@ -223,7 +248,7 @@ test("staging E2E configuration is fail-closed before any runner can be called",
             master: "https://master.staging.example.invalid",
           },
         },
-        { env, exists: () => true },
+        stagingValidationOptions(env),
       ),
     /placeholder hostname/i,
   );
@@ -237,7 +262,7 @@ test("staging E2E configuration is fail-closed before any runner can be called",
             artifactSetId: "a".repeat(64),
           },
         },
-        { env, exists: () => true },
+        stagingValidationOptions(env),
       ),
     /placeholder digest/i,
   );
@@ -251,15 +276,55 @@ test("staging E2E configuration is fail-closed before any runner can be called",
             credentialEnv: "NR_ADDON_RELEASE_SIGNING_KEY_FILE",
           },
         },
-        {
-          env: {
-            ...env,
-            NR_ADDON_RELEASE_SIGNING_KEY_FILE: "D:/kms/private.pem",
-          },
-          exists: () => true,
-        },
+        stagingValidationOptions({
+          ...env,
+          NR_ADDON_RELEASE_SIGNING_KEY_FILE: "D:/kms/private.pem",
+        }),
       ),
     /NR_ACCEPTANCE_STAGING_\*/i,
+  );
+
+  assert.throws(
+    () =>
+      validateStagingConfig(
+        {
+          ...stagingConfigFixture(),
+          scenarioRunner: {
+            ...stagingConfigFixture().scenarioRunner,
+            command: STAGING_RUNNER_PATH,
+          },
+        },
+        stagingValidationOptions(env),
+      ),
+    /exactly one of command or commandEnv/i,
+  );
+  assert.throws(
+    () =>
+      validateStagingConfig(
+        {
+          ...stagingConfigFixture(),
+          scenarioRunner: {
+            commandEnv: "PATH",
+            sha256: STAGING_RUNNER_SHA256,
+          },
+        },
+        stagingValidationOptions({ ...env, PATH: STAGING_RUNNER_PATH }),
+      ),
+    /must be NR_ACCEPTANCE_SCENARIO_RUNNER_PATH/i,
+  );
+  assert.throws(
+    () =>
+      validateStagingConfig(
+        {
+          ...stagingConfigFixture(),
+          scenarioRunner: {
+            ...stagingConfigFixture().scenarioRunner,
+            sha256: fixtureDigest("tampered-runner"),
+          },
+        },
+        stagingValidationOptions(env),
+      ),
+    /SHA-256 does not match/i,
   );
 });
 
@@ -274,10 +339,10 @@ test("staging runner inherits only required credentials and non-secret runtime s
     NRLS_SECRET_ENCRYPTION_KEY: "must-not-reach-runner",
     DATABASE_URL: "postgresql://secret@production.example/db",
   };
-  const config = validateStagingConfig(stagingConfigFixture(), {
-    env: ambient,
-    exists: () => true,
-  });
+  const config = validateStagingConfig(
+    stagingConfigFixture(),
+    stagingValidationOptions(ambient),
+  );
   const runnerEnv = buildStagingRunnerEnvironment(config, ambient);
   assert.equal(
     runnerEnv.NR_ACCEPTANCE_STAGING_IDENTITY,

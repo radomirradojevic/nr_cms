@@ -9,7 +9,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import process from "node:process";
@@ -140,6 +140,7 @@ const STAGING_RUNNER_RUNTIME_ENV = [
 const STAGING_RUNNER_CONTROL_ENV = new Set([
   "NR_ACCEPTANCE_ARTIFACT_SET_ID",
   "NR_ACCEPTANCE_CONFIG_PATH",
+  "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH",
   "NR_ACCEPTANCE_TARGET",
   "NR_ACCEPTANCE_VERSION",
 ]);
@@ -648,7 +649,12 @@ function assertNoSecretValues(value, path = "config") {
 
 export function validateStagingConfig(
   config,
-  { env = process.env, cwd = process.cwd(), exists = existsSync } = {},
+  {
+    env = process.env,
+    cwd = process.cwd(),
+    exists = existsSync,
+    readBinary = readFileSync,
+  } = {},
 ) {
   if (!config || typeof config !== "object")
     fail("configuration must be a JSON object.");
@@ -714,10 +720,28 @@ export function validateStagingConfig(
     config.provider?.webhookEndpoint,
     "provider.webhookEndpoint",
   );
-  const command = requireNonEmptyString(
-    config.scenarioRunner?.command,
-    "scenarioRunner.command",
-  );
+  const configuredCommand = config.scenarioRunner?.command;
+  const configuredCommandEnv = config.scenarioRunner?.commandEnv;
+  const hasCommand =
+    typeof configuredCommand === "string" && configuredCommand.trim() !== "";
+  const hasCommandEnv =
+    typeof configuredCommandEnv === "string" &&
+    configuredCommandEnv.trim() !== "";
+  if (hasCommand === hasCommandEnv)
+    fail("scenarioRunner must define exactly one of command or commandEnv.");
+  const commandEnv = hasCommandEnv
+    ? requireNonEmptyString(configuredCommandEnv, "scenarioRunner.commandEnv")
+    : null;
+  if (commandEnv && commandEnv !== "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH")
+    fail(
+      "scenarioRunner.commandEnv must be NR_ACCEPTANCE_SCENARIO_RUNNER_PATH.",
+    );
+  const command = hasCommand
+    ? requireNonEmptyString(configuredCommand, "scenarioRunner.command")
+    : requireNonEmptyString(
+        env[commandEnv],
+        `scenarioRunner.commandEnv (${commandEnv})`,
+      );
   if (!isAbsolute(command) || !exists(command))
     fail(
       "scenarioRunner.command must be an existing absolute path outside the public fixture set.",
@@ -728,6 +752,20 @@ export function validateStagingConfig(
     (!relativeRunner.startsWith("..") && !isAbsolute(relativeRunner))
   )
     fail("scenarioRunner.command must be outside the workspace checkout.");
+  const commandSha256 = assertNonPlaceholderSha256(
+    config.scenarioRunner?.sha256,
+    "scenarioRunner.sha256",
+  );
+  let runnerBytes;
+  try {
+    runnerBytes = readBinary(command);
+  } catch {
+    fail("scenarioRunner.command must be readable for integrity verification.");
+  }
+  if (sha256(runnerBytes) !== commandSha256)
+    fail(
+      "scenarioRunner.command SHA-256 does not match scenarioRunner.sha256.",
+    );
   if (config.releaseCandidate?.sourceMode !== "signed-rc-artifacts")
     fail("releaseCandidate.sourceMode must be signed-rc-artifacts.");
   const artifactSetId = requireNonEmptyString(
@@ -775,6 +813,8 @@ export function validateStagingConfig(
     providerCredentialEnv,
     providerWebhookEndpoint,
     command,
+    commandEnv,
+    commandSha256,
     artifactSetId,
     packageDigests,
     previousPackageDigest,
@@ -819,6 +859,8 @@ export function buildStagingPreflightSummary(config) {
     gateEligible: false,
     endpointCount: Object.keys(config.endpoints).length,
     runner: basename(config.command),
+    runnerReference: config.commandEnv ?? "operator-path",
+    runnerSha256: config.commandSha256,
     credentialReferences: [
       config.identityCredentialEnv,
       config.providerCredentialEnv,

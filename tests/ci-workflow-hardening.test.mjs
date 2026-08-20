@@ -120,10 +120,28 @@ test("Night Raven private, staging, and production gates use protected GitHub-ho
     /NR_ACCEPTANCE_PROVIDER_IDENTITY:\s*\$\{\{ secrets\.NR_ACCEPTANCE_PROVIDER_IDENTITY \}\}/,
   );
   assert.match(staging, /NR_ACCEPTANCE_CONFIG_B64:\s*\$\{\{ secrets\./);
+  assert.match(
+    staging,
+    /NR_ACCEPTANCE_SCENARIO_RUNNER_B64:\s*\$\{\{ secrets\.NR_ACCEPTANCE_SCENARIO_RUNNER_B64 \}\}/,
+  );
+  assert.match(
+    staging,
+    /NR_ACCEPTANCE_SCENARIO_RUNNER_SHA256:\s*\$\{\{ vars\.NR_ACCEPTANCE_SCENARIO_RUNNER_SHA256 \}\}/,
+  );
   assert.match(staging, /NR_ADDON_RELEASE_SIGNING_KEY_B64:\s*\$\{\{ secrets\./);
   assert.match(staging, /NR_ADDON_RELEASE_PUBLIC_KEYS_B64:\s*\$\{\{ secrets\./);
   assert.match(staging, /base64 --decode/);
   assert.match(staging, /\$RUNNER_TEMP\/night-raven-acceptance\.staging\.json/);
+  assert.match(staging, /sha256sum --check --strict/);
+  assert.match(
+    staging,
+    /chmod 700 "\$RUNNER_TEMP\/night-raven-staging-scenario-runner"/,
+  );
+  assert.match(staging, /test -x "\$NR_ACCEPTANCE_SCENARIO_RUNNER_PATH"/);
+  assert.match(
+    staging,
+    /rm -f "\$RUNNER_TEMP\/night-raven-staging-scenario-runner"/,
+  );
   assert.match(staging, /test -r "\$NR_ADDON_RELEASE_SIGNING_KEY_FILE"/);
   assert.match(staging, /npm run acceptance:preflight/);
   assert.ok(

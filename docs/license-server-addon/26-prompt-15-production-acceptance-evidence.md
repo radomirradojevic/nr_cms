@@ -191,13 +191,15 @@ Pravi staging acceptance koristi popunjenu kopiju v2 primera i operator runner:
 ```powershell
 $env:NR_ACCEPTANCE_TARGET = "staging"
 $env:NR_ACCEPTANCE_CONFIG_PATH = "D:\secure\night-raven-acceptance.staging.json"
+$env:NR_ACCEPTANCE_SCENARIO_RUNNER_PATH = "D:\secure\night-raven-staging-scenario-runner.exe"
 npm run acceptance:preflight
 npm run acceptance
 ```
 
 Harness odbija production target, HTTP/localhost endpoint-e, inline ili
 nepinovane ili placeholder artifact identitete, scenario runner iz workspace
-checkout-a, nedostajuću prethodnu verziju, nepotpune metrike i svaki
+checkout-a, runner bez tačno pinovanog SHA-256 ili runner čiji sadržaj ne odgovara
+tom digestu, nedostajuću prethodnu verziju, nepotpune metrike i svaki
 scenario/drill bez redigovanog evidence zapisa. Preflight je read-only i ne
 poziva endpoint-e ni scenario runner. Kada stvarni run počne, runner dobija samo
 minimalne OS varijable, dve eksplicitno imenovane staging credential reference i
@@ -207,12 +209,13 @@ nasleđuju.
 Protected `staging-acceptance` GitHub environment mora imati sledeće reference,
 bez secret vrednosti u repository-ju:
 
-- environment var: `NR_ADDON_RELEASE_SIGNING_KID`;
+- environment vars: `NR_ADDON_RELEASE_SIGNING_KID` i
+  `NR_ACCEPTANCE_SCENARIO_RUNNER_SHA256`;
 - environment secrets: `NR_ACCEPTANCE_STAGING_IDENTITY` i
   `NR_ACCEPTANCE_PROVIDER_IDENTITY`, repo-specifični read-only
   `NR_WEBSHOP_DEPLOY_KEY`, `NR_LICENSE_SERVER_ADDON_DEPLOY_KEY`,
   `NR_MASTER_DEPLOY_KEY`, `NR_DEPLOYMENT_WORKER_DEPLOY_KEY`,
-  `NR_ACCEPTANCE_CONFIG_B64`,
+  `NR_ACCEPTANCE_CONFIG_B64`, `NR_ACCEPTANCE_SCENARIO_RUNNER_B64`,
   `NR_ADDON_RELEASE_SIGNING_KEY_B64` i
   `NR_ADDON_RELEASE_PUBLIC_KEYS_B64`.
 
@@ -224,9 +227,12 @@ su provisionovani 20. avgusta 2026. operator skriptom koji privatni materijal
 Staging-only release authority je takođe provisionovan: KID
 `staging-release:1c78bf2cb70b0717`, javni ključ SHA-256
 `1c78bf2cb70b07170c2f63cbc046b12f782679d0c7e229acbfd86f205dc26486`.
-On nije production publish authority. Konfiguracija i key
-fajlovi dekodiraju se sa `umask 077` u ephemeral `$RUNNER_TEMP`, njihove putanje
-se prosleđuju harness-u i fajlovi se brišu u `always()` koraku. Identity
+On nije production publish authority. Konfiguracija, scenario runner i key
+fajlovi dekodiraju se sa `umask 077` u ephemeral `$RUNNER_TEMP`. Workflow pre
+izvršavanja proverava runner prema protected environment SHA-256 varijabli, a
+harness istu proveru nezavisno ponavlja prema digestu u acceptance konfiguraciji.
+Runner postaje executable tek posle prve provere; njegove i ostale privremene
+putanje prosleđuju se harness-u, a fajlovi se brišu u `always()` koraku. Identity
 credential-i ostaju step-scoped i nisu dostupni checkout/setup/install
 koracima.
 
@@ -240,6 +246,6 @@ Webshop/License Server build-test-pack i oba isolated packed-host smoke-a.
 Webshop/License Server tarball SHA-256 vrednosti su redom
 `fc71fff1b26a1123facfdc5b01b8938f7222c2487401091108a5971e1ea5a555` i
 `e99bee337f972cc4f6701e45b6ccde707bb4490aa730f12715a6497941d1d308`.
-Acceptance config/identity secrets i dostupni HTTPS staging endpoint-i još nisu
-potvrđeni. Zato puni staging workflow još nije pokrenut i ova stavka ostaje
-staging `NO_GO`.
+Acceptance config/identity secrets, pregledani Linux scenario-runner artefakt sa
+pinovanim digestom i dostupni HTTPS staging endpoint-i još nisu potvrđeni. Zato
+puni staging workflow još nije pokrenut i ova stavka ostaje staging `NO_GO`.
