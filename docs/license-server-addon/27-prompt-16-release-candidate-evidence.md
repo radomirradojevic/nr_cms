@@ -58,7 +58,7 @@ gate, ne SemVer sufiksom.
 | Polje                   | Vrednost                                        |
 | ----------------------- | ----------------------------------------------- |
 | package                 | `@nr-cms/license-server@0.2.0`                  |
-| License Server source   | `3ea685501dd05747387da151d822f0cbfaedf18f`      |
+| License Server source   | `6bdb1c8c06a062bd98313af941d774fa535b1f99`      |
 | CMS baseline            | `6ec56554b1fd902c546c5e7d6bd669b15c857001`      |
 | centralni Master        | `8fa03719a6040613ab6c796a31b2b87ff5640dcf`      |
 | deployment worker       | `e6c5755a93e4c6cba534caa4262cfdcf6273b406`      |
