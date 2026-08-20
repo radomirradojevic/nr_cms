@@ -11,7 +11,7 @@ import {
 } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -143,6 +143,7 @@ const STAGING_RUNNER_CONTROL_ENV = new Set([
   "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH",
   "NR_ACCEPTANCE_TARGET",
   "NR_ACCEPTANCE_VERSION",
+  "NR_STAGING_EVIDENCE_DIRECTORY",
 ]);
 const PUBLIC_COPY_EXCLUDED_ROOTS = new Set([
   ".private",
@@ -632,6 +633,16 @@ function assertNonPlaceholderSha256(value, label) {
   return value;
 }
 
+function isOutsideWorkspace(candidate, cwd) {
+  const relation = relative(resolve(cwd), resolve(candidate));
+  return (
+    relation !== "" &&
+    (relation === ".." ||
+      relation.startsWith(`..${sep}`) ||
+      isAbsolute(relation))
+  );
+}
+
 function assertNoSecretValues(value, path = "config") {
   if (Array.isArray(value))
     return value.forEach((entry, index) =>
@@ -704,14 +715,10 @@ export function validateStagingConfig(
     fail(
       "identity and provider credentials must use separate environment variables.",
     );
-  if (!/^NR_ACCEPTANCE_STAGING_[A-Z0-9_]+$/.test(identityCredentialEnv))
-    fail(
-      "identity.credentialEnv must use the NR_ACCEPTANCE_STAGING_* namespace.",
-    );
-  if (!/^NR_ACCEPTANCE_PROVIDER_[A-Z0-9_]+$/.test(providerCredentialEnv))
-    fail(
-      "provider.credentialEnv must use the NR_ACCEPTANCE_PROVIDER_* namespace.",
-    );
+  if (identityCredentialEnv !== "NR_ACCEPTANCE_STAGING_IDENTITY")
+    fail("identity.credentialEnv must be NR_ACCEPTANCE_STAGING_IDENTITY.");
+  if (providerCredentialEnv !== "NR_ACCEPTANCE_PROVIDER_IDENTITY")
+    fail("provider.credentialEnv must be NR_ACCEPTANCE_PROVIDER_IDENTITY.");
   for (const credentialEnv of [identityCredentialEnv, providerCredentialEnv]) {
     if (STAGING_RUNNER_CONTROL_ENV.has(credentialEnv))
       fail(`${credentialEnv} is reserved for acceptance runner control.`);
@@ -746,11 +753,7 @@ export function validateStagingConfig(
     fail(
       "scenarioRunner.command must be an existing absolute path outside the public fixture set.",
     );
-  const relativeRunner = relative(resolve(cwd), resolve(command));
-  if (
-    relativeRunner === "" ||
-    (!relativeRunner.startsWith("..") && !isAbsolute(relativeRunner))
-  )
+  if (!isOutsideWorkspace(command, cwd))
     fail("scenarioRunner.command must be outside the workspace checkout.");
   const commandSha256 = assertNonPlaceholderSha256(
     config.scenarioRunner?.sha256,
@@ -766,6 +769,39 @@ export function validateStagingConfig(
     fail(
       "scenarioRunner.command SHA-256 does not match scenarioRunner.sha256.",
     );
+  const configuredEvidenceDirectory = config.evidenceDirectory;
+  const configuredEvidenceDirectoryEnv = config.evidenceDirectoryEnv;
+  const hasEvidenceDirectory =
+    typeof configuredEvidenceDirectory === "string" &&
+    configuredEvidenceDirectory.trim() !== "";
+  const hasEvidenceDirectoryEnv =
+    typeof configuredEvidenceDirectoryEnv === "string" &&
+    configuredEvidenceDirectoryEnv.trim() !== "";
+  if (hasEvidenceDirectory === hasEvidenceDirectoryEnv)
+    fail(
+      "configuration must define exactly one of evidenceDirectory or evidenceDirectoryEnv.",
+    );
+  const evidenceDirectoryEnv = hasEvidenceDirectoryEnv
+    ? requireNonEmptyString(
+        configuredEvidenceDirectoryEnv,
+        "evidenceDirectoryEnv",
+      )
+    : null;
+  if (
+    evidenceDirectoryEnv &&
+    evidenceDirectoryEnv !== "NR_STAGING_EVIDENCE_DIRECTORY"
+  )
+    fail("evidenceDirectoryEnv must be NR_STAGING_EVIDENCE_DIRECTORY.");
+  const evidenceDirectory = hasEvidenceDirectory
+    ? requireNonEmptyString(configuredEvidenceDirectory, "evidenceDirectory")
+    : requireNonEmptyString(
+        env[evidenceDirectoryEnv],
+        `evidenceDirectoryEnv (${evidenceDirectoryEnv})`,
+      );
+  if (!isAbsolute(evidenceDirectory))
+    fail("staging evidence directory must be an absolute path.");
+  if (!isOutsideWorkspace(evidenceDirectory, cwd))
+    fail("staging evidence directory must be outside the workspace checkout.");
   if (config.releaseCandidate?.sourceMode !== "signed-rc-artifacts")
     fail("releaseCandidate.sourceMode must be signed-rc-artifacts.");
   const artifactSetId = requireNonEmptyString(
@@ -819,9 +855,8 @@ export function validateStagingConfig(
     packageDigests,
     previousPackageDigest,
     performanceSlo,
-    evidenceDirectory: resolve(
-      config.evidenceDirectory ?? ".tmp/night-raven-acceptance",
-    ),
+    evidenceDirectory: resolve(evidenceDirectory),
+    evidenceDirectoryEnv,
   };
 }
 

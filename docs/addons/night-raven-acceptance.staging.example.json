@@ -42,5 +42,5 @@
     "validateP95Ms": 250,
     "soakSeconds": 900
   },
-  "evidenceDirectory": ".tmp/night-raven-acceptance"
+  "evidenceDirectoryEnv": "NR_STAGING_EVIDENCE_DIRECTORY"
 }

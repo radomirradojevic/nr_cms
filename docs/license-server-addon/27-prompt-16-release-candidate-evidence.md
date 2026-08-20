@@ -145,7 +145,7 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | centralni Master `npm run typecheck`                   | **PASS**                                                                                                                                        |
 | deployment worker `npm run test:db`                    | **85/85 PASS**, 0 skip                                                                                                                          |
 | deployment worker `npm run lint` / `typecheck`         | **PASS / PASS**                                                                                                                                 |
-| root CMS `npm run test`                                | **378 PASS**, 0 fail, 10 environment-gated skip                                                                                                 |
+| root CMS `npm run test`                                | **381 PASS**, 0 fail, 10 environment-gated skip                                                                                                 |
 | root CMS `npm run lint` / `typecheck`                  | **PASS sa 12 postojećih warning-a / PASS**                                                                                                      |
 | GitHub Public CI, commit `9c1ed90`, run `32413917814`  | **PASS** — clean checkout/install, fail-closed registry, DB migracije, testovi, packed public-copy build/NFT boundary i public dependency audit |
 | GitHub Private Release Verification, run `32413928892` | **PASS** — protected GitHub-hosted clean checkout, staging potpis, oba add-on build/test/pack ciklusa i isolated packed-host smoke              |
@@ -203,6 +203,15 @@ validira sva četiri workflow-a uz hosted ShellCheck. Staging workflow je sada
 validan manualni `workflow_dispatch`; nije pokrenut niti je preskočen njegov
 environment approval.
 
+Poslednji lokalni input gap je zatvoren fail-closed operator provisionerom
+`acceptance:staging:provision`. On uzima config, Linux scenario runner i dva
+credential-a isključivo iz fajlova van checkout-a, ponavlja punu staging config
+i runner SHA proveru, koristi stdin za GitHub secret-e i zahteva zaseban
+`--apply`. Refuse-overwrite, prerequisite provera, projektni secret-size limit,
+post-write verifikacija i rollback parcijalno kreiranih reference su obavezni.
+Sam provisioner ne proizvodi stvarni runner niti staging credential-e i nije
+pokrenut sa `--apply` bez tih operator-kontrolisanih ulaza.
+
 ## 7. Canary i rollback/forward-fix plan
 
 Canary obuhvat je tačno jedan allowlisted interni customer/product/SKU/install,
@@ -256,8 +265,9 @@ javni ključ SHA-256
 to nije production publish authority. Hosted acceptance više ne zavisi od
 Windows operator putanje: workflow materijalizuje Linux scenario runner u
 `$RUNNER_TEMP`, proverava protected-environment SHA-256 pre `chmod 700`, a
-harness ponavlja proveru prema digestu iz konfiguracije i odbija runner iz
-workspace checkout-a. Stvarni pregledani runner artefakt i njegov digest,
+harness ponavlja proveru prema digestu iz konfiguracije i odbija runner ili
+evidence direktorijum iz workspace checkout-a. Stvarni pregledani runner
+artefakt i njegov digest,
 acceptance config/identity secrets i dostupni HTTPS staging endpoint-i još nisu
 provisionovani; vrednosti tajni se ne unose u source niti u ovaj evidence zapis.
 

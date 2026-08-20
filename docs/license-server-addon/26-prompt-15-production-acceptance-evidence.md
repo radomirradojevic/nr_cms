@@ -192,6 +192,7 @@ Pravi staging acceptance koristi popunjenu kopiju v2 primera i operator runner:
 $env:NR_ACCEPTANCE_TARGET = "staging"
 $env:NR_ACCEPTANCE_CONFIG_PATH = "D:\secure\night-raven-acceptance.staging.json"
 $env:NR_ACCEPTANCE_SCENARIO_RUNNER_PATH = "D:\secure\night-raven-staging-scenario-runner.exe"
+$env:NR_STAGING_EVIDENCE_DIRECTORY = "D:\secure\night-raven-staging-evidence"
 npm run acceptance:preflight
 npm run acceptance
 ```
@@ -199,7 +200,8 @@ npm run acceptance
 Harness odbija production target, HTTP/localhost endpoint-e, inline ili
 nepinovane ili placeholder artifact identitete, scenario runner iz workspace
 checkout-a, runner bez tačno pinovanog SHA-256 ili runner čiji sadržaj ne odgovara
-tom digestu, nedostajuću prethodnu verziju, nepotpune metrike i svaki
+tom digestu, evidence direktorijum unutar workspace checkout-a, nedostajuću
+prethodnu verziju, nepotpune metrike i svaki
 scenario/drill bez redigovanog evidence zapisa. Preflight je read-only i ne
 poziva endpoint-e ni scenario runner. Kada stvarni run počne, runner dobija samo
 minimalne OS varijable, dve eksplicitno imenovane staging credential reference i
@@ -218,6 +220,23 @@ bez secret vrednosti u repository-ju:
   `NR_ACCEPTANCE_CONFIG_B64`, `NR_ACCEPTANCE_SCENARIO_RUNNER_B64`,
   `NR_ADDON_RELEASE_SIGNING_KEY_B64` i
   `NR_ADDON_RELEASE_PUBLIC_KEYS_B64`.
+
+Ove četiri preostale acceptance vrednosti provisionuju se samo iz fajlova van
+workspace checkout-a. Prva komanda je read-only dry run; druga je eksplicitna
+GitHub environment mutacija i izvršava se tek kada su pregledani stvarni runner,
+konfiguracija i staging credential fajlovi:
+
+```powershell
+npm run acceptance:staging:provision -- --config-file D:\secure\night-raven-acceptance.staging.json --runner-file D:\secure\night-raven-staging-scenario-runner --staging-identity-file D:\secure\staging.identity --provider-identity-file D:\secure\provider.identity
+npm run acceptance:staging:provision -- --config-file D:\secure\night-raven-acceptance.staging.json --runner-file D:\secure\night-raven-staging-scenario-runner --staging-identity-file D:\secure\staging.identity --provider-identity-file D:\secure\provider.identity --apply
+```
+
+Provisioner odbija source/workspace putanje i symlink povratak u checkout,
+nepoznate ili duplirane argumente, inline/placeholder konfiguraciju, config i
+runner digest mismatch, prevelike secret payload-e, nedostajuće signing/deploy
+preduslove i overwrite postojećih reference. Secret sadržaj šalje `gh secret
+set` preko stdin-a; u izlazu ostaju samo config i runner SHA-256. Parcijalna
+operacija radi best-effort rollback svih reference koje je upravo kreirala.
 
 GitHub-hosted `ubuntu-24.04` runner checkout-uje četiri privatna repozitorijuma
 na tačno pinovane commit SHA vrednosti. Svaki checkout koristi zaseban read-only

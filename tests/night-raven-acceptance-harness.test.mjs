@@ -45,11 +45,17 @@ const STAGING_RUNNER_BYTES = Buffer.from("night-raven-staging-runner-fixture");
 const STAGING_RUNNER_SHA256 = createHash("sha256")
   .update(STAGING_RUNNER_BYTES)
   .digest("hex");
+const STAGING_EVIDENCE_DIRECTORY = resolve(
+  "..",
+  "night-raven-operator",
+  "evidence",
+);
 
 function stagingValidationOptions(env) {
   return {
     env: {
       NR_ACCEPTANCE_SCENARIO_RUNNER_PATH: STAGING_RUNNER_PATH,
+      NR_STAGING_EVIDENCE_DIRECTORY: STAGING_EVIDENCE_DIRECTORY,
       ...env,
     },
     exists: () => true,
@@ -106,6 +112,7 @@ function stagingConfigFixture() {
       validateP95Ms: 250,
       soakSeconds: 900,
     },
+    evidenceDirectoryEnv: "NR_STAGING_EVIDENCE_DIRECTORY",
   };
 }
 
@@ -237,6 +244,7 @@ test("staging E2E configuration is fail-closed before any runner can be called",
   assert.equal(summary.runnerReference, "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH");
   assert.equal(summary.runnerSha256, STAGING_RUNNER_SHA256);
   assert.doesNotMatch(JSON.stringify(summary), /night-raven-operator/i);
+  assert.equal(validated.evidenceDirectory, STAGING_EVIDENCE_DIRECTORY);
 
   assert.throws(
     () =>
@@ -281,7 +289,7 @@ test("staging E2E configuration is fail-closed before any runner can be called",
           NR_ADDON_RELEASE_SIGNING_KEY_FILE: "D:/kms/private.pem",
         }),
       ),
-    /NR_ACCEPTANCE_STAGING_\*/i,
+    /must be NR_ACCEPTANCE_STAGING_IDENTITY/i,
   );
 
   assert.throws(
@@ -325,6 +333,42 @@ test("staging E2E configuration is fail-closed before any runner can be called",
         stagingValidationOptions(env),
       ),
     /SHA-256 does not match/i,
+  );
+  assert.throws(
+    () =>
+      validateStagingConfig(
+        {
+          ...stagingConfigFixture(),
+          evidenceDirectory: resolve(".tmp", "staging-evidence"),
+        },
+        stagingValidationOptions(env),
+      ),
+    /exactly one of evidenceDirectory or evidenceDirectoryEnv/i,
+  );
+  assert.throws(
+    () =>
+      validateStagingConfig(
+        {
+          ...stagingConfigFixture(),
+          evidenceDirectoryEnv: "NR_ACCEPTANCE_CONFIG_PATH",
+        },
+        stagingValidationOptions({
+          ...env,
+          NR_ACCEPTANCE_CONFIG_PATH: resolve("..", "staging.json"),
+        }),
+      ),
+    /evidenceDirectoryEnv must be NR_STAGING_EVIDENCE_DIRECTORY/i,
+  );
+  assert.throws(
+    () =>
+      validateStagingConfig(stagingConfigFixture(), {
+        ...stagingValidationOptions(env),
+        env: {
+          ...stagingValidationOptions(env).env,
+          NR_STAGING_EVIDENCE_DIRECTORY: resolve(".tmp", "staging-evidence"),
+        },
+      }),
+    /evidence directory must be outside the workspace checkout/i,
   );
 });
 
