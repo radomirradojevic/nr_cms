@@ -346,3 +346,21 @@ Prompt 10 evidence:
 Nisu izvršeni production publish/deploy, live payment-provider događaj ni slanje
 stvarnog customer e-maila. To su release/staging gate-ovi, ne zamena za zeleni
 izolovani DB, contract, package i Next 16.3 host dokaz iz evidence dokumenta.
+
+## 21. Status posle Prompt-a 11
+
+Prompt 11 evidence:
+[22-prompt-11-runtime-lifecycle-evidence.md](./22-prompt-11-runtime-lifecycle-evidence.md).
+
+| ID | Status | Dokaz / preostali gate |
+| --- | --- | --- |
+| LIFE-01 | **zelen** | Issuer i Webshop imaju strogu idempotentnu renew/suspend/resume/revoke/refund/chargeback state mašinu; terminalna licenca nema običan resume, a reason code/hash je auditovan. |
+| LIFE-02 | **zelen za code/isolated DB tok** | Samo prihvaćen payment/subscription fact pravi outbox; customer local/remote lifecycle polluje durable issuer operation, a refund/chargeback opoziva activations i online validaciju. Live provider ostaje staging gate. |
+| RUN-01 | **zelen** | Izolovani PostgreSQL test sa 128 paralelnih zahteva potvrđuje da device/server shared bucket nikad ne prelazi `maxDevices`. |
+| RUN-02 | **zelen** | Device/server/domain/seat/floating matrica, kanonizacija/hash i hash-only activation token su pokriveni unit + DB testom. |
+| RUN-03 | **zelen** | Assertion TTL ≤ 3600 s, 60 s default skew, online reject, issuer-outage grace i grace-expired clock vektori daju eksplicitnu odluku. |
+| RUN-04 | **zelen** | Suspend/refund/revoke/chargeback odbijaju online validate; terminalna akcija opoziva aktivacije i kasni resume ostaje dead-letter bez promene statusa. |
+
+Admin UI eksplicitno upozorava da refund/revoke ne može retroaktivno poništiti
+već izdat dugovečni offline dokument. Production outage drill, live subscription
+provider i publish/deploy ostaju release gate-ovi.

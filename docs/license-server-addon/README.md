@@ -101,6 +101,10 @@ izdaje licence za proizvode tog kupca.
     — Prompt 10 immutable claim mapping, paid-order issue/reconciliation,
     receipt, reveal-once i potpisana `.nrls.json` isporuka.
 
+23. [22-prompt-11-runtime-lifecycle-evidence.md](./22-prompt-11-runtime-lifecycle-evidence.md)
+    — Prompt 11 runtime aktivacija, atomic limit, signed lease/offline odluka i
+    Webshop-to-issuer lifecycle dokaz.
+
 ## Oznake stanja
 
 Dokumenti razlikuju sledeće oznake:

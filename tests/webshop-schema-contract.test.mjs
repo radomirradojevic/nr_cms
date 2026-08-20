@@ -50,6 +50,7 @@ test("canonical package migration is payload-backed and fingerprint-pinned", (t)
       "0007_webshop_delivery_session_exchange.sql",
       "0008_webshop_customer_license_server_connections.sql",
       "0009_webshop_customer_license_fulfillment.sql",
+      "0010_webshop_license_lifecycle_v2.sql",
     ],
   );
   for (const descriptor of migrations) {
@@ -108,5 +109,12 @@ test("canonical package migration is payload-backed and fingerprint-pinned", (t)
     fulfillmentDescriptor?.postconditionSchemaFingerprintSha256,
     "2962412913957e92153c421892661eb067ad81e9332ac154356effdd3a04e74f",
   );
-  assert.equal(migrations.at(-1)?.schemaVersion, 9);
+  const lifecycleDescriptor = migrations.find(
+    (entry) => entry.id === "0010_webshop_license_lifecycle_v2.sql",
+  );
+  assert.equal(
+    lifecycleDescriptor?.postconditionSchemaFingerprintSha256,
+    "d54b3734a846d91f9321b90f2d78da8a5f82cd15648b828df4ba0fe0a9f31341",
+  );
+  assert.equal(migrations.at(-1)?.schemaVersion, 10);
 });

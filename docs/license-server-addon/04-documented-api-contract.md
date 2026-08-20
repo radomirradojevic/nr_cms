@@ -278,6 +278,12 @@ akcija; zahteva poseban privileged recovery tok.
 Lifecycle koristi isti operation status ugovor i mora naći tačno jednu licencu
 u scope-u pozivaoca.
 
+As-built V2 nema recovery endpoint: terminalni `revoked`, `refunded` i
+`chargeback` odbijaju renew/resume/suspend i prelazak u drugi terminalni status.
+Ista terminalna akcija sa novim idempotency key-em je bezbedan no-op; isti ključ
+sa drugačijim payload-om je idempotency conflict. `renew` mora povećati expiry i
+ne resume-uje suspendovanu licencu.
+
 ## 7. Runtime endpoint-i
 
 ### `POST /licenses/activate`

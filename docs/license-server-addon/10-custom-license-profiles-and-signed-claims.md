@@ -344,6 +344,12 @@ od dostupnosti mreže.
 Aplikacija dobija signed lease do `offlineGraceEndsAt`, periodično ga osvežava.
 Najbolji opšti default za desktop/server proizvode.
 
+As-built runtime odluka koristi maksimalni assertion TTL od 3600 sekundi i
+default clock skew od 60 sekundi. Uspešan online validate daje novi lease.
+Eksplicitni online reject uvek pobeđuje cache. Samo kada je issuer nedostupan,
+već potpisani lease može nastaviti do policy `offlineGraceSeconds` granice,
+nikad posle business expiry-ja; po isteku grace-a odluka je deny.
+
 ### Offline-file
 
 Dugovečni assertion/file bez redovne mreže. Opoziv pre isteka nije pouzdano

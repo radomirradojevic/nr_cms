@@ -1628,12 +1628,22 @@ export const licenseServerLicenseActivations = pgTable(
       "license_server_license_activations_fingerprint_length_check",
       sql`char_length(${table.activationFingerprintHash}) = 64`,
     ),
+    check(
+      "license_server_license_activations_minimal_inventory_check",
+      sql`${table.domain} IS NULL AND ${table.deviceIdHash} IS NULL AND ${table.machineFingerprintHash} IS NULL AND ${table.platform} IS NULL AND ${table.metadata} = '{}'::jsonb`,
+    ),
     index("license_server_license_activations_license_status_idx").on(
       table.licenseId,
       table.status,
     ),
-    index("license_server_license_activations_token_idx").on(
+    uniqueIndex("license_server_license_activations_token_hash_unique").on(
       table.activationTokenHash,
+    ),
+    index("license_server_license_activations_limit_bucket_idx").on(
+      table.licenseId,
+      table.activationType,
+      table.status,
+      table.expiresAt,
     ),
     index("license_server_license_activations_domain_idx").on(table.domain),
     index("license_server_license_activations_device_idx").on(
@@ -1714,6 +1724,10 @@ export const licenseServerValidationEvents = pgTable(
     check(
       "license_server_validation_events_result_check",
       sql`${table.result} IN ('valid','invalid')`,
+    ),
+    check(
+      "license_server_validation_events_no_domain_inventory_check",
+      sql`${table.domain} IS NULL`,
     ),
     index("license_server_validation_events_license_idx").on(
       table.licenseId,
