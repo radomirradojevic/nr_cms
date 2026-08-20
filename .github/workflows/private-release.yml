@@ -18,6 +18,10 @@ jobs:
     timeout-minutes: 45
     env:
       NR_ADDON_RELEASE_SIGNING_KID: ${{ vars.NR_ADDON_RELEASE_SIGNING_KID }}
+      # The strict release contract calls its explicit non-local KID allowlist
+      # "production". This protected environment supplies only its staging KID;
+      # the resulting verification artifact has no production publish authority.
+      NR_ADDON_RELEASE_PRODUCTION_KIDS: ${{ vars.NR_ADDON_RELEASE_SIGNING_KID }}
       NR_PRIVATE_WORKSPACE_ROOT: ${{ github.workspace }}
       NR_WEBSHOP_GIT_SHA: 2fa623a0912f72b15025712d8e2ca906946ed19e
       NR_LICENSE_SERVER_ADDON_GIT_SHA: 3ea685501dd05747387da151d822f0cbfaedf18f
@@ -88,9 +92,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in NR_PRIVATE_WORKSPACE_ROOT NR_ADDON_RELEASE_SIGNING_KEY_FILE NR_ADDON_RELEASE_SIGNING_KID NR_ADDON_RELEASE_PUBLIC_KEYS_FILE; do
+          for name in NR_PRIVATE_WORKSPACE_ROOT NR_ADDON_RELEASE_SIGNING_KEY_FILE NR_ADDON_RELEASE_SIGNING_KID NR_ADDON_RELEASE_PRODUCTION_KIDS NR_ADDON_RELEASE_PUBLIC_KEYS_FILE; do
             test -n "${!name:-}" || { echo "$name is not configured"; exit 1; }
           done
+          test "$NR_ADDON_RELEASE_PRODUCTION_KIDS" = "$NR_ADDON_RELEASE_SIGNING_KID"
           test -d "$NR_PRIVATE_WORKSPACE_ROOT/.private"
           test -r "$NR_ADDON_RELEASE_SIGNING_KEY_FILE"
           test -r "$NR_ADDON_RELEASE_PUBLIC_KEYS_FILE"

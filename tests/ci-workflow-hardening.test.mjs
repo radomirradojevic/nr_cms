@@ -133,6 +133,16 @@ test("Night Raven private, staging, and production gates use protected GitHub-ho
   );
 
   const privateRelease = readWorkflow("private-release.yml");
+  for (const source of [privateRelease, staging]) {
+    assert.match(
+      source,
+      /NR_ADDON_RELEASE_PRODUCTION_KIDS:\s*\$\{\{ vars\.NR_ADDON_RELEASE_SIGNING_KID \}\}/,
+    );
+    assert.match(
+      source,
+      /test "\$NR_ADDON_RELEASE_PRODUCTION_KIDS" = "\$NR_ADDON_RELEASE_SIGNING_KID"/,
+    );
+  }
   assert.match(
     privateRelease,
     /NR_ADDON_SOURCE_MODE=empty npm run addons:registry/,
