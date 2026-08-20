@@ -237,6 +237,11 @@ runner digest mismatch, prevelike secret payload-e, nedostajuće signing/deploy
 preduslove i overwrite postojećih reference. Secret sadržaj šalje `gh secret
 set` preko stdin-a; u izlazu ostaju samo config i runner SHA-256. Parcijalna
 operacija radi best-effort rollback svih reference koje je upravo kreirala.
+Implementacija na commit-u `824ff0b6a3498a234f382aa5908bf06ea43c2b6a`
+prošla je GitHub Public CI run
+[`32418106892`](https://github.com/radomirradojevic/nr_cms/actions/runs/32418106892) 20. avgusta 2026. u `21:14:11Z`: actionlint/hosted ShellCheck, frozen install,
+391-test suite, DB migracija, isolated public-copy build/NFT i supply-chain audit
+su **PASS**. Provisioner `--apply` nije izvršen.
 
 GitHub-hosted `ubuntu-24.04` runner checkout-uje četiri privatna repozitorijuma
 na tačno pinovane commit SHA vrednosti. Svaki checkout koristi zaseban read-only

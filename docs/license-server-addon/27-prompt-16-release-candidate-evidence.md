@@ -150,6 +150,7 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | GitHub Public CI, commit `9c1ed90`, run `32413917814`  | **PASS** — clean checkout/install, fail-closed registry, DB migracije, testovi, packed public-copy build/NFT boundary i public dependency audit |
 | GitHub Private Release Verification, run `32413928892` | **PASS** — protected GitHub-hosted clean checkout, staging potpis, oba add-on build/test/pack ciklusa i isolated packed-host smoke              |
 | GitHub Public CI, commit `8046d94`, run `32416627151`  | **PASS** — sva četiri workflow-a kroz checksum-pinovan actionlint/hosted ShellCheck, zatim kompletan frozen public verification                 |
+| GitHub Public CI, commit `824ff0b`, run `32418106892`  | **PASS** — evidence-directory binding, fail-closed input provisioner, 391 test, packed build/NFT i supply-chain audit                           |
 | GitHub Actions runtime pinovi                          | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti            |
 
 Master DB suite uključuje generički immutable draft/import/publish/select
@@ -210,7 +211,10 @@ i runner SHA proveru, koristi stdin za GitHub secret-e i zahteva zaseban
 `--apply`. Refuse-overwrite, prerequisite provera, projektni secret-size limit,
 post-write verifikacija i rollback parcijalno kreiranih reference su obavezni.
 Sam provisioner ne proizvodi stvarni runner niti staging credential-e i nije
-pokrenut sa `--apply` bez tih operator-kontrolisanih ulaza.
+pokrenut sa `--apply` bez tih operator-kontrolisanih ulaza. Commit
+`824ff0b6a3498a234f382aa5908bf06ea43c2b6a` potvrđen je GitHub Public CI run-om
+[`32418106892`](https://github.com/radomirradojevic/nr_cms/actions/runs/32418106892),
+završenim u `21:14:11Z` statusom **success** za 2m46s.
 
 ## 7. Canary i rollback/forward-fix plan
 
