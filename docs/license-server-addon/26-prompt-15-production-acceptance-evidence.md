@@ -191,10 +191,15 @@ Pravi staging acceptance koristi popunjenu kopiju v2 primera i operator runner:
 ```powershell
 $env:NR_ACCEPTANCE_TARGET = "staging"
 $env:NR_ACCEPTANCE_CONFIG_PATH = "D:\secure\night-raven-acceptance.staging.json"
+npm run acceptance:preflight
 npm run acceptance
 ```
 
 Harness odbija production target, HTTP/localhost endpoint-e, inline ili
-nepinovane artifact identitete, workspace importe, nedostajuću prethodnu
-verziju, nepotpune metrike i svaki scenario/drill bez redigovanog evidence
-zapisa.
+nepinovane ili placeholder artifact identitete, scenario runner iz workspace
+checkout-a, nedostajuću prethodnu verziju, nepotpune metrike i svaki
+scenario/drill bez redigovanog evidence zapisa. Preflight je read-only i ne
+poziva endpoint-e ni scenario runner. Kada stvarni run počne, runner dobija samo
+minimalne OS varijable, dve eksplicitno imenovane staging credential reference i
+`NR_ACCEPTANCE_*` kontrolni skup; release/KMS i ostale ambient tajne se ne
+nasleđuju.

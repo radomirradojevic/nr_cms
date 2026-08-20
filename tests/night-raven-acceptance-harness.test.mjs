@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { generateKeyPairSync, sign } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -11,6 +11,8 @@ import {
   assertPromotablePrivateRelease,
   buildLocalInvariantEnvironment,
   buildPublicCopyEnvironment,
+  buildStagingPreflightSummary,
+  buildStagingRunnerEnvironment,
   canonicalReleaseManifestPayload,
   containsBrowserBundleSecret,
   NIGHT_RAVEN_ACCEPTANCE_VERSION,
@@ -29,6 +31,61 @@ import {
   DOCS_11_REQUIREMENTS,
   FINAL_PACKAGE_COMPONENT_GATES,
 } from "../scripts/night-raven-production-audit.mjs";
+
+function fixtureDigest(label) {
+  return createHash("sha256").update(label).digest("hex");
+}
+
+function stagingConfigFixture() {
+  return {
+    version: NIGHT_RAVEN_ACCEPTANCE_VERSION,
+    target: "staging",
+    endpoints: {
+      master: "https://master.staging.nightraven.example.com",
+      vendorCms: "https://vendor-cms.staging.nightraven.example.com",
+      customerCms: "https://customer-cms.staging.nightraven.example.com",
+      vendorWebshop: "https://vendor-shop.staging.nightraven.example.com",
+      customerWebshop: "https://customer-shop.staging.nightraven.example.com",
+      customerLicenseServer:
+        "https://customer-issuer.staging.nightraven.example.com",
+      deploymentWorker: "https://worker.staging.nightraven.example.com",
+    },
+    identity: {
+      kind: "oidc",
+      credentialEnv: "NR_ACCEPTANCE_STAGING_IDENTITY",
+    },
+    provider: {
+      kind: "stripe",
+      mode: "sandbox",
+      credentialEnv: "NR_ACCEPTANCE_PROVIDER_IDENTITY",
+      webhookEndpoint:
+        "https://customer-cms.staging.nightraven.example.com/api/webhooks/provider",
+    },
+    scenarioRunner: {
+      command: resolve("..", "night-raven-operator", "scenario-runner.exe"),
+    },
+    releaseCandidate: {
+      sourceMode: "signed-rc-artifacts",
+      artifactSetId: fixtureDigest("artifact-set"),
+      previousPackageDigest: fixtureDigest("previous-package"),
+      packageDigests: Object.fromEntries(
+        [
+          "master",
+          "cmsHost",
+          "webshop",
+          "licenseServerAddon",
+          "licenseServerService",
+          "deploymentWorker",
+        ].map((name) => [name, fixtureDigest(`package:${name}`)]),
+      ),
+    },
+    performanceSlo: {
+      issueP95Ms: 750,
+      validateP95Ms: 250,
+      soakSeconds: 900,
+    },
+  };
+}
 
 test("acceptance harness versions every mandatory staging scenario and operator drill", () => {
   assert.equal(NIGHT_RAVEN_ACCEPTANCE_VERSION, 2);
@@ -139,6 +196,105 @@ test("staging E2E configuration is fail-closed before any runner can be called",
     () => validateStagingConfig({ version: 99 }),
     /configuration version/i,
   );
+
+  const env = {
+    NR_ACCEPTANCE_STAGING_IDENTITY: "opaque-identity",
+    NR_ACCEPTANCE_PROVIDER_IDENTITY: "opaque-provider",
+  };
+  const validated = validateStagingConfig(stagingConfigFixture(), {
+    env,
+    exists: () => true,
+  });
+  const summary = buildStagingPreflightSummary(validated);
+  assert.equal(summary.status, "CONFIG_READY");
+  assert.equal(summary.mutationPerformed, false);
+  assert.equal(summary.gateEligible, false);
+  assert.equal(summary.endpointCount, 7);
+  assert.equal(summary.scenarioCount, 50);
+  assert.equal(summary.drillCount, 11);
+
+  assert.throws(
+    () =>
+      validateStagingConfig(
+        {
+          ...stagingConfigFixture(),
+          endpoints: {
+            ...stagingConfigFixture().endpoints,
+            master: "https://master.staging.example.invalid",
+          },
+        },
+        { env, exists: () => true },
+      ),
+    /placeholder hostname/i,
+  );
+  assert.throws(
+    () =>
+      validateStagingConfig(
+        {
+          ...stagingConfigFixture(),
+          releaseCandidate: {
+            ...stagingConfigFixture().releaseCandidate,
+            artifactSetId: "a".repeat(64),
+          },
+        },
+        { env, exists: () => true },
+      ),
+    /placeholder digest/i,
+  );
+  assert.throws(
+    () =>
+      validateStagingConfig(
+        {
+          ...stagingConfigFixture(),
+          identity: {
+            kind: "oidc",
+            credentialEnv: "NR_ADDON_RELEASE_SIGNING_KEY_FILE",
+          },
+        },
+        {
+          env: {
+            ...env,
+            NR_ADDON_RELEASE_SIGNING_KEY_FILE: "D:/kms/private.pem",
+          },
+          exists: () => true,
+        },
+      ),
+    /NR_ACCEPTANCE_STAGING_\*/i,
+  );
+});
+
+test("staging runner inherits only required credentials and non-secret runtime state", () => {
+  const ambient = {
+    PATH: "D:/operator/bin",
+    TEMP: "D:/operator/tmp",
+    NR_ACCEPTANCE_CONFIG_PATH: "D:/secure/staging.json",
+    NR_ACCEPTANCE_STAGING_IDENTITY: "opaque-identity",
+    NR_ACCEPTANCE_PROVIDER_IDENTITY: "opaque-provider",
+    NR_ADDON_RELEASE_SIGNING_KEY_FILE: "D:/kms/release-private.pem",
+    NRLS_SECRET_ENCRYPTION_KEY: "must-not-reach-runner",
+    DATABASE_URL: "postgresql://secret@production.example/db",
+  };
+  const config = validateStagingConfig(stagingConfigFixture(), {
+    env: ambient,
+    exists: () => true,
+  });
+  const runnerEnv = buildStagingRunnerEnvironment(config, ambient);
+  assert.equal(
+    runnerEnv.NR_ACCEPTANCE_STAGING_IDENTITY,
+    ambient.NR_ACCEPTANCE_STAGING_IDENTITY,
+  );
+  assert.equal(
+    runnerEnv.NR_ACCEPTANCE_PROVIDER_IDENTITY,
+    ambient.NR_ACCEPTANCE_PROVIDER_IDENTITY,
+  );
+  assert.equal(
+    runnerEnv.NR_ACCEPTANCE_CONFIG_PATH,
+    ambient.NR_ACCEPTANCE_CONFIG_PATH,
+  );
+  assert.equal(runnerEnv.PATH, ambient.PATH);
+  assert.equal(runnerEnv.NR_ADDON_RELEASE_SIGNING_KEY_FILE, undefined);
+  assert.equal(runnerEnv.NRLS_SECRET_ENCRYPTION_KEY, undefined);
+  assert.equal(runnerEnv.DATABASE_URL, undefined);
 });
 
 test("local acceptance is explicit and production is never a valid target", () => {

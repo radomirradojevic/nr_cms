@@ -119,6 +119,30 @@ const ACCEPTANCE_TARGETS = new Set(["staging", "local"]);
 const ACCEPTANCE_NPM_CACHE = join(tmpdir(), "night-raven-acceptance-npm-cache");
 const SENSITIVE_KEY =
   /(secret|token|password|private.?key|authorization|credential|cookie)/i;
+const STAGING_RUNNER_RUNTIME_ENV = [
+  "APPDATA",
+  "COMSPEC",
+  "HOME",
+  "LANG",
+  "LC_ALL",
+  "LOCALAPPDATA",
+  "NODE_EXTRA_CA_CERTS",
+  "PATH",
+  "PATHEXT",
+  "SystemRoot",
+  "TEMP",
+  "TMP",
+  "TMPDIR",
+  "TZ",
+  "USERPROFILE",
+  "WINDIR",
+];
+const STAGING_RUNNER_CONTROL_ENV = new Set([
+  "NR_ACCEPTANCE_ARTIFACT_SET_ID",
+  "NR_ACCEPTANCE_CONFIG_PATH",
+  "NR_ACCEPTANCE_TARGET",
+  "NR_ACCEPTANCE_VERSION",
+]);
 const PUBLIC_COPY_EXCLUDED_ROOTS = new Set([
   ".private",
   ".git",
@@ -556,14 +580,15 @@ function assertHttpsStagingEndpoint(value, label) {
   }
   if (/localhost|127\.0\.0\.1|\.local$/i.test(endpoint.hostname))
     fail(`${label} must not target a local endpoint.`);
+  if (/\.(?:example|invalid|test)$/i.test(endpoint.hostname))
+    fail(`${label} must not use a reserved placeholder hostname.`);
   return endpoint.toString().replace(/\/$/, "");
 }
 
-function assertEnvReference(value, label) {
+function assertEnvReference(value, label, env) {
   if (!/^[A-Z][A-Z0-9_]*$/.test(requireNonEmptyString(value, label)))
     fail(`${label} must be an environment variable name.`);
-  if (!process.env[value])
-    fail(`${label} points to an absent environment variable.`);
+  if (!env[value]) fail(`${label} points to an absent environment variable.`);
   return value;
 }
 
@@ -598,6 +623,14 @@ function assertSha256Map(value, requiredKeys, label) {
   return Object.fromEntries(requiredKeys.map((key) => [key, value[key]]));
 }
 
+function assertNonPlaceholderSha256(value, label) {
+  if (!/^[a-f0-9]{64}$/.test(value ?? ""))
+    fail(`${label} must be a SHA-256 value.`);
+  if (/^([a-f0-9])\1{63}$/.test(value))
+    fail(`${label} must not be a placeholder digest.`);
+  return value;
+}
+
 function assertNoSecretValues(value, path = "config") {
   if (Array.isArray(value))
     return value.forEach((entry, index) =>
@@ -613,7 +646,10 @@ function assertNoSecretValues(value, path = "config") {
   }
 }
 
-export function validateStagingConfig(config) {
+export function validateStagingConfig(
+  config,
+  { env = process.env, cwd = process.cwd(), exists = existsSync } = {},
+) {
   if (!config || typeof config !== "object")
     fail("configuration must be a JSON object.");
   assertNoSecretValues(config);
@@ -645,6 +681,7 @@ export function validateStagingConfig(config) {
   const identityCredentialEnv = assertEnvReference(
     config.identity?.credentialEnv,
     "identity.credentialEnv",
+    env,
   );
   const providerKind = requireNonEmptyString(
     config.provider?.kind,
@@ -655,7 +692,24 @@ export function validateStagingConfig(config) {
   const providerCredentialEnv = assertEnvReference(
     config.provider?.credentialEnv,
     "provider.credentialEnv",
+    env,
   );
+  if (identityCredentialEnv === providerCredentialEnv)
+    fail(
+      "identity and provider credentials must use separate environment variables.",
+    );
+  if (!/^NR_ACCEPTANCE_STAGING_[A-Z0-9_]+$/.test(identityCredentialEnv))
+    fail(
+      "identity.credentialEnv must use the NR_ACCEPTANCE_STAGING_* namespace.",
+    );
+  if (!/^NR_ACCEPTANCE_PROVIDER_[A-Z0-9_]+$/.test(providerCredentialEnv))
+    fail(
+      "provider.credentialEnv must use the NR_ACCEPTANCE_PROVIDER_* namespace.",
+    );
+  for (const credentialEnv of [identityCredentialEnv, providerCredentialEnv]) {
+    if (STAGING_RUNNER_CONTROL_ENV.has(credentialEnv))
+      fail(`${credentialEnv} is reserved for acceptance runner control.`);
+  }
   const providerWebhookEndpoint = assertHttpsStagingEndpoint(
     config.provider?.webhookEndpoint,
     "provider.webhookEndpoint",
@@ -664,18 +718,23 @@ export function validateStagingConfig(config) {
     config.scenarioRunner?.command,
     "scenarioRunner.command",
   );
-  if (!isAbsolute(command) || !existsSync(command))
+  if (!isAbsolute(command) || !exists(command))
     fail(
       "scenarioRunner.command must be an existing absolute path outside the public fixture set.",
     );
+  const relativeRunner = relative(resolve(cwd), resolve(command));
+  if (
+    relativeRunner === "" ||
+    (!relativeRunner.startsWith("..") && !isAbsolute(relativeRunner))
+  )
+    fail("scenarioRunner.command must be outside the workspace checkout.");
   if (config.releaseCandidate?.sourceMode !== "signed-rc-artifacts")
     fail("releaseCandidate.sourceMode must be signed-rc-artifacts.");
   const artifactSetId = requireNonEmptyString(
     config.releaseCandidate?.artifactSetId,
     "releaseCandidate.artifactSetId",
   );
-  if (!/^[a-f0-9]{64}$/.test(artifactSetId))
-    fail("releaseCandidate.artifactSetId must be a SHA-256 value.");
+  assertNonPlaceholderSha256(artifactSetId, "releaseCandidate.artifactSetId");
   const packageDigests = assertSha256Map(
     config.releaseCandidate?.packageDigests,
     REQUIRED_PACKAGE_DIGESTS,
@@ -685,8 +744,15 @@ export function validateStagingConfig(config) {
     config.releaseCandidate?.previousPackageDigest,
     "releaseCandidate.previousPackageDigest",
   );
-  if (!/^[a-f0-9]{64}$/.test(previousPackageDigest))
-    fail("releaseCandidate.previousPackageDigest must be a SHA-256 value.");
+  assertNonPlaceholderSha256(
+    previousPackageDigest,
+    "releaseCandidate.previousPackageDigest",
+  );
+  for (const [name, digest] of Object.entries(packageDigests))
+    assertNonPlaceholderSha256(
+      digest,
+      `releaseCandidate.packageDigests.${name}`,
+    );
   const performanceSlo = {
     issueP95Ms: Number(config.performanceSlo?.issueP95Ms),
     validateP95Ms: Number(config.performanceSlo?.validateP95Ms),
@@ -719,8 +785,55 @@ export function validateStagingConfig(config) {
   };
 }
 
-async function readStagingConfig() {
-  const configPath = process.env.NR_ACCEPTANCE_CONFIG_PATH;
+export function buildStagingRunnerEnvironment(config, env = process.env) {
+  if (!config?.identityCredentialEnv || !config?.providerCredentialEnv)
+    fail("validated staging configuration is required for runner environment.");
+  const runnerEnv = {};
+  for (const name of STAGING_RUNNER_RUNTIME_ENV) {
+    if (env[name]) runnerEnv[name] = env[name];
+  }
+  for (const name of [
+    config.identityCredentialEnv,
+    config.providerCredentialEnv,
+  ]) {
+    if (!env[name])
+      fail(`${name} is absent from the staging runner environment.`);
+    runnerEnv[name] = env[name];
+  }
+  if (env.NR_ACCEPTANCE_CONFIG_PATH)
+    runnerEnv.NR_ACCEPTANCE_CONFIG_PATH = env.NR_ACCEPTANCE_CONFIG_PATH;
+  runnerEnv.NR_ACCEPTANCE_TARGET = "staging";
+  runnerEnv.NR_ACCEPTANCE_VERSION = String(NIGHT_RAVEN_ACCEPTANCE_VERSION);
+  runnerEnv.NR_ACCEPTANCE_ARTIFACT_SET_ID = config.artifactSetId;
+  return runnerEnv;
+}
+
+export function buildStagingPreflightSummary(config) {
+  if (!config?.artifactSetId)
+    fail("validated staging configuration is required for preflight summary.");
+  return {
+    version: NIGHT_RAVEN_ACCEPTANCE_VERSION,
+    target: "staging",
+    status: "CONFIG_READY",
+    mutationPerformed: false,
+    gateEligible: false,
+    endpointCount: Object.keys(config.endpoints).length,
+    runner: basename(config.command),
+    credentialReferences: [
+      config.identityCredentialEnv,
+      config.providerCredentialEnv,
+    ],
+    scenarioCount: ALL_STAGING_SCENARIOS.length,
+    drillCount: OPERATOR_DRILLS.length,
+    artifactSetId: config.artifactSetId,
+    packageDigests: config.packageDigests,
+    previousPackageDigest: config.previousPackageDigest,
+    performanceSlo: config.performanceSlo,
+  };
+}
+
+async function readStagingConfig(env = process.env) {
+  const configPath = env.NR_ACCEPTANCE_CONFIG_PATH;
   if (!configPath)
     fail(
       "NR_ACCEPTANCE_CONFIG_PATH is required; no staging configuration was supplied.",
@@ -733,7 +846,7 @@ async function readStagingConfig() {
       "NR_ACCEPTANCE_CONFIG_PATH must point to readable JSON configuration.",
     );
   }
-  return validateStagingConfig(config);
+  return validateStagingConfig(config, { env });
 }
 
 function run(
@@ -890,12 +1003,7 @@ async function runStagingEvidence(config, id, kind) {
     config.command,
     ["--scenario", id, "--kind", kind, "--evidence", evidencePath],
     {
-      env: {
-        ...process.env,
-        NR_ACCEPTANCE_TARGET: "staging",
-        NR_ACCEPTANCE_VERSION: String(NIGHT_RAVEN_ACCEPTANCE_VERSION),
-        NR_ACCEPTANCE_ARTIFACT_SET_ID: config.artifactSetId,
-      },
+      env: buildStagingRunnerEnvironment(config),
       capture: true,
     },
   );
@@ -1375,7 +1483,11 @@ async function redactionAndBrowserBundleSentinel() {
 
 async function main() {
   const command = process.argv[2] ?? "all";
-  if (command === "public-copy") {
+  if (command === "preflight") {
+    console.log(
+      safeJson(buildStagingPreflightSummary(await readStagingConfig())),
+    );
+  } else if (command === "public-copy") {
     await publicCopy(await loadLocalPublicCopyEnvironment());
   } else if (command === "private-packages") await privatePackages();
   else if (command === "private-packages-local") await localPrivatePackages();

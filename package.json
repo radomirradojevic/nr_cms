@@ -51,6 +51,7 @@
     "db:webshop-schema-cutover": "node scripts/db-webshop-schema-cutover.mjs",
     "db:addon-deployer:provision": "node scripts/db-addon-deployer-provision.mjs",
     "acceptance": "node scripts/night-raven-acceptance-harness.mjs all",
+    "acceptance:preflight": "node scripts/night-raven-acceptance-harness.mjs preflight",
     "acceptance:public-copy": "node scripts/night-raven-acceptance-harness.mjs public-copy",
     "acceptance:private-packages": "node scripts/night-raven-acceptance-harness.mjs private-packages",
     "acceptance:local:private-packages": "node scripts/night-raven-acceptance-harness.mjs private-packages-local",
