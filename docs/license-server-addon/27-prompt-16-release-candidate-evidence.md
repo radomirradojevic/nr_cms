@@ -205,9 +205,12 @@ GitHub bootstrap je izvršen 20. avgusta 2026: `private-release`,
 `staging-acceptance` i `release-production` imaju obavezan ručni reviewer gate
 za `radomirradojevic` i samo `master` deployment policy. Postojeći Vercel
 `Production` environment ostao je odvojen i bez promene pravila. Actions policy
-dozvoljava samo GitHub-owned actions i zahteva puni commit SHA. Environment
-variables/secrets i self-hosted runner još nisu provisionovani; vrednosti tajni
-se ne unose u source niti u ovaj evidence zapis.
+dozvoljava samo GitHub-owned actions i zahteva puni commit SHA. Workflow-i su
+prebačeni na GitHub-hosted `ubuntu-24.04`; Webshop, License Server add-on,
+centralni Master i deployment worker checkout-uju se iz privatnih remote-a na
+tačno pinovane commit SHA vrednosti. Environment secrets/var i dostupni HTTPS
+staging endpoint-i još nisu provisionovani; vrednosti tajni se ne unose u
+source niti u ovaj evidence zapis.
 
 GitHub REST API ostavlja `can_admins_bypass: true`; pre prvog release workflow
 run-a vlasnik mora u UI-u da isključi **Allow administrators to bypass

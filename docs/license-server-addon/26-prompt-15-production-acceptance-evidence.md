@@ -207,19 +207,23 @@ nasleđuju.
 Protected `staging-acceptance` GitHub environment mora imati sledeće reference,
 bez secret vrednosti u repository-ju:
 
-- environment vars: `NR_STAGING_WORKSPACE_ROOT`, `NR_ACCEPTANCE_CONFIG_PATH`,
-  `NR_STAGING_EVIDENCE_DIRECTORY`, `NR_ADDON_RELEASE_SIGNING_KEY_FILE`,
-  `NR_ADDON_RELEASE_SIGNING_KID`, `NR_ADDON_RELEASE_PUBLIC_KEYS_FILE`;
+- environment var: `NR_ADDON_RELEASE_SIGNING_KID`;
 - environment secrets: `NR_ACCEPTANCE_STAGING_IDENTITY` i
-  `NR_ACCEPTANCE_PROVIDER_IDENTITY`.
+  `NR_ACCEPTANCE_PROVIDER_IDENTITY`, read-only fine-grained
+  `NR_PRIVATE_REPO_TOKEN`, `NR_ACCEPTANCE_CONFIG_B64`,
+  `NR_ADDON_RELEASE_SIGNING_KEY_B64` i
+  `NR_ADDON_RELEASE_PUBLIC_KEYS_B64`.
 
-Signing key/public-key vrednosti nisu GitHub input: varijable su samo putanje ka
-operator-provisioned, ACL-zaštićenim fajlovima na self-hosted runner-u. Workflow
-prvo proverava reference i commit pin, instalira dependency-je bez tajni, zatim
-pokreće read-only preflight i tek nakon njega puni acceptance. Credential secret-i
-su step-scoped i nisu dostupni checkout/setup/install koracima.
+GitHub-hosted `ubuntu-24.04` runner checkout-uje četiri privatna repozitorijuma
+na tačno pinovane commit SHA vrednosti. Repo token je dostupan samo checkout
+action-ima i koristi se sa `persist-credentials: false`. Konfiguracija i key
+fajlovi dekodiraju se sa `umask 077` u ephemeral `$RUNNER_TEMP`, njihove putanje
+se prosleđuju harness-u i fajlovi se brišu u `always()` koraku. Identity
+credential-i ostaju step-scoped i nisu dostupni checkout/setup/install
+koracima.
 
 Environment je kreiran 20. avgusta 2026. sa obaveznim ručnim reviewer gate-om
-za `radomirradojevic` i deployment politikom ograničenom na `master`. Reference
-još nisu unete, a repository nema registrovan self-hosted runner; zato workflow
-još nije pokrenut i ova stavka ostaje staging `NO_GO`.
+za `radomirradojevic` i deployment politikom ograničenom na `master`. GitHub
+hosted workflow je pripremljen, ali secrets/var i dostupni HTTPS staging
+endpoint-i još nisu potvrđeni; zato workflow još nije pokrenut i ova stavka
+ostaje staging `NO_GO`.

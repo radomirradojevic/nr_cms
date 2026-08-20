@@ -12,27 +12,86 @@ concurrency:
 
 jobs:
   run-staging-acceptance:
-    name: Operator-owned staging E2E and recovery drills
-    runs-on: [self-hosted, Linux, night-raven-staging]
+    name: GitHub-hosted staging E2E and recovery drills
+    runs-on: ubuntu-24.04
     environment: staging-acceptance
     timeout-minutes: 90
     env:
-      NR_ACCEPTANCE_CONFIG_PATH: ${{ vars.NR_ACCEPTANCE_CONFIG_PATH }}
       NR_ACCEPTANCE_TARGET: staging
-      NR_ADDON_RELEASE_PUBLIC_KEYS_FILE: ${{ vars.NR_ADDON_RELEASE_PUBLIC_KEYS_FILE }}
-      NR_ADDON_RELEASE_SIGNING_KEY_FILE: ${{ vars.NR_ADDON_RELEASE_SIGNING_KEY_FILE }}
       NR_ADDON_RELEASE_SIGNING_KID: ${{ vars.NR_ADDON_RELEASE_SIGNING_KID }}
-      NR_STAGING_EVIDENCE_DIRECTORY: ${{ vars.NR_STAGING_EVIDENCE_DIRECTORY }}
-      NR_STAGING_WORKSPACE_ROOT: ${{ vars.NR_STAGING_WORKSPACE_ROOT }}
+      NR_STAGING_EVIDENCE_DIRECTORY: ${{ runner.temp }}/night-raven-staging-evidence
+      NR_STAGING_WORKSPACE_ROOT: ${{ github.workspace }}
+      NR_WEBSHOP_GIT_SHA: 2fa623a0912f72b15025712d8e2ca906946ed19e
+      NR_LICENSE_SERVER_ADDON_GIT_SHA: 3ea685501dd05747387da151d822f0cbfaedf18f
+      NR_MASTER_GIT_SHA: 8fa03719a6040613ab6c796a31b2b87ff5640dcf
+      NR_DEPLOYMENT_WORKER_GIT_SHA: e6c5755a93e4c6cba534caa4262cfdcf6273b406
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout pinned Webshop source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: radomirradojevic/webshop
+          ref: ${{ env.NR_WEBSHOP_GIT_SHA }}
+          token: ${{ secrets.NR_PRIVATE_REPO_TOKEN }}
+          path: .private/webshop
+          persist-credentials: false
+
+      - name: Checkout pinned License Server add-on source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: radomirradojevic/license-server-addon
+          ref: ${{ env.NR_LICENSE_SERVER_ADDON_GIT_SHA }}
+          token: ${{ secrets.NR_PRIVATE_REPO_TOKEN }}
+          path: .private/license-server-addon
+          persist-credentials: false
+
+      - name: Checkout pinned central Master source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: radomirradojevic/license-server
+          ref: ${{ env.NR_MASTER_GIT_SHA }}
+          token: ${{ secrets.NR_PRIVATE_REPO_TOKEN }}
+          path: .private/license-server
+          persist-credentials: false
+
+      - name: Checkout pinned deployment worker source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: radomirradojevic/addon-deployment-worker
+          ref: ${{ env.NR_DEPLOYMENT_WORKER_GIT_SHA }}
+          token: ${{ secrets.NR_PRIVATE_REPO_TOKEN }}
+          path: .private/addon-deployment-worker
+          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.15.0
           cache: npm
 
-      - name: Verify isolated staging runner configuration
+      - name: Materialize ephemeral staging inputs
+        shell: bash
+        env:
+          NR_ACCEPTANCE_CONFIG_B64: ${{ secrets.NR_ACCEPTANCE_CONFIG_B64 }}
+          NR_ADDON_RELEASE_PUBLIC_KEYS_B64: ${{ secrets.NR_ADDON_RELEASE_PUBLIC_KEYS_B64 }}
+          NR_ADDON_RELEASE_SIGNING_KEY_B64: ${{ secrets.NR_ADDON_RELEASE_SIGNING_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "${NR_ACCEPTANCE_CONFIG_B64:-}"
+          test -n "${NR_ADDON_RELEASE_PUBLIC_KEYS_B64:-}"
+          test -n "${NR_ADDON_RELEASE_SIGNING_KEY_B64:-}"
+          umask 077
+          printf '%s' "$NR_ACCEPTANCE_CONFIG_B64" | base64 --decode > "$RUNNER_TEMP/night-raven-acceptance.staging.json"
+          printf '%s' "$NR_ADDON_RELEASE_PUBLIC_KEYS_B64" | base64 --decode > "$RUNNER_TEMP/addon-release-public-keys.json"
+          printf '%s' "$NR_ADDON_RELEASE_SIGNING_KEY_B64" | base64 --decode > "$RUNNER_TEMP/addon-release-signing-key.pem"
+          mkdir -p "$NR_STAGING_EVIDENCE_DIRECTORY"
+          echo "NR_ACCEPTANCE_CONFIG_PATH=$RUNNER_TEMP/night-raven-acceptance.staging.json" >> "$GITHUB_ENV"
+          echo "NR_ADDON_RELEASE_PUBLIC_KEYS_FILE=$RUNNER_TEMP/addon-release-public-keys.json" >> "$GITHUB_ENV"
+          echo "NR_ADDON_RELEASE_SIGNING_KEY_FILE=$RUNNER_TEMP/addon-release-signing-key.pem" >> "$GITHUB_ENV"
+
+      - name: Verify isolated GitHub-hosted staging configuration
         shell: bash
         env:
           NR_ACCEPTANCE_PROVIDER_IDENTITY: ${{ secrets.NR_ACCEPTANCE_PROVIDER_IDENTITY }}
@@ -47,6 +106,10 @@ jobs:
           test -r "$NR_ADDON_RELEASE_SIGNING_KEY_FILE"
           test -r "$NR_ADDON_RELEASE_PUBLIC_KEYS_FILE"
           test "$(git -C "$NR_STAGING_WORKSPACE_ROOT" rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C "$NR_STAGING_WORKSPACE_ROOT/.private/webshop" rev-parse HEAD)" = "$NR_WEBSHOP_GIT_SHA"
+          test "$(git -C "$NR_STAGING_WORKSPACE_ROOT/.private/license-server-addon" rev-parse HEAD)" = "$NR_LICENSE_SERVER_ADDON_GIT_SHA"
+          test "$(git -C "$NR_STAGING_WORKSPACE_ROOT/.private/license-server" rev-parse HEAD)" = "$NR_MASTER_GIT_SHA"
+          test "$(git -C "$NR_STAGING_WORKSPACE_ROOT/.private/addon-deployment-worker" rev-parse HEAD)" = "$NR_DEPLOYMENT_WORKER_GIT_SHA"
 
       - name: Install pinned acceptance dependencies
         shell: bash
@@ -80,6 +143,14 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: night-raven-staging-acceptance-${{ github.run_id }}
-          path: ${{ vars.NR_STAGING_EVIDENCE_DIRECTORY }}
+          path: ${{ env.NR_STAGING_EVIDENCE_DIRECTORY }}
           if-no-files-found: error
           retention-days: 90
+
+      - name: Remove ephemeral staging inputs
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/night-raven-acceptance.staging.json"
+          rm -f "$RUNNER_TEMP/addon-release-public-keys.json"
+          rm -f "$RUNNER_TEMP/addon-release-signing-key.pem"

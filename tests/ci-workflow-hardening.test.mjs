@@ -73,7 +73,7 @@ test("public supply-chain audit is explicit and never requires private checkouts
   assert.doesNotMatch(result.stdout, /Webshop addon|License Server addon/);
 });
 
-test("Night Raven private, staging, and production gates require protected manual environments", () => {
+test("Night Raven private, staging, and production gates use protected GitHub-hosted jobs", () => {
   for (const [name, environment] of [
     ["private-release.yml", "private-release"],
     ["staging-acceptance.yml", "staging-acceptance"],
@@ -82,7 +82,24 @@ test("Night Raven private, staging, and production gates require protected manua
     const source = readWorkflow(name);
     assert.match(source, /workflow_dispatch:/);
     assert.match(source, new RegExp(`environment:\\s*${environment}`));
-    assert.match(source, /self-hosted/);
+    assert.match(source, /runs-on:\s*ubuntu-24\.04/);
+    assert.doesNotMatch(source, /self-hosted/);
+    assert.match(source, /repository:\s*radomirradojevic\/webshop/);
+    assert.match(
+      source,
+      /repository:\s*radomirradojevic\/license-server-addon/,
+    );
+    assert.match(source, /repository:\s*radomirradojevic\/license-server/);
+    assert.match(
+      source,
+      /repository:\s*radomirradojevic\/addon-deployment-worker/,
+    );
+    assert.match(source, /token:\s*\$\{\{ secrets\.NR_PRIVATE_REPO_TOKEN \}\}/);
+    assert.match(source, /persist-credentials:\s*false/);
+    assert.doesNotMatch(
+      source,
+      /^\s+NR_PRIVATE_REPO_TOKEN:\s*\$\{\{ secrets\./m,
+    );
   }
 
   const staging = readWorkflow("staging-acceptance.yml");
@@ -95,7 +112,11 @@ test("Night Raven private, staging, and production gates require protected manua
     staging,
     /NR_ACCEPTANCE_PROVIDER_IDENTITY:\s*\$\{\{ secrets\.NR_ACCEPTANCE_PROVIDER_IDENTITY \}\}/,
   );
-  assert.match(staging, /NR_ADDON_RELEASE_SIGNING_KEY_FILE:\s*\$\{\{ vars\./);
+  assert.match(staging, /NR_ACCEPTANCE_CONFIG_B64:\s*\$\{\{ secrets\./);
+  assert.match(staging, /NR_ADDON_RELEASE_SIGNING_KEY_B64:\s*\$\{\{ secrets\./);
+  assert.match(staging, /NR_ADDON_RELEASE_PUBLIC_KEYS_B64:\s*\$\{\{ secrets\./);
+  assert.match(staging, /base64 --decode/);
+  assert.match(staging, /\$RUNNER_TEMP\/night-raven-acceptance\.staging\.json/);
   assert.match(staging, /test -r "\$NR_ADDON_RELEASE_SIGNING_KEY_FILE"/);
   assert.match(staging, /npm run acceptance:preflight/);
   assert.ok(
@@ -105,6 +126,7 @@ test("Night Raven private, staging, and production gates require protected manua
   );
 
   const production = readWorkflow("production-rollout.yml");
+  assert.doesNotMatch(production, /environment:\s*production(?:\s|$)/);
   assert.match(production, /db:migrate:production:dry-run/);
   assert.match(
     production,
