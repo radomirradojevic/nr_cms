@@ -51,6 +51,17 @@ test("GitHub workflows are pinned, least-privilege, and never run untrusted PR c
   assert.match(ci, /NR_ADDON_SOURCE_MODE:\s*empty/);
   assert.match(ci, /npm run addons:registry/);
   assert.match(ci, /npm run supply-chain:audit:public/);
+  assert.match(ci, /ACTIONLINT_VERSION:\s*1\.7\.12/);
+  assert.match(
+    ci,
+    /ACTIONLINT_LINUX_AMD64_SHA256:\s*8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8/,
+  );
+  assert.match(
+    ci,
+    /github\.com\/rhysd\/actionlint\/releases\/download\/v\$\{ACTIONLINT_VERSION\}/,
+  );
+  assert.match(ci, /sha256sum --check --strict/);
+  assert.match(ci, /"\$RUNNER_TEMP\/actionlint" -color/);
   assert.ok(
     ci.indexOf("npm run addons:registry") < ci.indexOf("npm run typecheck"),
     "clean public CI must generate the empty registry before typecheck",
