@@ -61,6 +61,7 @@
     "acceptance:e2e": "node scripts/night-raven-acceptance-harness.mjs e2e",
     "acceptance:drills": "node scripts/night-raven-acceptance-harness.mjs drills",
     "acceptance:local": "node scripts/night-raven-acceptance-harness.mjs local-all",
+    "acceptance:rc": "node scripts/night-raven-acceptance-harness.mjs local-all",
     "acceptance:local:contracts": "node scripts/night-raven-acceptance-harness.mjs local",
     "acceptance:local:e2e": "node scripts/night-raven-acceptance-harness.mjs local-e2e",
     "acceptance:local:drills": "node scripts/night-raven-acceptance-harness.mjs local-drills",

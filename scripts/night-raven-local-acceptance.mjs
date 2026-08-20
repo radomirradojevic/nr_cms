@@ -29,7 +29,7 @@ const { canonicalizeHmacV2Request, hmacV2Signature } = requireTs(
 const { Client, Pool } = pg;
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1"]);
 const DATABASE_PREFIX = "nr_accept_";
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const LOCAL_API_AUTH_VERSION = "2";
 const LOCAL_API_KEY_ID = "local-central-hmac-v1";
 const LOCAL_API_ENVIRONMENT = "development";
@@ -540,6 +540,7 @@ export async function runLocalAcceptance({
   const scenario = async (id) => {
     await reset();
     let assertions = 0;
+    let diagnosticMetrics = {};
     const check = (condition, message) => {
       assertions += 1;
       assert.ok(condition, message);
@@ -826,7 +827,7 @@ export async function runLocalAcceptance({
       case "activation_limit_parallel": {
         const issued = await directIssue(issueInput({ maxActivations: 2 }));
         const attempts = await Promise.all(
-          Array.from({ length: 10 }, (_, index) =>
+          Array.from({ length: 128 }, (_, index) =>
             centralRequest("/activate", {
               entitlementId: issued.result.entitlementId,
               installationId: `install-${index}`,
@@ -840,9 +841,14 @@ export async function runLocalAcceptance({
           "exact activation limit",
         );
         check(
-          attempts.filter((entry) => entry.status === 409).length === 8,
+          attempts.filter((entry) => entry.status === 409).length === 126,
           "stable denials",
         );
+        diagnosticMetrics = {
+          attempts: attempts.length,
+          accepted: 2,
+          limitViolations: 0,
+        };
         break;
       }
       case "cloned_installation":
@@ -1018,7 +1024,7 @@ export async function runLocalAcceptance({
         const input = issueInput();
         const key = `parallel:${randomUUID()}`;
         const results = await Promise.all(
-          Array.from({ length: 10 }, () => directIssue(input, key)),
+          Array.from({ length: 128 }, () => directIssue(input, key)),
         );
         const ids = new Set(results.map((entry) => entry.result.entitlementId));
         const rows = await centralPool.query(
@@ -1028,6 +1034,10 @@ export async function runLocalAcceptance({
           ids.size === 1 && rows.rows[0].count === 1,
           "one resource under parallel issue",
         );
+        diagnosticMetrics = {
+          attempts: results.length,
+          duplicateLicenses: 0,
+        };
         break;
       }
       case "stale_worker_recovery": {
@@ -1124,7 +1134,7 @@ export async function runLocalAcceptance({
       default:
         fail(`local scenario is not implemented: ${id}`);
     }
-    return { assertions };
+    return { assertions, ...diagnosticMetrics };
   };
 
   const logicalRestore = async () => {

@@ -1,9 +1,14 @@
 {
-  "version": 1,
+  "version": 2,
   "target": "staging",
   "endpoints": {
-    "cms": "https://cms.staging.example.invalid",
-    "central": "https://licenses.staging.example.invalid"
+    "master": "https://master.staging.example.invalid",
+    "vendorCms": "https://vendor-cms.staging.example.invalid",
+    "customerCms": "https://customer-cms.staging.example.invalid",
+    "vendorWebshop": "https://vendor-shop.staging.example.invalid",
+    "customerWebshop": "https://customer-shop.staging.example.invalid",
+    "customerLicenseServer": "https://customer-issuer.staging.example.invalid",
+    "deploymentWorker": "https://deploy-worker.staging.example.invalid"
   },
   "identity": {
     "kind": "oidc",
@@ -17,6 +22,24 @@
   },
   "scenarioRunner": {
     "command": "D:\\operator-tools\\night-raven-staging-scenario-runner.exe"
+  },
+  "releaseCandidate": {
+    "sourceMode": "signed-rc-artifacts",
+    "artifactSetId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "previousPackageDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "packageDigests": {
+      "master": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "cmsHost": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "webshop": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "licenseServerAddon": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "licenseServerService": "1111111111111111111111111111111111111111111111111111111111111111",
+      "deploymentWorker": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  },
+  "performanceSlo": {
+    "issueP95Ms": 750,
+    "validateP95Ms": 250,
+    "soakSeconds": 900
   },
   "evidenceDirectory": ".tmp/night-raven-acceptance"
 }

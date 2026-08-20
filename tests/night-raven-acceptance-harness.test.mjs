@@ -15,6 +15,7 @@ import {
   containsBrowserBundleSecret,
   NIGHT_RAVEN_ACCEPTANCE_VERSION,
   OPERATOR_DRILLS,
+  PRODUCTION_E2E_SCENARIOS,
   REQUIRED_E2E_SCENARIOS,
   resolveAcceptanceTarget,
   shouldIncludePublicCopyPath,
@@ -22,9 +23,15 @@ import {
   validateStagingConfig,
 } from "../scripts/night-raven-acceptance-harness.mjs";
 import { buildMigrationMatrixPlan } from "../scripts/migration-matrix-harness.mjs";
+import {
+  buildProductionAcceptanceAudit,
+  DOCS_11_CRITERIA,
+  DOCS_11_REQUIREMENTS,
+  FINAL_PACKAGE_COMPONENT_GATES,
+} from "../scripts/night-raven-production-audit.mjs";
 
 test("acceptance harness versions every mandatory staging scenario and operator drill", () => {
-  assert.equal(NIGHT_RAVEN_ACCEPTANCE_VERSION, 1);
+  assert.equal(NIGHT_RAVEN_ACCEPTANCE_VERSION, 2);
   assert.equal(REQUIRED_E2E_SCENARIOS.length, 18);
   for (const id of [
     "refund_delayed_success",
@@ -44,6 +51,28 @@ test("acceptance harness versions every mandatory staging scenario and operator 
   ]) {
     assert.ok(ADDITIONAL_E2E_SCENARIOS.includes(id), id);
   }
+  for (const id of [
+    "license_server_install_without_customer_webshop",
+    "customer_webshop_local_paid_delivery",
+    "customer_webshop_remote_hmac_paid_delivery",
+    "timeout_before_issue_commit",
+    "process_restart",
+    "database_restart",
+    "catalog_revision_change",
+    "issuer_ref_mismatch",
+    "master_outage",
+    "issuer_outage",
+    "delivery_failure_retry",
+    "offline_grace_after_refund",
+    "concurrent_duplicate_issue_100",
+    "concurrent_activation_limit_100",
+    "persistent_rate_limit_load",
+    "issue_validate_p95",
+    "queue_backpressure_soak",
+    "keyset_catalog_cache_load",
+  ]) {
+    assert.ok(PRODUCTION_E2E_SCENARIOS.includes(id), id);
+  }
   assert.deepEqual(OPERATOR_DRILLS, [
     "backup_restore",
     "cross_service_reconciliation",
@@ -52,7 +81,53 @@ test("acceptance harness versions every mandatory staging scenario and operator 
     "alert_delivery",
     "vendor_signing_key_rotation_restore",
     "customer_issuer_key_rotation_restore",
+    "previous_package_upgrade",
+    "application_rollback_compatibility",
+    "encrypted_db_key_backup_restore",
+    "incident_tabletop",
   ]);
+});
+
+test("production audit maps every docs/11 criterion to explicit proof or NO-GO", () => {
+  assert.equal(DOCS_11_CRITERIA.length, 68);
+  assert.deepEqual(Object.keys(DOCS_11_REQUIREMENTS), DOCS_11_CRITERIA);
+  const allScenarios = new Set([
+    ...REQUIRED_E2E_SCENARIOS,
+    ...ADDITIONAL_E2E_SCENARIOS,
+    ...PRODUCTION_E2E_SCENARIOS,
+  ]);
+  for (const requirement of Object.values(DOCS_11_REQUIREMENTS)) {
+    for (const id of requirement.scenarios) assert.ok(allScenarios.has(id), id);
+    for (const id of requirement.drills)
+      assert.ok(OPERATOR_DRILLS.includes(id), id);
+  }
+
+  const componentGates = FINAL_PACKAGE_COMPONENT_GATES.map((id) => ({
+    id,
+    status: "passed",
+  }));
+  const local = buildProductionAcceptanceAudit({
+    target: "local",
+    componentGates,
+  });
+  assert.equal(local.decision, "NO_GO");
+  assert.equal(
+    local.criteria.find((entry) => entry.id === "ARCH-01").status,
+    "PASS",
+  );
+  assert.equal(
+    local.criteria.find((entry) => entry.id === "PKG-06").status,
+    "NO_GO",
+  );
+
+  const staging = buildProductionAcceptanceAudit({
+    target: "staging",
+    componentGates,
+    stagingScenarios: [...allScenarios].map((id) => ({ id, status: "passed" })),
+    operatorDrills: OPERATOR_DRILLS.map((id) => ({ id, status: "passed" })),
+  });
+  assert.equal(staging.decision, "GO");
+  assert.equal(staging.summary.passed, DOCS_11_CRITERIA.length);
 });
 
 test("staging E2E configuration is fail-closed before any runner can be called", () => {
@@ -258,6 +333,19 @@ test("private package acceptance includes a clean Next host install/build gate",
   assert.match(source, /scripts\/verify-next-host\.mjs/);
 });
 
+test("production audit persists every component proof referenced by its hash", () => {
+  const source = readFileSync(
+    resolve("scripts/night-raven-acceptance-harness.mjs"),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /writeComponentEvidence\(evidenceDirectory, componentGates\)/,
+  );
+  assert.match(source, /join\(directory, `\$\{gate\.id\}\.json`\)/);
+  assert.match(source, /sha256\(serialized\) !== evidenceSha256/);
+});
+
 test("private release acceptance cryptographically verifies the complete manifest", () => {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const unsigned = {
@@ -364,8 +452,12 @@ test("private release acceptance cryptographically verifies the complete manifes
     releaseSigningKid: v2Header.kid,
     releasedAt: "2026-08-10T01:24:06.000Z",
   };
-  const protectedValue = Buffer.from(JSON.stringify(v2Header)).toString("base64url");
-  const payloadValue = Buffer.from(JSON.stringify(v2Payload)).toString("base64url");
+  const protectedValue = Buffer.from(JSON.stringify(v2Header)).toString(
+    "base64url",
+  );
+  const payloadValue = Buffer.from(JSON.stringify(v2Payload)).toString(
+    "base64url",
+  );
   const v2Manifest = {
     payload: payloadValue,
     protected: protectedValue,

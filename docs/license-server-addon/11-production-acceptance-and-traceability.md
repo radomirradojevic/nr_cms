@@ -425,3 +425,22 @@ projekat, instalira samo lokalni tarball, proverava lockfile dependency granicu,
 kompajlira packed TypeScript primer i izvršava offline file, activation, online
 validate, feature, quota i organization binding. Production publish/deploy i
 live customer issuer nisu pozvani.
+
+## 25. Status posle Prompt-a 15
+
+Prompt 15 evidence:
+[26-prompt-15-production-acceptance-evidence.md](./26-prompt-15-production-acceptance-evidence.md).
+
+Finalni audit od 2026-08-20 obradio je svih 68 stavki ovog dokumenta: **34 PASS**
+i **34 NO_GO**. Svih pet final-package component gate-ova i 39 lokalnih
+višprocesnih contract dijagnostika je zeleno, uključujući 128 konkurentnih issue
+poziva bez duplikata i 128 aktivacionih pokušaja bez probijenog limita. Lokalni
+zapisi su namerno `productionRuntime: false` i `gateEligible: false`.
+
+Release ostaje **NO-GO** dok operator-provisioned staging ne dokaže isolated
+signed-RC topologiju, stvarnu vendorsku kupovinu i managed install, local i
+remote paid delivery, restart/outage/delivery fault matricu, lifecycle odluke,
+p95/100+/soak/cache metrike, prethodni-package upgrade/rollback, šifrovani
+DB+key restore, alarme/tabletop i eksplicitno publish odobrenje. Generisani JSON
+audit je autoritativan per-ID zapis; ranije „zelen za code/contract” oznake ne
+zamenjuju ove finalne staging kapije.

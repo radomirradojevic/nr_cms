@@ -1,6 +1,14 @@
 import { createHash, createPublicKey, verify } from "node:crypto";
 import { spawn } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
@@ -12,6 +20,10 @@ import {
   resolveTestDatabaseUrl,
 } from "./database-test-safety.mjs";
 import { withEphemeralAddonReleaseAuthority } from "./local-addon-release-authority.mjs";
+import {
+  FINAL_PACKAGE_COMPONENT_GATES,
+  writeProductionAcceptanceAudit,
+} from "./night-raven-production-audit.mjs";
 
 /**
  * Night Raven final acceptance is intentionally an operator-provisioned staging
@@ -19,7 +31,7 @@ import { withEphemeralAddonReleaseAuthority } from "./local-addon-release-author
  * The explicit local target is a multi-process contract simulator only; its
  * evidence is permanently marked productionRuntime=false and gateEligible=false.
  */
-export const NIGHT_RAVEN_ACCEPTANCE_VERSION = 1;
+export const NIGHT_RAVEN_ACCEPTANCE_VERSION = 2;
 
 export const REQUIRED_E2E_SCENARIOS = [
   "webshop_purchase",
@@ -59,6 +71,27 @@ export const ADDITIONAL_E2E_SCENARIOS = [
   "customer_local_delivery",
 ];
 
+export const PRODUCTION_E2E_SCENARIOS = [
+  "license_server_install_without_customer_webshop",
+  "customer_webshop_local_paid_delivery",
+  "customer_webshop_remote_hmac_paid_delivery",
+  "timeout_before_issue_commit",
+  "process_restart",
+  "database_restart",
+  "catalog_revision_change",
+  "issuer_ref_mismatch",
+  "master_outage",
+  "issuer_outage",
+  "delivery_failure_retry",
+  "offline_grace_after_refund",
+  "concurrent_duplicate_issue_100",
+  "concurrent_activation_limit_100",
+  "persistent_rate_limit_load",
+  "issue_validate_p95",
+  "queue_backpressure_soak",
+  "keyset_catalog_cache_load",
+];
+
 export const OPERATOR_DRILLS = [
   "backup_restore",
   "cross_service_reconciliation",
@@ -67,11 +100,20 @@ export const OPERATOR_DRILLS = [
   "alert_delivery",
   "vendor_signing_key_rotation_restore",
   "customer_issuer_key_rotation_restore",
+  "previous_package_upgrade",
+  "application_rollback_compatibility",
+  "encrypted_db_key_backup_restore",
+  "incident_tabletop",
 ];
 
-const ALL_STAGING_SCENARIOS = [
+const LOCAL_OPERATOR_DRILLS = OPERATOR_DRILLS.slice(0, 7);
+const ALL_LOCAL_SCENARIOS = [
   ...REQUIRED_E2E_SCENARIOS,
   ...ADDITIONAL_E2E_SCENARIOS,
+];
+const ALL_STAGING_SCENARIOS = [
+  ...ALL_LOCAL_SCENARIOS,
+  ...PRODUCTION_E2E_SCENARIOS,
 ];
 const ACCEPTANCE_TARGETS = new Set(["staging", "local"]);
 const ACCEPTANCE_NPM_CACHE = join(tmpdir(), "night-raven-acceptance-npm-cache");
@@ -230,7 +272,8 @@ export function assertPromotablePrivateRelease(
       fail(`${directory} release JWS is not canonical base64url JSON.`);
     }
     if (
-      Object.keys(header).sort().join("\0") !== ["alg", "kid", "typ"].join("\0") ||
+      Object.keys(header).sort().join("\0") !==
+        ["alg", "kid", "typ"].join("\0") ||
       header.alg !== "EdDSA" ||
       typeof header.kid !== "string" ||
       !/^[A-Za-z0-9][A-Za-z0-9._:-]{2,119}$/.test(header.kid) ||
@@ -524,6 +567,37 @@ function assertEnvReference(value, label) {
   return value;
 }
 
+const REQUIRED_STAGING_COMPONENTS = [
+  "master",
+  "vendor-cms",
+  "customer-cms",
+  "vendor-webshop",
+  "customer-webshop",
+  "license-server-addon",
+  "deployment-worker",
+  "test-databases",
+];
+
+const REQUIRED_PACKAGE_DIGESTS = [
+  "master",
+  "cmsHost",
+  "webshop",
+  "licenseServerAddon",
+  "licenseServerService",
+  "deploymentWorker",
+];
+
+function assertSha256Map(value, requiredKeys, label) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Object.keys(value).length !== requiredKeys.length ||
+    !requiredKeys.every((key) => /^[a-f0-9]{64}$/.test(value[key] ?? ""))
+  )
+    fail(`${label} must contain the exact required SHA-256 digest set.`);
+  return Object.fromEntries(requiredKeys.map((key) => [key, value[key]]));
+}
+
 function assertNoSecretValues(value, path = "config") {
   if (Array.isArray(value))
     return value.forEach((entry, index) =>
@@ -549,13 +623,20 @@ export function validateStagingConfig(config) {
     fail(
       "only target=staging is accepted; production is never accepted by this harness.",
     );
-  const cmsEndpoint = assertHttpsStagingEndpoint(
-    config.endpoints?.cms,
-    "endpoints.cms",
-  );
-  const centralEndpoint = assertHttpsStagingEndpoint(
-    config.endpoints?.central,
-    "endpoints.central",
+  const endpointNames = [
+    "master",
+    "vendorCms",
+    "customerCms",
+    "vendorWebshop",
+    "customerWebshop",
+    "customerLicenseServer",
+    "deploymentWorker",
+  ];
+  const endpoints = Object.fromEntries(
+    endpointNames.map((name) => [
+      name,
+      assertHttpsStagingEndpoint(config.endpoints?.[name], `endpoints.${name}`),
+    ]),
   );
   const identityKind = requireNonEmptyString(
     config.identity?.kind,
@@ -587,15 +668,51 @@ export function validateStagingConfig(config) {
     fail(
       "scenarioRunner.command must be an existing absolute path outside the public fixture set.",
     );
+  if (config.releaseCandidate?.sourceMode !== "signed-rc-artifacts")
+    fail("releaseCandidate.sourceMode must be signed-rc-artifacts.");
+  const artifactSetId = requireNonEmptyString(
+    config.releaseCandidate?.artifactSetId,
+    "releaseCandidate.artifactSetId",
+  );
+  if (!/^[a-f0-9]{64}$/.test(artifactSetId))
+    fail("releaseCandidate.artifactSetId must be a SHA-256 value.");
+  const packageDigests = assertSha256Map(
+    config.releaseCandidate?.packageDigests,
+    REQUIRED_PACKAGE_DIGESTS,
+    "releaseCandidate.packageDigests",
+  );
+  const previousPackageDigest = requireNonEmptyString(
+    config.releaseCandidate?.previousPackageDigest,
+    "releaseCandidate.previousPackageDigest",
+  );
+  if (!/^[a-f0-9]{64}$/.test(previousPackageDigest))
+    fail("releaseCandidate.previousPackageDigest must be a SHA-256 value.");
+  const performanceSlo = {
+    issueP95Ms: Number(config.performanceSlo?.issueP95Ms),
+    validateP95Ms: Number(config.performanceSlo?.validateP95Ms),
+    soakSeconds: Number(config.performanceSlo?.soakSeconds),
+  };
+  if (
+    !Number.isFinite(performanceSlo.issueP95Ms) ||
+    performanceSlo.issueP95Ms <= 0 ||
+    !Number.isFinite(performanceSlo.validateP95Ms) ||
+    performanceSlo.validateP95Ms <= 0 ||
+    !Number.isFinite(performanceSlo.soakSeconds) ||
+    performanceSlo.soakSeconds < 60
+  )
+    fail("performanceSlo requires positive p95 limits and soakSeconds >= 60.");
   return {
-    cmsEndpoint,
-    centralEndpoint,
+    endpoints,
     identityKind,
     identityCredentialEnv,
     providerKind,
     providerCredentialEnv,
     providerWebhookEndpoint,
     command,
+    artifactSetId,
+    packageDigests,
+    previousPackageDigest,
+    performanceSlo,
     evidenceDirectory: resolve(
       config.evidenceDirectory ?? ".tmp/night-raven-acceptance",
     ),
@@ -655,12 +772,13 @@ function summarizeEvidence({ id, kind, evidence }) {
   return {
     id,
     kind,
+    status: "passed",
     runId: evidence.runId,
     evidenceSha256: sha256(safeJson(evidence)),
   };
 }
 
-function validateEvidence(evidence, id, kind) {
+export function validateEvidence(evidence, id, kind, config) {
   const allowedKeys = new Set([
     "version",
     "scenario",
@@ -669,6 +787,10 @@ function validateEvidence(evidence, id, kind) {
     "runId",
     "completedAt",
     "references",
+    "artifactSetId",
+    "packageDigests",
+    "runtime",
+    "metrics",
   ]);
   if (
     !evidence ||
@@ -686,6 +808,66 @@ function validateEvidence(evidence, id, kind) {
   }
   if (!/^[A-Za-z0-9._:-]{8,200}$/.test(evidence.runId ?? ""))
     fail(`${id} evidence runId is invalid.`);
+  const evidencePackageDigests = config
+    ? assertSha256Map(
+        evidence.packageDigests,
+        REQUIRED_PACKAGE_DIGESTS,
+        `${id}.packageDigests`,
+      )
+    : null;
+  if (
+    !config ||
+    evidence.artifactSetId !== config.artifactSetId ||
+    REQUIRED_PACKAGE_DIGESTS.some(
+      (key) => evidencePackageDigests[key] !== config.packageDigests[key],
+    )
+  )
+    fail(`${id} evidence is not pinned to the configured RC artifact set.`);
+  if (
+    evidence.runtime?.sourceMode !== "signed-rc-artifacts" ||
+    evidence.runtime?.workspaceImports !== false ||
+    evidence.runtime?.isolated !== true ||
+    !Array.isArray(evidence.runtime?.components) ||
+    safeJson([...evidence.runtime.components].sort()) !==
+      safeJson([...REQUIRED_STAGING_COMPONENTS].sort())
+  )
+    fail(`${id} evidence did not attest the isolated final-package topology.`);
+  if (
+    !evidence.metrics ||
+    Object.values(evidence.metrics).some(
+      (value) =>
+        typeof value !== "number" || !Number.isFinite(value) || value < 0,
+    )
+  )
+    fail(`${id} evidence requires finite, redacted numeric metrics.`);
+  if (
+    id === "issue_validate_p95" &&
+    (evidence.metrics.samples < 100 ||
+      evidence.metrics.issueP95Ms > config.performanceSlo.issueP95Ms ||
+      evidence.metrics.validateP95Ms > config.performanceSlo.validateP95Ms)
+  )
+    fail(`${id} did not satisfy the configured p95 SLO with 100+ samples.`);
+  if (
+    id === "concurrent_duplicate_issue_100" &&
+    (evidence.metrics.attempts < 100 ||
+      evidence.metrics.duplicateLicenses !== 0)
+  )
+    fail(`${id} did not prove 100+ attempts with zero duplicate licenses.`);
+  if (
+    id === "concurrent_activation_limit_100" &&
+    (evidence.metrics.attempts < 100 || evidence.metrics.limitViolations !== 0)
+  )
+    fail(
+      `${id} did not prove 100+ attempts with zero activation-limit violations.`,
+    );
+  if (
+    id === "queue_backpressure_soak" &&
+    (evidence.metrics.durationSeconds < config.performanceSlo.soakSeconds ||
+      evidence.metrics.enqueued < 100 ||
+      evidence.metrics.lost !== 0 ||
+      evidence.metrics.duplicateLicenses !== 0)
+  )
+    fail(`${id} did not satisfy the configured soak/backpressure invariant.`);
   if (
     !Array.isArray(evidence.references) ||
     evidence.references.length === 0 ||
@@ -695,6 +877,7 @@ function validateEvidence(evidence, id, kind) {
   ) {
     fail(`${id} evidence requires one or more redacted artifact references.`);
   }
+  assertNoSecretValues(evidence);
   return evidence;
 }
 
@@ -711,6 +894,7 @@ async function runStagingEvidence(config, id, kind) {
         ...process.env,
         NR_ACCEPTANCE_TARGET: "staging",
         NR_ACCEPTANCE_VERSION: String(NIGHT_RAVEN_ACCEPTANCE_VERSION),
+        NR_ACCEPTANCE_ARTIFACT_SET_ID: config.artifactSetId,
       },
       capture: true,
     },
@@ -724,7 +908,7 @@ async function runStagingEvidence(config, id, kind) {
   return summarizeEvidence({
     id,
     kind,
-    evidence: validateEvidence(evidence, id, kind),
+    evidence: validateEvidence(evidence, id, kind, config),
   });
 }
 
@@ -904,6 +1088,7 @@ async function privatePackages({
   const publicKeys = await readAddonReleasePublicKeys(
     authorityEnv.NR_ADDON_RELEASE_PUBLIC_KEYS_FILE,
   );
+  const artifacts = [];
   for (const directory of [
     ".private/webshop",
     ".private/license-server-addon",
@@ -978,7 +1163,13 @@ async function privatePackages({
       if (sha256(contents) !== file.sha256 || contents.byteLength !== file.size)
         fail(`${directory} artifact checksum mismatch: ${file.path}`);
     }
+    artifacts.push({
+      id: directory.endsWith("webshop") ? "webshop" : "licenseServerAddon",
+      sha256: artifact.sha256,
+      status: "passed",
+    });
   }
+  return artifacts;
 }
 
 async function localPrivatePackages() {
@@ -1053,16 +1244,105 @@ async function loadLocalPublicCopyEnvironment() {
   return localEnv;
 }
 
+function componentGate(id, details = {}) {
+  if (!FINAL_PACKAGE_COMPONENT_GATES.includes(id))
+    fail(`unknown final-package component gate: ${id}`);
+  const evidence = {
+    version: NIGHT_RAVEN_ACCEPTANCE_VERSION,
+    kind: "final-package-component",
+    id,
+    status: "passed",
+    details,
+  };
+  return {
+    ...evidence,
+    evidenceSha256: sha256(safeJson(evidence)),
+  };
+}
+
+async function writeComponentEvidence(evidenceDirectory, componentGates) {
+  const directory = join(evidenceDirectory, "component");
+  await mkdir(directory, { recursive: true });
+  for (const gate of componentGates) {
+    const { evidenceSha256, ...evidence } = gate;
+    const serialized = safeJson(evidence);
+    if (sha256(serialized) !== evidenceSha256)
+      fail(`component evidence hash mismatch: ${gate.id}`);
+    assertNoSecretValues(evidence);
+    await writeFile(join(directory, `${gate.id}.json`), serialized, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+  }
+}
+
+async function writeAudit({
+  target,
+  evidenceDirectory,
+  componentGates,
+  stagingScenarios = [],
+  operatorDrills = [],
+  localDiagnostics = [],
+  artifactSet,
+}) {
+  await writeComponentEvidence(evidenceDirectory, componentGates);
+  const output = await writeProductionAcceptanceAudit(
+    join(evidenceDirectory, "production-acceptance-audit.json"),
+    {
+      target,
+      componentGates,
+      stagingScenarios,
+      operatorDrills,
+      localDiagnostics,
+      artifactSet,
+    },
+  );
+  console.log(
+    safeJson({
+      auditPath: output.path,
+      decision: output.report.decision,
+      passed: output.report.summary.passed,
+      noGo: output.report.summary.noGo,
+      reportSha256: output.report.reportSha256,
+    }),
+  );
+  return output;
+}
+
 async function localAll() {
+  const componentGates = [];
   const localEnv = await loadLocalPublicCopyEnvironment();
   await publicCopy(localEnv);
-  await localPrivatePackages();
+  componentGates.push(componentGate("public_copy"));
+  const privateArtifacts = await localPrivatePackages();
+  componentGates.push(
+    componentGate("signed_private_packages", { privateArtifacts }),
+  );
   await centralRuntime();
+  componentGates.push(componentGate("central_runtime"));
   await redactionAndBrowserBundleSentinel();
+  componentGates.push(componentGate("security_redaction"));
   await localInvariants();
-  await runLocalEvidenceMatrix({
-    scenarios: ALL_STAGING_SCENARIOS,
-    drills: OPERATOR_DRILLS,
+  componentGates.push(componentGate("migration_and_invariants"));
+  const localResult = await runLocalEvidenceMatrix({
+    scenarios: ALL_LOCAL_SCENARIOS,
+    drills: LOCAL_OPERATOR_DRILLS,
+  });
+  const artifactSetId = sha256(safeJson(privateArtifacts));
+  await writeAudit({
+    target: "local",
+    evidenceDirectory: localResult.evidenceDirectory,
+    componentGates,
+    localDiagnostics: localResult.results,
+    artifactSet: {
+      artifactSetId,
+      sourceMode: "ephemeral-signed-local-rc",
+      packageDigests: Object.fromEntries(
+        privateArtifacts.map((entry) => [entry.id, entry.sha256]),
+      ),
+      workspaceImportsInDiagnosticSimulator: true,
+      stagingRuntimeAttested: false,
+    },
   });
 }
 
@@ -1097,8 +1377,7 @@ async function main() {
   const command = process.argv[2] ?? "all";
   if (command === "public-copy") {
     await publicCopy(await loadLocalPublicCopyEnvironment());
-  }
-  else if (command === "private-packages") await privatePackages();
+  } else if (command === "private-packages") await privatePackages();
   else if (command === "private-packages-local") await localPrivatePackages();
   else if (command === "local-invariants") await localInvariants();
   else if (command === "local-all") await localAll();
@@ -1132,9 +1411,11 @@ async function main() {
         scenarios:
           command === "drills" || command === "local-drills"
             ? []
-            : ALL_STAGING_SCENARIOS,
+            : ALL_LOCAL_SCENARIOS,
         drills:
-          command === "e2e" || command === "local-e2e" ? [] : OPERATOR_DRILLS,
+          command === "e2e" || command === "local-e2e"
+            ? []
+            : LOCAL_OPERATOR_DRILLS,
       });
     } else {
       const config = await readStagingConfig();
@@ -1154,9 +1435,17 @@ async function main() {
     }
   } else if (command === "all") {
     const config = await readStagingConfig();
+    const componentGates = [];
     await publicCopy();
-    await privatePackages();
+    componentGates.push(componentGate("public_copy"));
+    const privateArtifacts = await privatePackages();
+    componentGates.push(
+      componentGate("signed_private_packages", { privateArtifacts }),
+    );
+    await centralRuntime();
+    componentGates.push(componentGate("central_runtime"));
     await redactionAndBrowserBundleSentinel();
+    componentGates.push(componentGate("security_redaction"));
     await run(
       process.platform === "win32" ? "cmd.exe" : "npm",
       process.platform === "win32"
@@ -1168,10 +1457,31 @@ async function main() {
       ["scripts/run-remediation-invariants.mjs", "--staging"],
       { env: { ...process.env, NR_ACCEPTANCE_TARGET: "staging" } },
     );
+    componentGates.push(componentGate("migration_and_invariants"));
+    const stagingScenarios = [];
     for (const id of ALL_STAGING_SCENARIOS)
-      await runStagingEvidence(config, id, "staging-e2e");
+      stagingScenarios.push(
+        await runStagingEvidence(config, id, "staging-e2e"),
+      );
+    const operatorDrills = [];
     for (const id of OPERATOR_DRILLS)
-      await runStagingEvidence(config, id, "operator-drill");
+      operatorDrills.push(
+        await runStagingEvidence(config, id, "operator-drill"),
+      );
+    await writeAudit({
+      target: "staging",
+      evidenceDirectory: config.evidenceDirectory,
+      componentGates,
+      stagingScenarios,
+      operatorDrills,
+      artifactSet: {
+        artifactSetId: config.artifactSetId,
+        sourceMode: "signed-rc-artifacts",
+        packageDigests: config.packageDigests,
+        previousPackageDigest: config.previousPackageDigest,
+        stagingRuntimeAttested: true,
+      },
+    });
   } else fail(`unknown command: ${command}`);
 }
 

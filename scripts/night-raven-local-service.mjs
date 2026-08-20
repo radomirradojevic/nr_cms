@@ -323,6 +323,20 @@ async function centralHandler(request, response, url, parsed) {
     try {
       await client.query("BEGIN");
       await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+        [`${clientId}:${key}`],
+      );
+      const lockedReplay = await client.query(
+        "SELECT request_hash, response FROM local_idempotency WHERE client_id=$1 AND operation_key=$2",
+        [clientId, key],
+      );
+      if (lockedReplay.rowCount) {
+        await client.query("COMMIT");
+        if (lockedReplay.rows[0].request_hash !== requestHash)
+          return send(response, 409, { error: "idempotency_conflict" });
+        return send(response, 200, lockedReplay.rows[0].response);
+      }
+      await client.query(
         `INSERT INTO local_entitlements
           (id, client_id, order_id, item_id, sku, addon_key, customer_ref, domain_name,
            status, valid_until, updates_until, lifecycle_version, max_activations, envelope)

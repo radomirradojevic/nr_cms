@@ -116,6 +116,9 @@ izdaje licence za proizvode tog kupca.
 27. [25-prompt-14-sdk-consumer-evidence.md](./25-prompt-14-sdk-consumer-evidence.md)
     — Prompt 14 dependency-free verifier, pinned keyset cache/refresh, javni
     vektori, clean consumer fixture, finalni OpenAPI modeli i V1 → V2 vodič.
+28. [26-prompt-15-production-acceptance-evidence.md](./26-prompt-15-production-acceptance-evidence.md)
+    — Prompt 15 final-package RC, potpuna `docs/11` PASS/NO-GO matrica,
+    fault/concurrency dijagnostika i preostale staging/operator release kapije.
 
 ## Oznake stanja
 

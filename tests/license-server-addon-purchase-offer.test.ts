@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 
@@ -19,31 +19,40 @@ test("License Server activation uses the same signed purchase-intent handoff as 
   assert.doesNotMatch(page, /buildLicenseServerLicenseBuyUrl/);
 });
 
-test("vendor offer and paid Master issue pin license-server without customer issuer substitution", () => {
-  const offer = read(
-    ".private/webshop/src/data/webshop-license-offer.ts",
-  );
-  const fulfillment = read(
-    ".private/webshop/src/data/webshop-license-fulfillment-outbox.ts",
-  );
-  const masterIntent = read(
-    ".private/license-server/src/lib/purchase-intent-contract.ts",
-  );
-  const masterIssue = read(
-    ".private/license-server/src/data/vendor-entitlements.ts",
-  );
+test(
+  "vendor offer and paid Master issue pin license-server without customer issuer substitution",
+  {
+    skip: !existsSync(resolve(root, ".private/webshop"))
+      ? "private package contracts run in their signed package and central-runtime gates"
+      : false,
+  },
+  () => {
+    const offer = read(".private/webshop/src/data/webshop-license-offer.ts");
+    const fulfillment = read(
+      ".private/webshop/src/data/webshop-license-fulfillment-outbox.ts",
+    );
+    const masterIntent = read(
+      ".private/license-server/src/lib/purchase-intent-contract.ts",
+    );
+    const masterIssue = read(
+      ".private/license-server/src/data/vendor-entitlements.ts",
+    );
 
-  assert.match(offer, /LICENSE_SERVER_LICENSE_OFFER_KEY/);
-  assert.match(offer, /nr-cms-license-server-license/);
-  assert.match(offer, /priceMinor <= 0/);
-  assert.match(fulfillment, /addonKey,/);
-  const frozenIssueStart = fulfillment.indexOf("function frozenIssueRequest");
-  assert.notEqual(frozenIssueStart, -1);
-  assert.doesNotMatch(
-    fulfillment.slice(frozenIssueStart),
-    /addonKey: "webshop"/,
-  );
-  assert.match(masterIntent, /MANAGED_ADDON_KEYS = \["webshop", "license-server"\]/);
-  assert.match(masterIssue, /addonKey: intent\.addonKey/);
-  assert.match(masterIssue, /generateVendorLicenseKey\(\)/);
-});
+    assert.match(offer, /LICENSE_SERVER_LICENSE_OFFER_KEY/);
+    assert.match(offer, /nr-cms-license-server-license/);
+    assert.match(offer, /priceMinor <= 0/);
+    assert.match(fulfillment, /addonKey,/);
+    const frozenIssueStart = fulfillment.indexOf("function frozenIssueRequest");
+    assert.notEqual(frozenIssueStart, -1);
+    assert.doesNotMatch(
+      fulfillment.slice(frozenIssueStart),
+      /addonKey: "webshop"/,
+    );
+    assert.match(
+      masterIntent,
+      /MANAGED_ADDON_KEYS = \["webshop", "license-server"\]/,
+    );
+    assert.match(masterIssue, /addonKey: intent\.addonKey/);
+    assert.match(masterIssue, /generateVendorLicenseKey\(\)/);
+  },
+);
