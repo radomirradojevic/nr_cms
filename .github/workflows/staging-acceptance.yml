@@ -96,11 +96,13 @@ jobs:
           printf '%s' "$NR_ADDON_RELEASE_PUBLIC_KEYS_B64" | base64 --decode > "$RUNNER_TEMP/addon-release-public-keys.json"
           printf '%s' "$NR_ADDON_RELEASE_SIGNING_KEY_B64" | base64 --decode > "$RUNNER_TEMP/addon-release-signing-key.pem"
           mkdir -p "$RUNNER_TEMP/night-raven-staging-evidence"
-          echo "NR_ACCEPTANCE_CONFIG_PATH=$RUNNER_TEMP/night-raven-acceptance.staging.json" >> "$GITHUB_ENV"
-          echo "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH=$RUNNER_TEMP/night-raven-staging-scenario-runner" >> "$GITHUB_ENV"
-          echo "NR_ADDON_RELEASE_PUBLIC_KEYS_FILE=$RUNNER_TEMP/addon-release-public-keys.json" >> "$GITHUB_ENV"
-          echo "NR_ADDON_RELEASE_SIGNING_KEY_FILE=$RUNNER_TEMP/addon-release-signing-key.pem" >> "$GITHUB_ENV"
-          echo "NR_STAGING_EVIDENCE_DIRECTORY=$RUNNER_TEMP/night-raven-staging-evidence" >> "$GITHUB_ENV"
+          {
+            echo "NR_ACCEPTANCE_CONFIG_PATH=$RUNNER_TEMP/night-raven-acceptance.staging.json"
+            echo "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH=$RUNNER_TEMP/night-raven-staging-scenario-runner"
+            echo "NR_ADDON_RELEASE_PUBLIC_KEYS_FILE=$RUNNER_TEMP/addon-release-public-keys.json"
+            echo "NR_ADDON_RELEASE_SIGNING_KEY_FILE=$RUNNER_TEMP/addon-release-signing-key.pem"
+            echo "NR_STAGING_EVIDENCE_DIRECTORY=$RUNNER_TEMP/night-raven-staging-evidence"
+          } >> "$GITHUB_ENV"
 
       - name: Verify isolated GitHub-hosted staging configuration
         shell: bash
