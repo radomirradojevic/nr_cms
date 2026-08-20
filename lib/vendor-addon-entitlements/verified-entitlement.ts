@@ -14,12 +14,13 @@ export const VENDOR_ADDON_ENTITLEMENT_ISSUER = "https://license-server.nrcms.com
 const MAX_TOKEN_BYTES = 16_384;
 const CLOCK_SKEW_SECONDS = 300;
 
-export type VerifiedWebshopAddonEntitlement = AddonEntitlementClaimsV2 & {
+export type VerifiedManagedAddonEntitlement = AddonEntitlementClaimsV2 & {
   signingKid: string;
 };
+export type VerifiedWebshopAddonEntitlement = VerifiedManagedAddonEntitlement;
 
 export type V2VerificationContext = {
-  addonKey: "webshop";
+  addonKey: "webshop" | "license-server";
   canonicalDomain: string;
   environment: "development" | "staging" | "production";
   expectedHostCapabilityDescriptorHash: string;
@@ -81,7 +82,7 @@ const legacyPayloadSchema = z.object({
 export function verifyVendorAddonEntitlement(
   token: string,
   context: V2VerificationContext,
-): VerifiedVendorAddonEntitlement;
+): VerifiedManagedAddonEntitlement;
 export function verifyVendorAddonEntitlement(
   token: string,
   context: LegacyVerificationContext,
@@ -89,7 +90,7 @@ export function verifyVendorAddonEntitlement(
 export function verifyVendorAddonEntitlement(
   token: string,
   context: VendorEntitlementVerificationContext,
-): VerifiedWebshopAddonEntitlement | VerifiedVendorAddonEntitlement {
+): VerifiedManagedAddonEntitlement | VerifiedVendorAddonEntitlement {
   if (Buffer.byteLength(token, "utf8") > MAX_TOKEN_BYTES) throw new Error("Entitlement assertion exceeds the safe size limit.");
   const parts = token.split(".");
   if (parts.length !== 3 || parts.some((part) => !part || !/^[A-Za-z0-9_-]+$/.test(part))) throw new Error("Entitlement assertion is not a canonical compact JWS.");

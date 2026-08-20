@@ -7,6 +7,8 @@ redeploy zahtevaju eksplicitno odobrenje operatora.
 ## 1. Uloge
 
 - **Developer/release author:** priprema kod, migracije, testove i paket.
+- **Vendorski Webshop:** prodaje License Server kao zaseban add-on pored Webshop
+  add-on-a i nakon plaćanja pokreće Master fulfillment za odgovarajući ključ.
 - **Master operator:** kreira/importuje/publikuje plaćeni add-on release.
 - **Deployment operator/worker:** instalira odobren paket na ciljnu CMS
   instalaciju.
@@ -37,6 +39,7 @@ npm ci
 npm run build:local
 npm run test:db:local
 npm run install:verify:next
+npm run install:verify:next:db
 npm run pack:verify
 ```
 
@@ -62,6 +65,41 @@ Raspakovati finalni tarball u čist privremeni direktorijum i proveriti:
 - package name/version/digest se poklapaju sa potpisanim release zapisom;
 - isolated Next.js 16.3 host build i start prolaze iz tarball-a, ne workspace
   source-a.
+
+Prompt 02 as-built paket već sadrži neprazan `migrations.json` sa schema verzijama
+1 i 2, stvarne SQL fajlove i release digest koji ih obuhvata. Tačni checksumovi i
+test komande su u
+[`13-prompt-02-migration-evidence.md`](./13-prompt-02-migration-evidence.md).
+
+Prompt 03 je dodatno zaključao jedan development/release entrypoint, puni admin
+dashboard i čist tarball Next 16.3 build/start/render. Komande, digest-i, tačne
+renderovane putanje i vendorski paid-order dokaz nalaze se u
+[`14-prompt-03-release-parity-evidence.md`](./14-prompt-03-release-parity-evidence.md).
+
+Prompt 04 podiže package schema version na 3. Migracija
+`0003_product_profiles_and_claim_schemas.sql` aditivno backfill-uje početne
+objavljene Profile revizije i ne menja nijedan `license_server_licenses`
+snapshot. Za pravi SHA-256 legacy backfill koristi tačno allowlist-ovani
+`pgcrypto` u `public` schema-i: target provisioner ga unapred proverava/instalira,
+a migracija isti zahtev ponavlja idempotentno pod advisory lock-om. Package
+checksum, DB fixture i domain/admin dokazi su u
+[`15-prompt-04-profile-claims-evidence.md`](./15-prompt-04-profile-claims-evidence.md).
+
+Prompt 05 podiže package schema version na 4. Migracija
+`0004_durable_operation_engine.sql` aditivno proširuje postojeće operation i
+receipt modele; checksum je deo istog potpisanog release inventory-ja. Durable
+worker koristi bounded DB lease/`SKIP LOCKED`, a dead-letter replay čuva isti
+operation key i payload hash. Reveal-once traži dostupnu add-on encryption
+tajnu, vraća plaintext samo uspešnom kontrolisanom pozivaocu i auditira pristup;
+plaintext se ne upisuje u receipt JSON, metadata, log ili error. Tačni testovi i
+digest su u
+[`16-prompt-05-operation-engine-evidence.md`](./16-prompt-05-operation-engine-evidence.md).
+
+Prompt 06 ne menja schema verziju: postojeće issuer/key/license snapshot kolone
+već nose potreban model. Release sada obavezno sadrži CMS-nezavisni verifier,
+`.nrls.json` envelope implementaciju i language-neutral JSON vektore; svi su deo
+artifact digest-a i tarball allowlist/secret scan-a. Tačan dokaz je u
+[`17-prompt-06-assertion-evidence.md`](./17-prompt-06-assertion-evidence.md).
 
 ## 5. Master release
 
@@ -91,17 +129,29 @@ na customer instalaciji i ne uploaduje se Master-u.
 
 ## 6. Fresh install
 
-1. Preflight CMS/DB/storage/worker/compatibility i raspoloživ prostor.
-2. Aktivirati entitlement za tačan installation fingerprint/domen.
-3. Dobiti kratkoživeći, single-use install token.
-4. Worker preuzima paket, proverava potpis/digest i priprema novu release putanju.
-5. Backup trenutnog CMS config/DB stanja.
-6. Pokrenuti add-on migracije pod advisory lock-om.
-7. Atomarno promeniti build-time registry i redeploy hosta.
-8. Proveriti addon state `ready`, dashboard i API health.
-9. Inicijalizovati customer issuer identity i odmah napraviti zaštićen backup.
-10. Kreirati ograničen test Product/Profile i izdati/validirati test licencu.
-11. Uključiti scheduler/outbox i proveriti metrike/alarme.
+1. Kupiti zasebnu License Server add-on ponudu u vendorskom Night Raven CMS
+   Webshop-u; vendor paid order mora izdati `NRLS-...` ključ za
+   `addonKey: "license-server"`.
+2. Preflight CMS/DB/storage/worker/compatibility i raspoloživ prostor na ciljnom
+   CMS-u.
+3. Otvoriti **Dashboard → License Server**, uneti kupljeni ključ i izabrati
+   aktivaciju, istim korisničkim tokom kao u **Dashboard → Webshop**.
+4. Potvrditi da je entitlement vezan za tačan installation fingerprint/domen i da
+   je CMS prešao u `install_pending`.
+5. Dobiti kratkoživeći, single-use install token.
+6. Worker preuzima zasebno allowlist-ovan License Server paket, proverava
+   potpis/digest i priprema novu release putanju.
+7. Backup trenutnog CMS config/DB stanja.
+8. Pokrenuti add-on migracije pod advisory lock-om.
+9. Atomarno promeniti build-time registry i redeploy hosta.
+10. Proveriti addon state `ready`, dashboard i API health.
+11. Inicijalizovati customer issuer identity i odmah napraviti zaštićen backup.
+12. Kreirati ograničen test Product/Profile i izdati/validirati test licencu.
+13. Uključiti scheduler/outbox i proveriti metrike/alarme.
+
+Customer Webshop add-on nije preduslov za ovaj install. „Isti tok kao Webshop”
+znači isti CMS purchase/activation/managed-redeploy obrazac, ne instalaciju jednog
+add-on-a unutar drugog.
 
 Install token se ne čuva u CMS bazi, logu ili shell history-ju duže od potrebnog.
 
@@ -160,16 +210,24 @@ se ne brišu.
 4. stari prebaciti u `verification_only`;
 5. objaviti novi keyset revision;
 6. testirati novi i stari assertion;
-7. povući stari javni ključ tek posle maksimalnog bezbednog roka.
+7. povući stari javni ključ tek posle maksimalnog assertion TTL-a plus oba
+   clock-skew prozora; proveriti da nakon tog trenutka keyset više ne sadrži stari
+   `kid`.
 
 ### Restore
 
 1. izolovati cilj i potvrditi da nema različitog issuerRef;
-2. obnoviti DB + šifrovane ključeve + odgovarajući wrapping key;
-3. proveriti checksum i issuerRef;
+2. koristiti auditovani A256GCM export i zaseban 32-byte backup key; outer
+   envelope ne sme sadržati PEM/private key;
+3. obnoviti DB/ključeve i proveriti envelope autentikaciju, keypair-e,
+   `issuerRef` i monotoni keyset revision;
 4. validirati istorijski test assertion;
 5. izdati novi test assertion;
 6. tek tada vratiti traffic.
+
+Ako descriptor vrati `recovery_required`, zaustaviti novo signing/issue, sačuvati
+DB i audit dokaz i pokrenuti eksplicitni restore ili odobrenu rotaciju. Sam
+descriptor/read ne sme kreirati zamenski issuer ili ključ.
 
 ### Compromise
 

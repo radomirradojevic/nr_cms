@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -20,7 +20,10 @@ test("completed Prompt 18 rollout flags are retired from runtime configuration",
     ".env.example",
     ".env.example.vendor",
     "scripts/setup-local-webshop-addon.mjs",
-  ].map(source).join("\n");
+  ]
+    .filter((path) => existsSync(resolve(process.cwd(), path)))
+    .map(source)
+    .join("\n");
   const cleaner = source("scripts/clean-local-runtime-env.mjs");
 
   for (const flag of retiredFlags) {

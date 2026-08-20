@@ -102,6 +102,13 @@ efektivne claims i validacionu grešku pre publish-a proizvoda.
 
 Mapping konfiguracija ima revision/hash i pin-uje se na order item.
 
+As-built posle Prompt-a 10: editor nudi samo issuer-dozvoljene izvore, radi
+server-side preview/validaciju, a publish proizvoda pravi immutable mapping
+revision i canonical SHA-256 hash. Checkout pin-uje mapping revision/ID/hash i
+snapshot zajedno sa connection/issuer/Product Type/Profile/schema/policy
+evidence-om; draft, deprecated/drifted profil ili nevažeći mapping blokiraju novi
+checkout bez menjanja istorijskih order snapshot-a.
+
 ## 6. Fulfillment state machine
 
 ```text
@@ -121,7 +128,7 @@ Pravila:
 
 1. Issue počinje samo iz autoritativnog, idempotentnog `paid` događaja.
 2. Webshop operation key je stabilan po order item-u i nameni, npr.
-   `webshop:<storeId>:<orderItemId>:issue:v1`.
+   `webshop:<storeId>:<orderItemId>:issue:v2`.
 3. Local i remote konekcija koriste isti Webshop operation/receipt zapis.
 4. HTTP/capability timeout znači „status nepoznat”, ne „izdaj ponovo”. Prvo se
    čita postojeća operacija.
@@ -190,13 +197,41 @@ pending/retry/dead-letter i alarmira administratora.
 
 Produkcioni scenario mora dokazati:
 
-1. korisnik kupi i instalira License Server add-on;
-2. kreira Product Type, custom schema i Profile;
-3. Webshop uspostavi lokalnu ili udaljenu konekciju;
-4. kreira digitalni proizvod sa mapping-om;
-5. test order pre plaćanja ne izdaje licencu;
-6. jedan `paid` događaj uz višestruke retry-je izdaje tačno jednu licencu;
-7. kupac otvori reveal/download i aplikacija verifikuje potpis/claims;
-8. aktivacioni limit izdrži konkurentne pozive;
-9. refund/chargeback promeni online odluku;
-10. key rotation i restart/redeploy ne prekidaju postojeću validaciju.
+1. korisnik kupi zasebnu License Server ponudu u vendorskom Night Raven CMS
+   Webshop-u i dobije Master ključ za `addonKey: "license-server"`;
+2. na ciljnom CMS-u unese ključ u **Dashboard → License Server** i isti
+   activation/managed-install lifecycle kao kod Webshop add-on-a dovede paket iz
+   `install_pending` u `ready`, bez customer Webshop instalacione zavisnosti;
+3. zatim instalira ili koristi customer Webshop i kreira Product Type, custom
+   schema i Profile;
+4. Webshop uspostavi lokalnu ili udaljenu konekciju;
+5. kreira digitalni proizvod sa mapping-om;
+6. test order pre plaćanja ne izdaje licencu;
+7. jedan `paid` događaj uz višestruke retry-je izdaje tačno jednu licencu;
+8. kupac otvori reveal/download i aplikacija verifikuje potpis/claims;
+9. aktivacioni limit izdrži konkurentne pozive;
+10. refund/chargeback promeni online odluku;
+11. key rotation i restart/redeploy ne prekidaju postojeću validaciju.
+
+## 12. As-built paid fulfillment posle Prompt-a 10
+
+- Neplaćen order je eksplicitni no-op čak i ako stale/dupli pozivalac direktno
+  uđe u fulfillment boundary.
+- Paid stavka dobija stabilan ključ
+  `webshop:<webshopId>:<orderItemId>:issue:v2`; unique order-item i operation-key
+  ograničenja sprečavaju duplo izdavanje.
+- Pri timeout-u se isti idempotency key ponavlja dok issuer ne vrati operation ID;
+  zatim se isključivo poll-uje trajno sačuvani ID. Browser refresh i CMS restart ne
+  otvaraju novu issue operaciju.
+- Local capability i remote NRLS2 koriste isti `OperationResultV2`/receipt model.
+  Receipt se čuva bez plaintext ključa; eventualni reveal secret se odmah
+  envelope-encryptuje.
+- E-mail provider dobija samo kratkotrajan kontrolisani link. Customer/account
+  ownership, package-local distributed rate limit, audit i compare-and-set
+  `keyRevealedAt` štite reveal; uspešan customer account reveal u istoj
+  transakciji označava isporuku i ponovo računa item/order lifecycle.
+- Potpisani assertion se isporučuje kao strogi `nrls-license-file` v1 envelope sa
+  `.nrls.json` imenom, `no-store`, `no-referrer`, `nosniff` i attachment header-om.
+- `file_license` koristi isti order item: postojeći asset download i issuer receipt
+  su dve obaveze jedne stavke, dok unique issue + idempotent order lifecycle
+  sprečavaju drugo licencno izdavanje ili dvostruki završni rezultat.

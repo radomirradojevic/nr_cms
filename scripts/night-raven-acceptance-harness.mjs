@@ -93,6 +93,7 @@ export function shouldIncludePublicCopyPath(relativePath) {
   const root = relativePath.split(/[\\/]/)[0];
   if (!root) return true;
   if (PUBLIC_COPY_EXCLUDED_ROOTS.has(root)) return false;
+  if (root === ".env.example") return true;
   return root !== ".env" && !root.startsWith(".env.");
 }
 

@@ -9,6 +9,7 @@ import { canonicalJson } from "@/lib/vendor-addon-entitlements/activation-v2-con
 import { safeFetch } from "@/lib/security/outbound-url";
 import { signDeployRequest, verifyDeployResponse } from "@/lib/addon-runtime/deploy-hmac-v2";
 import { deploymentRequestV2Schema } from "@/lib/addon-runtime/deployment-contract-v2";
+import { requireManagedAddonDeploymentDescriptor } from "@/lib/addon-runtime/addon-descriptors";
 
 const LEASE_MS = 30_000;
 const epoch = z.string().regex(/^[1-9][0-9]{0,18}$/).refine((value) => BigInt(value) <= BigInt("9223372036854775807"), "installation_epoch_out_of_range");
@@ -37,8 +38,8 @@ export async function dispatchOneAddonDeploymentOutbox(now = new Date()) {
   )).returning();
   const row = claimed[0];
   if (!row) return { outcome: "contended" as const };
-  const config = deploymentWorkerConfig();
   const payload = deploymentRequestV2Schema.parse(row.payload);
+  const config = deploymentWorkerConfig(payload.addonKey, payload.packageName);
   const body = Buffer.from(canonicalJson(payload), "utf8");
   if (sha256(body) !== row.requestHash) {
     await markTerminal(row.id, leaseToken, "failed", "outbox_payload_hash_mismatch", null);
@@ -51,7 +52,7 @@ export async function dispatchOneAddonDeploymentOutbox(now = new Date()) {
     });
     const response = await safeFetch(new URL(config.path, config.url).toString(), {
       allowFirstParty: false, allowSelfHosted: true, body, headers, method: "POST",
-      purpose: "Webshop deployment outbox dispatch", timeoutMs: 10_000, maxResponseBytes: 32 * 1024,
+      purpose: `${payload.addonKey} deployment outbox dispatch`, timeoutMs: 10_000, maxResponseBytes: 32 * 1024,
     });
     // A response is part of the authenticated protocol even when the worker
     // rejects the request.  Do not turn an unsigned 4xx/5xx into retry/DLQ
@@ -99,7 +100,10 @@ async function retryOrDlq(id: string, leaseToken: string, attemptCount: number, 
 async function markTerminal(id: string, leaseToken: string, status: "failed", code: string, httpStatus: number | null) {
   await db.update(cmsAddonDeploymentOutbox).set({ status, leaseToken: null, leaseExpiresAt: null, lastErrorCode: code, lastHttpStatus: httpStatus, completedAt: new Date() }).where(and(eq(cmsAddonDeploymentOutbox.id, id), eq(cmsAddonDeploymentOutbox.leaseToken, leaseToken)));
 }
-function deploymentWorkerConfig() {
+function deploymentWorkerConfig(
+  addonKey: "webshop" | "license-server",
+  packageName: "@radomirradojevic/webshop" | "@nr-cms/license-server",
+) {
   const url = process.env.NR_ADDON_DEPLOYMENT_WORKER_URL?.trim();
   const kid = process.env.NR_ADDON_DEPLOYMENT_WORKER_AUTH_KID?.trim();
   const secret = process.env.NR_ADDON_DEPLOYMENT_WORKER_AUTH_SECRET?.trim();
@@ -107,6 +111,15 @@ function deploymentWorkerConfig() {
   if (!url || !kid || !secret || (profile !== "vendor" && profile !== "client" && profile !== "paypal")) throw new Error("worker_dispatch_configuration_missing");
   const parsed = new URL(url);
   if (parsed.protocol !== "https:" || parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.username || parsed.password) throw new Error("worker_dispatch_url_invalid");
-  return { url: parsed.toString(), kid, secret, path: `/v1/hooks/${profile}/webshop` };
+  const descriptor = requireManagedAddonDeploymentDescriptor(
+    addonKey,
+    packageName,
+  );
+  return {
+    url: parsed.toString(),
+    kid,
+    secret,
+    path: `/v1/hooks/${profile}/${descriptor.routeSegment}`,
+  };
 }
 function sha256(value: Buffer | string) { return `sha256:${createHash("sha256").update(value).digest("hex")}`; }

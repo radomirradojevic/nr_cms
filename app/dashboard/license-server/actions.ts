@@ -4,10 +4,9 @@ import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { saveLicenseServerAddonEntitlement } from "@/data/license-server-addon-entitlement";
+import { persistVerifiedLicenseServerActivation } from "@/data/webshop-addon-control-plane";
 import { getGlobalSettings } from "@/data/global-settings";
-import { buildRedeployCallbackRequest } from "@/lib/addon-runtime/redeploy-callback";
-import { safeFetch } from "@/lib/security/outbound-url";
+import { dispatchOneAddonDeploymentOutbox } from "@/lib/addon-runtime/deployment-outbox";
 import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
@@ -16,7 +15,6 @@ import {
   getLicenseServerRuntimeConfig,
 } from "@/lib/license-server-addon/config";
 import { requestLicenseServerLicenseActivation } from "@/lib/license-server-addon/license";
-import { loadLicenseServerAddon } from "@/lib/license-server-addon/loader";
 import { verifyLicenseServerDeploymentPlatform } from "@/lib/license-server-addon/platform";
 
 const ActivationSchema = z.object({
@@ -88,69 +86,44 @@ export async function activateLicenseServerAddonAction(
     return { status: "error", message: activation.error };
   }
 
-  const loadResult = await loadLicenseServerAddon();
-  if (
-    runtimeConfig.redeployWebhookUrl &&
-    runtimeConfig.redeployAuthKid &&
-    runtimeConfig.redeployAuthSecret
-  ) {
-    const callback = buildRedeployCallbackRequest({
-      auth: {
-        kid: runtimeConfig.redeployAuthKid,
-        secret: runtimeConfig.redeployAuthSecret,
-      },
-      packageName: activation.entitlement.packageName ?? null,
-      packageVersion: activation.entitlement.packageVersion ?? null,
-      url: runtimeConfig.redeployWebhookUrl,
+  let persisted: Awaited<
+    ReturnType<typeof persistVerifiedLicenseServerActivation>
+  >;
+  try {
+    persisted = await persistVerifiedLicenseServerActivation({
+      claim: activation.entitlement.verifiedClaims,
+      signedEntitlement: activation.entitlement.signedEntitlement,
+      updatedBy: userId,
     });
-    await safeFetch(callback.url, {
-      allowFirstParty: true,
-      body: callback.body,
-      headers: callback.headers,
-      method: "POST",
-      purpose: "License Server redeploy callback",
-      timeoutMs: 10_000,
-    }).catch(() => null);
+  } catch {
+    return {
+      status: "error",
+      message:
+        "License Server license was verified, but durable installation state could not be committed.",
+    };
   }
-  const entitlementStatus =
-    loadResult.status === "loaded" ? "ready" : "install_pending";
-  const checkedAt = new Date().toISOString();
-
-  await saveLicenseServerAddonEntitlement({
-    deploymentEnvironment: deploymentPlatform.deploymentEnvironment,
-    entitlementToken: activation.entitlement.entitlementToken,
-    expiresAt: new Date(activation.entitlement.expiresAt),
-    features: activation.entitlement.features,
-    installationId: activation.entitlement.installationId ?? null,
-    installationKeyFingerprint:
-      activation.entitlement.installationKeyFingerprint ?? null,
-    licenseKeyRef: activation.entitlement.licenseKeyRef,
-    metadata: {
-      activationId: activation.entitlement.activationId,
-      existingLicenseValidationPolicy: "allow_existing",
-      lastRevalidatedAt: checkedAt,
-      lastRevalidationMessage: "Add-on entitlement was activated.",
-      lastRevalidationReason: "activation",
-      lastRevalidationStatus: entitlementStatus,
-    },
-    packageName: activation.entitlement.packageName ?? null,
-    packageVersion: activation.entitlement.packageVersion ?? null,
-    provider: deploymentPlatform.provider,
-    providerMode: deploymentPlatform.mode,
-    providerOwnerId: deploymentPlatform.ownerId,
-    providerProjectId: deploymentPlatform.projectId,
-    status: entitlementStatus,
-    updatedBy: userId,
-  });
 
   revalidatePath("/dashboard/license-server");
+  if (persisted.status === "operator_schema_cutover_required") {
+    return {
+      status: "error",
+      message:
+        "License Server schema requires the approved operator cutover before installation can continue.",
+    };
+  }
+  if (persisted.status === "ready") {
+    return {
+      status: "success",
+      message: t("addons.licenseServer.activationSuccessReady"),
+    };
+  }
+  try {
+    await dispatchOneAddonDeploymentOutbox();
+  } catch {
+    // The durable outbox row remains retryable by the progress endpoint.
+  }
   return {
     status: "success",
-    message:
-      entitlementStatus === "ready"
-        ? t("addons.licenseServer.activationSuccessReady")
-        : deploymentPlatform.provider === "self_hosted"
-          ? t("addons.licenseServer.activationSuccessSelfHosted")
-          : t("addons.licenseServer.activationSuccessPending"),
+    message: `${t("addons.licenseServer.activationSuccessPending")} (${persisted.operationId})`,
   };
 }

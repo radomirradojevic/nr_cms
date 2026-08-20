@@ -21,7 +21,20 @@ import {
 } from "@/lib/security/outbound-url";
 
 const PURCHASE_INTENT_ENDPOINT = "/api/addons/purchase-intents";
-const OFFER_KEY = "nr-cms-webshop-license";
+const MANAGED_ADDON_OFFERS = Object.freeze({
+  "license-server": {
+    defaultOfferKey: "nr-cms-license-server-license",
+    environmentName: "LICENSE_SERVER_BUY_OFFER_KEY",
+    label: "License Server add-on",
+  },
+  webshop: {
+    defaultOfferKey: "nr-cms-webshop-license",
+    environmentName: "WEBSHOP_BUY_OFFER_KEY",
+    label: "Webshop add-on",
+  },
+} as const);
+
+export type ManagedAddonPurchaseKey = keyof typeof MANAGED_ADDON_OFFERS;
 
 type PurchaseChallenge = {
   challengeId: string;
@@ -47,11 +60,24 @@ export type WebshopPurchaseIntentHandoff = {
   purchaseIntent: string;
 };
 
+export type ManagedAddonPurchaseIntentHandoff = WebshopPurchaseIntentHandoff;
+
 /**
  * Creates one short-lived master-signed bearer only on the server. Browser
  * code receives it solely as the hidden field of a cross-origin POST form.
  */
 export async function createWebshopPurchaseIntentHandoff(): Promise<WebshopPurchaseIntentHandoff> {
+  return createManagedAddonPurchaseIntentHandoff("webshop");
+}
+
+export async function createLicenseServerPurchaseIntentHandoff(): Promise<ManagedAddonPurchaseIntentHandoff> {
+  return createManagedAddonPurchaseIntentHandoff("license-server");
+}
+
+async function createManagedAddonPurchaseIntentHandoff(
+  addonKey: ManagedAddonPurchaseKey,
+): Promise<ManagedAddonPurchaseIntentHandoff> {
+  const offer = MANAGED_ADDON_OFFERS[addonKey];
   const [settings, configured] = await Promise.all([
     getGlobalSettings(),
     Promise.resolve(parseWebshopBuyUrl(requireBuyUrl())),
@@ -61,7 +87,9 @@ export async function createWebshopPurchaseIntentHandoff(): Promise<WebshopPurch
     process.env.NEXT_PUBLIC_APP_URL ??
     process.env.VERCEL_PROJECT_PRODUCTION_URL ??
     process.env.VERCEL_URL;
-  if (!siteUrl) throw new Error("A public CMS URL is required to purchase the Webshop license.");
+  if (!siteUrl) {
+    throw new Error(`A public CMS URL is required to purchase the ${offer.label}.`);
+  }
   const canonicalDomain = canonicalizeLicenseDomain(siteUrl);
   const identity = await getOrCreateVendorAddonInstallationIdentity({
     canonicalDomain,
@@ -71,16 +99,17 @@ export async function createWebshopPurchaseIntentHandoff(): Promise<WebshopPurch
   const localHttp = isExplicitlyAllowedLoopbackHttpUrl(masterUrl);
   const challenge = await postMaster<PurchaseChallenge>(masterUrl, {
     action: "challenge",
-    addonKey: "webshop",
+    addonKey,
     canonicalDomain,
     contractVersion: 1,
     installationFingerprintScheme: identity.installationFingerprintScheme,
     installationId: identity.installationId,
     installationKeyFingerprint: identity.installationKeyFingerprint,
     installationPublicKey: identity.installationPublicKey,
-    offerKey: process.env.WEBSHOP_BUY_OFFER_KEY?.trim() || OFFER_KEY,
+    offerKey:
+      process.env[offer.environmentName]?.trim() || offer.defaultOfferKey,
     vendorAudience: configured.vendorAudience,
-  }, localHttp, "Webshop purchase challenge");
+  }, localHttp, `${offer.label} purchase challenge`);
 
   if (
     challenge.contractVersion !== 1 ||
@@ -136,7 +165,7 @@ export async function createWebshopPurchaseIntentHandoff(): Promise<WebshopPurch
     installationId: identity.installationId,
     installationKeyFingerprint: identity.installationKeyFingerprint,
     proofSignature,
-  }, localHttp, "Webshop purchase completion");
+  }, localHttp, `${offer.label} purchase completion`);
   if (
     complete.contractVersion !== 1 ||
     !isCompactJws(complete.purchaseIntent) ||

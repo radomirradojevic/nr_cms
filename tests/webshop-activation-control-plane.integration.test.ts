@@ -80,6 +80,19 @@ const claim = {
   signingKid: "entitlement-kid",
 };
 
+const licenseServerClaim = {
+  ...claim,
+  addonKey: "license-server" as const,
+  release: {
+    ...claim.release,
+    addonKey: "license-server" as const,
+    packageName: "@nr-cms/license-server" as const,
+    packageVersion: "0.1.0",
+    schemaVersion: 2,
+    supportedAddonSchemaVersionMax: 2,
+  },
+};
+
 function controlledStubResult(
   payload: ReturnType<typeof deploymentRequestV2Schema.parse>,
   workerJobId: string,
@@ -183,13 +196,13 @@ beforeEach(async () => {
     connected = true;
   }
   await client.query(
-    "TRUNCATE cms_addon_lifecycle_receipts, cms_addon_lifecycle_operations, cms_addon_transfer_preparations, cms_addon_deployment_results, cms_addon_deployment_terminal_receipts, cms_addon_deployment_candidates, cms_addon_serving_fences, cms_addon_worker_callbacks, cms_addon_deployment_outbox, cms_addon_operations, cms_addon_installations, webshop_addon_entitlements CASCADE",
+    "TRUNCATE cms_addon_lifecycle_receipts, cms_addon_lifecycle_operations, cms_addon_transfer_preparations, cms_addon_deployment_results, cms_addon_deployment_terminal_receipts, cms_addon_deployment_candidates, cms_addon_serving_fences, cms_addon_worker_callbacks, cms_addon_deployment_outbox, cms_addon_operations, cms_addon_installations, webshop_addon_entitlements, license_server_addon_entitlements CASCADE",
   );
 });
 after(async () => {
   if (client) {
     await client.query(
-      "TRUNCATE cms_addon_lifecycle_receipts, cms_addon_lifecycle_operations, cms_addon_transfer_preparations, cms_addon_deployment_results, cms_addon_deployment_terminal_receipts, cms_addon_deployment_candidates, cms_addon_serving_fences, cms_addon_worker_callbacks, cms_addon_deployment_outbox, cms_addon_operations, cms_addon_installations, webshop_addon_entitlements CASCADE",
+      "TRUNCATE cms_addon_lifecycle_receipts, cms_addon_lifecycle_operations, cms_addon_transfer_preparations, cms_addon_deployment_results, cms_addon_deployment_terminal_receipts, cms_addon_deployment_candidates, cms_addon_serving_fences, cms_addon_worker_callbacks, cms_addon_deployment_outbox, cms_addon_operations, cms_addon_installations, webshop_addon_entitlements, license_server_addon_entitlements CASCADE",
     );
   }
   await client?.end();
@@ -265,6 +278,58 @@ test(
     assert.deepEqual(rows.rows, [
       { status: "pending", target_profile: "paypal" },
     ]);
+  },
+);
+
+test(
+  "verified License Server key activation creates install_pending without a customer Webshop package",
+  { skip: !databaseUrl, concurrency: false },
+  async () => {
+    const { persistVerifiedLicenseServerActivation } =
+      await import("@/data/webshop-addon-control-plane");
+    const accepted = await persistVerifiedLicenseServerActivation({
+      claim: licenseServerClaim,
+      signedEntitlement: "compact-license-server-jws-v2",
+      updatedBy: "test-admin",
+    });
+    assert.equal(accepted.status, "install_pending");
+    const [installation, outbox, entitlement, webshop] = await Promise.all([
+      client!.query(
+        "SELECT addon_key,status,desired_package_name,desired_package_version FROM cms_addon_installations WHERE addon_key='license-server'",
+      ),
+      client!.query(
+        "SELECT addon_key,status,payload->>'packageName' AS package_name FROM cms_addon_deployment_outbox WHERE operation_id=$1",
+        [accepted.operationId],
+      ),
+      client!.query(
+        "SELECT status,package_name,package_version,release_id::text FROM license_server_addon_entitlements WHERE id=1",
+      ),
+      client!.query("SELECT count(*)::int AS count FROM webshop_addon_entitlements"),
+    ]);
+    assert.deepEqual(installation.rows, [
+      {
+        addon_key: "license-server",
+        status: "install_pending",
+        desired_package_name: "@nr-cms/license-server",
+        desired_package_version: "0.1.0",
+      },
+    ]);
+    assert.deepEqual(outbox.rows, [
+      {
+        addon_key: "license-server",
+        status: "pending",
+        package_name: "@nr-cms/license-server",
+      },
+    ]);
+    assert.deepEqual(entitlement.rows, [
+      {
+        status: "install_pending",
+        package_name: "@nr-cms/license-server",
+        package_version: "0.1.0",
+        release_id: licenseServerClaim.release.releaseId,
+      },
+    ]);
+    assert.deepEqual(webshop.rows, [{ count: 0 }]);
   },
 );
 

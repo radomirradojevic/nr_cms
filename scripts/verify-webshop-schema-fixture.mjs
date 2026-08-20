@@ -33,6 +33,7 @@ const expectedHash = process.argv
   .find((value) => value.startsWith("--expect-hash="))
   ?.slice("--expect-hash=".length);
 const runPaymentTest = process.argv.includes("--run-payment-test");
+const runFulfillmentTest = process.argv.includes("--run-fulfillment-test");
 const runRemediationInvariants = process.argv.includes(
   "--run-remediation-invariants",
 );
@@ -132,7 +133,69 @@ async function createHostReferences(client) {
       id integer PRIMARY KEY,
       metadata jsonb NOT NULL DEFAULT '{}'::jsonb
     );
+    CREATE TABLE public.security_rate_limit_buckets (
+      bucket_hash text PRIMARY KEY,
+      count integer NOT NULL DEFAULT 0,
+      reset_at timestamptz NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
   `);
+}
+
+async function runIsolatedFulfillmentFixture(databaseUrl) {
+  const packageRoot = path.join(root, ".private", "webshop");
+  const loaderUrl = pathToFileURL(
+    path.join(packageRoot, "tests", "register-server-only-loader.mjs"),
+  ).href;
+  const testPath = path
+    .relative(
+      root,
+      path.join(
+        packageRoot,
+        "tests",
+        "customer-license-fulfillment-v2.database.runner.ts",
+      ),
+    )
+    .replaceAll(path.sep, "/");
+  const child = spawn(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "--import",
+      loaderUrl,
+      "--test",
+      "--test-concurrency=1",
+      "--test-reporter",
+      "spec",
+      testPath,
+    ],
+    {
+      cwd: root,
+      env: {
+        ...process.env,
+        DATABASE_URL: databaseUrl,
+        NODE_ENV: "test",
+        NR_WEBSHOP_ISOLATED_FULFILLMENT_TEST: "1",
+        TEST_DATABASE_URL: databaseUrl,
+        TSX_TSCONFIG_PATH: path.join(root, "tsconfig.json"),
+        WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KEY: "22".repeat(32),
+        WEBSHOP_ISSUED_LICENSE_KEY_ENCRYPTION_KID: "prompt10-e2e-kek",
+        WEBSHOP_LICENSE_SERVER_SECRET_KEY: "11".repeat(32),
+      },
+      stdio: "inherit",
+    },
+  );
+  await new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (signal || code !== 0) {
+        reject(new Error("isolated_fulfillment_fixture_failed"));
+        return;
+      }
+      resolve();
+    });
+  });
 }
 
 async function runIsolatedPaymentFixture(databaseUrl) {
@@ -187,7 +250,9 @@ async function runIsolatedPaymentFixture(databaseUrl) {
 async function runIsolatedRemediationInvariants(databaseUrl) {
   const centralUrl = process.env.NR_ACCEPTANCE_CENTRAL_TEST_DATABASE_URL;
   if (!centralUrl)
-    fail("NR_ACCEPTANCE_CENTRAL_TEST_DATABASE_URL is required for remediation invariants.");
+    fail(
+      "NR_ACCEPTANCE_CENTRAL_TEST_DATABASE_URL is required for remediation invariants.",
+    );
   const child = spawn(
     process.execPath,
     ["scripts/run-remediation-invariants.mjs", "--local"],
@@ -333,6 +398,68 @@ async function dropDatabase(admin, database) {
     fail("temporary fixture cleanup did not remove its database.");
 }
 
+async function seedPrompt09UpgradeFixture(client) {
+  await client.query(`
+    INSERT INTO webshop.webshop_license_servers (
+      id, title, base_api_url, auth_client_id, auth_secret_encrypted,
+      auth_secret_fingerprint, created_by, updated_by
+    ) VALUES (
+      '00000000-0000-4000-8000-000000000902', 'Historical remote issuer',
+      'https://licenses.example.test/api/license-server/v2', 'legacy-client',
+      '{"v":1,"fixture":true}', repeat('a', 64), 'fixture', 'fixture'
+    );
+    INSERT INTO webshop.webshop_products (
+      id, product_type, title, slug, digital_fields, created_by, updated_by
+    ) VALUES (
+      '00000000-0000-4000-8000-000000000903', 'digital',
+      'Historical customer issuer product', 'historical-customer-issuer-product',
+      '{"licenseKeyPolicy":"customer_issuer","customerIssuer":{"productTypeId":"desktop","sku":"PRO"}}'::jsonb,
+      'fixture', 'fixture'
+    );
+  `);
+}
+
+async function verifyPrompt09UpgradeFixture(client) {
+  const remote = await client.query(`
+    SELECT status, transport, remote_base_url, remote_client_id,
+           remote_secret_encrypted, issuer_ref
+    FROM webshop.webshop_license_server_connections
+    WHERE id = '00000000-0000-4000-8000-000000000902'
+  `);
+  if (
+    remote.rowCount !== 1 ||
+    remote.rows[0].transport !== "remote_nrls_v2" ||
+    remote.rows[0].status !== "re_auth_required" ||
+    remote.rows[0].issuer_ref !== null ||
+    remote.rows[0].remote_client_id !== "legacy-client" ||
+    !remote.rows[0].remote_secret_encrypted
+  ) {
+    fail("Prompt 09 historical remote connection was not migrated safely.");
+  }
+  const legacy = await client.query(`
+    SELECT 1 FROM webshop.webshop_license_servers
+    WHERE id = '00000000-0000-4000-8000-000000000902'
+  `);
+  if (legacy.rowCount !== 1) {
+    fail(
+      "Prompt 09 migration changed the author-only Master connector record.",
+    );
+  }
+  const product = await client.query(`
+    SELECT digital_fields FROM webshop.webshop_products
+    WHERE id = '00000000-0000-4000-8000-000000000903'
+  `);
+  if (
+    product.rowCount !== 1 ||
+    product.rows[0].digital_fields?.licenseKeyPolicy !== "license_server" ||
+    product.rows[0].digital_fields?.licenseServerId !==
+      "00000000-0000-4000-8000-000000000901" ||
+    product.rows[0].digital_fields?.customerIssuer !== undefined
+  ) {
+    fail("Prompt 09 hidden customer_issuer product migration is invalid.");
+  }
+}
+
 const database = `nr_webshop_p03_test_${randomUUID().replaceAll("-", "").slice(0, 20)}`;
 const admin = new Client({ connectionString: connectionUrl("postgres") });
 let fixture;
@@ -346,6 +473,11 @@ try {
   await createHostReferences(fixture);
   const migrations = loadWebshopMigrations();
   for (const migration of migrations) {
+    if (
+      migration.id === "0008_webshop_customer_license_server_connections.sql"
+    ) {
+      await seedPrompt09UpgradeFixture(fixture);
+    }
     const statements = splitStatements(migration.sql);
     for (const [index, statement] of statements.entries()) {
       try {
@@ -355,6 +487,11 @@ try {
           `${migration.id} statement ${index + 1}/${statements.length} failed: ${error instanceof Error ? error.message : "unknown PostgreSQL error"}`,
         );
       }
+    }
+    if (
+      migration.id === "0008_webshop_customer_license_server_connections.sql"
+    ) {
+      await verifyPrompt09UpgradeFixture(fixture);
     }
   }
   const receipt = await introspect(fixture);
@@ -396,6 +533,8 @@ try {
   if (expectedHash && receipt.fingerprint !== expectedHash)
     fail("postcondition fingerprint does not match the pinned descriptor.");
   if (runPaymentTest) await runIsolatedPaymentFixture(connectionUrl(database));
+  if (runFulfillmentTest)
+    await runIsolatedFulfillmentFixture(connectionUrl(database));
   if (runRemediationInvariants)
     await runIsolatedRemediationInvariants(connectionUrl(database));
   console.log(

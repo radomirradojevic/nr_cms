@@ -26,7 +26,9 @@
       "@nr-cms/addon-sdk/routing": ["./packages/addon-sdk/src/routing-v1.ts"],
       "@nr-cms/addon-sdk/migrations": ["./packages/addon-sdk/src/migrations-v1.ts"],
       "@nr-cms/addon-sdk/testing": ["./packages/addon-sdk/src/testing.ts"],
-      "@nr-cms/addon-sdk/customer-license-issuer": ["./packages/addon-sdk/src/customer-license-issuer-v1.ts"]
+      "@nr-cms/addon-sdk/customer-license-issuer": ["./packages/addon-sdk/src/customer-license-issuer-v1.ts"],
+      "@nr-cms/addon-sdk/customer-license-issuer-v2": ["./packages/addon-sdk/src/customer-license-issuer-v2.ts"],
+      "@nr-cms/addon-sdk/migrations-v2": ["./packages/addon-sdk/src/migrations-v2.ts"]
     }
   },
   "include": [

@@ -13,8 +13,8 @@ import { getAddonI18nContext } from "@/lib/i18n/addon-server";
 import { getTranslations } from "@/lib/i18n/server";
 import { getOptionalCurrentUser } from "@/lib/optional-current-user";
 import { getRoles, hasRole } from "@/lib/roles";
-import { buildLicenseServerLicenseBuyUrl } from "@/lib/license-server-addon/buy-link";
 import { resolveLicenseServerAddonState } from "@/lib/license-server-addon/license";
+import { createLicenseServerPurchaseIntentHandoff } from "@/lib/webshop-addon/purchase-intent";
 import { activateLicenseServerAddonAction } from "./actions";
 
 const PLACEHOLDER_SECTIONS = [
@@ -46,7 +46,22 @@ export default async function LicenseServerDashboardPage() {
   if (!hasRole(roles, "admin")) redirect("/dashboard");
 
   const addonState = await resolveLicenseServerAddonState();
-  const buyUrl = await buildLicenseServerLicenseBuyUrl();
+  const needsLicenseActivation =
+    addonState.status === "license_required" ||
+    addonState.status === "not_installed" ||
+    addonState.status === "license_invalid";
+  let purchaseIntentHandoff: Awaited<
+    ReturnType<typeof createLicenseServerPurchaseIntentHandoff>
+  > | null = null;
+  if (needsLicenseActivation) {
+    try {
+      purchaseIntentHandoff = await createLicenseServerPurchaseIntentHandoff();
+    } catch {
+      // Manual key entry remains available. Reloading retries the short-lived
+      // Master challenge with the same durable installation identity.
+      purchaseIntentHandoff = null;
+    }
+  }
   const t = await getTranslations("backend");
   const i18n = await getAddonI18nContext();
   if (addonState.status === "ready") {
@@ -77,15 +92,13 @@ export default async function LicenseServerDashboardPage() {
         </p>
       </div>
 
-      {addonState.status === "license_required" ||
-      addonState.status === "not_installed" ||
-      addonState.status === "license_invalid" ? (
+      {needsLicenseActivation ? (
         <WebshopLicenseActivation
           action={activateLicenseServerAddonAction}
           buyLabel={t("addons.licenseServer.buyLicenseKey")}
-          buyUrl={buyUrl}
           description={t("addons.licenseServer.activationDescription")}
           inputId="license-server-license-key"
+          purchaseIntentHandoff={purchaseIntentHandoff}
           submitLabel={t("addons.licenseServer.activate")}
           title={t("addons.licenseServer.activationTitle")}
         />

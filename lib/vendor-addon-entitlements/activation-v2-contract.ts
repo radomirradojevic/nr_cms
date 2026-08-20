@@ -9,6 +9,8 @@ export const ED25519_SPKI_FINGERPRINT_SCHEME =
 const semver = z.string().regex(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
 const sha256 = z.string().regex(/^sha256:[a-f0-9]{64}$/);
 const iso = z.string().datetime({ offset: true });
+const managedAddonKey = z.enum(["webshop", "license-server"]);
+const managedPackageName = z.enum(["@radomirradojevic/webshop", "@nr-cms/license-server"]);
 
 export const hostCapabilitiesV1Schema = z.object({
   descriptorVersion: z.literal(1),
@@ -24,8 +26,8 @@ export const hostCapabilitiesV1Schema = z.object({
 export type HostCapabilitiesV1 = z.infer<typeof hostCapabilitiesV1Schema>;
 
 const releaseSchema = z.object({
-  releaseId: z.string().uuid(), addonKey: z.literal("webshop"),
-  packageName: z.literal("@radomirradojevic/webshop"), packageVersion: semver,
+  releaseId: z.string().uuid(), addonKey: managedAddonKey,
+  packageName: managedPackageName, packageVersion: semver,
   artifactSha256: z.string().regex(/^[a-f0-9]{64}$/),
   dependencyLockSha256: z.string().regex(/^[a-f0-9]{64}$/),
   npmTarballSha256: z.string().regex(/^[a-f0-9]{64}$/),
@@ -43,13 +45,16 @@ const releaseSchema = z.object({
   supportedAddonSchemaVersionMax: z.number().int().positive(),
   migrationBundleHash: z.string().regex(/^[a-f0-9]{64}$/),
   supportedLicenseEditions: z.array(z.literal("standard")).min(1), channel: z.literal("stable"),
-}).strict();
+}).strict().superRefine((value, context) => {
+  const expected = value.addonKey === "webshop" ? "@radomirradojevic/webshop" : "@nr-cms/license-server";
+  if (value.packageName !== expected) context.addIssue({ code: "custom", message: "managed_addon_descriptor_mismatch", path: ["packageName"] });
+});
 
 export const entitlementClaimsV2Schema = z.object({
   contractVersion: z.literal(2), tokenUse: z.literal("addon_entitlement"),
   iss: z.literal("https://license-server.nrcms.com"), aud: z.literal("nr-cms-addon-runtime"),
   jti: z.string().uuid(), iat: z.number().int().nonnegative(), nbf: z.number().int().nonnegative(), exp: z.number().int().positive(),
-  entitlementId: z.string().uuid(), activationId: z.string().uuid(), addonKey: z.literal("webshop"),
+  entitlementId: z.string().uuid(), activationId: z.string().uuid(), addonKey: managedAddonKey,
   environment: z.enum(["development", "staging", "production"]),
   deploymentMode: z.enum(["self_hosted", "vercel", "other"]), canonicalDomain: z.string().min(1).max(253),
   installationId: z.string().uuid(), installationKeyFingerprint: sha256,
@@ -63,7 +68,9 @@ export const entitlementClaimsV2Schema = z.object({
   domainVerificationMethod: z.enum(["https_well_known", "development_allowlist_exemption"]),
   domainVerifiedAt: iso, domainVerificationChallengeId: z.string().uuid(),
   hostCapabilityDescriptorHash: sha256, release: releaseSchema,
-}).strict();
+}).strict().superRefine((value, context) => {
+  if (value.release.addonKey !== value.addonKey) context.addIssue({ code: "custom", message: "entitlement_release_addon_mismatch", path: ["release", "addonKey"] });
+});
 
 export type AddonEntitlementClaimsV2 = z.infer<typeof entitlementClaimsV2Schema>;
 

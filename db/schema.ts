@@ -511,6 +511,11 @@ export const licenseServerAddonEntitlements = pgTable(
     lastCentralStatus: text("last_central_status"),
     lastErrorCode: text("last_error_code"),
     lifecycleVersion: bigint("lifecycle_version", { mode: "number" }).notNull().default(0),
+    releaseId: uuid("release_id"),
+    licenseEnvironment: text("license_environment").notNull().default("development"),
+    licenseValidUntil: timestamp("license_valid_until", { withTimezone: true }),
+    entitlementEnvelopeExpiresAt: timestamp("entitlement_envelope_expires_at", { withTimezone: true }),
+    entitlementSnapshotHash: text("entitlement_snapshot_hash"),
     installationId: uuid("installation_id"),
     installationKeyFingerprint: text("installation_key_fingerprint"),
     provider: text("provider"),
@@ -555,6 +560,14 @@ export const licenseServerAddonEntitlements = pgTable(
     check(
       "license_server_addon_entitlements_environment_check",
       sql`${table.deploymentEnvironment} IS NULL OR ${table.deploymentEnvironment} IN ('production','self_hosted')`,
+    ),
+    check(
+      "license_server_addon_entitlements_license_environment_check",
+      sql`${table.licenseEnvironment} IN ('development','staging','production')`,
+    ),
+    check(
+      "license_server_addon_entitlements_v2_managed_state_check",
+      sql`${table.status} NOT IN ('ready','install_pending') OR (${table.signedEntitlement} IS NOT NULL AND ${table.entitlementEnvelopeExpiresAt} IS NOT NULL AND ${table.nextRevalidationAt} IS NOT NULL AND ${table.entitlementSnapshotHash} ~ '^sha256:[a-f0-9]{64}$')`,
     ),
   ],
 );
@@ -909,6 +922,11 @@ export const licenseServerApiClients = pgTable(
     clientId: text("client_id").notNull(),
     secretEncrypted: text("secret_encrypted").notNull(),
     secretFingerprint: text("secret_fingerprint").notNull(),
+    previousSecretEncrypted: text("previous_secret_encrypted"),
+    previousSecretExpiresAt: timestamp("previous_secret_expires_at", {
+      withTimezone: true,
+    }),
+    secretVersion: integer("secret_version").notNull().default(1),
     allowedDomains: jsonb("allowed_domains")
       .notNull()
       .default(sql`'[]'::jsonb`),
@@ -942,6 +960,14 @@ export const licenseServerApiClients = pgTable(
     check(
       "license_server_api_clients_fingerprint_length_check",
       sql`char_length(${table.secretFingerprint}) = 64`,
+    ),
+    check(
+      "license_server_api_clients_secret_version_check",
+      sql`${table.secretVersion} >= 1`,
+    ),
+    check(
+      "license_server_api_clients_previous_secret_check",
+      sql`(${table.previousSecretEncrypted} IS NULL) = (${table.previousSecretExpiresAt} IS NULL)`,
     ),
     index("license_server_api_clients_status_idx").on(
       table.status,
@@ -1054,6 +1080,7 @@ export const licenseServerProductTypes = pgTable(
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     externalRef: text("external_ref"),
+    audience: text("audience"),
     publicKey: text("public_key"),
     metadata: jsonb("metadata")
       .notNull()
@@ -1121,6 +1148,7 @@ export const licenseServerProductTypeSkus = pgTable(
     status: text("status").notNull().default("active"),
     keyNamespace: text("key_namespace").notNull(),
     adminNote: text("admin_note"),
+    currentProfileRevisionId: uuid("current_profile_revision_id"),
     createdBy: text("created_by").notNull(),
     updatedBy: text("updated_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -1223,6 +1251,20 @@ export const licenseServerLicenses = pgTable(
     revokedReason: text("revoked_reason"),
     graceEndsAt: timestamp("grace_ends_at", { withTimezone: true }),
     lastValidatedAt: timestamp("last_validated_at", { withTimezone: true }),
+    publicRef: text("public_ref"),
+    customerExternalRef: text("customer_external_ref"),
+    profileRevisionId: uuid("profile_revision_id"),
+    claimSchemaVersionId: uuid("claim_schema_version_id"),
+    policySnapshot: jsonb("policy_snapshot"),
+    customClaimSnapshot: jsonb("custom_claim_snapshot"),
+    policyHash: text("policy_hash"),
+    claimSchemaHash: text("claim_schema_hash"),
+    signingKid: text("signing_kid"),
+    assertionDigest: text("assertion_digest"),
+    notBefore: timestamp("not_before", { withTimezone: true }),
+    maintenanceExpiresAt: timestamp("maintenance_expires_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -1273,6 +1315,256 @@ export const licenseServerLicenses = pgTable(
       table.source,
       table.sourceOrderRef,
       table.sourceOrderItemRef,
+    ),
+    uniqueIndex("license_server_licenses_public_ref_unique")
+      .on(table.publicRef)
+      .where(sql`${table.publicRef} IS NOT NULL`),
+  ],
+);
+
+export const customerIssuerClaimSchemas = pgTable(
+  "customer_issuer_claim_schemas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productTypeId: uuid("product_type_id")
+      .notNull()
+      .references(() => licenseServerProductTypes.id, { onDelete: "restrict" }),
+    externalRef: text("external_ref").notNull(),
+    title: text("title").notNull(),
+    latestRevision: integer("latest_revision").notNull().default(0),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("customer_issuer_claim_schemas_product_ref_unique").on(
+      table.productTypeId,
+      table.externalRef,
+    ),
+    check(
+      "customer_issuer_claim_schemas_revision_check",
+      sql`${table.latestRevision} >= 0`,
+    ),
+    index("customer_issuer_claim_schemas_product_idx").on(
+      table.productTypeId,
+      table.externalRef,
+    ),
+  ],
+);
+
+export const customerIssuerClaimSchemaVersions = pgTable(
+  "customer_issuer_claim_schema_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    claimSchemaId: uuid("claim_schema_id")
+      .notNull()
+      .references(() => customerIssuerClaimSchemas.id, { onDelete: "restrict" }),
+    semanticVersion: text("semantic_version").notNull(),
+    revision: integer("revision").notNull(),
+    status: text("status").notNull().default("draft"),
+    canonicalSchema: jsonb("canonical_schema").notNull(),
+    schemaHash: text("schema_hash").notNull(),
+    claimClassification: jsonb("claim_classification").notNull().default(sql`'{}'::jsonb`),
+    overridePolicy: jsonb("override_policy").notNull().default(sql`'{}'::jsonb`),
+    maxPayloadBytes: integer("max_payload_bytes").notNull().default(16384),
+    maxDepth: integer("max_depth").notNull().default(5),
+    maxProperties: integer("max_properties").notNull().default(64),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by"),
+    publishedBy: text("published_by"),
+    deprecatedBy: text("deprecated_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    deprecatedAt: timestamp("deprecated_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("customer_issuer_claim_schema_versions_revision_unique").on(
+      table.claimSchemaId,
+      table.revision,
+    ),
+    unique("customer_issuer_claim_schema_versions_semver_unique").on(
+      table.claimSchemaId,
+      table.semanticVersion,
+    ),
+    check(
+      "customer_issuer_claim_schema_versions_status_check",
+      sql`${table.status} IN ('draft','published','deprecated')`,
+    ),
+    index("customer_issuer_claim_schema_versions_status_idx").on(
+      table.claimSchemaId,
+      table.status,
+      table.revision,
+    ),
+  ],
+);
+
+export const customerIssuerProfileRevisions = pgTable(
+  "customer_issuer_profile_revisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => licenseServerProductTypeSkus.id, { onDelete: "restrict" }),
+    revision: integer("revision").notNull(),
+    status: text("status").notNull().default("draft"),
+    claimSchemaVersionId: uuid("claim_schema_version_id").references(
+      () => customerIssuerClaimSchemaVersions.id,
+      { onDelete: "restrict" },
+    ),
+    policySnapshot: jsonb("policy_snapshot").notNull(),
+    defaultClaims: jsonb("default_claims").notNull().default(sql`'{}'::jsonb`),
+    claimOverridePolicy: jsonb("claim_override_policy").notNull().default(sql`'{}'::jsonb`),
+    allowedEnvironments: jsonb("allowed_environments").notNull().default(sql`'["production"]'::jsonb`),
+    audience: text("audience"),
+    policyHash: text("policy_hash").notNull(),
+    revisionHash: text("revision_hash"),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by"),
+    publishedBy: text("published_by"),
+    deprecatedBy: text("deprecated_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    deprecatedAt: timestamp("deprecated_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("customer_issuer_profile_revisions_profile_revision_unique").on(
+      table.profileId,
+      table.revision,
+    ),
+    check(
+      "customer_issuer_profile_revisions_status_check",
+      sql`${table.status} IN ('draft','published','deprecated')`,
+    ),
+    index("customer_issuer_profile_revisions_status_idx").on(
+      table.profileId,
+      table.status,
+      table.revision,
+    ),
+    uniqueIndex("customer_issuer_profile_revisions_one_draft_idx")
+      .on(table.profileId)
+      .where(sql`${table.status} = 'draft'`),
+  ],
+);
+
+export const customerIssuerOperations = pgTable(
+  "customer_issuer_operations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    publicRef: text("public_ref"),
+    issuerId: uuid("issuer_id").notNull().references(() => customerIssuerIdentities.id, { onDelete: "restrict" }),
+    apiClientId: uuid("api_client_id").references(() => licenseServerApiClients.id, { onDelete: "restrict" }),
+    sourceClientRef: text("source_client_ref").notNull(),
+    operationKey: text("operation_key").notNull(),
+    operationType: text("operation_type").notNull(),
+    payloadHash: text("payload_hash").notNull(),
+    requestPayload: jsonb("request_payload").notNull(),
+    productTypeId: uuid("product_type_id").references(() => licenseServerProductTypes.id, { onDelete: "restrict" }),
+    profileId: uuid("profile_id").references(() => licenseServerProductTypeSkus.id, { onDelete: "restrict" }),
+    profileRevisionId: uuid("profile_revision_id").references(() => customerIssuerProfileRevisions.id, { onDelete: "restrict" }),
+    customerExternalRef: text("customer_external_ref"),
+    orderRef: text("order_ref"),
+    orderItemRef: text("order_item_ref"),
+    status: text("status").notNull().default("pending"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(12),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    licenseId: uuid("license_id").references(() => licenseServerLicenses.id, { onDelete: "set null" }),
+    receiptId: uuid("receipt_id"),
+    errorCode: text("error_code"),
+    correlationId: text("correlation_id").notNull(),
+    environment: text("environment"),
+    lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+    deadLetteredAt: timestamp("dead_lettered_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("customer_issuer_operations_idempotency_unique").on(
+      table.issuerId,
+      table.sourceClientRef,
+      table.operationKey,
+    ),
+    uniqueIndex("customer_issuer_operations_public_ref_unique")
+      .on(table.publicRef)
+      .where(sql`${table.publicRef} IS NOT NULL`),
+    check(
+      "customer_issuer_operations_environment_check",
+      sql`${table.environment} IS NULL OR ${table.environment} IN ('development','staging','production','test')`,
+    ),
+    index("customer_issuer_operations_claim_idx").on(
+      table.status,
+      table.nextAttemptAt,
+      table.createdAt,
+    ),
+    index("customer_issuer_operations_license_idx").on(
+      table.licenseId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const customerIssuerOperationReceipts = pgTable(
+  "customer_issuer_operation_receipts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    publicRef: text("public_ref"),
+    operationId: uuid("operation_id")
+      .notNull()
+      .references(() => customerIssuerOperations.id, { onDelete: "restrict" }),
+    licenseId: uuid("license_id").references(() => licenseServerLicenses.id, { onDelete: "restrict" }),
+    receiptPayload: jsonb("receipt_payload").notNull(),
+    receiptHash: text("receipt_hash").notNull(),
+    revealStatus: text("reveal_status").notNull().default("available"),
+    revealExpiresAt: timestamp("reveal_expires_at", { withTimezone: true }),
+    revealedAt: timestamp("revealed_at", { withTimezone: true }),
+    revealCount: integer("reveal_count").notNull().default(0),
+    lastRevealedBy: text("last_revealed_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("customer_issuer_operation_receipts_operation_unique").on(table.operationId),
+    uniqueIndex("customer_issuer_operation_receipts_public_ref_unique")
+      .on(table.publicRef)
+      .where(sql`${table.publicRef} IS NOT NULL`),
+    check(
+      "customer_issuer_operation_receipts_reveal_status_check",
+      sql`${table.revealStatus} IN ('available','consumed','expired','unavailable')`,
+    ),
+    check(
+      "customer_issuer_operation_receipts_reveal_count_check",
+      sql`${table.revealCount} >= 0`,
+    ),
+  ],
+);
+
+export const customerIssuerJobLeases = pgTable(
+  "customer_issuer_job_leases",
+  {
+    jobKey: text("job_key").primaryKey(),
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    ownerRef: text("owner_ref"),
+    lastStartedAt: timestamp("last_started_at", { withTimezone: true }),
+    lastCompletedAt: timestamp("last_completed_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("customer_issuer_job_leases_expiry_idx").on(table.leaseExpiresAt),
+    check(
+      "customer_issuer_job_leases_key_check",
+      sql`${table.jobKey} = 'customer-license-issuer-operations'`,
+    ),
+    check(
+      "customer_issuer_job_leases_pair_check",
+      sql`(${table.leaseToken} IS NULL) = (${table.leaseExpiresAt} IS NULL)`,
     ),
   ],
 );

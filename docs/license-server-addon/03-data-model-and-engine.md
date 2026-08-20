@@ -9,6 +9,23 @@ da verzionisane migracije putuju u potpisanom add-on paketu.
 Dok je tranzicija u toku, postojeće tabele u root CMS schema-i ostaju
 kompatibilne; ne smeju se duplirati ili obrisati bez eksplicitne data migracije.
 
+As-built od Prompt-a 02: package isporučuje
+`0001_license_server_customer_issuer_baseline.sql` za empty-install ili exact
+legacy adoption i `0002_customer_issuer_v2_models.sql` za pet novih aditivnih
+modela. Manifest, checksumovi, svi objekti i ownership granica zabeleženi su u
+[`13-prompt-02-migration-evidence.md`](./13-prompt-02-migration-evidence.md).
+Root schema ostaje privremeno compatibility ogledalo, ali nove domenske migracije
+pripadaju add-on paketu.
+
+As-built do Prompt-a 05: manifest je monotono proširen na schema version 4.
+`0003_product_profiles_and_claim_schemas.sql` poseduje Profile/Claim modele, a
+`0004_durable_operation_engine.sql` aditivno proširuje postojeće operation i
+receipt tabele javnim ref-ovima, source/API-client scope-om, environment-om,
+dead-letter vremenom i reveal stanjem. Nema paralelne operation tabele niti
+destruktivnog down-a. Dokazi su u
+[`15-prompt-04-profile-claims-evidence.md`](./15-prompt-04-profile-claims-evidence.md)
+i [`16-prompt-05-operation-engine-evidence.md`](./16-prompt-05-operation-engine-evidence.md).
+
 Svaka promena schema-e mora imati:
 
 - monotoni migration ID i checksum;
@@ -138,6 +155,17 @@ Jedinstvena durable komanda nezavisno od transporta:
 Unique indeks je najmanje `(issuerRef, sourceClientRef, operationKey)`.
 Payload sa istim ključem ali drugim hash-om mora vratiti
 `idempotency_conflict`, ne stari rezultat i ne novu licencu.
+
+**POSTOJI od Prompt-a 05:** `src/data/operations.ts` je jedini application
+service koji upisuje novu customer licencu. Issue i lifecycle koriste isti
+operation/receipt status jezik, canonical payload hash, source ownership,
+bounded `FOR UPDATE SKIP LOCKED` claim, DB lease, retry/dead-letter i audit.
+Issue transakcija pin-uje immutable Profile/Schema/Policy/Claim snapshot i od
+Prompt-a 06 atomarno završava licencu, snapshot-proveren V2 assertion, receipt,
+audit i operation. Aktivacija i refresh dobijaju kratkoživi assertion vezan za
+stvarni activation ID. Postojeći V1 potpis ostaje eksplicitno versioned adapter
+preko ovog jezgra; legacy outbox tabela ostaje samo kompatibilni ulaz. Javni
+local/remote V2 issue adapteri još nisu izloženi u ovom koraku.
 
 ### 3.8 License
 

@@ -32,7 +32,17 @@ export const signedAddonReleaseManifestV1Schema = z.object({
   schemaVersion: z.number().int().nonnegative(),
   entrypoints: z.object({ server: z.string().min(1), client: z.string().min(1).optional(), styles: z.string().min(1).optional() }),
   capabilities: z.array(z.string().min(1)).max(100),
-  migrations: z.array(z.object({ id: z.string().min(1), checksum: z.string().regex(/^[a-f0-9]{64}$/) })),
+  migrations: z.array(z.object({
+    id: z.string().min(1),
+    checksum: z.string().regex(/^[a-f0-9]{64}$/),
+    compatibility: z.object({ addonVersionRange: z.string().min(1), cmsVersionRange: z.string().min(1) }).strict().optional(),
+    destructive: z.literal(false).optional(),
+    path: artifactPathSchema.optional(),
+    requiresBackup: z.boolean().optional(),
+    rollbackPolicy: z.literal("expand_compatible").optional(),
+    schemaVersion: z.number().int().positive().optional(),
+  }).strict()),
+  migrationBundleHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   artifact: z.object({ files: z.array(artifactFileSchema).min(1).max(1000), sha256: z.string().regex(/^[a-f0-9]{64}$/), size: z.number().int().nonnegative(), registryIntegrity: z.string().optional() }),
   releasedAt: z.string().datetime(),
   signingKid: z.string().min(1),
@@ -52,7 +62,8 @@ export function validateAddonReleaseManifest(manifest: unknown, expected: { addo
 }
 
 export function canonicalReleaseManifestPayload(manifest: Omit<SignedAddonReleaseManifestV1, "signature">) {
-  const { signature: _signature, ...payload } = manifest as SignedAddonReleaseManifestV1;
+  const payload: Record<string, unknown> = { ...manifest };
+  delete payload.signature;
   return JSON.stringify(sortCanonicalValue(payload));
 }
 

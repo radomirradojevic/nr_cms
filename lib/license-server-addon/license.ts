@@ -18,26 +18,15 @@ import {
   loadLicenseServerAddon,
   type LicenseServerAddonLoadResult,
 } from "@/lib/license-server-addon/loader";
-import { verifyVendorAddonEntitlement } from "@/lib/vendor-addon-entitlements/verified-entitlement";
+import {
+  verifyVendorAddonEntitlement,
+  type VerifiedManagedAddonEntitlement,
+} from "@/lib/vendor-addon-entitlements/verified-entitlement";
 import { getVendorAddonEntitlementPublicKeys } from "@/lib/vendor-addon-entitlements/public-keys";
 import {
-  getOrCreateVendorAddonInstallationIdentity,
-  signVendorAddonActivationPayload,
-} from "@/lib/vendor-addon-installation";
-
-const ActivationResponseSchema = z.object({
-  activationId: z.string().uuid(),
-  entitlementToken: z.string().min(1),
-  expiresAt: z.string().datetime(),
-  features: z.array(z.string()).default([]),
-  installationId: z.string().uuid(),
-  installationKeyFingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/),
-  licenseKeyRef: z.string().min(1),
-  packageInstallToken: z.string().optional(),
-  packageInstallTokenExpiresAt: z.string().datetime().optional(),
-  packageName: z.string().optional(),
-  packageVersion: z.string().optional(),
-});
+  activateManagedAddonV2,
+  type ManagedAddonActivationResponseV2,
+} from "@/lib/vendor-addon-entitlements/activation-client-v2";
 
 const RevalidationResponseSchema = z.object({
   activationId: z.string().uuid(),
@@ -57,16 +46,9 @@ const RevalidationResponseSchema = z.object({
   packageVersion: z.string().optional(),
   status: z.enum(["active", "suspended", "expired", "revoked", "canceled"]),
 });
-const ActivationChallengeSchema = z.object({
-  challengeId: z.string().uuid(),
-  expiresAt: z.string().datetime(),
-  ok: z.literal(true),
-  signaturePayload: z.string().min(1),
-});
-
-export type LicenseServerActivationResponse = z.infer<
-  typeof ActivationResponseSchema
->;
+export type LicenseServerActivationResponse = ManagedAddonActivationResponseV2 & {
+  verifiedClaims: VerifiedManagedAddonEntitlement;
+};
 
 export type LicenseServerRevalidationResponse = z.infer<
   typeof RevalidationResponseSchema
@@ -361,126 +343,27 @@ export async function requestLicenseServerLicenseActivation({
   | { ok: false; error: string }
 > {
   void _siteId;
-  const licenseServerUrl = getMasterLicenseServerUrl();
-
   const deploymentMode =
     deploymentPlatform.provider === "vercel" ? "vercel" : "self_hosted";
-  const localHttp = isExplicitlyAllowedLoopbackHttpUrl(licenseServerUrl);
-  let identity: Awaited<
-    ReturnType<typeof getOrCreateVendorAddonInstallationIdentity>
-  >;
   try {
-    identity = await getOrCreateVendorAddonInstallationIdentity({
-      canonicalDomain: siteDomain,
-      deploymentMode,
-    });
-  } catch {
-    return {
-      ok: false,
-      error: "Server-only installation identity is not configured.",
-    };
-  }
-  const challengeResponse = await safeFetch(
-    joinUrl(licenseServerUrl, "/api/addons/licenses/activate"),
-    {
-      allowFirstParty: true,
-      allowLocalHttp: localHttp,
-      allowSelfHosted: true,
-      body: JSON.stringify({
-        action: "challenge",
-        addonKey: "license-server",
-        canonicalDomain: siteDomain,
-        deploymentMode,
-        installationId: identity.installationId,
-        installationKeyFingerprint: identity.installationKeyFingerprint,
-        installationPublicKey: identity.installationPublicKey,
-        licenseKey,
-        platformSubject: deploymentPlatform.ownerId,
-      }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-      purpose: "License Server activation challenge",
-      timeoutMs: 5000,
-    },
-  ).catch(() => null);
-  if (!challengeResponse?.ok)
-    return {
-      ok: false,
-      error:
-        "License Server activation challenge was rejected by the master license server.",
-    };
-  const challenge = ActivationChallengeSchema.safeParse(
-    await challengeResponse.json(),
-  );
-  if (!challenge.success)
-    return {
-      ok: false,
-      error: "Master license server returned an invalid activation challenge.",
-    };
-  const response = await safeFetch(
-    joinUrl(licenseServerUrl, "/api/addons/licenses/activate"),
-    {
-      allowFirstParty: true,
-      allowLocalHttp: localHttp,
-      allowSelfHosted: true,
-      body: JSON.stringify({
-        action: "complete",
-        challengeId: challenge.data.challengeId,
-        challengeSignature: signVendorAddonActivationPayload(
-          identity,
-          challenge.data.signaturePayload,
-        ),
-      }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-      purpose: "License Server activation completion",
-      timeoutMs: 5000,
-    },
-  ).catch(() => null);
-
-  if (!response?.ok) {
-    return {
-      ok: false,
-      error:
-        "License Server activation was rejected by the master license server.",
-    };
-  }
-
-  const parsed = ActivationResponseSchema.safeParse(await response.json());
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error:
-        "Master license server returned an invalid License Server activation response.",
-    };
-  }
-
-  try {
-    const publicKeysByKid = await getVendorAddonEntitlementPublicKeys({
-      forceRefresh: true,
-    });
-    const claims = verifyVendorAddonEntitlement(parsed.data.entitlementToken, {
+    const entitlement = await activateManagedAddonV2({
       addonKey: "license-server",
       canonicalDomain: siteDomain,
-      installationId: parsed.data.installationId,
-      installationKeyFingerprint: parsed.data.installationKeyFingerprint,
-      publicKeysByKid,
+      deploymentMode,
+      installedAddonSchemaVersion: 0,
+      licenseKey,
+      platformSubject: deploymentPlatform.ownerId,
     });
-    if (
-      claims.activationId !== parsed.data.activationId ||
-      claims.status !== "active"
-    ) {
-      throw new Error("Activation entitlement is not active.");
-    }
-  } catch {
+    return { ok: true, entitlement };
+  } catch (error) {
     return {
       ok: false,
       error:
-        "Master license server returned an untrusted License Server entitlement.",
+        error instanceof Error
+          ? error.message
+          : "License Server activation was rejected by the Master.",
     };
   }
-
-  return { ok: true, entitlement: parsed.data };
 }
 
 export async function requestLicenseServerLicenseRevalidation({

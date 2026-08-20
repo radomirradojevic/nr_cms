@@ -56,7 +56,13 @@ async function persistResult(result: DeploymentResultV2, bodyHash: string): Prom
     assertTerminalEvidence(result, request.data);
     const ownProfile = requiredProfile();
     if (result.targetProfile !== ownProfile || result.environment !== outbox.licenseEnvironment || result.environment !== process.env.NR_LICENSE_ENVIRONMENT?.trim()) throw new CallbackFailure("invalid_result_tuple");
-    const installation = (await tx.select().from(cmsAddonInstallations).where(eq(cmsAddonInstallations.addonKey, "webshop")).limit(1))[0];
+    if (
+      operation.addonKey !== request.data.addonKey ||
+      outbox.addonKey !== request.data.addonKey
+    ) {
+      throw new CallbackFailure("invalid_result_tuple");
+    }
+    const installation = (await tx.select().from(cmsAddonInstallations).where(eq(cmsAddonInstallations.addonKey, request.data.addonKey)).limit(1))[0];
     const ack = classifyAck(installation, result);
     let receipt = (await tx.select().from(cmsAddonDeploymentTerminalReceipts).where(and(eq(cmsAddonDeploymentTerminalReceipts.operationId, result.operationId), eq(cmsAddonDeploymentTerminalReceipts.workerJobId, result.workerJobId))).limit(1))[0];
     const mayCreatePreMutationReceipt = result.terminalEvidenceKind === "no_mutation_receipt";
@@ -79,7 +85,7 @@ async function persistResult(result: DeploymentResultV2, bodyHash: string): Prom
       receipt = inserted[0];
       await tx.update(cmsAddonOperations).set({ status: "failed", errorCode: result.errorCode, completedAt: new Date(), result: { terminalEvidenceHash: result.terminalEvidenceHash, terminalEvidenceKind: result.terminalEvidenceKind, finalPhase: result.finalPhase } }).where(eq(cmsAddonOperations.id, result.operationId));
       await tx.update(cmsAddonDeploymentOutbox).set({ status: "failed", completedAt: new Date(), lastErrorCode: result.errorCode }).where(eq(cmsAddonDeploymentOutbox.operationId, result.operationId));
-      await tx.update(cmsAddonInstallations).set({ status: "failed", runtimeStatus: result.runtimeStatus, lastErrorCode: result.errorCode, lastErrorMessage: "Deployment rejected before switch.", version: sql`${cmsAddonInstallations.version} + 1` }).where(and(eq(cmsAddonInstallations.addonKey, "webshop"), eq(cmsAddonInstallations.installationId, result.installationId), eq(cmsAddonInstallations.installationDeploymentEpoch, BigInt(result.installationDeploymentEpoch))));
+      await tx.update(cmsAddonInstallations).set({ status: "failed", runtimeStatus: result.runtimeStatus, lastErrorCode: result.errorCode, lastErrorMessage: "Deployment rejected before switch.", version: sql`${cmsAddonInstallations.version} + 1` }).where(and(eq(cmsAddonInstallations.addonKey, request.data.addonKey), eq(cmsAddonInstallations.installationId, result.installationId), eq(cmsAddonInstallations.installationDeploymentEpoch, BigInt(result.installationDeploymentEpoch))));
     }
     return { ack, initialAck: ack };
   });
@@ -144,9 +150,9 @@ function classifyAck(installation: typeof cmsAddonInstallations.$inferSelect | u
   return "applied";
 }
 export function resolveDeploymentResultSecret(kid: string) {
-  const activeKid = process.env.WEBSHOP_DEPLOYMENT_RESULT_AUTH_KID?.trim(); const activeSecret = process.env.WEBSHOP_DEPLOYMENT_RESULT_AUTH_SECRET?.trim();
+  const activeKid = process.env.NR_ADDON_DEPLOYMENT_RESULT_AUTH_KID?.trim() ?? process.env.WEBSHOP_DEPLOYMENT_RESULT_AUTH_KID?.trim(); const activeSecret = process.env.NR_ADDON_DEPLOYMENT_RESULT_AUTH_SECRET?.trim() ?? process.env.WEBSHOP_DEPLOYMENT_RESULT_AUTH_SECRET?.trim();
   if (activeKid === kid && activeSecret) return activeSecret;
-  const old = process.env.WEBSHOP_DEPLOYMENT_RESULT_AUTH_OLD_SECRETS_JSON?.trim() || "{}";
+  const old = process.env.NR_ADDON_DEPLOYMENT_RESULT_AUTH_OLD_SECRETS_JSON?.trim() ?? process.env.WEBSHOP_DEPLOYMENT_RESULT_AUTH_OLD_SECRETS_JSON?.trim() ?? "{}";
   try { const parsed: unknown = JSON.parse(old); if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) { const value = (parsed as Record<string, unknown>)[kid]; return typeof value === "string" && value.length >= 16 ? value : undefined; } } catch { return undefined; }
   return undefined;
 }

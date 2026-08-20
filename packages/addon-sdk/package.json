@@ -10,6 +10,9 @@
     "./routing": "./src/routing-v1.ts",
     "./migrations": "./src/migrations-v1.ts",
     "./testing": "./src/testing.ts",
-    "./customer-license-issuer": "./src/customer-license-issuer-v1.ts"
+    "./customer-license-issuer": "./src/customer-license-issuer-v1.ts",
+    "./customer-license-issuer-v2": "./src/customer-license-issuer-v2.ts",
+    "./customer-license-issuer-jobs": "./src/customer-license-issuer-jobs-v1.ts",
+    "./migrations-v2": "./src/migrations-v2.ts"
   }
 }

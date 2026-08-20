@@ -9,6 +9,8 @@ spakovanog add-on-a i odgovarajuće testove. Detaljni radni promptovi su u
 Ishod:
 
 - dokumentovana granica Master / License Server add-on / Webshop;
+- dokumentovan vendorski Webshop purchase → unos ključa → Master aktivacija →
+  managed install tok, isti kao za Webshop add-on;
 - inventar V1 i capability V1;
 - imenovani vlasnik svake tabele, secret-a i operacije;
 - sačuvan baseline build/test rezultat;
@@ -18,10 +20,19 @@ Gate:
 
 - nijedna aktivna specifikacija ne tvrdi da se License Server instalira unutar
   Webshop add-on-a;
+- ADR jasno razlikuje vendorski Webshop koji prodaje add-on od opcionog customer
+  Webshop-a i zaključava isti CMS activation/install lifecycle za oba add-on-a;
 - contract testovi zaključavaju postojeće V1 ponašanje;
 - postoji ADR za lokalni/remote jedinstveni issuer model.
 
 ## Faza 1 — Package/schema/release paritet
+
+Status posle Prompt-a 02: migration ownership, empty/upgrade/rollback testovi,
+exact Webshop/License Server worker descriptori i target
+`install_pending`→`ready` contract tok su završeni. Full release admin parity i
+vendorski paid-order E2E ostaju otvoreni, pa cela Faza 1 još nije proglašena
+završenom. Dokaz:
+[13-prompt-02-migration-evidence.md](./13-prompt-02-migration-evidence.md).
 
 Ishod:
 
@@ -31,13 +42,20 @@ Ishod:
 - package manifest, runtime ugovor, capability i jobs su tipizovani javnim SDK
   tipovima;
 - build iz čistog checkout-a daje reproducibilan paket;
-- izolirani Next.js 16.3 host instalira taj isti tarball.
+- izolirani Next.js 16.3 host instalira taj isti tarball;
+- deployment worker koristi zajednički allowlist-ovan ugovor za Webshop i License
+  Server umesto Webshop-only hardkodovanja;
+- vendorski Webshop ima stabilnu zasebnu License Server ponudu koja nakon plaćanja
+  izdaje Master ključ za `addonKey: "license-server"`.
 
 Gate:
 
 - empty DB install, upgrade sa prethodne schema-e i host restart prolaze;
 - source-vs-packed feature parity test prolazi;
-- nema privatnog source importa iz Webshop-a.
+- nema privatnog source importa iz Webshop-a;
+- E2E dokaz pokriva vendor paid order, unos ključa u **Dashboard → License
+  Server**, `install_pending`, verifikovani redeploy i `ready` bez instaliranog
+  customer Webshop add-on-a.
 
 ## Faza 2 — Product/Profile revision i custom schema
 

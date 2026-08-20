@@ -152,6 +152,8 @@ test("local contract E2E evidence cannot be a component or rollout result", () =
 test("public-copy acceptance never copies local environment files", () => {
   assert.equal(shouldIncludePublicCopyPath(""), true);
   assert.equal(shouldIncludePublicCopyPath("package.json"), true);
+  assert.equal(shouldIncludePublicCopyPath(".env.example"), true);
+  assert.equal(shouldIncludePublicCopyPath(".env.example.vendor"), false);
   assert.equal(
     shouldIncludePublicCopyPath(".private/webshop/package.json"),
     false,

@@ -31,9 +31,60 @@ const CONTROL_TABLES = Object.freeze([
   "cms_addon_operations",
   "cms_addon_serving_fences",
 ]);
-const ENTITLEMENT_CONTROL_TABLES = Object.freeze([
-  "webshop_addon_entitlements",
+const LICENSE_SERVER_BASELINE_TABLES = Object.freeze([
+  "customer_issuer_api_client_scopes",
+  "customer_issuer_identity",
+  "customer_issuer_issue_outbox",
+  "customer_issuer_keys",
+  "license_server_api_client_nonces",
+  "license_server_api_clients",
+  "license_server_audit_events",
+  "license_server_license_activations",
+  "license_server_licenses",
+  "license_server_product_type_skus",
+  "license_server_product_types",
+  "license_server_validation_events",
 ]);
+const LICENSE_SERVER_CURRENT_TABLES = Object.freeze([
+  "customer_issuer_api_client_scopes",
+  "customer_issuer_claim_schema_versions",
+  "customer_issuer_claim_schemas",
+  "customer_issuer_identity",
+  "customer_issuer_issue_outbox",
+  "customer_issuer_job_leases",
+  "customer_issuer_keys",
+  "customer_issuer_operation_receipts",
+  "customer_issuer_operations",
+  "customer_issuer_profile_revisions",
+  "license_server_api_client_nonces",
+  "license_server_api_clients",
+  "license_server_audit_events",
+  "license_server_license_activations",
+  "license_server_licenses",
+  "license_server_product_type_skus",
+  "license_server_product_types",
+  "license_server_validation_events",
+]);
+const MANAGED_ADDON_DEPLOYER_DESCRIPTORS = Object.freeze({
+  webshop: Object.freeze({
+    addonKey: "webshop",
+    entitlementTable: "webshop_addon_entitlements",
+    expectedTables: Object.freeze([...WEBSHOP_CURRENT_TABLES].sort()),
+    requiredExistingTables: Object.freeze([...WEBSHOP_CURRENT_TABLES].sort()),
+    purpose: "webshop_migration_privilege_manifest",
+    roleSuffix: "webshop",
+    schema: "webshop",
+  }),
+  "license-server": Object.freeze({
+    addonKey: "license-server",
+    entitlementTable: "license_server_addon_entitlements",
+    expectedTables: LICENSE_SERVER_CURRENT_TABLES,
+    requiredExistingTables: LICENSE_SERVER_BASELINE_TABLES,
+    purpose: "license_server_migration_privilege_manifest",
+    roleSuffix: "license_server",
+    schema: "public",
+  }),
+});
 
 function fail(message) { throw new Error(`[addon-deployer-provision] ${message}`); }
 
@@ -45,29 +96,34 @@ function exactKeys(value, expected, label) {
 
 function readArguments(argv) {
   const parsed = parseStrictArguments(argv, [
-    "--target", "--expected-manifest-sha256", "--privilege-manifest-file",
+    "--target", "--addon", "--expected-manifest-sha256", "--privilege-manifest-file",
     "--admin-password-file", "--password-file",
   ], ["--apply", "--dry-run"]);
-  for (const key of ["--target", "--expected-manifest-sha256", "--privilege-manifest-file", "--admin-password-file", "--password-file"]) {
+  for (const key of ["--target", "--addon", "--expected-manifest-sha256", "--privilege-manifest-file", "--admin-password-file", "--password-file"]) {
     if (!parsed.values.has(key)) fail(`${key} is required.`);
   }
   if (parsed.flags.size !== 1) fail("exactly one of --apply or --dry-run is required.");
   return parsed;
 }
 
-function loadPrivilegeManifest(file, expectedHash, targetName, coreTarget) {
+function loadPrivilegeManifest(file, expectedHash, targetName, coreTarget, addonKey) {
+  const descriptor = MANAGED_ADDON_DEPLOYER_DESCRIPTORS[addonKey];
+  if (!descriptor) fail("add-on descriptor is not allowlisted.");
   if (!path.isAbsolute(file) || !/^[a-f0-9]{64}$/.test(expectedHash)) fail("privilege manifest path/hash is invalid.");
   const stat = fs.lstatSync(file);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size < 1 || stat.size > 128 * 1024) fail("privilege manifest must be a bounded regular file.");
   const bytes = fs.readFileSync(file);
   if (sha256(bytes) !== expectedHash) fail("privilege manifest hash mismatch.");
   const value = JSON.parse(bytes.toString("utf8"));
-  exactKeys(value, ["allowedPublicReferenceTables","contractVersion","databaseResourceId","deployerRole","grantReconcilerVersion","purpose","runtimeRole","runtimeSequencePrivileges","runtimeTablePrivileges","schema","sequenceNames","tableNames","targetProfile"], "privilege manifest");
+  const manifestKeys = ["allowedPublicReferenceTables","contractVersion","databaseResourceId","deployerRole","grantReconcilerVersion","purpose","runtimeRole","runtimeSequencePrivileges","runtimeTablePrivileges","schema","sequenceNames","tableNames","targetProfile"];
+  if (addonKey === "license-server") manifestKeys.push("extensionNames");
+  exactKeys(value, manifestKeys, "privilege manifest");
   if (canonicalJson(value) !== bytes.toString("utf8").trim()) fail("privilege manifest is not canonical JSON.");
-  const expectedTables = [...WEBSHOP_CURRENT_TABLES].sort();
-  if (value.contractVersion !== 1 || value.purpose !== "webshop_migration_privilege_manifest" || value.targetProfile !== targetName || value.databaseResourceId !== coreTarget.databaseResourceId || value.schema !== "webshop" || value.deployerRole !== `nr_cms_${targetName}_webshop_deployer` || value.runtimeRole !== coreTarget.roles.runtime || value.grantReconcilerVersion !== 1) fail("privilege manifest identity mismatch.");
-  if (canonicalJson(value.tableNames) !== canonicalJson(expectedTables) || canonicalJson(value.sequenceNames) !== "[]" || canonicalJson(value.allowedPublicReferenceTables) !== canonicalJson(["content","files","galleries"]) || canonicalJson(value.runtimeTablePrivileges) !== canonicalJson(["SELECT","INSERT","UPDATE","DELETE"]) || canonicalJson(value.runtimeSequencePrivileges) !== canonicalJson(["USAGE","SELECT"])) fail("privilege manifest grant set mismatch.");
-  return { value, sha256: expectedHash };
+  if (value.contractVersion !== 1 || value.purpose !== descriptor.purpose || value.targetProfile !== targetName || value.databaseResourceId !== coreTarget.databaseResourceId || value.schema !== descriptor.schema || value.deployerRole !== `nr_cms_${targetName}_${descriptor.roleSuffix}_deployer` || value.runtimeRole !== coreTarget.roles.runtime || value.grantReconcilerVersion !== 1) fail("privilege manifest identity mismatch.");
+  const expectedReferences = addonKey === "webshop" ? ["content","files","galleries"] : [];
+  const expectedExtensions = addonKey === "license-server" ? ["pgcrypto"] : [];
+  if (canonicalJson(value.tableNames) !== canonicalJson(descriptor.expectedTables) || canonicalJson(value.sequenceNames) !== "[]" || canonicalJson(value.allowedPublicReferenceTables) !== canonicalJson(expectedReferences) || canonicalJson(value.extensionNames ?? []) !== canonicalJson(expectedExtensions) || canonicalJson(value.runtimeTablePrivileges) !== canonicalJson(["SELECT","INSERT","UPDATE","DELETE"]) || canonicalJson(value.runtimeSequencePrivileges) !== canonicalJson(["USAGE","SELECT"])) fail("privilege manifest grant set mismatch.");
+  return { descriptor, value, sha256: expectedHash };
 }
 
 async function roleState(client, role) {
@@ -102,9 +158,10 @@ async function requireTables(client, schema, tables) {
   if (result.rows.length !== tables.length) fail(`required ${schema} table set is incomplete.`);
 }
 
-async function reconcileDatabase(client, coreTarget, manifest, password) {
+async function reconcileDatabase(client, coreTarget, manifest, descriptor, password) {
   const { deployerRole, runtimeRole } = manifest;
-  await client.query("SELECT pg_advisory_lock(hashtext($1))", [`nr-cms:addon-deployer:${coreTarget.targetName}:v1`]);
+  const lockKey = `nr-cms:addon-deployer:${coreTarget.targetName}:${descriptor.addonKey}:v2`;
+  await client.query("SELECT pg_advisory_lock(hashtext($1))", [lockKey]);
   let role;
   try {
     await client.query("BEGIN");
@@ -118,28 +175,44 @@ async function reconcileDatabase(client, coreTarget, manifest, password) {
         await client.query(`REVOKE ALL ON DATABASE ${quoteIdentifier(row.datname)} FROM ${quoteIdentifier(deployerRole)}`);
       }
       await client.query(`GRANT CONNECT ON DATABASE ${quoteIdentifier(coreTarget.databaseName)} TO ${quoteIdentifier(deployerRole)}`);
-      const schema = await client.query("SELECT pg_get_userbyid(nspowner) AS owner FROM pg_namespace WHERE nspname='webshop'");
-      if (!schema.rowCount) await client.query(`CREATE SCHEMA webshop AUTHORIZATION ${quoteIdentifier(deployerRole)}`);
-      else if (schema.rows[0].owner !== deployerRole) fail("existing webshop schema owner mismatch.");
-      await client.query("REVOKE ALL ON SCHEMA webshop FROM PUBLIC");
-      await client.query(`GRANT USAGE ON SCHEMA webshop TO ${quoteIdentifier(runtimeRole)}`);
       await client.query(`REVOKE ALL ON SCHEMA public FROM ${quoteIdentifier(deployerRole)}`);
-      await client.query(`GRANT USAGE ON SCHEMA public TO ${quoteIdentifier(deployerRole)}`);
       await client.query(`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${quoteIdentifier(deployerRole)}`);
       await client.query(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ${quoteIdentifier(deployerRole)}`);
-      await requireTables(client, "public", [...manifest.allowedPublicReferenceTables, ...CONTROL_TABLES, ...ENTITLEMENT_CONTROL_TABLES]);
+      if (descriptor.addonKey === "webshop") {
+        const schema = await client.query("SELECT pg_get_userbyid(nspowner) AS owner FROM pg_namespace WHERE nspname='webshop'");
+        if (!schema.rowCount) await client.query(`CREATE SCHEMA webshop AUTHORIZATION ${quoteIdentifier(deployerRole)}`);
+        else if (schema.rows[0].owner !== deployerRole) fail("existing webshop schema owner mismatch.");
+        await client.query("REVOKE ALL ON SCHEMA webshop FROM PUBLIC");
+        await client.query(`GRANT USAGE ON SCHEMA webshop TO ${quoteIdentifier(runtimeRole)}`);
+        await client.query(`GRANT USAGE ON SCHEMA public TO ${quoteIdentifier(deployerRole)}`);
+      } else {
+        await client.query(`GRANT USAGE,CREATE ON SCHEMA public TO ${quoteIdentifier(deployerRole)}`);
+        const extension = await client.query("SELECT n.nspname AS schema_name FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='pgcrypto'");
+        if (!extension.rowCount) await client.query("CREATE EXTENSION pgcrypto WITH SCHEMA public");
+        else if (extension.rows[0]?.schema_name !== "public") fail("pgcrypto extension schema mismatch.");
+        const owned = await client.query("SELECT c.relname,pg_get_userbyid(c.relowner) AS owner FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relname=ANY($1::text[]) ORDER BY c.relname", [descriptor.requiredExistingTables]);
+        if (owned.rows.length !== 0 && owned.rows.length !== descriptor.requiredExistingTables.length) fail("License Server baseline ownership set is partial.");
+        for (const table of owned.rows) {
+          if (![coreTarget.roles.owner, deployerRole].includes(table.owner)) fail("License Server baseline table has an unexpected owner.");
+          if (table.owner !== deployerRole) await client.query(`ALTER TABLE public.${quoteIdentifier(table.relname)} OWNER TO ${quoteIdentifier(deployerRole)}`);
+          await client.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE public.${quoteIdentifier(table.relname)} TO ${quoteIdentifier(runtimeRole)}`);
+        }
+      }
+      await requireTables(client, "public", [...manifest.allowedPublicReferenceTables, ...CONTROL_TABLES, descriptor.entitlementTable]);
       for (const table of manifest.allowedPublicReferenceTables) await client.query(`GRANT SELECT,REFERENCES ON TABLE public.${quoteIdentifier(table)} TO ${quoteIdentifier(deployerRole)}`);
       for (const table of CONTROL_TABLES) await client.query(`GRANT SELECT,INSERT,UPDATE ON TABLE public.${quoteIdentifier(table)} TO ${quoteIdentifier(deployerRole)}`);
-      for (const table of ENTITLEMENT_CONTROL_TABLES) await client.query(`GRANT SELECT,UPDATE ON TABLE public.${quoteIdentifier(table)} TO ${quoteIdentifier(deployerRole)}`);
-      await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop REVOKE ALL ON TABLES FROM PUBLIC`);
-      await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop REVOKE ALL ON SEQUENCES FROM PUBLIC`);
-      await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO ${quoteIdentifier(runtimeRole)}`);
-      await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop GRANT USAGE,SELECT ON SEQUENCES TO ${quoteIdentifier(runtimeRole)}`);
-      const objects = await client.query("SELECT c.relname,c.relkind,pg_get_userbyid(c.relowner) AS owner FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='webshop' AND c.relkind IN ('r','p','S','v','m','f') ORDER BY c.relname");
-      for (const object of objects.rows) {
-        if (object.owner !== deployerRole || (!manifest.tableNames.includes(object.relname) && !manifest.sequenceNames.includes(object.relname))) fail("webshop object ownership/allowlist drift.");
-        if (["r","p","v","m","f"].includes(object.relkind)) await client.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE webshop.${quoteIdentifier(object.relname)} TO ${quoteIdentifier(runtimeRole)}`);
-        if (object.relkind === "S") await client.query(`GRANT USAGE,SELECT ON SEQUENCE webshop.${quoteIdentifier(object.relname)} TO ${quoteIdentifier(runtimeRole)}`);
+      await client.query(`GRANT SELECT,UPDATE ON TABLE public.${quoteIdentifier(descriptor.entitlementTable)} TO ${quoteIdentifier(deployerRole)}`);
+      if (descriptor.addonKey === "webshop") {
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop REVOKE ALL ON TABLES FROM PUBLIC`);
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop REVOKE ALL ON SEQUENCES FROM PUBLIC`);
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO ${quoteIdentifier(runtimeRole)}`);
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${quoteIdentifier(deployerRole)} IN SCHEMA webshop GRANT USAGE,SELECT ON SEQUENCES TO ${quoteIdentifier(runtimeRole)}`);
+        const objects = await client.query("SELECT c.relname,c.relkind,pg_get_userbyid(c.relowner) AS owner FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='webshop' AND c.relkind IN ('r','p','S','v','m','f') ORDER BY c.relname");
+        for (const object of objects.rows) {
+          if (object.owner !== deployerRole || (!manifest.tableNames.includes(object.relname) && !manifest.sequenceNames.includes(object.relname))) fail("webshop object ownership/allowlist drift.");
+          if (["r","p","v","m","f"].includes(object.relkind)) await client.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE webshop.${quoteIdentifier(object.relname)} TO ${quoteIdentifier(runtimeRole)}`);
+          if (object.relkind === "S") await client.query(`GRANT USAGE,SELECT ON SEQUENCE webshop.${quoteIdentifier(object.relname)} TO ${quoteIdentifier(runtimeRole)}`);
+        }
       }
       const databaseAccess = await client.query("SELECT datname,has_database_privilege($1,datname,'CONNECT') AS can_connect,has_database_privilege($1,datname,'TEMP') AS can_temp FROM pg_database WHERE datallowconn AND NOT datistemplate ORDER BY datname", [deployerRole]);
       for (const database of databaseAccess.rows) {
@@ -148,51 +221,51 @@ async function reconcileDatabase(client, coreTarget, manifest, password) {
       }
       const schemaAccess = await client.query("SELECT has_schema_privilege($1,'public','USAGE') AS public_usage,has_schema_privilege($1,'public','CREATE') AS public_create,has_schema_privilege($1,'webshop','USAGE') AS webshop_usage,has_schema_privilege($1,'webshop','CREATE') AS webshop_create", [deployerRole]);
       const access = schemaAccess.rows[0];
-      if (!access?.public_usage || access.public_create || !access.webshop_usage || !access.webshop_create) fail("deployer schema privilege drift.");
+      if (!access?.public_usage || Boolean(access.public_create) !== (descriptor.addonKey === "license-server") || Boolean(access.webshop_create) !== (descriptor.addonKey === "webshop")) fail("deployer schema privilege drift.");
       await client.query("COMMIT");
     } catch (error) { await client.query("ROLLBACK"); throw error; }
-  } finally { await client.query("SELECT pg_advisory_unlock(hashtext($1))", [`nr-cms:addon-deployer:${coreTarget.targetName}:v1`]); }
+  } finally { await client.query("SELECT pg_advisory_unlock(hashtext($1))", [lockKey]); }
   return role;
 }
 
-async function verifyLogin(coreTarget, role, password) {
+async function verifyLogin(coreTarget, role, password, descriptor) {
   const client = new Client({ connectionString: buildLocalDatabaseUrl(coreTarget, role, password) });
   await client.connect();
   try {
-    const result = await client.query("SELECT session_user,current_database(),has_schema_privilege(session_user,'webshop','CREATE') AS schema_create");
+    const result = await client.query("SELECT session_user,current_database(),has_schema_privilege(session_user,$1,'CREATE') AS schema_create", [descriptor.schema]);
     if (result.rows[0]?.session_user !== role || result.rows[0]?.current_database !== coreTarget.databaseName || !result.rows[0]?.schema_create) fail("deployer login/schema-owner smoke failed.");
   } finally { await client.end(); }
 }
 
-function sealCredential(targetName, coreTarget, role, password) {
-  const record = Buffer.from(canonicalJson({ contractVersion: 1, createdAt: new Date().toISOString(), database: coreTarget.databaseName, password, secretRef: `dpapi-machine://nr-addon-worker/${targetName}/webshop-db-deployer/v1`, targetProfile: targetName, username: role }), "utf8");
+function sealCredential(targetName, addonKey, coreTarget, role, password) {
+  const record = Buffer.from(canonicalJson({ addonKey, contractVersion: 1, createdAt: new Date().toISOString(), database: coreTarget.databaseName, password, secretRef: `dpapi-machine://nr-addon-worker/${targetName}/${addonKey}-db-deployer/v1`, targetProfile: targetName, username: role }), "utf8");
   const powershell = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
   try {
-    const result = spawnSync(powershell, ["-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",DPAPI_HELPER,"-Mode","seal","-Target",targetName], { cwd: process.cwd(), input: record, encoding: "utf8", env: windowsPowerShellChildEnvironment(), shell: false, windowsHide: true });
+    const result = spawnSync(powershell, ["-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",DPAPI_HELPER,"-Mode","seal","-Target",targetName,"-Addon",addonKey], { cwd: process.cwd(), input: record, encoding: "utf8", env: windowsPowerShellChildEnvironment(), shell: false, windowsHide: true });
     if (result.error || result.status !== 0) fail("DPAPI broker credential seal/audit failed.");
     return JSON.parse(result.stdout.trim());
   } finally { record.fill(0); }
 }
 
 export async function runAddonDeployerProvision(argv = process.argv.slice(2)) {
-  const parsed = readArguments(argv); const targetName = parsed.values.get("--target");
+  const parsed = readArguments(argv); const targetName = parsed.values.get("--target"); const addonKey = parsed.values.get("--addon");
   const coreTarget = resolveCmsCoreTarget(targetName, loadCmsCorePrivilegeManifest());
-  const manifest = loadPrivilegeManifest(parsed.values.get("--privilege-manifest-file"), parsed.values.get("--expected-manifest-sha256"), targetName, coreTarget);
+  const manifest = loadPrivilegeManifest(parsed.values.get("--privilege-manifest-file"), parsed.values.get("--expected-manifest-sha256"), targetName, coreTarget, addonKey);
   const adminFile = assertProtectedOperatorPasswordFile(parsed.values.get("--admin-password-file"));
   const passwordFile = assertProtectedOperatorPasswordFile(parsed.values.get("--password-file"));
-  const plan = { contractVersion: 1, purpose: "addon_deployer_provision", target: targetName, databaseResourceId: coreTarget.databaseResourceId, database: coreTarget.databaseName, deployerRole: manifest.value.deployerRole, runtimeRole: manifest.value.runtimeRole, manifestSha256: manifest.sha256, secretRef: `dpapi-machine://nr-addon-worker/${targetName}/webshop-db-deployer/v1` };
+  const plan = { addonKey, contractVersion: 2, purpose: "addon_deployer_provision", target: targetName, databaseResourceId: coreTarget.databaseResourceId, database: coreTarget.databaseName, deployerRole: manifest.value.deployerRole, runtimeRole: manifest.value.runtimeRole, manifestSha256: manifest.sha256, secretRef: `dpapi-machine://nr-addon-worker/${targetName}/${addonKey}-db-deployer/v1` };
   if (parsed.flags.has("--dry-run")) return { ...plan, status: "preflight", protectedPasswordInputsVerified: true };
   assertWindowsAdministrator();
   const adminPassword = readProtectedOperatorPasswordFile(adminFile).password;
   const password = readProtectedOperatorPasswordFile(passwordFile).password;
   const client = new Client({ connectionString: buildLocalDatabaseUrl(coreTarget, coreTarget.localPostgres.adminUsername, adminPassword) });
   await client.connect();
-  try { var roleStateValue = await reconcileDatabase(client, coreTarget, manifest.value, password); } finally { await client.end(); }
-  await verifyLogin(coreTarget, manifest.value.deployerRole, password);
-  const secret = sealCredential(targetName, coreTarget, manifest.value.deployerRole, password);
+  try { var roleStateValue = await reconcileDatabase(client, coreTarget, manifest.value, manifest.descriptor, password); } finally { await client.end(); }
+  await verifyLogin(coreTarget, manifest.value.deployerRole, password, manifest.descriptor);
+  const secret = sealCredential(targetName, addonKey, coreTarget, manifest.value.deployerRole, password);
   return { ...plan, status: "provisioned", role: roleStateValue, secretCiphertextSha256: secret.ciphertextSha256, secretAclProtected: secret.aclProtected, secretAllowedSids: secret.allowedSids };
 }
 
 if (process.argv[1]?.endsWith("db-addon-deployer-provision.mjs")) runAddonDeployerProvision().then((receipt) => console.log(JSON.stringify(receipt))).catch((error) => { console.error(error instanceof Error ? error.message : "[addon-deployer-provision] failed."); process.exitCode = 1; });
 
-export const __addonDeployerProvisionTesting = { CONTROL_TABLES, ENTITLEMENT_CONTROL_TABLES, loadPrivilegeManifest };
+export const __addonDeployerProvisionTesting = { CONTROL_TABLES, LICENSE_SERVER_BASELINE_TABLES, MANAGED_ADDON_DEPLOYER_DESCRIPTORS, loadPrivilegeManifest };

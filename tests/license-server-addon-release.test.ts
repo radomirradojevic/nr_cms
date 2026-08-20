@@ -34,3 +34,12 @@ test("license server release migrations include required production tables", () 
     assert.match(migrationText, new RegExp(`"${table}"`));
   }
 });
+
+test("local managed install copies optional signed License Server release artifacts", () => {
+  const installer = readFileSync(
+    resolve(process.cwd(), "scripts/setup-local-webshop-addon.mjs"),
+    "utf8",
+  );
+
+  assert.equal(installer.match(/"release-parity\.json"/g)?.length, 2);
+});

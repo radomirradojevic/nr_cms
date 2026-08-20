@@ -266,15 +266,55 @@ Custom claim je podatak koji prvenstveno izvršava korisnikova aplikacija. Npr.
 
 ## 9. Signed assertion V2
 
-Format je compact JWS/JWT kompatibilan:
+As-built format je compact JWS/JWT kompatibilan. Header ima **tačno** tri polja:
+`alg: "EdDSA"`, `kid` i `typ: "NRC-CUSTOMER-LICENSE+JWT"`. Dodatna header
+polja, uključujući token-provided `jwk`, `jku` ili `x5u`, odbijaju se. Verifier
+koristi isključivo keyset koji mu prosledi aplikacija uz eksplicitno očekivane
+`iss` i `aud` vrednosti.
 
-- header: `alg=EdDSA`, `kid`, `typ=NRC-CUSTOMER-LICENSE+JWT`;
-- payload `v=2`, strogo dokumentovana standardna polja i nested `claims`;
-- potpis Ed25519 privatnim customer issuer ključem;
-- javni ključ dobija se samo iz pin-ovanog issuer keyset-a;
-- short assertion `exp` ograničava offline freshness;
-- poslovni rok je zasebni `licenseValidUntil`;
-- `schemaHash` i `policyHash` sprečavaju nejasnu interpretaciju snapshot-a.
+Payload V2 ima tačno sledeća polja:
+
+- `v: 2`, `iss`, `aud`, pseudonimizovani `sub`, `jti`, `iat`, `nbf`, `exp`;
+- `license: { id, type, snapshotHash }`;
+- `profile: { sku, revision, hash }`;
+- `schema: { id, version, hash } | null`;
+- `policy: { hash, features, limits: { devices, domains, seats },
+  validationIntervalSeconds, offlineGraceSeconds }`;
+- `claims`, iz kojih je `internal_only` fail-closed projekcijom isključen;
+- `business: { status, notBefore, licenseValidUntil,
+  maintenanceValidUntil, graceEndsAt }`;
+- `receipt: { id } | null` i `activation: { id } | null`.
+
+Assertion se potpisuje Ed25519 customer issuer ključem isključivo iz DB reda
+licence i njegovih immutable profile/schema/policy/claims snapshot-a. Hash-evi se
+ponovo računaju pre potpisa; mismatch ili nedostajuća klasifikacija završavaju
+kontrolisanom greškom, ne novim tumačenjem. Issue assertion i receipt nastaju u
+istoj transakciji. Activation/validate lease je vezan za stvarni activation ID.
+Maksimalni assertion TTL je 3.600 sekundi, podrazumevani clock skew 60 sekundi,
+a business validity se proverava zasebno od kratkog `exp`.
+
+Javni verification metadata endpoint-i su:
+
+- `GET /api/license-server/v2/issuer` — descriptor sa nepromenljivim
+  `issuerRef`, `issuer`, statusom `active|recovery_required`, aktivnim `kid`-om i
+  `keysetRevision`;
+- `GET /api/license-server/v2/keys` — verification-only Ed25519 JWK Set (`OKP`,
+  `Ed25519`, bez privatnog materijala).
+
+Oba vraćaju `ETag`, public `Cache-Control`, `304` za odgovarajući
+`If-None-Match` i `nosniff`. Normalna rotacija ne menja `issuerRef`: prethodni
+ključ ostaje `verification_only` do isteka maksimalnog assertion TTL-a plus oba
+clock-skew prozora, pa se više ne objavljuje. Ako aktivni privatni ključ ne može
+da se dešifruje/proveri, issuer prelazi u `recovery_required`; sistem ne generiše
+tiho novi issuer ili ključ.
+
+Paket izvozi CMS-nezavisni TypeScript/JavaScript reference verifier preko
+`@nr-cms/license-server/verifier` i jezički neutralne vektore preko
+`@nr-cms/license-server/test-vectors/customer-license-assertion-v2`. Vektori
+pokrivaju valid, tampered, expired, not-yet-valid, pogrešan issuer/audience/
+version/typ/alg, nepoznat `kid`, normalnu rotaciju i malformed token. Legacy V1
+ostaje eksplicitno `v: 1` sa `typ: NRC-CUSTOMER-LICENSE-V1+JWT`; V2 verifier ga
+odbija i nema silent reinterpretacije.
 
 Za download se koristi `.nrls.json` envelope:
 
@@ -289,7 +329,8 @@ Za download se koristi `.nrls.json` envelope:
 ```
 
 `keysetHint` nije trust anchor; aplikacija mora imati/pin-ovati očekivani issuer i
-dozvoljeni origin iz sopstvene konfiguracije.
+dozvoljeni HTTPS origin iz sopstvene konfiguracije. Envelope parser zahteva
+tačno prikazana polja; envelope ne može da unese dodatni trusted key.
 
 ## 10. Offline, online i hibridni režim
 

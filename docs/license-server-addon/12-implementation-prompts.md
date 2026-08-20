@@ -62,7 +62,11 @@ koji repo/tabela/ugovor poseduje svaki deo. Ne implementiraj V2 u ovom promptu.
 Cilj: zaključaj javne tipove pre domenske implementacije.
 
 1. Dodaj ADR koji formalizuje Master naspram customer issuer-a, zasebnu
-   instalaciju License Server/Webshop add-on-a i local/remote transport.
+   instalaciju License Server/Webshop add-on-a i local/remote transport. ADR mora
+   zaključati i kanonski tok: zasebna ponuda u vendorskom Night Raven CMS
+   Webshop-u → paid order/Master ključ → unos ključa u Dashboard → License Server
+   → isti activation/managed-install lifecycle kao Webshop, bez customer Webshop
+   instalacione zavisnosti.
 2. U packages/addon-sdk uvedi minimalni customerLicenseIssuer.v2 ugovor prema
    docs/04: describe, catalog, enqueueIssue, getOperation i enqueueLifecycle.
 3. Tipovi moraju biti transport-neutralni, versioned, JSON-serializable i bez
@@ -91,14 +95,20 @@ Cilj: License Server package mora pouzdano posedovati i isporučiti svoju schema
    fazama, ali još ne menjaj business tok. Postojeći podaci i FK ostaju važeći.
 4. Paket mora sadržati stvarne migration fajlove/manifest i release digest mora
    obuhvatiti migracije.
-5. Host install runner proverava potpis/digest, primenjuje svaku migraciju jednom i
+5. Generalizuj postojeći Webshop-only deployment-worker ugovor na eksplicitno
+   allowlist-ovane descriptor-e za Webshop i License Server. Poveži License Server
+   aktivaciju/`install_pending` sa istim managed-redeploy lifecycle-om, bez
+   arbitrary package imena ili runtime putanje.
+6. Host install runner proverava potpis/digest, primenjuje svaku migraciju jednom i
    odbija checksum drift. Ne dozvoli arbitrary script izvršavanje iz manifesta.
-6. Dodaj testove: empty DB, postojeći fixture upgrade, rerun no-op, concurrent
+7. Dodaj testove: empty DB, postojeći fixture upgrade, rerun no-op, concurrent
    installer lock, checksum mismatch, failed migration recovery i application
-   rollback compatibility.
+   rollback compatibility, plus License Server key activation → `install_pending`
+   → verifikovani install/redeploy → `ready` bez customer Webshop paketa.
 
-Acceptance: DATA-01..04 su zeleni; `migrations.json` nije lažno prazan kada paket
-menja schema-u; root i add-on testovi prolaze; nema destruktivnog down migration-a.
+Acceptance: DATA-01..04 i PKG-06 su zeleni; `migrations.json` nije lažno prazan
+kada paket menja schema-u; root, worker i add-on testovi prolaze; nema
+destruktivnog down migration-a.
 ```
 
 ## Prompt 03 — Release entrypoint i puni admin parity
@@ -114,12 +124,16 @@ se vidi u development source entrypoint-u.
    workspace-only importa koji tarball ne sadrži.
 3. Svi admin path-ovi moraju ponoviti auth/permission i add-on licenseMode gate.
 4. Ne kopiraj dve implementacije UI-a; napravi jedan testirani izvor.
-5. Proširi isolated Next 16.3 host test da instalira tarball i renderuje ključne
+5. U vendorskom Webshop-u uvedi stabilnu, zasebno cenjenu License Server add-on
+   ponudu pored Webshop ponude. Purchase intent i paid fulfillment moraju pinovati
+   `addonKey: "license-server"` i izdati odgovarajući Master `NRLS-...` ključ, bez
+   korišćenja customer issuer engine-a.
+6. Proširi isolated Next 16.3 host test da instalira tarball i renderuje ključne
    dashboard putanje, API handler, V1/V2 capability i jobs.
-6. Proveri `npm pack` allowlist i da paket nema env/ključeve/source artefakte koji
+7. Proveri `npm pack` allowlist i da paket nema env/ključeve/source artefakte koji
    nisu planirani.
 
-Acceptance: PKG-01..04 i source-vs-packed parity su zeleni; release UI nije samo
+Acceptance: PKG-01..06 i source-vs-packed parity su zeleni; release UI nije samo
 metrics stub; build se izvršava iz čistog paketa.
 ```
 
@@ -396,19 +410,25 @@ Cilj: dokazati kompletan proizvod iz finalnih paketa, ne workspace prečica.
 1. Podigni izolovan Master, vendor/customer CMS host, Webshop, License Server
    add-on i potrebni deployment worker/test DB koristeći production-like config i
    potpisane lokalne RC artefakte.
-2. Izvrši fresh install/activate/revalidate, Product/Schema/Profile publish,
-   Webshop local connection i paid order do secure delivery/app verification.
-3. Ponovi isti scenario remote HTTPS/HMAC konekcijom.
-4. Fault injection: duplicate paid event, timeout pre/posle issue commit-a,
+2. U vendorskom Night Raven CMS Webshop-u kupi zasebnu License Server ponudu,
+   potvrdi paid-order izdavanje Master ključa, unesi ključ u **Dashboard → License
+   Server** na čistom customer CMS hostu i dokaži isti activation/managed-install
+   lifecycle kao za Webshop (`install_pending` → verifikovani redeploy → `ready`),
+   bez instaliranog customer Webshop add-on-a.
+3. Zatim instaliraj/konfiguriši customer Webshop, izvrši revalidate,
+   Product/Schema/Profile publish, local connection i paid order do secure
+   delivery/app verification.
+4. Ponovi isti scenario remote HTTPS/HMAC konekcijom.
+5. Fault injection: duplicate paid event, timeout pre/posle issue commit-a,
    process/DB restart, worker lease expiry, catalog revision change, issuerRef
    mismatch, Master outage, issuer outage i delivery failure.
-5. Lifecycle: renew, refund i chargeback do online app odluke; proveri offline
+6. Lifecycle: renew, refund i chargeback do online app odluke; proveri offline
    grace očekivanje.
-6. Load/stress: p95, 100+ concurrent duplicate issue i activation limit, queue
+7. Load/stress: p95, 100+ concurrent duplicate issue i activation limit, queue
    backpressure/soak. Bez duplikata i probijenih limita.
-7. Upgrade sa prethodnog paketa, application rollback compatibility i stvarni
+8. Upgrade sa prethodnog paketa, application rollback compatibility i stvarni
    backup restore drill.
-8. Popuni svaku stavku docs/11 dokazom ili NO-GO razlogom. Ne menjaj test da bi
+9. Popuni svaku stavku docs/11 dokazom ili NO-GO razlogom. Ne menjaj test da bi
    sakrio product bug.
 
 Acceptance: svi obavezni ARCH/PKG/DATA/PROF/CLAIM/ISSUE/LIFE/WEB/CRYPTO/RUN/SEC/

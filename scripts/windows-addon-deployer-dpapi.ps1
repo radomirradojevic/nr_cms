@@ -5,7 +5,10 @@ param(
   [string]$Mode,
   [Parameter(Mandatory = $true)]
   [ValidateSet('vendor', 'client', 'paypal')]
-  [string]$Target
+  [string]$Target,
+  [Parameter(Mandatory = $true)]
+  [ValidateSet('webshop', 'license-server')]
+  [string]$Addon
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,10 +18,11 @@ $brokerSid = 'S-1-5-80-3652711265-2452513410-1713385316-4178467544-271876375'
 $systemSid = 'S-1-5-18'
 $administratorsSid = 'S-1-5-32-544'
 $root = 'D:\nr_runtime\worker-secrets\db-deployer'
-$path = Join-Path $root "$Target-webshop-db-deployer.v1.dpapi"
+$path = Join-Path $root "$Target-$Addon-db-deployer.v1.dpapi"
 $database = if ($Target -eq 'vendor') { 'nr_cms_vendor_test' } elseif ($Target -eq 'client') { 'nr_cms_client_test' } else { 'nr_cms_paypal_test' }
-$username = if ($Target -eq 'vendor') { 'nr_cms_vendor_webshop_deployer' } elseif ($Target -eq 'client') { 'nr_cms_client_webshop_deployer' } else { 'nr_cms_paypal_webshop_deployer' }
-$secretRef = "dpapi-machine://nr-addon-worker/$Target/webshop-db-deployer/v1"
+$roleSuffix = if ($Addon -eq 'webshop') { 'webshop' } else { 'license_server' }
+$username = "nr_cms_${Target}_${roleSuffix}_deployer"
+$secretRef = "dpapi-machine://nr-addon-worker/$Target/$Addon-db-deployer/v1"
 
 function Assert-Administrator {
   $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -75,9 +79,9 @@ function Assert-Record([byte[]]$Bytes) {
   $text = [Text.UTF8Encoding]::new($false, $true).GetString($Bytes)
   try { $record = $text | ConvertFrom-Json } catch { throw 'addon_deployer_dpapi_record_json_invalid' }
   $keys = @($record.PSObject.Properties.Name | Sort-Object)
-  $expected = @('contractVersion','createdAt','database','password','secretRef','targetProfile','username')
+  $expected = @('addonKey','contractVersion','createdAt','database','password','secretRef','targetProfile','username')
   if (($keys -join ',') -ne ($expected -join ',')) { throw 'addon_deployer_dpapi_record_schema_invalid' }
-  if ($record.contractVersion -ne 1 -or $record.targetProfile -ne $Target -or $record.database -ne $database -or $record.username -ne $username -or $record.secretRef -ne $secretRef) { throw 'addon_deployer_dpapi_record_binding_invalid' }
+  if ($record.addonKey -ne $Addon -or $record.contractVersion -ne 1 -or $record.targetProfile -ne $Target -or $record.database -ne $database -or $record.username -ne $username -or $record.secretRef -ne $secretRef) { throw 'addon_deployer_dpapi_record_binding_invalid' }
   if ([string]::IsNullOrEmpty($record.password) -or $record.password.Contains("`r") -or $record.password.Contains("`n") -or $record.password.Contains([char]0)) { throw 'addon_deployer_dpapi_password_invalid' }
   $created = [DateTimeOffset]::MinValue
   if (-not [DateTimeOffset]::TryParseExact($record.createdAt, 'yyyy-MM-ddTHH:mm:ss.fffZ', [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal, [ref]$created)) { throw 'addon_deployer_dpapi_created_at_invalid' }
@@ -106,7 +110,7 @@ if ($Mode -eq 'seal') {
         $existingPlain = [Security.Cryptography.ProtectedData]::Unprotect($existingCipher, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
         try {
           $existingRecord = (Assert-Record $existingPlain) | ConvertFrom-Json
-          foreach ($name in @('contractVersion','database','password','secretRef','targetProfile','username')) {
+          foreach ($name in @('addonKey','contractVersion','database','password','secretRef','targetProfile','username')) {
             if (-not ([string]$existingRecord.$name).Equals([string]$newRecord.$name, [StringComparison]::Ordinal)) { throw 'addon_deployer_dpapi_existing_record_conflict' }
           }
         }
@@ -133,6 +137,6 @@ try {
     try { [void](Assert-Record $plainBytes); [Console]::OpenStandardOutput().Write($plainBytes, 0, $plainBytes.Length) }
     finally { [Array]::Clear($plainBytes, 0, $plainBytes.Length) }
   } else {
-    [Console]::Out.WriteLine((@{ contractVersion = 1; purpose = 'addon_deployer_dpapi_receipt'; target = $Target; secretRef = $secretRef; ciphertextSha256 = Get-Sha256 $cipherBytes; aclProtected = $true; allowedSids = @(@($administratorsSid,$brokerSid,$systemSid) | Sort-Object) } | ConvertTo-Json -Compress))
+    [Console]::Out.WriteLine((@{ addonKey = $Addon; contractVersion = 1; purpose = 'addon_deployer_dpapi_receipt'; target = $Target; secretRef = $secretRef; ciphertextSha256 = Get-Sha256 $cipherBytes; aclProtected = $true; allowedSids = @(@($administratorsSid,$brokerSid,$systemSid) | Sort-Object) } | ConvertTo-Json -Compress))
   }
 } finally { [Array]::Clear($cipherBytes, 0, $cipherBytes.Length) }

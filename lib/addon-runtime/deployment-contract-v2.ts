@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { requireManagedAddonDeploymentDescriptor } from "@/lib/addon-runtime/addon-descriptors";
+
 const uuid = z.string().uuid().regex(/^[0-9a-f-]+$/);
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const hashRef = z.string().regex(/^sha256:[a-f0-9]{64}$/);
@@ -11,8 +13,8 @@ const entitlementLifecycleVersion = z.number().int().nonnegative();
 export const deploymentRequestV2Schema = z.object({
   version: z.literal(2), operationId: uuid, installationDeploymentEpoch: epoch,
   deploymentIntentKey: z.string().min(1).max(500), generation: z.number().int().min(1).max(2_147_483_647), supersedesOperationId: uuid.nullable(), operationKey: z.string().min(1).max(500),
-  addonKey: z.literal("webshop"), environment: z.enum(["development", "staging", "production"]), installationId: uuid,
-  releaseId: uuid, packageName: z.literal("@radomirradojevic/webshop"), packageVersion: semver,
+  addonKey: z.enum(["webshop", "license-server"]), environment: z.enum(["development", "staging", "production"]), installationId: uuid,
+  releaseId: uuid, packageName: z.enum(["@radomirradojevic/webshop", "@nr-cms/license-server"]), packageVersion: semver,
   artifactSha256: hash, dependencyLockSha256: hash, npmTarballSha256: hash, npmTarballIntegrity: z.string().regex(/^sha512-[A-Za-z0-9+/]+={0,2}$/),
   embeddedManifestSha256: hash, provenanceSha256: hash, sbomSha256: hash, publicationAttestationHash: hash, registryPackageVersionId: z.string().regex(/^[1-9][0-9]*$/),
   sourceReleasedAt: timestamp, publishedAt: timestamp, releaseSigningKid: z.string().min(1), runtimeContractVersion: z.literal("1"),
@@ -23,6 +25,8 @@ export const deploymentRequestV2Schema = z.object({
   preOperationServingStateHash: hashRef, preOperationMigrationLedgerHash: hashRef,
 }).strict().superRefine((value, ctx) => {
   if ((value.generation === 1) !== (value.supersedesOperationId === null)) ctx.addIssue({ code: "custom", message: "supersedes_operation_lineage_invalid", path: ["supersedesOperationId"] });
+  try { requireManagedAddonDeploymentDescriptor(value.addonKey, value.packageName); }
+  catch { ctx.addIssue({ code: "custom", message: "managed_addon_descriptor_mismatch", path: ["packageName"] }); }
 });
 export type DeploymentRequestV2 = z.infer<typeof deploymentRequestV2Schema>;
 
@@ -38,7 +42,7 @@ const deploymentResultBaseV2Schema = z.object({
   version: z.literal(2), resultId: uuid, operationId: uuid, installationId: uuid, installationDeploymentEpoch: epoch,
   deploymentIntentKey: z.string().min(1), generation: z.number().int().positive(), operationKey: z.string().min(1), workerJobId: uuid,
   targetProfile: z.enum(["vendor", "client", "paypal"]), environment: z.enum(["development", "staging", "production"]), status: z.literal("failed"), finalPhase: z.literal("rejected_before_switch"), runtimeStatus: z.literal("not_installed"),
-  releaseId: uuid, packageName: z.literal("@radomirradojevic/webshop"), packageVersion: semver, npmTarballSha256: hash, npmTarballIntegrity: z.string().regex(/^sha512-[A-Za-z0-9+/]+={0,2}$/),
+  releaseId: uuid, packageName: z.enum(["@radomirradojevic/webshop", "@nr-cms/license-server"]), packageVersion: semver, npmTarballSha256: hash, npmTarballIntegrity: z.string().regex(/^sha512-[A-Za-z0-9+/]+={0,2}$/),
   artifactSha256: hash, dependencyLockSha256: hash, embeddedManifestSha256: hash, provenanceSha256: hash, sbomSha256: hash, publicationAttestationHash: hash,
   registryPackageVersionId: z.string().regex(/^[1-9][0-9]*$/), sourceReleasedAt: timestamp, publishedAt: timestamp, releaseSigningKid: z.string().min(1), runtimeContractVersion: z.literal("1"),
   cmsVersionRange: z.string().min(1), nodeVersionRange: z.string().min(1), nextVersionRange: z.string().min(1), minimumCoreSchemaVersion: z.number().int().min(1), schemaVersion: z.number().int().min(1),
@@ -69,6 +73,8 @@ export const deploymentResultV2Schema = z.discriminatedUnion("terminalEvidenceKi
     errorClass: z.enum(["retryable", "permanent", "incident"]), errorCode: z.string().regex(/^[a-z0-9_]+$/), activeReleaseId: uuid.nullable(), activeArtifactSha256: hash.nullable(), observedServicePointerReleaseId: uuid.nullable(),
   }),
 ]).superRefine((value, context) => {
+  try { requireManagedAddonDeploymentDescriptor(value.packageName === "@nr-cms/license-server" ? "license-server" : "webshop", value.packageName); }
+  catch { context.addIssue({ code: "custom", message: "managed_addon_descriptor_mismatch", path: ["packageName"] }); }
   if (value.terminalEvidenceKind === "no_mutation_receipt") {
     const servingPrevious = value.runtimeStatus === "ready";
     if (servingPrevious !== (value.activeReleaseId !== null) || servingPrevious !== (value.activeArtifactSha256 !== null) || servingPrevious !== (value.buildId !== null) || value.observedServicePointerReleaseId !== value.activeReleaseId || value.noMutationEvidence.observedActiveReleaseId !== value.activeReleaseId || value.noMutationEvidence.observedServicePointerReleaseId !== value.observedServicePointerReleaseId) context.addIssue({ code: "custom", message: "no_mutation_result_tuple_invalid" });

@@ -9,6 +9,7 @@ import {
   cmsAddonInstallations,
   cmsAddonMigrations,
   cmsAddonOperations,
+  licenseServerAddonEntitlements,
   webshopAddonEntitlements,
 } from "@/db/schema";
 import {
@@ -18,7 +19,6 @@ import {
 import { deploymentRequestV2Schema } from "@/lib/addon-runtime/deployment-contract-v2";
 import { parseAddonDeploymentProfile } from "@/lib/addon-runtime/deployment-profile";
 
-const ADDON_KEY = "webshop";
 const OPERATION_TYPE = "deployment_v3";
 
 export async function persistVerifiedWebshopActivation(input: {
@@ -26,6 +26,32 @@ export async function persistVerifiedWebshopActivation(input: {
   signedEntitlement: string;
   updatedBy: string;
 }) {
+  return persistVerifiedManagedAddonActivation({ ...input, addonKey: "webshop" });
+}
+
+export async function persistVerifiedLicenseServerActivation(input: {
+  claim: AddonEntitlementClaimsV2 & { signingKid: string };
+  signedEntitlement: string;
+  updatedBy: string;
+}) {
+  return persistVerifiedManagedAddonActivation({
+    ...input,
+    addonKey: "license-server",
+  });
+}
+
+async function persistVerifiedManagedAddonActivation(input: {
+  addonKey: "webshop" | "license-server";
+  claim: AddonEntitlementClaimsV2 & { signingKid: string };
+  signedEntitlement: string;
+  updatedBy: string;
+}) {
+  if (
+    input.claim.addonKey !== input.addonKey ||
+    input.claim.release.addonKey !== input.addonKey
+  ) {
+    throw new Error("Managed add-on entitlement identity mismatch.");
+  }
   const snapshotHash = sha256(input.signedEntitlement);
   const targetProfile = requiredDeploymentProfile();
   const release = input.claim.release;
@@ -59,18 +85,18 @@ export async function persistVerifiedWebshopActivation(input: {
   });
   return db.transaction(async (tx) => {
     await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`${ADDON_KEY}:${input.claim.installationId}`}))`,
+      sql`select pg_advisory_xact_lock(hashtext(${`${input.addonKey}:${input.claim.installationId}`}))`,
     );
     const existing = (
       await tx
         .select()
         .from(cmsAddonInstallations)
-        .where(eq(cmsAddonInstallations.addonKey, ADDON_KEY))
+        .where(eq(cmsAddonInstallations.addonKey, input.addonKey))
         .limit(1)
     )[0];
     if (existing && existing.installationId !== input.claim.installationId) {
       throw new Error(
-        "A different installation identity already owns the Webshop control plane; audited transfer is required.",
+        "A different installation identity already owns this add-on control plane; audited transfer is required.",
       );
     }
     // An exact legacy-public schema result is a permanent terminal result for
@@ -88,7 +114,7 @@ export async function persistVerifiedWebshopActivation(input: {
           .from(cmsAddonOperations)
           .where(
             and(
-              eq(cmsAddonOperations.addonKey, ADDON_KEY),
+              eq(cmsAddonOperations.addonKey, input.addonKey),
               eq(cmsAddonOperations.installationId, input.claim.installationId),
               eq(
                 cmsAddonOperations.installationDeploymentEpoch,
@@ -137,7 +163,7 @@ export async function persistVerifiedWebshopActivation(input: {
           .from(cmsAddonOperations)
           .where(
             and(
-              eq(cmsAddonOperations.addonKey, ADDON_KEY),
+              eq(cmsAddonOperations.addonKey, input.addonKey),
               eq(cmsAddonOperations.installationId, input.claim.installationId),
               eq(
                 cmsAddonOperations.installationDeploymentEpoch,
@@ -151,17 +177,15 @@ export async function persistVerifiedWebshopActivation(input: {
       )[0];
       if (!completedOperation) {
         throw new Error(
-          "Ready Webshop installation is missing its completed deployment operation.",
+          "Ready managed add-on installation is missing its completed deployment operation.",
         );
       }
       const refreshedEntitlement = entitlementValues("ready");
-      await tx
-        .insert(webshopAddonEntitlements)
-        .values({ id: 1, ...refreshedEntitlement })
-        .onConflictDoUpdate({
-          target: webshopAddonEntitlements.id,
-          set: refreshedEntitlement,
-        });
+      await upsertManagedEntitlement(
+        tx,
+        input.addonKey,
+        refreshedEntitlement,
+      );
       const refreshed = await tx
         .update(cmsAddonInstallations)
         .set({
@@ -172,7 +196,7 @@ export async function persistVerifiedWebshopActivation(input: {
         })
         .where(
           and(
-            eq(cmsAddonInstallations.addonKey, ADDON_KEY),
+            eq(cmsAddonInstallations.addonKey, input.addonKey),
             eq(
               cmsAddonInstallations.installationId,
               input.claim.installationId,
@@ -187,7 +211,7 @@ export async function persistVerifiedWebshopActivation(input: {
         )
         .returning({ addonKey: cmsAddonInstallations.addonKey });
       if (refreshed.length !== 1) {
-        throw new Error("Ready Webshop entitlement refresh lost its CAS.");
+        throw new Error("Ready managed add-on entitlement refresh lost its CAS.");
       }
       return {
         operationId: completedOperation.id,
@@ -223,7 +247,7 @@ export async function persistVerifiedWebshopActivation(input: {
               .from(cmsAddonOperations)
               .where(
                 and(
-                  eq(cmsAddonOperations.addonKey, ADDON_KEY),
+                  eq(cmsAddonOperations.addonKey, input.addonKey),
                   eq(
                     cmsAddonOperations.deploymentIntentKey,
                     deploymentIntentKey,
@@ -252,11 +276,11 @@ export async function persistVerifiedWebshopActivation(input: {
         predecessor.generation === null ||
         predecessor.generation < 1)
     ) {
-      throw new Error("Webshop deployment predecessor generation is invalid.");
+      throw new Error("Managed add-on deployment predecessor generation is invalid.");
     }
     const generation = retry ? predecessor!.generation! + 1 : 1;
     if (generation > 2_147_483_647) {
-      throw new Error("Webshop deployment generation is exhausted.");
+      throw new Error("Managed add-on deployment generation is exhausted.");
     }
     const supersedesOperationId = retry ? predecessor!.id : null;
     const operationKey = `addon-deploy:v3:${input.claim.installationId}:${epoch}:${input.claim.release.releaseId}:${generation}`;
@@ -270,7 +294,7 @@ export async function persistVerifiedWebshopActivation(input: {
         })
         .where(
           and(
-            eq(cmsAddonOperations.addonKey, ADDON_KEY),
+            eq(cmsAddonOperations.addonKey, input.addonKey),
             inArray(cmsAddonOperations.status, ["pending", "running"]),
           ),
         );
@@ -283,7 +307,7 @@ export async function persistVerifiedWebshopActivation(input: {
         })
         .where(
           and(
-            eq(cmsAddonDeploymentOutbox.addonKey, ADDON_KEY),
+            eq(cmsAddonDeploymentOutbox.addonKey, input.addonKey),
             inArray(cmsAddonDeploymentOutbox.status, [
               "pending",
               "sending",
@@ -303,11 +327,12 @@ export async function persistVerifiedWebshopActivation(input: {
         status: cmsAddonMigrations.status,
       })
       .from(cmsAddonMigrations)
-      .where(eq(cmsAddonMigrations.addonKey, ADDON_KEY));
+      .where(eq(cmsAddonMigrations.addonKey, input.addonKey));
     const preOperation = preOperationEvidence(
       existing,
       input.claim.installationId,
       migrationLedger,
+      input.addonKey,
     );
     const operationPayload = deploymentPayload(
       input.claim,
@@ -319,16 +344,11 @@ export async function persistVerifiedWebshopActivation(input: {
       preOperation,
       generation,
       supersedesOperationId,
+      input.addonKey,
     );
     const requestHash = sha256(canonicalJson(operationPayload));
     const pendingEntitlement = entitlementValues("install_pending");
-    await tx
-      .insert(webshopAddonEntitlements)
-      .values({ id: 1, ...pendingEntitlement })
-      .onConflictDoUpdate({
-        target: webshopAddonEntitlements.id,
-        set: pendingEntitlement,
-      });
+    await upsertManagedEntitlement(tx, input.addonKey, pendingEntitlement);
     const installationValues = {
       installationId: input.claim.installationId,
       desiredReleaseId: release.releaseId,
@@ -378,14 +398,14 @@ export async function persistVerifiedWebshopActivation(input: {
     };
     await tx
       .insert(cmsAddonInstallations)
-      .values({ addonKey: ADDON_KEY, ...installationValues })
+      .values({ addonKey: input.addonKey, ...installationValues })
       .onConflictDoUpdate({
         target: cmsAddonInstallations.addonKey,
         set: installationValues,
       });
     await tx.insert(cmsAddonOperations).values({
       id: operationId,
-      addonKey: ADDON_KEY,
+      addonKey: input.addonKey,
       installationId: input.claim.installationId,
       installationDeploymentEpoch: epoch,
       generation,
@@ -399,7 +419,7 @@ export async function persistVerifiedWebshopActivation(input: {
     });
     await tx.insert(cmsAddonDeploymentOutbox).values({
       id: randomUUID(),
-      addonKey: ADDON_KEY,
+      addonKey: input.addonKey,
       installationId: input.claim.installationId,
       operationId,
       installationDeploymentEpoch: epoch,
@@ -424,6 +444,30 @@ export async function persistVerifiedWebshopActivation(input: {
   });
 }
 
+async function upsertManagedEntitlement(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  addonKey: "webshop" | "license-server",
+  values: Omit<typeof webshopAddonEntitlements.$inferInsert, "id">,
+) {
+  if (addonKey === "webshop") {
+    await tx
+      .insert(webshopAddonEntitlements)
+      .values({ id: 1, ...values })
+      .onConflictDoUpdate({
+        target: webshopAddonEntitlements.id,
+        set: values,
+      });
+    return;
+  }
+  await tx
+    .insert(licenseServerAddonEntitlements)
+    .values({ id: 1, ...values })
+    .onConflictDoUpdate({
+      target: licenseServerAddonEntitlements.id,
+      set: values,
+    });
+}
+
 function deploymentPayload(
   claim: AddonEntitlementClaimsV2,
   entitlementSnapshotHash: string,
@@ -437,11 +481,12 @@ function deploymentPayload(
   },
   generation: number,
   supersedesOperationId: string | null,
+  addonKey: "webshop" | "license-server",
 ) {
   const release = claim.release;
   return deploymentRequestV2Schema.parse({
     version: 2,
-    addonKey: ADDON_KEY,
+    addonKey,
     operationId,
     operationKey,
     deploymentIntentKey,
@@ -491,11 +536,11 @@ async function resolveRetryablePredecessor(
   if (predecessor.status !== "failed") {
     if (predecessor.status === "completed") {
       throw new Error(
-        "Completed Webshop deployment is not the currently verified serving release.",
+        "Completed managed add-on deployment is not the currently verified serving release.",
       );
     }
     throw new Error(
-      "Webshop deployment intent is terminal and cannot be retried.",
+      "Managed add-on deployment intent is terminal and cannot be retried.",
     );
   }
   const result = (
@@ -516,7 +561,7 @@ async function resolveRetryablePredecessor(
     payload.errorCode.length < 1
   ) {
     throw new Error(
-      "Failed Webshop deployment is not eligible for an automatic retry.",
+      "Failed managed add-on deployment is not eligible for an automatic retry.",
     );
   }
   return result;
@@ -537,6 +582,7 @@ function preOperationEvidence(
     schemaVersion: number;
     status: string;
   }[],
+  addonKey: "webshop" | "license-server",
 ) {
   const installedEvidence = {
     installedReleaseId: existing?.installedReleaseId ?? null,
@@ -593,7 +639,7 @@ function preOperationEvidence(
         installedEvidence,
       }),
     ),
-    preOperationMigrationLedgerHash: migrationLedgerHash(migrationLedger),
+    preOperationMigrationLedgerHash: migrationLedgerHash(migrationLedger, addonKey),
   };
 }
 function redactedClaims(claim: AddonEntitlementClaimsV2) {
@@ -615,6 +661,7 @@ function migrationLedgerHash(
     schemaVersion: number;
     status: string;
   }[],
+  addonKey: "webshop" | "license-server",
 ) {
   const entries = migrationLedger
     .map((entry) => {
@@ -631,7 +678,7 @@ function migrationLedgerHash(
     .sort((left, right) => left.migrationId.localeCompare(right.migrationId));
   return sha256(
     canonicalJson({
-      addonKey: ADDON_KEY,
+      addonKey,
       contractVersion: 1,
       entries,
       purpose: "addon_migration_ledger",

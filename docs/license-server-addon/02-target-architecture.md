@@ -6,7 +6,8 @@
 
 Privatni sistem autora Night Raven CMS-a:
 
-- prodaje licencu za `webshop`, `license-server` i buduće add-on-e;
+- prima autorizovan fulfillment iz vendorskog Night Raven CMS Webshop-a i izdaje
+  add-on ključ/entitlement za `webshop`, `license-server` i buduće add-on-e;
 - aktivira entitlement na CMS installation fingerprint i dozvoljeni domen;
 - izdaje kratkoživeći install token deployment worker-u;
 - periodično potvrđuje pravo korišćenja add-on-a;
@@ -38,6 +39,9 @@ Zasebno instaliran plaćeni add-on:
 
 Nezavisan commerce add-on:
 
+- na vendorskom Night Raven CMS-u prikazuje i prodaje zasebne Webshop i License
+  Server add-on ponude, dok Master izdaje odgovarajući add-on ključ/entitlement;
+- na customer CMS-u je opcion i prodaje proizvode tog korisnika;
 - prodaje digitalni proizvod;
 - bira način isporuke licence: ručni unos, pool ili License Server konekcija;
 - sinhronizuje issuer katalog i pin-uje profil/reviziju na order item;
@@ -136,13 +140,24 @@ browser ili distribuirani server binary.
 
 ### 4.1 Kupovina i instalacija add-on-a
 
-1. CMS administrator kupuje License Server add-on od autora.
-2. Master veže entitlement za CMS installation fingerprint/domen.
-3. CMS aktivira entitlement i traži kratkoživeći install token.
-4. Deployment worker instalira verifikovani paket i pokreće migracije.
-5. CMS redeploy učitava paket iz registry-ja.
-6. Add-on kreira customer issuer identity; privatni ključ ostaje šifrovan lokalno.
-7. Periodična Master revalidacija održava `ready` ili restriktivni režim.
+1. CMS administrator u vendorskom Night Raven CMS Webshop-u kupuje License
+   Server kao zaseban add-on pored Webshop add-on-a.
+2. Plaćeni vendor order kroz centralni Master izdaje `NRLS-...` ključ za
+   `addonKey: "license-server"`.
+3. Administrator na ciljnom CMS-u otvara **Dashboard → License Server**, unosi
+   kupljeni ključ i aktivira ga, isto kao što bi uradio u **Dashboard → Webshop**.
+4. Master veže entitlement za CMS installation fingerprint/domen.
+5. CMS prelazi u `install_pending` i traži kratkoživeći install token.
+6. Deployment worker kroz isti kontrolisani install ugovor koji koristi Webshop,
+   ali sa zasebno allowlist-ovanim License Server paketom, instalira verifikovani
+   paket i pokreće migracije.
+7. CMS redeploy učitava paket iz build-time registry-ja i prelazi u `ready`.
+8. Add-on kreira customer issuer identity; privatni ključ ostaje šifrovan lokalno.
+9. Periodična Master revalidacija održava `ready` ili restriktivni režim.
+
+„Isti način kao Webshop” odnosi se na purchase, unos ključa, Master aktivaciju i
+managed install lifecycle. Ne znači da se License Server instalira unutar
+Webshop-a: to su zasebni paketi, a customer Webshop nije preduslov za instalaciju.
 
 ### 4.2 Kreiranje proizvoda za licenciranje
 

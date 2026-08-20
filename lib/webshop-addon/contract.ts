@@ -130,12 +130,32 @@ export type WebshopAddon = {
   ): Promise<ReactNode>;
   listMigrations?(): Promise<WebshopMigration[]>;
   jobs?: {
-    webshopLicenseFulfillment?(input: { limit: number; policy: "settle_existing_obligations" }): Promise<{
-      claimed: number; deadLettered: number; retried: number; succeeded: number;
+    webshopLicenseServerCatalogSync?(input?: { limit?: number }): Promise<{
+      attempted: number;
+      failed: number;
+      succeeded: number;
+      unchanged: number;
     }>;
-    webshopPostIssueDelivery?(input: { limit: number; policy: "settle_existing_obligations" }): Promise<{
+    webshopLicenseFulfillment?(input: {
+      limit: number;
+      policy: "settle_existing_obligations";
+    }): Promise<{
+      claimed: number;
+      deadLettered: number;
+      retried: number;
+      succeeded: number;
+    }>;
+    webshopPostIssueDelivery?(input: {
+      limit: number;
+      policy: "settle_existing_obligations";
+    }): Promise<{
       notifications: { claimed: number; pending: number; sent: number };
-      reconciliation: { applied: number; claimed: number; compensation: number; pending: number };
+      reconciliation: {
+        applied: number;
+        claimed: number;
+        compensation: number;
+        pending: number;
+      };
     }>;
   };
 };

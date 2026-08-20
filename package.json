@@ -78,6 +78,7 @@
     "@dnd-kit/utilities": "3.2.2",
     "@hookform/resolvers": "5.2.2",
     "@neondatabase/serverless": "1.1.0",
+    "@nr-cms/addon-sdk": "file:packages/addon-sdk",
     "@tiptap/extension-bubble-menu": "3.23.2",
     "@tiptap/extension-code-block-lowlight": "3.23.2",
     "@tiptap/extension-color": "3.23.2",

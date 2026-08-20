@@ -253,3 +253,51 @@ Brojevi nisu marketing obećanje dok staging/load/restore test ne dokaže kapaci
   issue audit i opozvati neautorizovane licence kontrolisanim batch-em.
 - **Duplikat/nekonzistentan receipt:** freeze affected connector/profile,
   reconcile po operation key/payload hash-u pre nastavka.
+
+## 13. As-built HTTP V2 zaštita posle Prompt-a 07
+
+- jedan V2 boundary pre bilo kog route rada primenjuje persistent distribuirani
+  IP bucket; runtime rute zatim primenjuju credential/fingerprint bucket;
+- JSON telo je ograničeno na 24 KiB po stvarnim UTF-8 bajtovima pre parsiranja,
+  kompresovano telo se odbija, a security-sensitive Zod objekti su `strict`;
+- NRLS2 potpis obuhvata tačne body bajtove, normalizovanu putanju, sortirani
+  RFC3986 query, timestamp i canonical nonce; poređenje je timing-safe;
+- validan nonce se trajno zauzima unique insert-om, clock skew je 300 sekundi, a
+  prethodni rotirani secret važi najviše 900 sekundi;
+- HMAC klijent se proverava po statusu, environment-u i
+  action/product/profile scope-u; mutation idempotency je isti durable
+  operation key/hash ugovor kao u domain servisu;
+- public runtime greške su anti-enumeration odgovori; svaki failure izlazi kao
+  stabilan JSON envelope sa request/correlation ID-em, bez stack-a, SQL-a,
+  secret-a, HTML-a ili redirect-a;
+- catalog izlaže samo published/deprecated javne podatke i dozvoljena Webshop
+  mapiranja, sa revision/ETag/`If-None-Match`; `internal_only` claim detalji se ne
+  projektuju.
+
+## 14. As-built local V2 i scheduler zaštita posle Prompt-a 08
+
+- local capability poseduje License Server paket i importuje samo javni SDK;
+  nema Webshop tipove, Webshop kod, HMAC secret, HTTP fallback ni direktan
+  customer issuer DB pristup iz Webshop-a;
+- host bridge prvo proverava add-on entitlement stanje. Novi issue/lifecycle su
+  dozvoljeni samo u `ready`; `edit_existing_only`, install pending i ostala
+  not-ready stanja vraćaju eksplicitnu nedostupnost;
+- local source je fiksiran na host-autorizovani `addon:webshop` identitet i
+  runtime license environment. Input može nositi order/correlation reference,
+  ali ne može glumiti admin identitet ili drugi source system;
+- V1 potpis ostaje zamrznut i samo enqueue-uje isto durable operation jezgro.
+  Webshop upisuje vraćeni operation ID i polling nastavlja kroz V2 posle timeout-a
+  ili restarta; legacy V1 reveal zadržava repeat semantiku radi crash-safe
+  kompatibilne predaje, dok native V2 ostaje reveal-once;
+- versioned scheduler job ima bounded limit i deadline, a package-owned
+  `customer_issuer_job_leases` tabela atomskim lease-om sprečava paralelni batch
+  kroz više CMS procesa. Istekli lease je recoverable, a token-bound release ne
+  može osloboditi lease drugog procesa;
+- shared PostgreSQL vector izvršava isti command kroz domain, local i HTTP put i
+  poredi operation/receipt semantiku; dodatno pokriva singleton concurrency,
+  deadline, restart, version mismatch i neautorizovan local source.
+
+Konkretne komande, contract/security/DB rezultati i paket digest nalaze se u
+[Prompt 07 evidence dokumentu](./18-prompt-07-http-api-evidence.md). Full
+multi-process/load dokaz za produkcioni rate-limit kapacitet ostaje release gate;
+unit/DB granica i zajednički distributed bucket su dokazani ovim promptom.

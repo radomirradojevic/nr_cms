@@ -518,6 +518,7 @@ async function installLocalAddonPackage(addonRoot, packageName) {
   const optionalEntries = new Set([
     "migrations",
     "release-dependency-lock.json",
+    "release-parity.json",
   ]);
   for (const entry of [
     "dist",
@@ -526,6 +527,7 @@ async function installLocalAddonPackage(addonRoot, packageName) {
     "package.json",
     "provenance.json",
     "release-dependency-lock.json",
+    "release-parity.json",
     "release-manifest.json",
     "sbom.json",
     join("tests", "README.md"),
