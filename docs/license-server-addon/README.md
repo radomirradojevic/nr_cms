@@ -119,6 +119,9 @@ izdaje licence za proizvode tog kupca.
 28. [26-prompt-15-production-acceptance-evidence.md](./26-prompt-15-production-acceptance-evidence.md)
     — Prompt 15 final-package RC, potpuna `docs/11` PASS/NO-GO matrica,
     fault/concurrency dijagnostika i preostale staging/operator release kapije.
+29. [27-prompt-16-release-candidate-evidence.md](./27-prompt-16-release-candidate-evidence.md)
+    — Prompt 16 verzionisanje, clean-checkout signed local RC, digest/migration
+    operator packet i eksplicitno blokirane publish/Master/canary kapije.
 
 ## Oznake stanja
 
