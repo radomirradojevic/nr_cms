@@ -56,6 +56,7 @@ const LICENSE_SERVER_CURRENT_TABLES = Object.freeze([
   "customer_issuer_operation_receipts",
   "customer_issuer_operations",
   "customer_issuer_profile_revisions",
+  "license_server_admin_reveals",
   "license_server_api_client_nonces",
   "license_server_api_clients",
   "license_server_audit_events",

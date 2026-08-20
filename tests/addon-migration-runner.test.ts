@@ -1,9 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  createHash,
-  generateKeyPairSync,
-  sign,
-} from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
 
 import {
@@ -17,21 +13,60 @@ import {
 import { canonicalReleaseManifestPayload } from "@/lib/addon-runtime/release-manifest";
 
 const SQL_1 = 'CREATE TABLE "license_server_fixture" ("id" uuid PRIMARY KEY);';
-const SQL_2 = 'ALTER TABLE "license_server_fixture" ADD COLUMN "revision" integer;';
+const SQL_2 =
+  'ALTER TABLE "license_server_fixture" ADD COLUMN "revision" integer;';
 
 test("verified migration bundle binds signature, inventory, SQL checksums and non-empty manifest", () => {
   const fixture = releaseFixture();
   const verified = verifyAddonMigrationBundle(fixture.input);
   assert.equal(verified.descriptors.length, 2);
-  assert.deepEqual([...verified.sqlById.keys()], [
-    "0001_license_server_fixture.sql",
-    "0002_license_server_fixture_revision.sql",
-  ]);
+  assert.deepEqual(
+    [...verified.sqlById.keys()],
+    [
+      "0001_license_server_fixture.sql",
+      "0002_license_server_fixture_revision.sql",
+    ],
+  );
+});
+
+test("V2 License Server JWS migrations normalize compatibility from the signed release", () => {
+  const fixture = releaseFixtureV2();
+  const verified = verifyAddonMigrationBundle(fixture.input);
+  assert.equal(verified.releaseId, "77782a45-86a8-53c6-9cf9-8ef05bb23324");
+  assert.equal(verified.packageVersion, "0.2.0");
+  assert.equal(
+    verified.descriptors[0]?.compatibility.cmsVersionRange,
+    "^0.1.0",
+  );
+  assert.equal(
+    verified.descriptors[0]?.compatibility.addonVersionRange,
+    "0.2.0",
+  );
+
+  const envelope = fixture.input.releaseManifest as {
+    payload: string;
+    protected: string;
+    signature: string;
+  };
+  const replacement = envelope.signature.endsWith("A") ? "B" : "A";
+  assert.throws(
+    () =>
+      verifyAddonMigrationBundle({
+        ...fixture.input,
+        releaseManifest: {
+          ...envelope,
+          signature: `${envelope.signature.slice(0, -1)}${replacement}`,
+        },
+      }),
+    /migration_release_signature_invalid/,
+  );
 });
 
 test("migration descriptors cannot smuggle a script command or destructive SQL", () => {
   const fixture = releaseFixture();
-  const raw = JSON.parse(fixture.files.get("migrations.json")!.toString("utf8"));
+  const raw = JSON.parse(
+    fixture.files.get("migrations.json")!.toString("utf8"),
+  );
   raw[0].script = "node arbitrary.js";
   const migrationsJson = Buffer.from(JSON.stringify(raw), "utf8");
   fixture.files.set("migrations.json", migrationsJson);
@@ -83,7 +118,9 @@ test("existing schema baseline is adopted before the additive upgrade", async ()
       descriptor.id === "0001_license_server_fixture.sql",
   });
   assert.deepEqual(result.adopted, ["0001_license_server_fixture.sql"]);
-  assert.deepEqual(result.applied, ["0002_license_server_fixture_revision.sql"]);
+  assert.deepEqual(result.applied, [
+    "0002_license_server_fixture_revision.sql",
+  ]);
   assert.deepEqual(store.executed, [SQL_2]);
   assert.equal(result.ledger[0]?.status, "legacy_applied");
 });
@@ -273,6 +310,113 @@ function releaseFixture() {
         .toString(),
       releaseManifest,
     },
+  };
+}
+
+function releaseFixtureV2() {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const descriptors = [
+    releaseDescriptorV2("0001_license_server_fixture.sql", 1, SQL_1),
+    releaseDescriptorV2("0002_license_server_fixture_revision.sql", 2, SQL_2),
+  ];
+  const migrationsBytes = Buffer.from(canonicalJson(descriptors), "utf8");
+  const files = new Map<string, Buffer>([
+    ["migrations.json", migrationsBytes],
+    [descriptors[0].path, Buffer.from(SQL_1, "utf8")],
+    [descriptors[1].path, Buffer.from(SQL_2, "utf8")],
+  ]);
+  const entries = [...files]
+    .map(([path, value]) => ({
+      path,
+      sha256: hash(value),
+      size: value.length,
+    }))
+    .sort((left, right) =>
+      Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)),
+    );
+  const artifactInventory = {
+    contractVersion: 1 as const,
+    digestPurpose: "addon_runtime_payload" as const,
+    entries,
+  };
+  const payload = {
+    addonKey: "license-server" as const,
+    artifactInventory,
+    artifactSha256: hash(Buffer.from(canonicalJson(artifactInventory), "utf8")),
+    capabilities: [
+      "customerLicenseIssuer.jobs.v1",
+      "customerLicenseIssuer.v1",
+      "customerLicenseIssuer.v2",
+      "routes.licenseServer",
+    ],
+    channel: "stable" as const,
+    cmsGitSha: "a".repeat(40),
+    cmsVersionRange: "^0.1.0",
+    dependencyLockSha256: "b".repeat(64),
+    entrypoints: { server: "./dist/server.js" as const },
+    manifestVersion: 2 as const,
+    migrationBundleHash: hash(migrationsBytes),
+    migrations: descriptors,
+    minimumCoreSchemaVersion: 1,
+    nextVersionRange: "16.3.0",
+    nodeVersionRange: ">=20.9.0 <25.0.0",
+    packageName: "@nr-cms/license-server" as const,
+    packageVersion: "0.2.0",
+    purpose: "addon_release_manifest" as const,
+    releaseId: "77782a45-86a8-53c6-9cf9-8ef05bb23324",
+    releaseSigningKid: "fixture-v2-kid",
+    releasedAt: "2026-08-20T00:00:00.000Z",
+    runtimeContractVersion: "1" as const,
+    schemaVersion: 2,
+    sourceGitSha: "c".repeat(40),
+    supportedAddonSchemaVersionMax: 2,
+    supportedAddonSchemaVersionMin: 1,
+    supportedLicenseEditions: ["standard" as const],
+  };
+  const protectedValue = Buffer.from(
+    canonicalJson({
+      alg: "EdDSA",
+      kid: payload.releaseSigningKid,
+      typ: "NRV-ADDON-RELEASE-MANIFEST-V2+JWS",
+    }),
+    "utf8",
+  ).toString("base64url");
+  const payloadValue = Buffer.from(canonicalJson(payload), "utf8").toString(
+    "base64url",
+  );
+  const signature = sign(
+    null,
+    Buffer.from(`${protectedValue}.${payloadValue}`, "ascii"),
+    privateKey,
+  ).toString("base64url");
+  return {
+    files,
+    input: {
+      addonKey: "license-server" as const,
+      files,
+      packageName: "@nr-cms/license-server" as const,
+      publicKeyPem: publicKey
+        .export({ format: "pem", type: "spki" })
+        .toString(),
+      releaseManifest: {
+        payload: payloadValue,
+        protected: protectedValue,
+        signature,
+      },
+    },
+  };
+}
+
+function releaseDescriptorV2(id: string, schemaVersion: number, sql: string) {
+  return {
+    checksum: hash(Buffer.from(sql, "utf8")),
+    destructive: false as const,
+    id,
+    path: `migrations/${id}` as const,
+    postconditionSchemaFingerprintSha256: "d".repeat(64),
+    requiresBackup: true as const,
+    rollbackPolicy: "expand_compatible" as const,
+    schemaVersion,
   };
 }
 

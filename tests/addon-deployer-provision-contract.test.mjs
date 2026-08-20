@@ -33,15 +33,15 @@ const cases = [
 const licenseServerCases = [
   [
     "vendor",
-    "88022a00345498187042c33ca81af0ba4658794bed248993ceeccd350e2a506c",
+    "459b6abb59893018205bf517baf92e9b75a840bc76c6e6a011811abe21a49bb9",
   ],
   [
     "client",
-    "5516d64de45747c130d7a999a6dc2b4e11cddb1248282cd872a1921438e2e45f",
+    "49a1d71f6d6d62951956591a467c5e5c42ac0f603c796345f4ef5f851c80daf2",
   ],
   [
     "paypal",
-    "5424de89bdd3edd574cb95332b7a527da98a7a3698c21ee2c27c04d631e1ffcc",
+    "4655b9a3dafb06f80d876e63267a95663f9cc4722663cbfb5b1267edebd0b91e",
   ],
 ];
 
@@ -96,7 +96,7 @@ test(
         "license-server"
       ];
     assert.equal(broker.contractVersion, 2);
-    assert.equal(descriptor.expectedTables.length, 18);
+    assert.equal(descriptor.expectedTables.length, 19);
     assert.equal(descriptor.requiredExistingTables.length, 12);
     for (const [target, expectedHash] of licenseServerCases) {
       const file = path.join(
