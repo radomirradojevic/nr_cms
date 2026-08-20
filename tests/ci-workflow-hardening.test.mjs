@@ -77,7 +77,7 @@ test("Night Raven private, staging, and production gates require protected manua
   for (const [name, environment] of [
     ["private-release.yml", "private-release"],
     ["staging-acceptance.yml", "staging-acceptance"],
-    ["production-rollout.yml", "production"],
+    ["production-rollout.yml", "release-production"],
   ]) {
     const source = readWorkflow(name);
     assert.match(source, /workflow_dispatch:/);

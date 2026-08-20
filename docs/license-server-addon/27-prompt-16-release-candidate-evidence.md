@@ -201,11 +201,19 @@ Package/release publish odobrenje se još ne traži:
    izvršen stvarni datirani encrypted DB+key restore koji validira istorijski
    assertion.
 
-Read-only GitHub metadata provera 20. avgusta 2026. dodatno potvrđuje da
-workflow okruženja `private-release`, `staging-acceptance` i `production` još
-nisu kreirana i da repozitorijum nema Actions variables/secrets. Njihovo
-kreiranje, protection pravila i unos referenci/credential-a ostaju operator
-setup; vrednosti tajni se ne unose u source niti u ovaj evidence zapis.
+GitHub bootstrap je izvršen 20. avgusta 2026: `private-release`,
+`staging-acceptance` i `release-production` imaju obavezan ručni reviewer gate
+za `radomirradojevic` i samo `master` deployment policy. Postojeći Vercel
+`Production` environment ostao je odvojen i bez promene pravila. Actions policy
+dozvoljava samo GitHub-owned actions i zahteva puni commit SHA. Environment
+variables/secrets i self-hosted runner još nisu provisionovani; vrednosti tajni
+se ne unose u source niti u ovaj evidence zapis.
+
+GitHub REST API ostavlja `can_admins_bypass: true`; pre prvog release workflow
+run-a vlasnik mora u UI-u da isključi **Allow administrators to bypass
+configured protection rules** za sva tri release okruženja. Browser kontrola
+nije bila dostupna iz ove sesije, pa taj UI-only korak nije predstavljen kao
+završen.
 
 Nijedna od ovih stavki nije waiver. Dok nisu zatvorene, odluka ostaje NO-GO.
 

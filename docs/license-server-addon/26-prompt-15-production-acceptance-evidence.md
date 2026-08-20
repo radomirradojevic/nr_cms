@@ -218,3 +218,8 @@ operator-provisioned, ACL-zaštićenim fajlovima na self-hosted runner-u. Workfl
 prvo proverava reference i commit pin, instalira dependency-je bez tajni, zatim
 pokreće read-only preflight i tek nakon njega puni acceptance. Credential secret-i
 su step-scoped i nisu dostupni checkout/setup/install koracima.
+
+Environment je kreiran 20. avgusta 2026. sa obaveznim ručnim reviewer gate-om
+za `radomirradojevic` i deployment politikom ograničenom na `master`. Reference
+još nisu unete, a repository nema registrovan self-hosted runner; zato workflow
+još nije pokrenut i ova stavka ostaje staging `NO_GO`.
