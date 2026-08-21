@@ -527,6 +527,7 @@ async function installLocalAddonPackage(addonRoot, packageName) {
   ]);
   for (const entry of [
     "dist",
+    ...(packageName === "@nr-cms/license-server" ? ["examples"] : []),
     "migrations",
     "migrations.json",
     "package.json",

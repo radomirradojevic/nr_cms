@@ -26,7 +26,7 @@ jobs:
       NR_WEBSHOP_GIT_SHA: b81ae1d744b5c0634e358b60c4994455587d3f23
       NR_LICENSE_SERVER_ADDON_GIT_SHA: 9f07ebdcf08f322a55899e7d94b7ec34c7408546
       NR_MASTER_GIT_SHA: 6cb7df171007706661f5a89c128a1d527fb4f145
-      NR_DEPLOYMENT_WORKER_GIT_SHA: e9e2428b689b88b873c0f16d897314d19fdd5e31
+      NR_DEPLOYMENT_WORKER_GIT_SHA: b240d99adb85f6dfa8e96d36e71dadd478b1a0e9
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -113,6 +113,14 @@ jobs:
           npm ci --ignore-scripts
           NR_ADDON_SOURCE_MODE=empty npm run addons:registry
           npm run acceptance:private-packages
+
+      - name: Export public release verification keyset
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: addon-release-public-keyset-${{ github.run_id }}
+          path: ${{ env.NR_ADDON_RELEASE_PUBLIC_KEYS_FILE }}
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Remove ephemeral release authority files
         if: always()

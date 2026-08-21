@@ -35,11 +35,12 @@ test("license server release migrations include required production tables", () 
   }
 });
 
-test("local managed install copies optional signed License Server release artifacts", () => {
+test("local managed install copies every signed License Server runtime and consumer artifact", () => {
   const installer = readFileSync(
     resolve(process.cwd(), "scripts/setup-local-webshop-addon.mjs"),
     "utf8",
   );
 
   assert.equal(installer.match(/"release-parity\.json"/g)?.length, 2);
+  assert.match(installer, /"examples"/);
 });
