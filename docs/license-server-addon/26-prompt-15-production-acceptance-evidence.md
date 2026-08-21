@@ -82,8 +82,9 @@ checkout-a: 19.044 bajta, SHA-256
 On još nije provisionovan u protected GitHub environment i ne predstavlja
 izvršen staging scenario.
 
-Zaseban staging-only acceptance control proces sada je implementiran u
-deployment worker commit-u `4d2274a4c0ddcdf8430991755882dd3d23bd5c4f`.
+Zaseban staging-only acceptance control proces uveden je u deployment worker
+commit-u `4d2274a4c0ddcdf8430991755882dd3d23bd5c4f`, a drugi pregledani browser
+handler dodat je u commit-u `a9129f616bae258fa21016448510a2c8385b3f7b`.
 Ima odvojenu PostgreSQL schema-u/migracije, idempotentni request ID, durable
 run, lease/fencing, retry/backoff, persistent auth rate-limit, digest-only
 bearer verifikaciju, hash-pinned RC/endpoints/browser policy i Playwright
@@ -106,25 +107,40 @@ kupovinu. Višeminutni browser/drill run ima PostgreSQL-fenced lease od 120 s
 koji se obnavlja na 30 s; izgubljen heartbeat abortuje Chromium kroz handler
 `AbortSignal`, a stari lease ne može sačuvati evidence.
 
-Registry sada implementira prvi od 61 handlera,
-`license_server_install_without_customer_webshop`. On fail-closed potvrđuje čist
+Registry sada implementira 2 od 61 handlera. Prvi,
+`license_server_install_without_customer_webshop`, fail-closed potvrđuje čist
 customer Webshop state, kupuje zasebnu License Server ponudu kroz vendor Webshop
 i Stripe sandbox, dozvoljava tačno jednu secure-delivery karticu, drži reveal-once
 ključ samo u memoriji, aktivira License Server i dokazuje
 `install_pending -> ready`, pa ponovo potvrđuje da customer Webshop nije
-instaliran. Koristi samo stabilne `data-nr-*` selector ugovore i čuva isključivo
-sanitizovane numeričke metrike. Preostalih 60 scenario/drill handlera i dalje
+instaliran.
+
+Drugi, `customer_webshop_local_paid_delivery`, polazi samo od spremnog License
+Server add-on-a, zasebno kupuje i managed-instalira customer Webshop, zahteva
+staging issuer environment, objavljuje Product Type/SKU i immutable
+Schema/Profile revision-e, verifikuje lokalnu konekciju prema istom `issuerRef`,
+pravi aktivan digitalni proizvod sa issuer-dozvoljenim claim mapping-om i prolazi
+paid Stripe checkout. Zatim zahteva tačno jednu delivery karticu, reveal ključ
+drži samo u browser memoriji, proverava no-store/attachment/content-type/nosniff/
+no-referrer zaglavlja `.nrls.json` fajla i nezavisno validira Ed25519 assertion
+prema javnom issuer descriptor-u/keyset-u, očekivanom audience-u, profilu i
+claim-ovima. Refresh mora zadržati tačno jednu isporuku. Oba handlera koriste
+samo stabilne packed `data-nr-*` selector ugovore i čuvaju isključivo
+sanitizovane numeričke metrike. Preostalih 59 scenario/drill handlera i dalje
 dobijaju `scenario_unavailable` i nikada `PASS`; zato `/health` namerno ostaje
 `503`.
 
-Lokalna DB matrica ima 107 testova: 106 PASS, jedan očekivani browser-gated skip
-i 0 fail; zaseban stvarni Chromium test je 1/1 PASS, a lint, typecheck i build su
-zeleni. GitHub Worker CI run
-[`32464334948`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32464334948)
+Lokalna DB matrica sada ima 109 testova: 108 PASS, jedan očekivani
+browser-gated skip i 0 fail; zaseban stvarni Chromium test je 1/1 PASS, a lint,
+typecheck i build su zeleni. License Server selector ugovor je prošao 106/113
+lokalnih testova uz sedam eksplicitno DB-context skipova i release/host
+typecheck; Webshop packed selector ugovor je prošao 197/197 i release/host
+typecheck. GitHub Worker CI run
+[`32468148995`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32468148995)
 je **PASS** na Windows acceptance control boundary gate-u i Ubuntu/PostgreSQL,
-pinovanom Chromium-u i runtime audit gate-u. To dokazuje implementaciju prvog
-handlera i njegove granice, ali nije dokaz da je scenario izvršen na stvarnom
-stagingu.
+pinovanom Chromium-u i runtime audit gate-u. To dokazuje implementaciju oba
+handlera i njihove granice, ali nije dokaz da je bilo koji scenario izvršen na
+stvarnom stagingu.
 
 ## 3. Finalni package i component dokaz
 
@@ -362,8 +378,11 @@ run-ovima `32454258083` i `32459813095`. Worker commit
 `4d2274a4c0ddcdf8430991755882dd3d23bd5c4f` zatim je dodao browser policy v3 i
 prvi konkretan handler, potvrđen run-om
 [`32464334948`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32464334948).
-Proces nije deploymentovan, preostalih 60 handlera nije implementirano i nijedan
-staging scenario još nije izvršen.
+Commit `a9129f616bae258fa21016448510a2c8385b3f7b` dodao je drugi lokalni
+paid-delivery handler i nezavisni Ed25519 verifier test; Worker CI run
+[`32468148995`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32468148995)
+je **PASS**. Proces nije deploymentovan, preostalih 59 handlera nije
+implementirano i nijedan staging scenario još nije izvršen.
 
 Poslednji tačno pinovani verification-only build je Webshop run
 [`32464653489`](https://github.com/radomirradojevic/webshop/actions/runs/32464653489)
@@ -384,3 +403,26 @@ Povezani CMS Public CI run
 je takođe **PASS**. Ovi run-ovi nisu imali publish/deployment dozvole i ne
 menjaju 34/34 NO-GO odluku bez stvarnih staging scenario i operator drill
 dokaza.
+
+Aktuelni drugi-handler tuple koristi License Server
+`68a00383af93bbe11f5bcd09da7c885158d4d342`, Webshop
+`b81ae1d744b5c0634e358b60c4994455587d3f23`, worker
+`a9129f616bae258fa21016448510a2c8385b3f7b` i CMS
+`342ed36fa8733c916092ce6b8c23341ea812bce3`. Tačni pinovi su prošli CMS Public
+CI run
+[`32468351803`](https://github.com/radomirradojevic/nr_cms/actions/runs/32468351803),
+a Webshop source/CMS packed-host par je prošao verification-only run
+[`32468401421`](https://github.com/radomirradojevic/webshop/actions/runs/32468401421).
+Protected Private Release Verification run
+[`32469036621`](https://github.com/radomirradojevic/nr_cms/actions/runs/32469036621)
+je zatim **PASS** za sva četiri privatna source pina, staging-potpisani Webshop
+i License Server build/test/pack i oba clean Next 16.3 host smoke-a. Webshop
+artifact/tarball SHA-256 su
+`318192fa9636b721ba80ad1b35a9a942fffb8cb1a128e76d2b7285916557cc29` /
+`872b5cb0992b1335325afc478e7f65d7a718470f8eecc21b0f21a02a4aa73ea6`, a
+License Server artifact/tarball SHA-256 su
+`2930bc05de1e879c8fdedd8dbd2e1444c008a8219b064351ee2dff65f61fb099` /
+`53c791405a243d79dd8076be90de60b5abab09110b367cc46ebc6afb2426abba`.
+Environment review je eksplicitno označen
+`verification-only-no-publish-or-deployment`. Nijedan od ovih run-ova nije imao
+package publish, Master publish, availability ili target deployment korak.

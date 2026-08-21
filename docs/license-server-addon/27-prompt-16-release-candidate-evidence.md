@@ -64,11 +64,11 @@ gate, ne SemVer sufiksom.
 | Polje                   | Vrednost                                        |
 | ----------------------- | ----------------------------------------------- |
 | package                 | `@nr-cms/license-server@0.2.0`                  |
-| License Server source   | `05bab07bd6f2935dd786e8abc244196faef4882e`      |
-| Webshop baseline        | `651396b53b70b5368654b5614d856ab93a3dc40d`      |
-| CMS baseline            | `6ef21edc6366330e2888501c579474828189bb9e`      |
+| License Server source   | `68a00383af93bbe11f5bcd09da7c885158d4d342`      |
+| Webshop baseline        | `b81ae1d744b5c0634e358b60c4994455587d3f23`      |
+| CMS baseline            | `342ed36fa8733c916092ce6b8c23341ea812bce3`      |
 | centralni Master        | `8fa03719a6040613ab6c796a31b2b87ff5640dcf`      |
-| deployment worker       | `4d2274a4c0ddcdf8430991755882dd3d23bd5c4f`      |
+| deployment worker       | `a9129f616bae258fa21016448510a2c8385b3f7b`      |
 | manifest contract       | `NRV-ADDON-RELEASE-MANIFEST-V2+JWS`             |
 | publication contract    | `NRV-ADDON-RELEASE-PUBLICATION-ATTESTATION+JWS` |
 | release ID              | `4b7e7030-4b72-5399-a008-b84765213d4a`          |
@@ -95,11 +95,16 @@ License Server V2 producer
 ```
 
 Tačan lokalni round-trip tuple ispod napravljen je na prethodnom source commit-u
-`6bdb1c8c06a062bd98313af941d774fa535b1f99`. Naknadni selector-only commit
+`6bdb1c8c06a062bd98313af941d774fa535b1f99`. Selector-only commit
 `05bab07bd6f2935dd786e8abc244196faef4882e` ponovo je prošao svih 113 lokalnih
 testova, release/host typecheck i verification-only `pack:verify`; dva pack-a su
 bila byte-identical, a tarball SHA-256 je
 `c66236e33ad891b38bc42c01f1bae55ed57d068c74302970a759247e81028e93`.
+Aktuelni packed acceptance-selector commit
+`68a00383af93bbe11f5bcd09da7c885158d4d342` zatim je prošao lokalnu matricu sa
+106 PASS, sedam eksplicitnih DB-context skipova i 0 fail, kao i release/host
+typecheck. Za isti tačno pinovani multi-repo tuple pokrenut je zaseban
+GitHub-hosted private package/clean-host gate; njegov rezultat se beleži ispod.
 Production kandidat ipak mora ponovo vezati ceo multi-repo tuple za isti
 odobreni authority ključ; stari lokalni ephemeral digest se ne promoviše.
 
@@ -154,12 +159,15 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | Komponenta / komanda                                      | Rezultat                                                                                                                                          |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | License Server `npm run test:db:local`                    | **113/113 PASS**, 0 skip                                                                                                                          |
+| License Server `npm run test:local` (`68a0038`)           | **106 PASS**, 7 DB-context skip, 0 fail                                                                                                           |
 | License Server `npm run typecheck`                        | **PASS** release + host                                                                                                                           |
 | License Server `npm run pack:verify`                      | **PASS**, dva byte-identical pack-a za isti build/key                                                                                             |
 | `npm run test:release:master-roundtrip`                   | **PASS**, producer/Master/worker/packed CMS                                                                                                       |
 | centralni Master `npm run test:db`                        | **81/81 PASS**, 0 skip                                                                                                                            |
 | centralni Master `npm run typecheck`                      | **PASS**                                                                                                                                          |
-| deployment worker `npm run test:db`                       | **85/85 PASS**, 0 skip                                                                                                                            |
+| Webshop `npm run test:local` (`b81ae1d`)                  | **197/197 PASS**, 0 skip                                                                                                                          |
+| Webshop `npm run typecheck`                               | **PASS** release + host                                                                                                                           |
+| deployment worker `npm run test:db` (`a9129f6`)           | **108 PASS**, 1 browser-gated skip, 0 fail                                                                                                        |
 | deployment worker `npm run lint` / `typecheck`            | **PASS / PASS**                                                                                                                                   |
 | root CMS `npm run test`                                   | **381 PASS**, 0 fail, 10 environment-gated skip                                                                                                   |
 | root CMS `npm run lint` / `typecheck`                     | **PASS sa 12 postojećih warning-a / PASS**                                                                                                        |
@@ -180,6 +188,10 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | Worker CI, commit `4d2274a`, run `32464334948`            | **PASS** — browser policy v3, prvi standalone License Server handler, Windows boundary i Ubuntu/PostgreSQL/pinovani Chromium/runtime audit        |
 | GitHub Public CI, commit `6ef21ed`, run `32464598561`     | **PASS** — stabilni packed selector-i i sva tri protected workflow-a pinovana na tačne Webshop/worker commit-e kroz puni public gate              |
 | Webshop verification, commit `651396b`, run `32464653489` | **PASS** — Windows dependency graph i clean Linux build/package/packed-host nad CMS `6ef21ed`; verification-only, bez publish-a                   |
+| Worker CI, commit `a9129f6`, run `32468148995`            | **PASS** — drugi local paid-delivery handler, Ed25519 app verifier, Windows boundary i Ubuntu/PostgreSQL/pinovani Chromium/runtime audit          |
+| GitHub Public CI, commit `342ed36`, run `32468351803`     | **PASS** — sva tri protected workflow-a pinovana na novi License Server/Webshop/worker tuple kroz kompletan frozen public gate                    |
+| Webshop verification, commit `b81ae1d`, run `32468401421` | **PASS** — Windows dependency graph i clean Linux build/package/packed-host nad CMS `342ed36`; verification-only, bez publish-a                   |
+| Private Release Verification, run `32469036621`           | **PASS** — sva četiri private source pina, staging-potpisana oba add-on paketa i oba clean Next 16.3 host smoke-a; bez publish/deployment koraka  |
 | GitHub Actions runtime pinovi                             | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti              |
 
 Master DB suite uključuje generički immutable draft/import/publish/select
@@ -325,6 +337,31 @@ Sva tri run-a su verification-only: bez package/release publish-a, Master
 import/publish-a, availability promene ili deployment-a. Zbog 34 staging
 `NO_GO` kapije ni ovaj tuple još nije finalni RC za promociju.
 
+Novi acceptance-selector tuple zatim je tačno pinovan na License Server
+`68a00383af93bbe11f5bcd09da7c885158d4d342`, Webshop
+`b81ae1d744b5c0634e358b60c4994455587d3f23`, worker
+`a9129f616bae258fa21016448510a2c8385b3f7b` i CMS
+`342ed36fa8733c916092ce6b8c23341ea812bce3`. Worker CI
+[`32468148995`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32468148995),
+CMS Public CI
+[`32468351803`](https://github.com/radomirradojevic/nr_cms/actions/runs/32468351803)
+i Webshop verification-only packed-host run
+[`32468401421`](https://github.com/radomirradojevic/webshop/actions/runs/32468401421)
+su **PASS**. Protected Private Release Verification run
+[`32469036621`](https://github.com/radomirradojevic/nr_cms/actions/runs/32469036621)
+je potom proverio sva četiri private checkout pina, oba staging-potpisana
+add-on build/test/pack ciklusa i oba clean Next 16.3 host smoke-a. Webshop
+artifact/tarball SHA-256 su
+`318192fa9636b721ba80ad1b35a9a942fffb8cb1a128e76d2b7285916557cc29` /
+`872b5cb0992b1335325afc478e7f65d7a718470f8eecc21b0f21a02a4aa73ea6`, a
+License Server artifact/tarball SHA-256 su
+`2930bc05de1e879c8fdedd8dbd2e1444c008a8219b064351ee2dff65f61fb099` /
+`53c791405a243d79dd8076be90de60b5abab09110b367cc46ebc6afb2426abba`.
+Environment review komentar je bio
+`verification-only-no-publish-or-deployment`. Drugi handler ipak nije izvršen
+nad protected staging endpoint-ima, pa se nijedna od 34 staging `NO_GO` kapije
+ne zatvara.
+
 ## 7. Canary i rollback/forward-fix plan
 
 Canary obuhvat je tačno jedan allowlisted interni customer/product/SKU/install,
@@ -361,12 +398,15 @@ Package/release publish odobrenje se još ne traži:
 5. Nije pinovan prethodni production License Server digest za rollback niti je
    izvršen stvarni datirani encrypted DB+key restore koji validira istorijski
    assertion.
-6. Acceptance control registry sada sadrži 1/61 handlera:
-   `license_server_install_without_customer_webshop`. Browser policy contract v3
-   odvaja top-level navigation origin-e od resource/subframe origin-a, a handler
-   čuva reveal-once ključ samo u memoriji i vraća sanitizovan evidence. Preostalih
-   60 UI/fault/operator handlera nije implementirano; zato readiness ostaje
-   `503`, a staging workflow nije pokrenut. Novi portable control-contract-v2
+6. Acceptance control registry sada sadrži 2/61 handlera:
+   `license_server_install_without_customer_webshop` i
+   `customer_webshop_local_paid_delivery`. Browser policy contract v3 odvaja
+   top-level navigation origin-e od resource/subframe origin-a; handleri čuvaju
+   reveal podatke samo u memoriji i vraćaju sanitizovan evidence. Drugi handler
+   dodatno proverava issuer environment/ref, secure `.nrls.json` headers,
+   envelope binding i Ed25519 potpis javnim keyset-om. Preostalih 59
+   UI/fault/operator handlera nije implementirano; zato readiness ostaje `503`,
+   a staging workflow nije pokrenut. Novi portable control-contract-v2
    runner SHA-256
    `67f605e2de83c9c466bed9a9b4fdad4c3b9b36d00f06cfb5b13d1b00cda9e2cd`
    još mora kroz pregledani external-file provisioner da zameni stari protected
