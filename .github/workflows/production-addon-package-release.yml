@@ -118,7 +118,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "$CMS_SHA"
           test "$(git -C ".private/$PACKAGE_PATH" rev-parse HEAD)" = "$SOURCE_SHA"
           release_timestamp="$(git -C ".private/$PACKAGE_PATH" show -s --format=%cI "$SOURCE_SHA")"
-          export NR_ADDON_RELEASED_AT="$(node -e 'process.stdout.write(new Date(process.argv[1]).toISOString())' "$release_timestamp")"
+          NR_ADDON_RELEASED_AT="$(node -e 'process.stdout.write(new Date(process.argv[1]).toISOString())' "$release_timestamp")"
+          export NR_ADDON_RELEASED_AT
           npm ci --ignore-scripts --audit=false --fund=false
           npm --prefix ".private/$PACKAGE_PATH" ci --ignore-scripts --audit=false --fund=false
           NR_ADDON_SOURCE_MODE=empty npm run addons:registry
@@ -132,9 +133,13 @@ jobs:
           npm --prefix ".private/$PACKAGE_PATH" pack --ignore-scripts --pack-destination "$RUNNER_TEMP/release-output"
           tarball="$RUNNER_TEMP/release-output/$TARBALL_FILE"
           test -f "$tarball"
-          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
-          echo "TARBALL_SHA256=$(sha256sum "$tarball" | awk '{print $1}')" >> "$GITHUB_ENV"
-          echo "TARBALL_INTEGRITY=$(node -e "const fs=require('fs'),c=require('crypto');process.stdout.write('sha512-'+c.createHash('sha512').update(fs.readFileSync(process.argv[1])).digest('base64'))" "$tarball")" >> "$GITHUB_ENV"
+          tarball_sha256="$(sha256sum "$tarball" | awk '{print $1}')"
+          tarball_integrity="$(node -e "const fs=require('fs'),c=require('crypto');process.stdout.write('sha512-'+c.createHash('sha512').update(fs.readFileSync(process.argv[1])).digest('base64'))" "$tarball")"
+          {
+            echo "TARBALL=$tarball"
+            echo "TARBALL_SHA256=$tarball_sha256"
+            echo "TARBALL_INTEGRITY=$tarball_integrity"
+          } >> "$GITHUB_ENV"
 
       - name: Verify create-only registry and release state
         shell: bash
@@ -170,7 +175,7 @@ jobs:
           registry_integrity="$(node -e "process.stdout.write(JSON.parse(process.argv[1]))" "$registry_integrity")"
           test "$registry_integrity" = "$TARBALL_INTEGRITY"
           version_row=''
-          for attempt in $(seq 1 12); do
+          for _ in {1..12}; do
             version_row="$(gh api --paginate "users/radomirradojevic/packages/npm/$PACKAGE_SLUG/versions?per_page=100" --jq ".[] | select(.name == \"$PACKAGE_VERSION\") | [.id,.created_at] | @tsv" | head -n 1 || true)"
             test -n "$version_row" && break
             sleep 5
