@@ -473,3 +473,27 @@ publication-attestation SHA-256
 `4217525258c5a19a5b77d154ae8d6b2ea694c753d7e15550652464cf748f9948`.
 Nije izvršen publish, Master write, availability promena ili target deployment,
 pa se staging `NO_GO` odluka ovim ne menja.
+
+Konačni verification-only source tuple za ovaj prolaz je CMS
+`702e31c3d2c318b43bb3e827667f3b44597e9471`, centralni Master
+`6cb7df171007706661f5a89c128a1d527fb4f145`, Webshop
+`b81ae1d744b5c0634e358b60c4994455587d3f23`, License Server add-on
+`9f07ebdcf08f322a55899e7d94b7ec34c7408546` i deployment worker
+`e9e2428b689b88b873c0f16d897314d19fdd5e31`. CMS Public CI run
+[`32477240450`](https://github.com/radomirradojevic/nr_cms/actions/runs/32477240450)
+je **PASS**, uključujući frozen install, migraciju, unit/static proveru, clean
+public-copy Next 16.3 build/NFT boundary i supply-chain audit. Protected Private
+Release Verification run
+[`32477294686`](https://github.com/radomirradojevic/nr_cms/actions/runs/32477294686)
+je takođe **PASS** uz review komentar
+`verification-only-no-publish-or-deployment`. Na čistom Ubuntu/Node 24 hostu
+Webshop artifact/tarball SHA-256 su
+`318192fa9636b721ba80ad1b35a9a942fffb8cb1a128e76d2b7285916557cc29` /
+`b1140ce953c9f74664af642be5637c587bea51839c5215053dcc7dd8c6bbf244`,
+a License Server artifact/tarball SHA-256 su
+`87c59900c73460bff52c496f6972be3bd1da75f8094e1d39646bf8baf0c7de1c` /
+`2173ff8bbf269a451e7010c334a2a5c60ffa9791fff66ec94936ca920e06bedd`.
+License Server hosted release ID je
+`4f4e83e5-0880-5876-be48-636110ceaa3c`. Workflow nije imao publish ili
+deployment korak; 34 staging `NO_GO` zahteva i 0/3 stvarna staging izvršenja
+ostaju nepromenjeni.

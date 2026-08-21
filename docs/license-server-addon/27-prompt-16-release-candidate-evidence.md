@@ -518,3 +518,28 @@ Prompt 16 nije „gotov” samo zato što je lokalni V2 pipeline izgrađen. Loka
 rešive V1/Webshop-only prepreke su zatvorene; release ostaje **NO-GO** dok
 production digest/publish/Master/install/canary/evidence gate-ovi nisu zasebno
 odobreni i dokazani.
+
+## 10. Aktuelni verification-only candidate
+
+Poslednji zamrznuti source tuple je CMS
+`702e31c3d2c318b43bb3e827667f3b44597e9471`, Master
+`6cb7df171007706661f5a89c128a1d527fb4f145`, Webshop
+`b81ae1d744b5c0634e358b60c4994455587d3f23`, License Server add-on
+`9f07ebdcf08f322a55899e7d94b7ec34c7408546` i worker
+`e9e2428b689b88b873c0f16d897314d19fdd5e31`. Public CI run
+[`32477240450`](https://github.com/radomirradojevic/nr_cms/actions/runs/32477240450)
+i protected Private Release Verification run
+[`32477294686`](https://github.com/radomirradojevic/nr_cms/actions/runs/32477294686)
+su **PASS**. Protected review je eksplicitno bio
+`verification-only-no-publish-or-deployment`.
+
+| Paket          | Verzija  | Release ID                             | Artifact SHA-256                                                   | Reproducible tarball SHA-256                                       |
+| -------------- | -------- | -------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Webshop        | `0.6.35` | `00fa9a70-576e-5593-9536-89a51f5863d7` | `318192fa9636b721ba80ad1b35a9a942fffb8cb1a128e76d2b7285916557cc29` | `b1140ce953c9f74664af642be5637c587bea51839c5215053dcc7dd8c6bbf244` |
+| License Server | `0.2.0`  | `4f4e83e5-0880-5876-be48-636110ceaa3c` | `87c59900c73460bff52c496f6972be3bd1da75f8094e1d39646bf8baf0c7de1c` | `2173ff8bbf269a451e7010c334a2a5c60ffa9791fff66ec94936ca920e06bedd` |
+
+Oba paketa su prošla build/test/pack i clean Next `16.3.0` host smoke na
+GitHub-hosted Ubuntu/Node `24.15.0`. Ovo je staging-potpisan verifikacioni
+candidate, ne production release: nema registry publish-a, Master draft/publish
+write-a, availability promene, target install/redeploy-a ni canary-ja. Zbog
+otvorenih Prompt 15 staging kapija approval ledger iz odeljka 9 ostaje važeći.
