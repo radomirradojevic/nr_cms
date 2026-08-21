@@ -393,6 +393,26 @@ Master import/publish, availability ili target deployment. Nijedan od tri
 handlera još nije izvršen nad protected staging endpoint-ima, pa 34/34 NO-GO
 odluka ostaje nepromenjena.
 
+Dana 21. avgusta 2026. dodatno je zatvoren lokalni RC harness propust: centralni
+Master build više ne može da nasledi development bazu tokom acceptance-a.
+Production `prebuild` i njegove migracije se ne preskaču, već se izvršavaju kroz
+Master-ov sopstveni fail-closed wrapper koji prihvata samo `nrls_*_test` cilj i
+odbija CMS test bazu. Regression test harnessa je `20/20` **PASS**, a izolovani
+Master build je zatim završio **PASS** sa `database is already up to date` i
+punim Next 16.3 route build-om.
+
+Završna lokalna matrica potvrđuje CMS `403/403`, Master `81/81`, Webshop
+`197/197`, License Server `113/113`, worker DB `109` prolaza plus zaseban pravi
+Playwright Chromium `1/1`. Local multi-service run
+`local-20260821111917540-812d6ca284`, obe migracione matrice i svih osam
+remediation invarianta su zeleni. Potpisani package/Master roundtrip je vezao
+release `16ae4d96-9eae-56bb-9116-41d718cb4a2b`, artifact SHA-256
+`87c59900c73460bff52c496f6972be3bd1da75f8094e1d39646bf8baf0c7de1c` i
+publication-attestation SHA-256
+`4217525258c5a19a5b77d154ae8d6b2ea694c753d7e15550652464cf748f9948`.
+Sve je lokalno/verification-only: nije urađen registry publish, Master import ili
+publish, availability, target install/redeploy ili canary.
+
 ## 7. Canary i rollback/forward-fix plan
 
 Canary obuhvat je tačno jedan allowlisted interni customer/product/SKU/install,

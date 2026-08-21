@@ -1466,7 +1466,6 @@ async function centralRuntime() {
     ["ls", ["--depth=0"]],
     ["run", ["typecheck"]],
     ["run", ["test:db"]],
-    ["run", ["build"]],
   ]) {
     await run(
       process.platform === "win32" ? "cmd.exe" : "npm",
@@ -1479,6 +1478,24 @@ async function centralRuntime() {
       },
     );
   }
+  // Master `prebuild` intentionally applies deployment migrations. Keep that
+  // production behavior, but never let local/CI acceptance inherit the
+  // developer database from the package-local `.env`. The Master-owned
+  // wrapper replaces DATABASE_URL with its guarded `nrls_*_test` target before
+  // npm can run `prebuild`; the CMS test database is intentionally forbidden.
+  await run(
+    process.execPath,
+    [
+      resolve(cwd, "scripts/run-test-command-with-test-db.mjs"),
+      "npm",
+      "run",
+      "build",
+    ],
+    {
+      cwd,
+      env: { ...process.env, NPM_CONFIG_CACHE: ACCEPTANCE_NPM_CACHE },
+    },
+  );
 }
 
 async function loadLocalPublicCopyEnvironment() {

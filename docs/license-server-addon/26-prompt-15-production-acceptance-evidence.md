@@ -444,3 +444,32 @@ material SHA. U istom run-u dva pack-a bila su byte-identična. Environment
 review je eksplicitno označen
 `verification-only-no-publish-or-deployment`. Nijedan od ovih run-ova nije imao
 package publish, Master publish, availability ili target deployment korak.
+
+Lokalna završna provera 21. avgusta 2026. ponovila je pune izolovane PostgreSQL
+suite bez skip-a: CMS `403/403`, centralni Master `81/81`, Webshop `197/197` i
+License Server paket `113/113`; deployment worker DB suite je završila sa
+`109` prolaza i jednim namenski izdvojenim browser testom. Taj browser test je
+zatim zasebno izvršen pravim Playwright Chromium-om i završio `1/1` **PASS**.
+Local multi-service contract run
+`local-20260821111917540-812d6ca284` je zelen za sve lokalno podržane scenarije
+i sedam operator drill-ova, uključujući zasebnu `license_server_addon_purchase`,
+duplicate/response-loss/parallel issue, activation limit,
+`install_pending_deploy_ready`, backup/restore, queue recovery i obe key-rotation
+probe. Ovaj dokaz je namerno označen `productionRuntime:false` i
+`gateEligible:false`; ne zamenjuje staging E2E.
+
+Isti prolaz je otkrio i zatvorio harness-only rizik: Master `prebuild` je u
+lokalnom acceptance-u nasledio package-local development `DATABASE_URL`.
+Acceptance sada pokreće neizmenjeni production `prebuild` kroz Master-ov
+guarded DB wrapper, koji dozvoljava samo zasebnu `nrls_*_test` bazu i eksplicitno
+odbija CMS test bazu. Fokusirani regression test je `20/20` **PASS**, a tačna
+ranije neuspešna komanda sada prijavljuje `database is already up to date` i
+završava Next 16.3 build. Obe CMS/Master migracione matrice i svih osam
+remediation invarianta su potom **PASS**. Potpisani License Server → Master
+roundtrip je vezao `@nr-cms/license-server@0.2.0`, release
+`16ae4d96-9eae-56bb-9116-41d718cb4a2b`, artifact
+`87c59900c73460bff52c496f6972be3bd1da75f8094e1d39646bf8baf0c7de1c` i
+publication-attestation SHA-256
+`4217525258c5a19a5b77d154ae8d6b2ea694c753d7e15550652464cf748f9948`.
+Nije izvršen publish, Master write, availability promena ili target deployment,
+pa se staging `NO_GO` odluka ovim ne menja.

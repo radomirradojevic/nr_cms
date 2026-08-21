@@ -689,6 +689,23 @@ test("private package acceptance includes a clean Next host install/build gate",
   assert.match(source, /scripts\/verify-next-host\.mjs/);
 });
 
+test("Master acceptance build can migrate only the guarded test database", () => {
+  const source = readFileSync(
+    resolve("scripts/night-raven-acceptance-harness.mjs"),
+    "utf8",
+  );
+  const centralRuntime = source.match(
+    /async function centralRuntime\(\) \{[\s\S]*?\n\}/,
+  )?.[0];
+  assert.ok(centralRuntime);
+  assert.match(
+    centralRuntime,
+    /resolve\(cwd, "scripts\/run-test-command-with-test-db\.mjs"\)/,
+  );
+  assert.match(centralRuntime, /"npm",\s*"run",\s*"build"/);
+  assert.doesNotMatch(centralRuntime, /\["run", \["build"\]\]/);
+});
+
 test("production audit persists every component proof referenced by its hash", () => {
   const source = readFileSync(
     resolve("scripts/night-raven-acceptance-harness.mjs"),
