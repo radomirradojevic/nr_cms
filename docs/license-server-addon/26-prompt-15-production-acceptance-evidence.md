@@ -1,6 +1,6 @@
 # Prompt 15 — Potpuni E2E, fault/load i production acceptance audit
 
-Datum završnog pregleda: **2026-08-20** (`Europe/Belgrade`)
+Datum poslednjeg evidence ažuriranja: **2026-08-21** (`Europe/Belgrade`)
 
 ## 1. Release odluka
 
@@ -83,38 +83,48 @@ On još nije provisionovan u protected GitHub environment i ne predstavlja
 izvršen staging scenario.
 
 Zaseban staging-only acceptance control proces sada je implementiran u
-deployment worker commit-u `34821346bda3799ef4cfcc7e49d73b31fe1813f9`.
+deployment worker commit-u `4d2274a4c0ddcdf8430991755882dd3d23bd5c4f`.
 Ima odvojenu PostgreSQL schema-u/migracije, idempotentni request ID, durable
 run, lease/fencing, retry/backoff, persistent auth rate-limit, digest-only
 bearer verifikaciju, hash-pinned RC/endpoints/browser policy i Playwright
 `1.62.0` Chromium origin/download granicu. Control contract v2 vezuje svaki
 request za tačne identity/provider vrste i SHA-256 fingerprint-e normalizovanih
-visoko-entropijskih credential-a. Create-only policy builder iz istog
-zaštićenog CMS staging config-a, browser storage-state-a i dva credential fajla
-van checkout-a kanonizuje URL-ove, preuzima samo RC digest identitet i vrste,
-pin-uje storage-state/fingerprint vrednosti, ali nikada ne kopira plaintext
-tajnu. Runtime ponovo proverava spoljašnje fajlove prema policy fingerprint-u;
-handleru ih daje samo kroz neserializujući in-memory vault. Glavni deployment
-listener ga ne importuje. Scenario retry je fail-closed: samo eksplicitno
+visoko-entropijskih credential-a. Browser policy contract v3 dodatno razdvaja
+top-level navigation origin-e od tačno dozvoljenih HTTPS resource/subframe
+origin-a; skupovi moraju biti disjunktni, a resource-only origin ne može postati
+top-level redirect ili navigacija. Storage state ostaje ograničen samo na
+navigation origin-e. Create-only policy builder iz istog zaštićenog CMS staging
+config-a, browser storage-state-a i dva credential fajla van checkout-a
+kanonizuje URL-ove, preuzima samo RC digest identitet i vrste, pin-uje
+storage-state/fingerprint vrednosti, ali nikada ne kopira plaintext tajnu.
+Runtime ponovo proverava spoljašnje fajlove prema policy fingerprint-u; handleru
+ih daje samo kroz neserializujući in-memory vault. Glavni deployment listener ga
+ne importuje. Scenario retry je fail-closed: samo eksplicitno
 označen pre-mutation transient kvar sme da se ponovi; ne-retryable kvar se
 terminalizuje prvim pokušajem da paid/mutating handler ne bi napravio drugu
 kupovinu. Višeminutni browser/drill run ima PostgreSQL-fenced lease od 120 s
 koji se obnavlja na 30 s; izgubljen heartbeat abortuje Chromium kroz handler
-`AbortSignal`, a stari lease ne može sačuvati evidence. Registry handlera je
-namerno prazan: `/health` je `503`, a
-neimplementiran scenario dobija `scenario_unavailable` i nikada `PASS`.
-GitHub Worker CI run
-[`32459813095`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32459813095)
-je zelen na Windows contract/build gate-u i Ubuntu PostgreSQL + stvarnom
-Chromium + runtime audit gate-u; lokalna puna DB matrica ima 101 PASS i jedan
-browser-gated skip, a production dependency audit 0 nalaza. To potvrđuje
-credential-bound control-plane osnovu, ne 61 stvarni scenario/drill rezultat.
-Heartbeat dopuna je lokalno prošla 102/102 testa uz jedan browser-gated skip,
-stvarni Chromium smoke, lint, typecheck i build.
-Isti commit je zatim prošao GitHub Worker CI run
-[`32462354808`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32462354808):
-Windows acceptance boundary i Ubuntu/PostgreSQL/pinovani Chromium/runtime audit
-su **PASS**.
+`AbortSignal`, a stari lease ne može sačuvati evidence.
+
+Registry sada implementira prvi od 61 handlera,
+`license_server_install_without_customer_webshop`. On fail-closed potvrđuje čist
+customer Webshop state, kupuje zasebnu License Server ponudu kroz vendor Webshop
+i Stripe sandbox, dozvoljava tačno jednu secure-delivery karticu, drži reveal-once
+ključ samo u memoriji, aktivira License Server i dokazuje
+`install_pending -> ready`, pa ponovo potvrđuje da customer Webshop nije
+instaliran. Koristi samo stabilne `data-nr-*` selector ugovore i čuva isključivo
+sanitizovane numeričke metrike. Preostalih 60 scenario/drill handlera i dalje
+dobijaju `scenario_unavailable` i nikada `PASS`; zato `/health` namerno ostaje
+`503`.
+
+Lokalna DB matrica ima 107 testova: 106 PASS, jedan očekivani browser-gated skip
+i 0 fail; zaseban stvarni Chromium test je 1/1 PASS, a lint, typecheck i build su
+zeleni. GitHub Worker CI run
+[`32464334948`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32464334948)
+je **PASS** na Windows acceptance control boundary gate-u i Ubuntu/PostgreSQL,
+pinovanom Chromium-u i runtime audit gate-u. To dokazuje implementaciju prvog
+handlera i njegove granice, ali nije dokaz da je scenario izvršen na stvarnom
+stagingu.
 
 ## 3. Finalni package i component dokaz
 
@@ -348,20 +358,29 @@ je 20. avgusta 2026. od `21:39:40Z` do `21:41:59Z` završio statusom
 matrica, packed public-copy build/NFT boundary i supply-chain audit su zeleni.
 To potvrđuje launcher i njegov GitHub-hosted ugovor. Staging-only control-plane
 osnova i credential-binding v2 su naknadno implementirani i provereni worker
-run-ovima `32454258083` i `32459813095`, ali nisu deploymentovani, nema 61
-konkretan handler i nijedan staging scenario još nije izvršen.
+run-ovima `32454258083` i `32459813095`. Worker commit
+`4d2274a4c0ddcdf8430991755882dd3d23bd5c4f` zatim je dodao browser policy v3 i
+prvi konkretan handler, potvrđen run-om
+[`32464334948`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32464334948).
+Proces nije deploymentovan, preostalih 60 handlera nije implementirano i nijedan
+staging scenario još nije izvršen.
 
-Poslednji tačno pinovani verification-only build pre narednih source dopuna je
-Webshop run
-[`32460668265`](https://github.com/radomirradojevic/webshop/actions/runs/32460668265)
-nad Webshop commit-om `03e3861b296a0ea4b4f993830a1deee6c7b82909` i CMS
-commit-om `237a0231bd7ec42521235e1bda53f2bbdac5633c`; oba job-a su **PASS**.
-Artifact-inventory SHA-256 je
-`48eb054f418caa342e210ab7c339c6222c1994f506fe58c599444feec90c1c08`,
-dok je GitHub ZIP transportni SHA-256 zasebno
-`e2a885b5b5b79ff92bc9428a5bda02902bd53f6bb048f8b90077813144dd9213`.
+Poslednji tačno pinovani verification-only build je Webshop run
+[`32464653489`](https://github.com/radomirradojevic/webshop/actions/runs/32464653489)
+nad Webshop commit-om `651396b53b70b5368654b5614d856ab93a3dc40d` i CMS
+commit-om `6ef21edc6366330e2888501c579474828189bb9e`; oba job-a su **PASS**.
+Candidate za `@radomirradojevic/webshop@0.6.35` beleži artifact-inventory
+SHA-256 `a94ad3c73dc3107fef22ce092ab0960b5b476681b3442f0cb71c6d05b5c42829`,
+migration-bundle SHA-256
+`1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef` i
+dependency-lock SHA-256
+`04f306a83957e921fbfcf3538bb33faa5b0443d73b9e48c1d3220be8a5bf88df`.
+Secret-free candidate JSON ima SHA-256
+`9e6a68dec4b66b4edddcb77eee25621b5027c0b6d03e3f3917b1ceb4e24c49f1`, dok
+je GitHub artifact ZIP transportni SHA-256 zasebno
+`8ea2fc92a997949214d8dcf5aa893a031f58a82007b750f2f98304b61d435a16`.
 Povezani CMS Public CI run
-[`32460575248`](https://github.com/radomirradojevic/nr_cms/actions/runs/32460575248)
+[`32464598561`](https://github.com/radomirradojevic/nr_cms/actions/runs/32464598561)
 je takođe **PASS**. Ovi run-ovi nisu imali publish/deployment dozvole i ne
 menjaju 34/34 NO-GO odluku bez stvarnih staging scenario i operator drill
 dokaza.

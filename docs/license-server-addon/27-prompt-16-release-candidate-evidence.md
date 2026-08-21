@@ -65,9 +65,10 @@ gate, ne SemVer sufiksom.
 | ----------------------- | ----------------------------------------------- |
 | package                 | `@nr-cms/license-server@0.2.0`                  |
 | License Server source   | `05bab07bd6f2935dd786e8abc244196faef4882e`      |
-| CMS baseline            | `9c1ed9042642e9c82cd57d26db4f481ac2c537c6`      |
+| Webshop baseline        | `651396b53b70b5368654b5614d856ab93a3dc40d`      |
+| CMS baseline            | `6ef21edc6366330e2888501c579474828189bb9e`      |
 | centralni Master        | `8fa03719a6040613ab6c796a31b2b87ff5640dcf`      |
-| deployment worker       | `34821346bda3799ef4cfcc7e49d73b31fe1813f9`      |
+| deployment worker       | `4d2274a4c0ddcdf8430991755882dd3d23bd5c4f`      |
 | manifest contract       | `NRV-ADDON-RELEASE-MANIFEST-V2+JWS`             |
 | publication contract    | `NRV-ADDON-RELEASE-PUBLICATION-ATTESTATION+JWS` |
 | release ID              | `4b7e7030-4b72-5399-a008-b84765213d4a`          |
@@ -176,6 +177,9 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | GitHub Public CI, commit `584c429`, run `32461610074`     | **PASS** — License Server packed-ready selector, activation-field selector i novi immutable add-on pinovi kroz kompletan frozen public gate       |
 | GitHub Public CI, commit `237a023`, run `32460575248`     | **PASS** — sva tri protected workflow-a pinovana na worker `5be7c13` i Webshop `03e3861`; frozen public verification i packed/NFT boundary zeleni |
 | Webshop verification, commit `03e3861`, run `32460668265` | **PASS** — Windows dependency graph i clean Linux build/package/packed-host nad CMS `237a023`; verification-only, bez publish-a                   |
+| Worker CI, commit `4d2274a`, run `32464334948`            | **PASS** — browser policy v3, prvi standalone License Server handler, Windows boundary i Ubuntu/PostgreSQL/pinovani Chromium/runtime audit        |
+| GitHub Public CI, commit `6ef21ed`, run `32464598561`     | **PASS** — stabilni packed selector-i i sva tri protected workflow-a pinovana na tačne Webshop/worker commit-e kroz puni public gate              |
+| Webshop verification, commit `651396b`, run `32464653489` | **PASS** — Windows dependency graph i clean Linux build/package/packed-host nad CMS `6ef21ed`; verification-only, bez publish-a                   |
 | GitHub Actions runtime pinovi                             | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti              |
 
 Master DB suite uključuje generički immutable draft/import/publish/select
@@ -246,8 +250,8 @@ Runner source/build i stroži harness zatim su potvrđeni na commit-u
 [`32420508525`](https://github.com/radomirradojevic/nr_cms/actions/runs/32420508525),
 završen u `21:41:59Z` statusom **success** za 2m19s. Staging-only control-plane
 osnova je zatim dodata u worker i potvrđena run-om `32454258083`. NO-GO ostaje:
-proces nije deploymentovan, nedostaje svih 61 konkretan handler, a tri stvarna
-credential-a i staging scenario rezultati još nisu provisionovani.
+proces nije deploymentovan, 60 od 61 konkretnog handlera i dalje nedostaje, a
+tri stvarna credential-a i staging scenario rezultati još nisu provisionovani.
 
 Poslednja verification-only Webshop provera izvršena je kroz GitHub Actions run
 [`32458131335`](https://github.com/radomirradojevic/webshop/actions/runs/32458131335)
@@ -297,6 +301,30 @@ takođe je **success**. Ovaj tuple je provereni build ulaz, ali nije finalni RC:
 naknadni evidence i acceptance-selector commit-i menjaju source head, a 34
 staging `NO_GO` kapije ostaju otvorene.
 
+Trenutni verification-only tuple zatim je potvrđen Webshop run-om
+[`32464653489`](https://github.com/radomirradojevic/webshop/actions/runs/32464653489)
+nad Webshop commit-om `651396b53b70b5368654b5614d856ab93a3dc40d` i CMS
+commit-om `6ef21edc6366330e2888501c579474828189bb9e`. Candidate za
+`@radomirradojevic/webshop@0.6.35` beleži artifact-inventory SHA-256
+`a94ad3c73dc3107fef22ce092ab0960b5b476681b3442f0cb71c6d05b5c42829`,
+migration-bundle SHA-256
+`1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef` i
+dependency-lock SHA-256
+`04f306a83957e921fbfcf3538bb33faa5b0443d73b9e48c1d3220be8a5bf88df`.
+Secret-free candidate JSON ima SHA-256
+`9e6a68dec4b66b4edddcb77eee25621b5027c0b6d03e3f3917b1ceb4e24c49f1`, dok
+je GitHub artifact ZIP transportni SHA-256 zasebno
+`8ea2fc92a997949214d8dcf5aa893a031f58a82007b750f2f98304b61d435a16`.
+CMS Public CI za isti tuple, run
+[`32464598561`](https://github.com/radomirradojevic/nr_cms/actions/runs/32464598561),
+takođe je **success**. Worker source
+`4d2274a4c0ddcdf8430991755882dd3d23bd5c4f`, koji ovaj CMS tačno pin-uje,
+potvrđen je run-om
+[`32464334948`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32464334948).
+Sva tri run-a su verification-only: bez package/release publish-a, Master
+import/publish-a, availability promene ili deployment-a. Zbog 34 staging
+`NO_GO` kapije ni ovaj tuple još nije finalni RC za promociju.
+
 ## 7. Canary i rollback/forward-fix plan
 
 Canary obuhvat je tačno jedan allowlisted interni customer/product/SKU/install,
@@ -333,10 +361,13 @@ Package/release publish odobrenje se još ne traži:
 5. Nije pinovan prethodni production License Server digest za rollback niti je
    izvršen stvarni datirani encrypted DB+key restore koji validira istorijski
    assertion.
-6. Acceptance control handler registry je namerno prazan dok konkretni UI,
-   fault-control i operator drill ugovori ne budu implementirani i pregledani;
-   zato readiness ostaje `503`, a staging workflow nije pokrenut. Novi portable
-   control-contract-v2 runner SHA-256
+6. Acceptance control registry sada sadrži 1/61 handlera:
+   `license_server_install_without_customer_webshop`. Browser policy contract v3
+   odvaja top-level navigation origin-e od resource/subframe origin-a, a handler
+   čuva reveal-once ključ samo u memoriji i vraća sanitizovan evidence. Preostalih
+   60 UI/fault/operator handlera nije implementirano; zato readiness ostaje
+   `503`, a staging workflow nije pokrenut. Novi portable control-contract-v2
+   runner SHA-256
    `67f605e2de83c9c466bed9a9b4fdad4c3b9b36d00f06cfb5b13d1b00cda9e2cd`
    još mora kroz pregledani external-file provisioner da zameni stari protected
    runner artefakt/hash zajedno sa stvarnim staging config/credential ulazima.
