@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { link, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-export const RUNNER_CONTRACT_VERSION = 1;
+export const RUNNER_CONTRACT_VERSION = 2;
 export const ACCEPTANCE_EVIDENCE_VERSION = 2;
 
 export const STAGING_E2E_SCENARIOS = new Set([
@@ -121,6 +121,17 @@ function requiredText(value, label) {
   return value.trim();
 }
 
+function credentialDigest(value, label) {
+  const normalized = requiredText(value, label);
+  if (
+    normalized.length < 20 ||
+    normalized.length > 8_192 ||
+    /\s|\0/.test(normalized)
+  )
+    fail(`${label} must be a high-entropy opaque credential.`);
+  return createHash("sha256").update(normalized, "utf8").digest("hex");
+}
+
 function assertSha256(value, label) {
   if (!SHA256.test(value ?? "")) fail(`${label} must be a SHA-256 digest.`);
   return value;
@@ -227,11 +238,11 @@ export function validateRunnerConfig(config, env = process.env) {
     /\s/.test(operatorCredential)
   )
     fail("Operator identity must be an opaque bearer credential.");
-  requiredText(
+  const identityCredential = requiredText(
     env.NR_ACCEPTANCE_STAGING_IDENTITY,
     "NR_ACCEPTANCE_STAGING_IDENTITY",
   );
-  requiredText(
+  const providerCredential = requiredText(
     env.NR_ACCEPTANCE_PROVIDER_IDENTITY,
     "NR_ACCEPTANCE_PROVIDER_IDENTITY",
   );
@@ -280,6 +291,16 @@ export function validateRunnerConfig(config, env = process.env) {
     identityKind: requiredText(config.identity?.kind, "identity.kind"),
     providerKind: requiredText(config.provider?.kind, "provider.kind"),
     operatorKind: requiredText(config.operator?.kind, "operator.kind"),
+    credentialDigests: {
+      identity: credentialDigest(
+        identityCredential,
+        "NR_ACCEPTANCE_STAGING_IDENTITY",
+      ),
+      provider: credentialDigest(
+        providerCredential,
+        "NR_ACCEPTANCE_PROVIDER_IDENTITY",
+      ),
+    },
     endpoints,
     performanceSlo: config.performanceSlo,
   };
@@ -300,6 +321,7 @@ export function buildScenarioRequest(config, scenario, kind, requestId) {
       provider: config.providerKind,
       operator: config.operatorKind,
     },
+    credentialDigests: config.credentialDigests,
     performanceSlo: config.performanceSlo,
   };
 }

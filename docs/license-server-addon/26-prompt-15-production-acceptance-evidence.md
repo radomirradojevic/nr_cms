@@ -76,25 +76,36 @@ i ispisuje njegov SHA-256:
 npm run acceptance:staging:runner:build -- --output D:\secure\night-raven-staging-scenario-runner
 ```
 
+Credential-binding v2 runner je 21. avgusta 2026. create-only izgrađen van
+checkout-a: 19.044 bajta, SHA-256
+`67f605e2de83c9c466bed9a9b4fdad4c3b9b36d00f06cfb5b13d1b00cda9e2cd`.
+On još nije provisionovan u protected GitHub environment i ne predstavlja
+izvršen staging scenario.
+
 Zaseban staging-only acceptance control proces sada je implementiran u
-deployment worker commit-u `ecdc5a8c9b78f8f2da42d5199686b951dc1857d3`.
+deployment worker commit-u `5be7c13a8eb83569f75288a3782b624659e6cd9a`.
 Ima odvojenu PostgreSQL schema-u/migracije, idempotentni request ID, durable
 run, lease/fencing, retry/backoff, persistent auth rate-limit, digest-only
 bearer verifikaciju, hash-pinned RC/endpoints/browser policy i Playwright
-`1.62.0` Chromium origin/download granicu. Create-only policy builder iz istog
-zaštićenog CMS staging config-a kanonizuje URL-ove, preuzima samo RC digest
-identitet i pin-uje SHA-256 eksternog browser storage-state fajla; tajne i
-identity vrednosti ne ulaze u policy. Glavni deployment listener ga ne
-importuje. Scenario retry je fail-closed: samo eksplicitno označen pre-mutation
-transient kvar sme da se ponovi; ne-retryable kvar se terminalizuje prvim
-pokušajem da paid/mutating handler ne bi napravio drugu kupovinu. Registry
-handlera je namerno prazan: `/health` je `503`, a
+`1.62.0` Chromium origin/download granicu. Control contract v2 vezuje svaki
+request za tačne identity/provider vrste i SHA-256 fingerprint-e normalizovanih
+visoko-entropijskih credential-a. Create-only policy builder iz istog
+zaštićenog CMS staging config-a, browser storage-state-a i dva credential fajla
+van checkout-a kanonizuje URL-ove, preuzima samo RC digest identitet i vrste,
+pin-uje storage-state/fingerprint vrednosti, ali nikada ne kopira plaintext
+tajnu. Runtime ponovo proverava spoljašnje fajlove prema policy fingerprint-u;
+handleru ih daje samo kroz neserializujući in-memory vault. Glavni deployment
+listener ga ne importuje. Scenario retry je fail-closed: samo eksplicitno
+označen pre-mutation transient kvar sme da se ponovi; ne-retryable kvar se
+terminalizuje prvim pokušajem da paid/mutating handler ne bi napravio drugu
+kupovinu. Registry handlera je namerno prazan: `/health` je `503`, a
 neimplementiran scenario dobija `scenario_unavailable` i nikada `PASS`.
 GitHub Worker CI run
-[`32454258083`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32454258083)
+[`32459813095`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32459813095)
 je zelen na Windows contract/build gate-u i Ubuntu PostgreSQL + stvarnom
-Chromium + runtime audit gate-u. To potvrđuje control-plane osnovu, ne 61
-stvarni scenario/drill rezultat.
+Chromium + runtime audit gate-u; lokalna puna DB matrica ima 101 PASS i jedan
+browser-gated skip, a production dependency audit 0 nalaza. To potvrđuje
+credential-bound control-plane osnovu, ne 61 stvarni scenario/drill rezultat.
 
 ## 3. Finalni package i component dokaz
 
@@ -327,6 +338,6 @@ je 20. avgusta 2026. od `21:39:40Z` do `21:41:59Z` završio statusom
 **success**: workflow validation, frozen install, test DB migracija, 398-test
 matrica, packed public-copy build/NFT boundary i supply-chain audit su zeleni.
 To potvrđuje launcher i njegov GitHub-hosted ugovor. Staging-only control-plane
-osnova je naknadno implementirana i proverena worker run-om `32454258083`, ali
-nije deploymentovana, nema 61 konkretan handler i nijedan staging scenario još
-nije izvršen.
+osnova i credential-binding v2 su naknadno implementirani i provereni worker
+run-ovima `32454258083` i `32459813095`, ali nisu deploymentovani, nema 61
+konkretan handler i nijedan staging scenario još nije izvršen.

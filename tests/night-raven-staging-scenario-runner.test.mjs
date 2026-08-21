@@ -190,6 +190,10 @@ test("runner config binds separate credentials, HTTPS control origin and artifac
     validated.operatorCredential,
     runnerEnv(raw).NR_ACCEPTANCE_OPERATOR_IDENTITY,
   );
+  assert.deepEqual(validated.credentialDigests, {
+    identity: digest(runnerEnv(raw).NR_ACCEPTANCE_STAGING_IDENTITY),
+    provider: digest(runnerEnv(raw).NR_ACCEPTANCE_PROVIDER_IDENTITY),
+  });
   assert.throws(
     () =>
       validateRunnerConfig(
@@ -212,6 +216,14 @@ test("runner config binds separate credentials, HTTPS control origin and artifac
       }),
     /artifact-set environment binding/i,
   );
+  assert.throws(
+    () =>
+      validateRunnerConfig(raw, {
+        ...runnerEnv(raw),
+        NR_ACCEPTANCE_PROVIDER_IDENTITY: "short",
+      }),
+    /high-entropy opaque credential/i,
+  );
 });
 
 test("runner starts, polls and accepts only evidence pinned to the accepted run", async () => {
@@ -225,11 +237,12 @@ test("runner starts, polls and accepts only evidence pinned to the accepted run"
     "staging-e2e",
     requestId,
   );
+  assert.deepEqual(request.credentialDigests, config.credentialDigests);
   const calls = [];
   const responses = [
     jsonResponse(
       {
-        contractVersion: 1,
+        contractVersion: 2,
         purpose: "night_raven_staging_acceptance",
         scenario: request.scenario,
         kind: request.kind,
@@ -241,7 +254,7 @@ test("runner starts, polls and accepts only evidence pinned to the accepted run"
       202,
     ),
     jsonResponse({
-      contractVersion: 1,
+      contractVersion: 2,
       purpose: "night_raven_staging_acceptance",
       runId,
       scenario: request.scenario,
@@ -249,7 +262,7 @@ test("runner starts, polls and accepts only evidence pinned to the accepted run"
       status: "running",
     }),
     jsonResponse({
-      contractVersion: 1,
+      contractVersion: 2,
       purpose: "night_raven_staging_acceptance",
       runId,
       scenario: request.scenario,
@@ -327,7 +340,7 @@ test("runner rejects cross-origin polling and forged runtime driver evidence", a
         fetchImpl: async () =>
           jsonResponse(
             {
-              contractVersion: 1,
+              contractVersion: 2,
               purpose: "night_raven_staging_acceptance",
               scenario: request.scenario,
               kind: request.kind,

@@ -67,7 +67,7 @@ gate, ne SemVer sufiksom.
 | License Server source   | `6bdb1c8c06a062bd98313af941d774fa535b1f99`      |
 | CMS baseline            | `9c1ed9042642e9c82cd57d26db4f481ac2c537c6`      |
 | centralni Master        | `8fa03719a6040613ab6c796a31b2b87ff5640dcf`      |
-| deployment worker       | `ecdc5a8c9b78f8f2da42d5199686b951dc1857d3`      |
+| deployment worker       | `5be7c13a8eb83569f75288a3782b624659e6cd9a`      |
 | manifest contract       | `NRV-ADDON-RELEASE-MANIFEST-V2+JWS`             |
 | publication contract    | `NRV-ADDON-RELEASE-PUBLICATION-ATTESTATION+JWS` |
 | release ID              | `4b7e7030-4b72-5399-a008-b84765213d4a`          |
@@ -161,6 +161,7 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | Worker CI, commit `752f47f`, run `32454258083`            | **PASS** — Windows contract/build i Ubuntu PostgreSQL, stvarni Playwright Chromium boundary i runtime dependency audit                          |
 | Webshop verification, commit `1cc0737`, run `32458131335` | **PASS** — Windows dependency graph i clean Linux build/package/packed-host candidate evidence; verification-only, bez publish-a                |
 | Worker CI, commit `ecdc5a8`, run `32458375988`            | **PASS** — non-retryable mutating acceptance greška terminalizira se posle prvog pokušaja; Windows i Ubuntu/PostgreSQL/Chromium su zeleni       |
+| Worker CI, commit `5be7c13`, run `32459813095`            | **PASS** — control contract v2, external credential fingerprint/vault binding, Windows i Ubuntu/PostgreSQL/stvarni Chromium/runtime audit       |
 | GitHub Public CI, commit `72b6329`, run `32458450130`     | **PASS** — workflow validation, frozen install, DB migracija, 393-test matrica, public-copy build/NFT i supply-chain audit                      |
 | GitHub Actions runtime pinovi                             | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti            |
 
@@ -253,11 +254,11 @@ signing authority i nije publish-ovao paket.
 Ovaj Webshop candidate tuple je istorijski verifikacioni dokaz, ne trenutni
 finalni RC: posle njega je CMS pomeren na
 `72b6329bb6cdf6351a42b3eda7d0a91ce43f030c`, a worker na
-`ecdc5a8c9b78f8f2da42d5199686b951dc1857d3`. Oba nova head-a su potvrđena
+`5be7c13a8eb83569f75288a3782b624659e6cd9a`. Oba nova head-a su potvrđena
 zelenim run-ovima
 [`32458450130`](https://github.com/radomirradojevic/nr_cms/actions/runs/32458450130)
 i
-[`32458375988`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32458375988).
+[`32459813095`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32459813095).
 Zato se finalni multi-repo RC mora ponovo izgraditi iz zamrznutog tuple-a tek
 posle zatvaranja staging gate-ova; nijedan raniji digest se ne promoviše kao
 release digest.
@@ -300,7 +301,11 @@ Package/release publish odobrenje se još ne traži:
    assertion.
 6. Acceptance control handler registry je namerno prazan dok konkretni UI,
    fault-control i operator drill ugovori ne budu implementirani i pregledani;
-   zato readiness ostaje `503`, a staging workflow nije pokrenut.
+   zato readiness ostaje `503`, a staging workflow nije pokrenut. Novi portable
+   control-contract-v2 runner SHA-256
+   `67f605e2de83c9c466bed9a9b4fdad4c3b9b36d00f06cfb5b13d1b00cda9e2cd`
+   još mora kroz pregledani external-file provisioner da zameni stari protected
+   runner artefakt/hash zajedno sa stvarnim staging config/credential ulazima.
 
 GitHub bootstrap je izvršen 20. avgusta 2026: `private-release`,
 `staging-acceptance` i `release-production` imaju obavezan ručni reviewer gate
@@ -323,10 +328,11 @@ evidence direktorijum iz workspace checkout-a. Pregledani runner se sada
 create-only gradi komandom `acceptance:staging:runner:build`; njegov launcher
 prihvata samo poznatu matricu, zaseban operator bearer i same-origin HTTPS
 control-plane rezultat vezan za tačan RC artifact set. Staging E2E evidence mora
-atestirati `playwright-chromium`, a drill `operator-control-v1`. Stvarni runner
-artefakt i njegov digest,
-acceptance config/identity secrets i dostupni HTTPS staging endpoint-i još nisu
-provisionovani; vrednosti tajni se ne unose u source niti u ovaj evidence zapis.
+atestirati `playwright-chromium`, a drill `operator-control-v1`. Novi v2 runner
+artefakt i digest jesu lokalno izgrađeni van checkout-a, ali nisu
+provisionovani; acceptance config/identity secrets i dostupni HTTPS staging
+endpoint-i još nisu potvrđeni. Vrednosti tajni se ne unose u source niti u ovaj
+evidence zapis.
 
 GitHub REST API ostavlja `can_admins_bypass: true`; pre prvog release workflow
 run-a vlasnik mora u UI-u da isključi **Allow administrators to bypass
