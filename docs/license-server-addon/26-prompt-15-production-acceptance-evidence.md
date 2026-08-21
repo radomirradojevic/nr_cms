@@ -497,3 +497,47 @@ License Server hosted release ID je
 `4f4e83e5-0880-5876-be48-636110ceaa3c`. Workflow nije imao publish ili
 deployment korak; 34 staging `NO_GO` zahteva i 0/3 stvarna staging izvršenja
 ostaju nepromenjeni.
+
+## Finalni owner-scoped lokalni acceptance — 21. avgust 2026.
+
+Posle prelaska License Server npm identiteta na GitHub Packages-kompatibilni
+`@radomirradojevic/license-server-addon@0.2.0`, kompletna komanda
+`npm run acceptance:local` završila je izlaznim kodom `0`. Run ID je
+`local-20260821181354183-1c497cbe46`; audit je zapisan u ignorisani `.tmp`
+evidence direktorijum sa SHA-256
+`bb002b539100d669a418306e809807a2f070b1accbae32f8818aec0e39f6ccfe`.
+
+Prolaz je dokazao:
+
+- clean public CMS checkout: `405` testova, `0` fail-a i Next `16.3.0`
+  production build;
+- Webshop: `197/197`, PostgreSQL payment `3/3`, packed clean-host tarball
+  `a53490f71f673578a065a841ba00c708d2f3ec4111f22afaf873306c7848f895`;
+- License Server add-on: `106` pass / `7` DB-only skip u prvom sloju, zatim
+  stvarni isolated DB verifier sa `databaseVerified:true`, health `200` i
+  packed clean-host tarball
+  `3111dbb4c85f336cdc51b4491a62d1b1915355e9cacc0596ae7a0320e199c7f8`;
+- centralni Master `81/81`, CMS i centralnu punu migracionu matricu i svih osam
+  remediation invarianta sa `0` violation-a;
+- svih `32` lokalnih E2E/fault scenarija i svih `7` lokalnih recovery drillova,
+  uključujući zasebnu kupovinu License Server add-on-a, response-loss,
+  duplicate webhook, `128` paralelnih issue pokušaja bez duplikata, `128`
+  activation pokušaja bez probijenog limita, `install_pending -> ready`,
+  backup/restore, queue recovery i obe key-rotation probe.
+
+Production-like Windows osnova je prethodno prebačena na immutable CMS
+`bee6ca64f247723cf2472def6408787b4d4f3dd5`, worker
+`ada6beb36cc5965be5321fefc91bb0cfe4d36c9d` i service resources v8. Vendor,
+customer, PayPal, Master i deployment health URL-ovi su zatim vratili HTTP
+`200`; nijedan stari resource nije obrisan. Worker CI run
+[`32508934696`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32508934696)
+i finalni CMS Public CI run
+[`32510466440`](https://github.com/radomirradojevic/nr_cms/actions/runs/32510466440)
+su **PASS**.
+
+Ovaj lokalni dokaz i dalje nosi `productionRuntime:false` i
+`gateEligible:false`. Za stvarni staging browser run nema provisionovanog
+zaštićenog storage-state/test identiteta, a in-app browser sesija nije bila
+dostupna; auth nije zaobiđen niti je baza ručno menjana. Zato formalna odluka
+ostaje `34 PASS / 34 NO_GO` dok se isti finalni RC ne izvrši na odobrenom
+stagingu.

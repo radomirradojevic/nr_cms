@@ -63,7 +63,7 @@ gate, ne SemVer sufiksom.
 
 | Polje                   | Vrednost                                        |
 | ----------------------- | ----------------------------------------------- |
-| package                 | `@radomirradojevic/license-server-addon@0.2.0`                  |
+| package                 | `@radomirradojevic/license-server-addon@0.2.0`  |
 | License Server source   | `9f07ebdcf08f322a55899e7d94b7ec34c7408546`      |
 | Webshop baseline        | `b81ae1d744b5c0634e358b60c4994455587d3f23`      |
 | CMS baseline            | `cd262ca34aff8823b04753454f9ef50ca774cf06`      |
@@ -543,3 +543,47 @@ GitHub-hosted Ubuntu/Node `24.15.0`. Ovo je staging-potpisan verifikacioni
 candidate, ne production release: nema registry publish-a, Master draft/publish
 write-a, availability promene, target install/redeploy-a ni canary-ja. Zbog
 otvorenih Prompt 15 staging kapija approval ledger iz odeljka 9 ostaje važeći.
+
+## 11. Finalni owner-scoped candidate i lokalna osnova
+
+Aktuelni verification-only workflow commit je
+`19561f0c5bfab6b07c03d49758adc656da13352d`. On zamrzava runtime CMS
+`bee6ca64f247723cf2472def6408787b4d4f3dd5`, Webshop
+`3ff8e9f9475f69cb7e7dbff34d01a94d378fe610`, License Server add-on
+`c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0`, centralni Master
+`76612151f53e57256304501be37cf0e663d8ad26` i deployment worker
+`ada6beb36cc5965be5321fefc91bb0cfe4d36c9d`.
+
+License Server package identity je sada konačno
+`@radomirradojevic/license-server-addon@0.2.0`; Master-ova kompatibilna
+migracija čuva istorijski legacy zapis, ali release selector bira samo novi
+owner-scoped identitet. Finalni worker i Master DB regresioni testovi dokazuju
+da lažni noviji legacy paket ne može biti izabran.
+
+Lokalna production-like osnova je 21. avgusta 2026. uspešno podignuta na tom
+runtime tuple-u. Vendor/customer/PayPal CMS koriste create-only service
+resources v8, worker koristi finalni immutable release/policy, a sledeći URL-ovi
+su vratili HTTP `200`: `vendor.nr.test`, `client.nr.test`, `paypal.nr.test`,
+`license.nr.test` i `deploy.nr.test/health`. Lokalni `acceptance:local` run
+`local-20260821181354183-1c497cbe46` zatim je završio kodom `0`; packed License
+Server tarball SHA-256 je
+`3111dbb4c85f336cdc51b4491a62d1b1915355e9cacc0596ae7a0320e199c7f8`, a
+Webshop tarball SHA-256 je
+`a53490f71f673578a065a841ba00c708d2f3ec4111f22afaf873306c7848f895`.
+To su lokalno potpisani reproducibility dokazi, ne registry publication
+digest-i.
+
+Finalni Public CI run
+[`32510466440`](https://github.com/radomirradojevic/nr_cms/actions/runs/32510466440)
+je **PASS**. Finalni protected Private Release Verification run
+[`32510497771`](https://github.com/radomirradojevic/nr_cms/actions/runs/32510497771)
+čeka reviewer odobrenje za `private-release` environment. Taj run je strogo
+verification-only: njegovo odobrenje nije package publish, Master publish,
+availability ili deployment odobrenje. Posle prolaza tek njegov artifact daje
+autoritative hosted tarball/provenance/SBOM SHA-256 vrednosti za operator gate.
+
+Stvarni authenticated staging UI tok još ne može biti izvršen bez zaštićenog
+Playwright storage-state/test identiteta ili povezane browser sesije. Auth nije
+zaobiđen, tajne nisu ispisane i nijedna poslovna tabela nije ručno mutirana.
+Approval ledger iz odeljka 9 zato ostaje važeći; posebno, package/release
+publish nije odobren niti izvršen.
