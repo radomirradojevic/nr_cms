@@ -253,6 +253,8 @@ test("staging E2E configuration is fail-closed before any runner can be called",
   assert.equal(summary.drillCount, 11);
   assert.equal(summary.runnerReference, "NR_ACCEPTANCE_SCENARIO_RUNNER_PATH");
   assert.equal(summary.runnerSha256, STAGING_RUNNER_SHA256);
+  assert.equal(validated.endpoints.master.endsWith("/"), true);
+  assert.equal(validated.endpoints.acceptanceControl.endsWith("/"), true);
   assert.doesNotMatch(JSON.stringify(summary), /night-raven-operator/i);
   assert.equal(validated.evidenceDirectory, STAGING_EVIDENCE_DIRECTORY);
 

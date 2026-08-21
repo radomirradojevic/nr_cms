@@ -182,6 +182,11 @@ test("runner config binds separate credentials, HTTPS control origin and artifac
   const validated = validateRunnerConfig(raw, runnerEnv(raw));
   assert.equal(validated.control.origin, raw.endpoints.acceptanceControl);
   assert.equal(
+    validated.endpoints.acceptanceControl,
+    `${raw.endpoints.acceptanceControl}/`,
+  );
+  assert.equal(validated.endpoints.master, `${raw.endpoints.master}/`);
+  assert.equal(
     validated.operatorCredential,
     runnerEnv(raw).NR_ACCEPTANCE_OPERATOR_IDENTITY,
   );

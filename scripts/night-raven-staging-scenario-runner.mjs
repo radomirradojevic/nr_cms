@@ -203,8 +203,12 @@ export function validateRunnerConfig(config, env = process.env) {
   );
   if (control.pathname !== "/" || control.search)
     fail("endpoints.acceptanceControl must be an HTTPS origin without a path.");
-  for (const [name, endpoint] of Object.entries(config.endpoints ?? {}))
-    assertHttpsUrl(endpoint, `endpoints.${name}`);
+  const endpoints = Object.fromEntries(
+    Object.entries(config.endpoints ?? {}).map(([name, endpoint]) => [
+      name,
+      assertHttpsUrl(endpoint, `endpoints.${name}`).toString(),
+    ]),
+  );
   if (config.operator?.credentialEnv !== "NR_ACCEPTANCE_OPERATOR_IDENTITY")
     fail("operator credential reference is invalid.");
   if (config.operator?.kind !== "oauth2-bearer")
@@ -276,7 +280,7 @@ export function validateRunnerConfig(config, env = process.env) {
     identityKind: requiredText(config.identity?.kind, "identity.kind"),
     providerKind: requiredText(config.provider?.kind, "provider.kind"),
     operatorKind: requiredText(config.operator?.kind, "operator.kind"),
-    endpoints: config.endpoints,
+    endpoints,
     performanceSlo: config.performanceSlo,
   };
 }

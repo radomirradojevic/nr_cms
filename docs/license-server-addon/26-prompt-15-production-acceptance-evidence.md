@@ -77,11 +77,14 @@ npm run acceptance:staging:runner:build -- --output D:\secure\night-raven-stagin
 ```
 
 Zaseban staging-only acceptance control proces sada je implementiran u
-deployment worker commit-u `752f47ffc4d8e74e145bdc903dda4d3c01b84a2b`.
+deployment worker commit-u `9c7ffef59812aa5153f61f2f62b02ece0fdc1e9c`.
 Ima odvojenu PostgreSQL schema-u/migracije, idempotentni request ID, durable
 run, lease/fencing, retry/backoff, persistent auth rate-limit, digest-only
 bearer verifikaciju, hash-pinned RC/endpoints/browser policy i Playwright
-`1.62.0` Chromium origin/download granicu. Glavni deployment listener ga ne
+`1.62.0` Chromium origin/download granicu. Create-only policy builder iz istog
+zaštićenog CMS staging config-a kanonizuje URL-ove, preuzima samo RC digest
+identitet i pin-uje SHA-256 eksternog browser storage-state fajla; tajne i
+identity vrednosti ne ulaze u policy. Glavni deployment listener ga ne
 importuje. Registry handlera je namerno prazan: `/health` je `503`, a
 neimplementiran scenario dobija `scenario_unavailable` i nikada `PASS`.
 GitHub Worker CI run

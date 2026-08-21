@@ -584,7 +584,7 @@ function assertHttpsStagingEndpoint(value, label) {
     fail(`${label} must not target a local endpoint.`);
   if (/\.(?:example|invalid|test)$/i.test(endpoint.hostname))
     fail(`${label} must not use a reserved placeholder hostname.`);
-  return endpoint.toString().replace(/\/$/, "");
+  return endpoint.toString();
 }
 
 function assertEnvReference(value, label, env) {
