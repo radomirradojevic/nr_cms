@@ -1,6 +1,7 @@
 # Prompt 16 — release candidate i kontrolisani rollout evidence
 
 Datum pripreme: **20. avgust 2026.**  
+Poslednja tehnička dopuna: **21. avgust 2026.**
 Odluka: **NO-GO / GITHUB-HOSTED RC VERIFICATION READY / NOT PUBLISHED**
 
 Ovaj zapis primenjuje `09-release-runbook.md` na finalni Prompt 15 audit. U ovom
@@ -48,6 +49,11 @@ fail-closed ugovorima:
 7. Worker proverava schema postcondition posle svake migracije, nastavlja tačno
    sa schema 4 posle restart-a, idempotentno završava schema 8 i detektuje kasniji
    drift. Stari per-migration `compatibility` format više nije install prečica.
+8. Zaseban staging-only acceptance control proces ima durable run/lease/fencing,
+   persistent auth rate-limit, tačan runner response/evidence ugovor i
+   Playwright Chromium mrežnu granicu. Glavni deployment listener ga ne učitava;
+   bez svih eksplicitnih handlera servis ostaje `503 unavailable` i ne može
+   proizvesti lažni `PASS`.
 
 ## 3. Predložena verzija i source identitet
 
@@ -61,7 +67,7 @@ gate, ne SemVer sufiksom.
 | License Server source   | `6bdb1c8c06a062bd98313af941d774fa535b1f99`      |
 | CMS baseline            | `9c1ed9042642e9c82cd57d26db4f481ac2c537c6`      |
 | centralni Master        | `8fa03719a6040613ab6c796a31b2b87ff5640dcf`      |
-| deployment worker       | `e6c5755a93e4c6cba534caa4262cfdcf6273b406`      |
+| deployment worker       | `752f47ffc4d8e74e145bdc903dda4d3c01b84a2b`      |
 | manifest contract       | `NRV-ADDON-RELEASE-MANIFEST-V2+JWS`             |
 | publication contract    | `NRV-ADDON-RELEASE-PUBLICATION-ATTESTATION+JWS` |
 | release ID              | `4b7e7030-4b72-5399-a008-b84765213d4a`          |
@@ -152,6 +158,7 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | GitHub Public CI, commit `8046d94`, run `32416627151`  | **PASS** — sva četiri workflow-a kroz checksum-pinovan actionlint/hosted ShellCheck, zatim kompletan frozen public verification                 |
 | GitHub Public CI, commit `824ff0b`, run `32418106892`  | **PASS** — evidence-directory binding, fail-closed input provisioner, 391 test, packed build/NFT i supply-chain audit                           |
 | GitHub Public CI, commit `2111122`, run `32420508525`  | **PASS** — prenosivi runner, odvojen operator identitet, exact Playwright/control-plane evidence, 398 testova i packed/NFT/supply-chain gate    |
+| Worker CI, commit `752f47f`, run `32454258083`         | **PASS** — Windows contract/build i Ubuntu PostgreSQL, stvarni Playwright Chromium boundary i runtime dependency audit                        |
 | GitHub Actions runtime pinovi                          | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti            |
 
 Master DB suite uključuje generički immutable draft/import/publish/select
@@ -220,9 +227,10 @@ završenim u `21:14:11Z` statusom **success** za 2m46s.
 Runner source/build i stroži harness zatim su potvrđeni na commit-u
 `211112261076d438c4347ebbcf5ddbd545b22e4b` kroz GitHub Public CI run
 [`32420508525`](https://github.com/radomirradojevic/nr_cms/actions/runs/32420508525),
-završen u `21:41:59Z` statusom **success** za 2m19s. Ovaj hosted dokaz ne menja
-NO-GO: acceptance control-plane, tri stvarna credential-a i staging scenario
-rezultati još nisu provisionovani.
+završen u `21:41:59Z` statusom **success** za 2m19s. Staging-only control-plane
+osnova je zatim dodata u worker i potvrđena run-om `32454258083`. NO-GO ostaje:
+proces nije deploymentovan, nedostaje svih 61 konkretan handler, a tri stvarna
+credential-a i staging scenario rezultati još nisu provisionovani.
 
 ## 7. Canary i rollback/forward-fix plan
 
@@ -260,6 +268,9 @@ Package/release publish odobrenje se još ne traži:
 5. Nije pinovan prethodni production License Server digest za rollback niti je
    izvršen stvarni datirani encrypted DB+key restore koji validira istorijski
    assertion.
+6. Acceptance control handler registry je namerno prazan dok konkretni UI,
+   fault-control i operator drill ugovori ne budu implementirani i pregledani;
+   zato readiness ostaje `503`, a staging workflow nije pokrenut.
 
 GitHub bootstrap je izvršen 20. avgusta 2026: `private-release`,
 `staging-acceptance` i `release-production` imaju obavezan ručni reviewer gate

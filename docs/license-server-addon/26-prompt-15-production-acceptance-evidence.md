@@ -76,6 +76,20 @@ i ispisuje njegov SHA-256:
 npm run acceptance:staging:runner:build -- --output D:\secure\night-raven-staging-scenario-runner
 ```
 
+Zaseban staging-only acceptance control proces sada je implementiran u
+deployment worker commit-u `752f47ffc4d8e74e145bdc903dda4d3c01b84a2b`.
+Ima odvojenu PostgreSQL schema-u/migracije, idempotentni request ID, durable
+run, lease/fencing, retry/backoff, persistent auth rate-limit, digest-only
+bearer verifikaciju, hash-pinned RC/endpoints/browser policy i Playwright
+`1.62.0` Chromium origin/download granicu. Glavni deployment listener ga ne
+importuje. Registry handlera je namerno prazan: `/health` je `503`, a
+neimplementiran scenario dobija `scenario_unavailable` i nikada `PASS`.
+GitHub Worker CI run
+[`32454258083`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32454258083)
+je zelen na Windows contract/build gate-u i Ubuntu PostgreSQL + stvarnom
+Chromium + runtime audit gate-u. To potvrđuje control-plane osnovu, ne 61
+stvarni scenario/drill rezultat.
+
 ## 3. Finalni package i component dokaz
 
 `npm run acceptance:rc` je izvršio puni lokalni RC pipeline, ne samo selektovane
@@ -306,6 +320,7 @@ evidence granica implementirani su na commit-u
 je 20. avgusta 2026. od `21:39:40Z` do `21:41:59Z` završio statusom
 **success**: workflow validation, frozen install, test DB migracija, 398-test
 matrica, packed public-copy build/NFT boundary i supply-chain audit su zeleni.
-To potvrđuje launcher i njegov GitHub-hosted ugovor, ali nije dokaz da postoji
-stvarni staging acceptance control-plane niti da je ijedan staging scenario
-izvršen.
+To potvrđuje launcher i njegov GitHub-hosted ugovor. Staging-only control-plane
+osnova je naknadno implementirana i proverena worker run-om `32454258083`, ali
+nije deploymentovana, nema 61 konkretan handler i nijedan staging scenario još
+nije izvršen.

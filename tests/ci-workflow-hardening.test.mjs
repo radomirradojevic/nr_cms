@@ -85,12 +85,18 @@ test("public supply-chain audit is explicit and never requires private checkouts
 });
 
 test("Night Raven private, staging, and production gates use protected GitHub-hosted jobs", () => {
+  const deploymentWorkerPins = [];
   for (const [name, environment] of [
     ["private-release.yml", "private-release"],
     ["staging-acceptance.yml", "staging-acceptance"],
     ["production-rollout.yml", "release-production"],
   ]) {
     const source = readWorkflow(name);
+    const workerPin = source.match(
+      /NR_DEPLOYMENT_WORKER_GIT_SHA:\s*([a-f0-9]{40})/,
+    );
+    assert.ok(workerPin, `${name} must pin the deployment worker by full SHA`);
+    deploymentWorkerPins.push(workerPin[1]);
     assert.match(source, /workflow_dispatch:/);
     assert.match(source, new RegExp(`environment:\\s*${environment}`));
     assert.match(source, /runs-on:\s*ubuntu-24\.04/);
@@ -119,6 +125,11 @@ test("Night Raven private, staging, and production gates use protected GitHub-ho
     assert.match(source, /persist-credentials:\s*false/);
     assert.doesNotMatch(source, /token:\s*\$\{\{ secrets\./);
   }
+  assert.equal(
+    new Set(deploymentWorkerPins).size,
+    1,
+    "release workflows must use one reviewed deployment worker source tuple",
+  );
 
   const staging = readWorkflow("staging-acceptance.yml");
   assert.match(staging, new RegExp(PINNED_ACTIONS.uploadArtifact));
