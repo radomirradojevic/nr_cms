@@ -39,6 +39,7 @@ const ALLOWED_INSTALL_SCRIPTS = new Set([
   "esbuild@0.25.12",
   "esbuild@0.27.7",
   "esbuild@0.28.2",
+  "fsevents@2.3.2",
   "fsevents@2.3.3",
   "msw@2.14.6",
   "sharp@0.34.5",
