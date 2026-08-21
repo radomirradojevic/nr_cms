@@ -1,24 +1,30 @@
-name: Reusable Production Add-on Package Release
+name: Production Add-on Package Release
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       addon:
         description: Exact allowlisted add-on identity
         required: true
-        type: string
+        type: choice
+        options:
+          - license-server
+          - webshop
       mode:
         description: Publish a new package version or reconcile an interrupted publication
         required: true
-        type: string
+        default: publish
+        type: choice
+        options:
+          - publish
+          - reconcile
       approval:
         description: Exact package/version publication approval phrase
         required: true
         type: string
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
   group: production-addon-${{ inputs.addon }}
@@ -26,9 +32,7 @@ concurrency:
 
 jobs:
   publish:
-    if: >-
-      (inputs.addon == 'license-server' && github.repository == 'radomirradojevic/license-server-addon') ||
-      (inputs.addon == 'webshop' && github.repository == 'radomirradojevic/webshop')
+    if: github.repository == 'radomirradojevic/nr_cms'
     name: Publish signed immutable package
     runs-on: ubuntu-24.04
     environment: release-production
@@ -37,6 +41,7 @@ jobs:
       PACKAGE_NAME: ${{ inputs.addon == 'license-server' && '@radomirradojevic/license-server-addon' || '@radomirradojevic/webshop' }}
       PACKAGE_SLUG: ${{ inputs.addon == 'license-server' && 'license-server-addon' || 'webshop' }}
       PACKAGE_PATH: ${{ inputs.addon == 'license-server' && 'license-server-addon' || 'webshop' }}
+      TARGET_REPOSITORY: ${{ inputs.addon == 'license-server' && 'radomirradojevic/license-server-addon' || 'radomirradojevic/webshop' }}
       PACKAGE_VERSION: ${{ inputs.addon == 'license-server' && '0.2.0' || '0.6.36' }}
       SOURCE_SHA: ${{ inputs.addon == 'license-server' && 'c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0' || '3ff8e9f9475f69cb7e7dbff34d01a94d378fe610' }}
       CMS_SHA: bee6ca64f247723cf2472def6408787b4d4f3dd5
@@ -50,16 +55,15 @@ jobs:
     steps:
       - name: Validate explicit release authorization
         shell: bash
+        env:
+          PACKAGE_RELEASE_TOKEN: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           test '${{ inputs.approval }}' = "PUBLISH $PACKAGE_NAME@$PACKAGE_VERSION"
           test '${{ inputs.mode }}' = 'publish' || test '${{ inputs.mode }}' = 'reconcile'
-          if test '${{ inputs.addon }}' = 'license-server'; then
-            test "$GITHUB_REF_NAME" = 'master-lsa'
-          else
-            test "$GITHUB_REF_NAME" = 'master-ws'
-          fi
+          test "$GITHUB_REF_NAME" = 'master'
           test -n "${NR_ADDON_RELEASE_SIGNING_KID:-}"
+          test -n "${PACKAGE_RELEASE_TOKEN:-}"
           [[ "$NR_ADDON_RELEASE_SIGNING_KID" =~ ^production-release:[0-9a-f]{16}$ ]]
 
       - name: Checkout pinned CMS host
@@ -73,8 +77,10 @@ jobs:
       - name: Checkout pinned add-on source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ env.TARGET_REPOSITORY }}
           ref: ${{ env.SOURCE_SHA }}
           path: release-root/.private/${{ env.PACKAGE_PATH }}
+          token: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
           persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -144,8 +150,8 @@ jobs:
       - name: Verify create-only registry and release state
         shell: bash
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           error_file="$RUNNER_TEMP/npm-view-error.txt"
@@ -157,15 +163,15 @@ jobs:
             grep -Eq 'E404|404 Not Found' "$error_file"
             test '${{ inputs.mode }}' = 'publish'
           fi
-          if gh release view "v$PACKAGE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view "v$PACKAGE_VERSION" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
             test '${{ inputs.mode }}' = 'reconcile'
           fi
 
       - name: Publish exact tarball or reconcile registry state
         shell: bash
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           if test '${{ inputs.mode }}' = 'publish'; then
@@ -192,7 +198,7 @@ jobs:
         shell: bash
         working-directory: release-root/.private/${{ env.PACKAGE_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
           NR_ADDON_RELEASE_AUTHORITY_MODE: production
         run: |
           set -euo pipefail
@@ -206,10 +212,10 @@ jobs:
           receipt="$RUNNER_TEMP/release-output/release-publish-receipt.json"
           node -e "const fs=require('fs');fs.writeFileSync(process.argv[1],JSON.stringify({artifactSha256:process.env.EXPECTED_ARTIFACT_SHA256,attestationSha256:process.argv[2],cmsSha:process.env.CMS_SHA,contractVersion:1,migrationBundleSha256:process.env.EXPECTED_MIGRATION_SHA256,packageName:process.env.PACKAGE_NAME,packageVersion:process.env.PACKAGE_VERSION,registryPackageVersionId:process.env.REGISTRY_VERSION_ID,sourceSha:process.env.SOURCE_SHA,tarballIntegrity:process.env.TARBALL_INTEGRITY,tarballSha256:process.env.TARBALL_SHA256})+'\n',{encoding:'utf8',flag:'wx',mode:0o600})" "$receipt" "$attestation_sha"
           tag="v$PACKAGE_VERSION"
-          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --draft --title "$RELEASE_TITLE" --notes "Immutable production package publication evidence."
+          if ! gh release view "$tag" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$TARGET_REPOSITORY" --target "$SOURCE_SHA" --draft --title "$RELEASE_TITLE" --notes "Immutable production package publication evidence."
           fi
-          asset_names="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          asset_names="$(gh release view "$tag" --repo "$TARGET_REPOSITORY" --json assets --jq '.assets[].name')"
           for asset in release-publication-attestation.json addon-release-public-keys.json release-publish-receipt.json; do
             if grep -Fxq "$asset" <<<"$asset_names"; then
               test '${{ inputs.mode }}' = 'reconcile'
@@ -219,7 +225,7 @@ jobs:
                 addon-release-public-keys.json) source="$NR_ADDON_RELEASE_PUBLIC_KEYS_FILE" ;;
                 release-publish-receipt.json) source="$receipt" ;;
               esac
-              gh release upload "$tag" "$source#$asset" --repo "$GITHUB_REPOSITORY"
+              gh release upload "$tag" "$source#$asset" --repo "$TARGET_REPOSITORY"
             fi
           done
 
