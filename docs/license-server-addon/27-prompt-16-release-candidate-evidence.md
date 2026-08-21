@@ -449,8 +449,10 @@ Package/release publish odobrenje se još ne traži:
 5. Nije pinovan prethodni production License Server digest za rollback niti je
    izvršen stvarni datirani encrypted DB+key restore koji validira istorijski
    assertion.
-6. Acceptance control registry sada sadrži 3/61 handlera:
-   `license_server_install_without_customer_webshop` i
+6. Acceptance control registry sada sadrži 8/61 scenario veza:
+   `webshop_purchase`, `license_server_addon_purchase`, `customer_local_issuer`,
+   `install_pending_deploy_ready`, `customer_local_delivery`,
+   `license_server_install_without_customer_webshop`,
    `customer_webshop_local_paid_delivery` i
    `customer_webshop_remote_hmac_paid_delivery`. Browser policy contract v3 odvaja
    top-level navigation origin-e od resource/subframe origin-a; handleri čuvaju
@@ -459,9 +461,12 @@ Package/release publish odobrenje se još ne traži:
    envelope binding i Ed25519 potpis javnim keyset-om. Treći kreira
    product/environment-scoped HMAC client preko reveal-once download-a, proverava
    da replay vraća `404`, zatim isti tok ponavlja preko stvarnog HTTPS NRLS V2
-   `catalog`/`issue`/poll adaptera uz pinovani `issuerRef`. Preostalih 58
-   UI/fault/operator handlera nije implementirano; zato readiness ostaje `503`,
-   a staging workflow nije pokrenut; stvarnih scenario izvršenja ostaje 0/3.
+   `catalog`/`issue`/poll adaptera uz pinovani `issuerRef`. Preostala 53
+   UI/fault/operator handlera nisu implementirana; zato readiness ostaje `503`,
+   a staging workflow nije pokrenut; stvarnih scenario izvršenja ostaje 0/8.
+   Svaki budući run pre handlera zahteva SHA-pinovan staging isolation helper i
+   globalno PostgreSQL claim fencing; helper još mora biti provisionovan u
+   zaštićenom staging okruženju.
    Novi portable control-contract-v2
    runner SHA-256
    `67f605e2de83c9c466bed9a9b4fdad4c3b9b36d00f06cfb5b13d1b00cda9e2cd`
@@ -588,10 +593,10 @@ zaobiđen, tajne nisu ispisane i nijedna poslovna tabela nije ručno mutirana.
 Approval ledger iz odeljka 9 zato ostaje važeći; posebno, package/release
 publish nije odobren niti izvršen.
 
-## 12. Šest acceptance handlera i novi worker pin
+## 12. Osam acceptance scenario veza, izolacija i novi worker pin
 
 Finalni acceptance-control worker je proširen commitom
-`a80eb578954da00f238fd82636dbde0b8146ed67`. Novi
+`035c7b0dbaf0af95e526ae741c3c764163d5b8d0`. Novi
 `license_server_addon_purchase` handler izvršava stvarnu vendorsku kupovinu i
 secure key delivery, ali namerno ne aktivira ili instalira paket na customer
 CMS-u. Posle plaćanja ponovo dokazuje `not_installed` za oba customer add-on-a.
@@ -605,11 +610,25 @@ i instaliran Webshop, javni staging issuer descriptor, published catalog i
 issuerRef-proverena local konekcija. Ne izdaje licencu, pa paid-delivery ostaje
 jedinstvena odgovornost postojećeg handlera.
 
+`install_pending_deploy_ready` koristi standalone handler čiji je obavezni
+assertion stvarno viđen `install_pending` pre `ready`.
+`customer_local_delivery` koristi pun local paid-delivery handler koji proverava
+issuer/keyset/Ed25519 assertion, secure download zaglavlja i jednu refresh-
+stabilnu isporuku. Ovo nisu UI-only aliasi: svaki ID se izvršava kao zaseban,
+artifact-bound acceptance run nad svojim pripremljenim baseline-om.
+
+Worker pre svakog scenario/drill handlera sada mora uspešno izvršiti SHA-pinovan
+staging-only Node.js isolation helper. Helper ne dobija identity/provider/bearer,
+DB ili signing tajne i vraća samo tačno bound `prepared` priznanje. PostgreSQL
+advisory lock sprečava da dva acceptance-control procesa istovremeno resetuju
+isti staging. Bez provisionovanog helpera ili pri timeout/binding/output drift-u
+evidence ostaje fail-closed.
+
 Worker CI
-[`32514708520`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32514708520)
+[`32516450403`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32516450403)
 je **PASS**. Private release, staging acceptance i production rollout workflow
-sada pin-uju taj tačan worker SHA. Registry ima `6/61` stvarnih handlera i
-preostalih 55 ostaje fail-closed `scenario_unavailable`; readiness je i dalje
+sada pin-uju taj tačan worker SHA. Registry ima `8/61` stvarnih scenario veza, a
+preostala 53 ostaju fail-closed `scenario_unavailable`; readiness je i dalje
 `503`. Stari protected private verification run koji pin-uje prethodni worker
 postaje zastareo i mora biti zamenjen novim verification-only run-om. Nijedna
 od ovih izmena ne odobrava package publish ili deployment.

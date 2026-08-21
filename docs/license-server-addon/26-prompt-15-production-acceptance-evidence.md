@@ -542,9 +542,9 @@ dostupna; auth nije zaobiđen niti je baza ručno menjana. Zato formalna odluka
 ostaje `34 PASS / 34 NO_GO` dok se isti finalni RC ne izvrši na odobrenom
 stagingu.
 
-### Šest zasebnih staging browser handlera
+### Osam zasebnih staging browser scenario veza
 
-Deployment worker `a80eb578954da00f238fd82636dbde0b8146ed67` zadržava
+Deployment worker `035c7b0dbaf0af95e526ae741c3c764163d5b8d0` zadržava
 `license_server_addon_purchase` kao independently-reviewed browser handler. Handler
 iz customer **Dashboard → License Server** prati potpisani vendor handoff,
 potvrđuje domain binding, kupuje zasebnu License Server ponudu kroz Stripe
@@ -564,14 +564,29 @@ Servera, kupuje i instalira Webshop, čita javni V2 issuer descriptor, publishuj
 Product/Schema/Profile katalog i pravi issuerRef-proverenu local konekciju; tok se
 namerno završava pre izdavanja licence da ne duplira paid-delivery scenario.
 
-Worker lokalno prolazi typecheck, lint, `120/120` DB testova uz jedan izdvojeni
+Dve dodatne scenario veze koriste već strože postojeće tokove:
+`install_pending_deploy_ready` može proći samo ako standalone License Server
+install zaista vidi `install_pending` pre `ready`, dok `customer_local_delivery`
+ponavlja pun local paid-delivery tok sa issuer/keyset/assertion proverom, secure
+header-ima i stabilnom jednom isporukom posle refresh-a.
+
+Pre ovih handlera worker sada obavezno pokreće zaseban staging-only isolation
+helper. Helper je regularan Node.js fajl i SHA-256 je pinovan operator
+konfiguracijom; dobija samo `runId`, attempt, scenario/kind i artifact-set
+identitet i mora vratiti tačno bound `prepared` priznanje. PostgreSQL advisory
+fencing dozvoljava samo jedan aktivan scenario kroz sve worker procese. Zato
+sekvencijalni purchase/install scenariji više ne mogu naslediti stanje prethodnog
+scenarija, a helper timeout, izlazni drift ili pogrešan binding ne mogu dati PASS.
+
+Worker lokalno prolazi typecheck, lint, `122/122` DB testova uz jedan izdvojeni
 browser test i zatim pravi Chromium smoke `1/1`. Worker CI run
-[`32514708520`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32514708520)
+[`32516450403`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32516450403)
 je **PASS** na PostgreSQL/Chromium i Windows jobovima.
 
-Acceptance registry sada ima `6/61` handlera i readiness namerno ostaje `503`:
-preostala 44 browser scenarija i svih 11 operator drillova nemaju stvarne
+Acceptance registry sada ima `8/61` handlera i readiness namerno ostaje `503`:
+preostala 42 browser scenarija i svih 11 operator drillova nemaju stvarne
 handlere.
-Ovo zatvara lokalni implementation gap za tri navedena scenarija, ali njihovi
+Ovo zatvara lokalni implementation gap za navedene scenarije, ali njihovi
 production acceptance redovi ostaju `NO_GO` dok se handleri ne izvrše nad
-pinovanim staging RC artifact setom sa zaštićenim test identitetom.
+pinovanim staging RC artifact setom sa zaštićenim test identitetom i operatorom
+provisionovanim isolation helperom/digestom.
