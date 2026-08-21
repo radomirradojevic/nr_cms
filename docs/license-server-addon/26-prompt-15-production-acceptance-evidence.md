@@ -83,7 +83,7 @@ On još nije provisionovan u protected GitHub environment i ne predstavlja
 izvršen staging scenario.
 
 Zaseban staging-only acceptance control proces sada je implementiran u
-deployment worker commit-u `5be7c13a8eb83569f75288a3782b624659e6cd9a`.
+deployment worker commit-u `34821346bda3799ef4cfcc7e49d73b31fe1813f9`.
 Ima odvojenu PostgreSQL schema-u/migracije, idempotentni request ID, durable
 run, lease/fencing, retry/backoff, persistent auth rate-limit, digest-only
 bearer verifikaciju, hash-pinned RC/endpoints/browser policy i Playwright
@@ -98,7 +98,10 @@ handleru ih daje samo kroz neserializujući in-memory vault. Glavni deployment
 listener ga ne importuje. Scenario retry je fail-closed: samo eksplicitno
 označen pre-mutation transient kvar sme da se ponovi; ne-retryable kvar se
 terminalizuje prvim pokušajem da paid/mutating handler ne bi napravio drugu
-kupovinu. Registry handlera je namerno prazan: `/health` je `503`, a
+kupovinu. Višeminutni browser/drill run ima PostgreSQL-fenced lease od 120 s
+koji se obnavlja na 30 s; izgubljen heartbeat abortuje Chromium kroz handler
+`AbortSignal`, a stari lease ne može sačuvati evidence. Registry handlera je
+namerno prazan: `/health` je `503`, a
 neimplementiran scenario dobija `scenario_unavailable` i nikada `PASS`.
 GitHub Worker CI run
 [`32459813095`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32459813095)
@@ -106,6 +109,12 @@ je zelen na Windows contract/build gate-u i Ubuntu PostgreSQL + stvarnom
 Chromium + runtime audit gate-u; lokalna puna DB matrica ima 101 PASS i jedan
 browser-gated skip, a production dependency audit 0 nalaza. To potvrđuje
 credential-bound control-plane osnovu, ne 61 stvarni scenario/drill rezultat.
+Heartbeat dopuna je lokalno prošla 102/102 testa uz jedan browser-gated skip,
+stvarni Chromium smoke, lint, typecheck i build.
+Isti commit je zatim prošao GitHub Worker CI run
+[`32462354808`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32462354808):
+Windows acceptance boundary i Ubuntu/PostgreSQL/pinovani Chromium/runtime audit
+su **PASS**.
 
 ## 3. Finalni package i component dokaz
 

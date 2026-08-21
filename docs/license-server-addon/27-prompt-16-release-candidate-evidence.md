@@ -67,7 +67,7 @@ gate, ne SemVer sufiksom.
 | License Server source   | `05bab07bd6f2935dd786e8abc244196faef4882e`      |
 | CMS baseline            | `9c1ed9042642e9c82cd57d26db4f481ac2c537c6`      |
 | centralni Master        | `8fa03719a6040613ab6c796a31b2b87ff5640dcf`      |
-| deployment worker       | `5be7c13a8eb83569f75288a3782b624659e6cd9a`      |
+| deployment worker       | `34821346bda3799ef4cfcc7e49d73b31fe1813f9`      |
 | manifest contract       | `NRV-ADDON-RELEASE-MANIFEST-V2+JWS`             |
 | publication contract    | `NRV-ADDON-RELEASE-PUBLICATION-ATTESTATION+JWS` |
 | release ID              | `4b7e7030-4b72-5399-a008-b84765213d4a`          |
@@ -171,7 +171,9 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 | Webshop verification, commit `1cc0737`, run `32458131335` | **PASS** — Windows dependency graph i clean Linux build/package/packed-host candidate evidence; verification-only, bez publish-a                  |
 | Worker CI, commit `ecdc5a8`, run `32458375988`            | **PASS** — non-retryable mutating acceptance greška terminalizira se posle prvog pokušaja; Windows i Ubuntu/PostgreSQL/Chromium su zeleni         |
 | Worker CI, commit `5be7c13`, run `32459813095`            | **PASS** — control contract v2, external credential fingerprint/vault binding, Windows i Ubuntu/PostgreSQL/stvarni Chromium/runtime audit         |
+| Worker CI, commit `3482134`, run `32462354808`            | **PASS** — 120 s fenced lease sa 30 s heartbeat-om, abort-on-lost Chromium signal i long-running PostgreSQL handler test na Windows/Linux gate-u  |
 | GitHub Public CI, commit `72b6329`, run `32458450130`     | **PASS** — workflow validation, frozen install, DB migracija, 393-test matrica, public-copy build/NFT i supply-chain audit                        |
+| GitHub Public CI, commit `584c429`, run `32461610074`     | **PASS** — License Server packed-ready selector, activation-field selector i novi immutable add-on pinovi kroz kompletan frozen public gate       |
 | GitHub Public CI, commit `237a023`, run `32460575248`     | **PASS** — sva tri protected workflow-a pinovana na worker `5be7c13` i Webshop `03e3861`; frozen public verification i packed/NFT boundary zeleni |
 | Webshop verification, commit `03e3861`, run `32460668265` | **PASS** — Windows dependency graph i clean Linux build/package/packed-host nad CMS `237a023`; verification-only, bez publish-a                   |
 | GitHub Actions runtime pinovi                             | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti              |
