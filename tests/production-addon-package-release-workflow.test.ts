@@ -28,7 +28,10 @@ test("reusable package publisher is allowlisted and reviewer-environment protect
   assert.match(workflow, /NR_ADDON_RELEASE_PUBLIC_KEYS_B64/);
   assert.match(workflow, /production-release:\[0-9a-f\]\{16\}/);
   assert.match(workflow, /npm publish "\$TARBALL"/);
-  assert.match(workflow, /inputs\.mode.*reconcile|reconcile.*inputs\.mode/s);
+  assert.match(
+    workflow,
+    /inputs\.mode[\s\S]*reconcile|reconcile[\s\S]*inputs\.mode/,
+  );
   assert.doesNotMatch(workflow, /staging-release:|PERSONAL_ACCESS_TOKEN|\bPAT\b/);
 });
 
