@@ -542,10 +542,10 @@ dostupna; auth nije zaobiđen niti je baza ručno menjana. Zato formalna odluka
 ostaje `34 PASS / 34 NO_GO` dok se isti finalni RC ne izvrši na odobrenom
 stagingu.
 
-### Zaseban staging purchase handler
+### Šest zasebnih staging browser handlera
 
-Deployment worker `fce255308d463fd5d30a2071ba46f523f5290a52` dodaje četvrti
-independently-reviewed browser handler, `license_server_addon_purchase`. Handler
+Deployment worker `a80eb578954da00f238fd82636dbde0b8146ed67` zadržava
+`license_server_addon_purchase` kao independently-reviewed browser handler. Handler
 iz customer **Dashboard → License Server** prati potpisani vendor handoff,
 potvrđuje domain binding, kupuje zasebnu License Server ponudu kroz Stripe
 sandbox, čeka tačno jednu secure delivery karticu i reveal vrednost zadržava
@@ -556,13 +556,22 @@ instalacija ili aktivacija.
 Refaktorisani zajednički purchase deo koristi i postojeći
 `license_server_install_without_customer_webshop` handler, pa purchase i
 install scenario više ne mogu driftovati u checkout/fulfillment selektorima.
-Worker lokalno prolazi typecheck, lint, `118/118` DB testova uz jedan izdvojeni
+
+Isti worker dodaje još dva odvojena dokaza. `webshop_purchase` kupuje i managed-
+installira Webshop na čistom customer hostu, uz eksplicitnu proveru da License
+Server ostaje neinstaliran. `customer_local_issuer` polazi od spremnog License
+Servera, kupuje i instalira Webshop, čita javni V2 issuer descriptor, publishuje
+Product/Schema/Profile katalog i pravi issuerRef-proverenu local konekciju; tok se
+namerno završava pre izdavanja licence da ne duplira paid-delivery scenario.
+
+Worker lokalno prolazi typecheck, lint, `120/120` DB testova uz jedan izdvojeni
 browser test i zatim pravi Chromium smoke `1/1`. Worker CI run
-[`32513646822`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32513646822)
+[`32514708520`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32514708520)
 je **PASS** na PostgreSQL/Chromium i Windows jobovima.
 
-Acceptance registry sada ima `4/61` handlera i readiness namerno ostaje `503`
-dok svih 50 browser scenarija i 11 operator drillova nemaju stvarne handlere.
-Ovo zatvara lokalni implementation gap za `license_server_addon_purchase`, ali
-`PKG-05` ostaje `NO_GO` dok se isti handler ne izvrši nad pinovanim staging RC
-artifact setom.
+Acceptance registry sada ima `6/61` handlera i readiness namerno ostaje `503`:
+preostala 44 browser scenarija i svih 11 operator drillova nemaju stvarne
+handlere.
+Ovo zatvara lokalni implementation gap za tri navedena scenarija, ali njihovi
+production acceptance redovi ostaju `NO_GO` dok se handleri ne izvrše nad
+pinovanim staging RC artifact setom sa zaštićenim test identitetom.

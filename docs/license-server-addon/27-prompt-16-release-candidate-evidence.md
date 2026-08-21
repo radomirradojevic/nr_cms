@@ -588,21 +588,28 @@ zaobiđen, tajne nisu ispisane i nijedna poslovna tabela nije ručno mutirana.
 Approval ledger iz odeljka 9 zato ostaje važeći; posebno, package/release
 publish nije odobren niti izvršen.
 
-## 12. Četvrti acceptance handler i novi worker pin
+## 12. Šest acceptance handlera i novi worker pin
 
 Finalni acceptance-control worker je proširen commitom
-`fce255308d463fd5d30a2071ba46f523f5290a52`. Novi
+`a80eb578954da00f238fd82636dbde0b8146ed67`. Novi
 `license_server_addon_purchase` handler izvršava stvarnu vendorsku kupovinu i
 secure key delivery, ali namerno ne aktivira ili instalira paket na customer
 CMS-u. Posle plaćanja ponovo dokazuje `not_installed` za oba customer add-on-a.
 Postojeći standalone managed-install handler koristi isti izdvojeni purchase
 tok i zatim jedini nastavlja na unos ključa i `install_pending -> ready`.
 
+`webshop_purchase` zasebno dokazuje Webshop purchase/activation/managed-install
+na clean customer hostu, bez instaliranja License Servera. `customer_local_issuer`
+zatim dokazuje zajednički customer host: spreman License Server, naknadno kupljen
+i instaliran Webshop, javni staging issuer descriptor, published catalog i
+issuerRef-proverena local konekcija. Ne izdaje licencu, pa paid-delivery ostaje
+jedinstvena odgovornost postojećeg handlera.
+
 Worker CI
-[`32513646822`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32513646822)
+[`32514708520`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32514708520)
 je **PASS**. Private release, staging acceptance i production rollout workflow
-sada pin-uju taj tačan worker SHA. Registry ima `4/61` stvarna handlera i
-preostalih 57 ostaje fail-closed `scenario_unavailable`; readiness je i dalje
+sada pin-uju taj tačan worker SHA. Registry ima `6/61` stvarnih handlera i
+preostalih 55 ostaje fail-closed `scenario_unavailable`; readiness je i dalje
 `503`. Stari protected private verification run koji pin-uje prethodni worker
 postaje zastareo i mora biti zamenjen novim verification-only run-om. Nijedna
 od ovih izmena ne odobrava package publish ili deployment.
