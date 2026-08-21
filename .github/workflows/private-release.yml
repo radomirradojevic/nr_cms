@@ -27,7 +27,7 @@ jobs:
       NR_WEBSHOP_GIT_SHA: 3ff8e9f9475f69cb7e7dbff34d01a94d378fe610
       NR_LICENSE_SERVER_ADDON_GIT_SHA: 9f07ebdcf08f322a55899e7d94b7ec34c7408546
       NR_MASTER_GIT_SHA: 6cb7df171007706661f5a89c128a1d527fb4f145
-      NR_DEPLOYMENT_WORKER_GIT_SHA: e124950cc6d2177f877b8c1912977fc2d85b1575
+      NR_DEPLOYMENT_WORKER_GIT_SHA: 6e9bf7016654e5c3fcf3158a60edf501adfe2b8f
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -123,7 +123,12 @@ jobs:
           destination="$RUNNER_TEMP/private-release-artifacts"
           mkdir -p "$destination"
           npm --prefix "$NR_PRIVATE_WORKSPACE_ROOT/.private/webshop" run pack:release -- "$destination"
-          npm --prefix "$NR_PRIVATE_WORKSPACE_ROOT/.private/license-server-addon" pack --ignore-scripts --pack-destination "$destination"
+          (
+            cd "$NR_PRIVATE_WORKSPACE_ROOT/.private/license-server-addon"
+            npm pack --ignore-scripts --pack-destination "$destination"
+          )
+          test -f "$destination/radomirradojevic-webshop-0.6.36.tgz"
+          test -f "$destination/nr-cms-license-server-0.2.0.tgz"
           test "$(find "$destination" -maxdepth 1 -type f -name '*.tgz' | wc -l)" -eq 2
 
       - name: Export verified private RC tarballs

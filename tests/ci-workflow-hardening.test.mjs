@@ -204,6 +204,18 @@ test("Night Raven private, staging, and production gates use protected GitHub-ho
       privateRelease.indexOf("npm run acceptance:private-packages"),
     "private release must generate the fail-closed root registry before package verification",
   );
+  assert.match(
+    privateRelease,
+    /cd "\$NR_PRIVATE_WORKSPACE_ROOT\/\.private\/license-server-addon"\s+npm pack --ignore-scripts --pack-destination "\$destination"/,
+  );
+  assert.match(
+    privateRelease,
+    /test -f "\$destination\/nr-cms-license-server-0\.2\.0\.tgz"/,
+  );
+  assert.doesNotMatch(
+    privateRelease,
+    /npm --prefix "\$NR_PRIVATE_WORKSPACE_ROOT\/\.private\/license-server-addon" pack/,
+  );
 
   const production = readWorkflow("production-rollout.yml");
   assert.doesNotMatch(production, /environment:\s*production(?:\s|$)/);
