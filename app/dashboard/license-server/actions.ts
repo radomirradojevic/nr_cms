@@ -118,7 +118,7 @@ export async function activateLicenseServerAddonAction(
     };
   }
   try {
-    await dispatchOneAddonDeploymentOutbox();
+    await dispatchOneAddonDeploymentOutbox({ addonKey: "license-server" });
   } catch {
     // The durable outbox row remains retryable by the progress endpoint.
   }

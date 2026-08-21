@@ -1716,6 +1716,15 @@ export const en = {
       installPendingTitle: "Waiting for add-on install",
       installPendingDescription:
         "The license was accepted. Install the private License Server package, set LICENSE_SERVER_ADDON_MODULE, and rebuild or restart the CMS to finish setup.",
+      installProgress: {
+        queued: "Deployment queued",
+        installing: "Installing the License Server package",
+        finalizing: "Applying migrations and restarting the CMS",
+        ready: "License Server is ready. Opening the dashboard...",
+        failed: "Installation needs attention. Status checks will continue.",
+        reconnecting: "Reconnecting after the CMS restart...",
+        takingLonger: "This is taking longer than usual.",
+      },
       installLocked: "License Server install flow is locked",
       licenseRequiredDescription:
         "Buy or enter a valid License Server license key to activate this paid add-on for this CMS deployment.",

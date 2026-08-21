@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  isAddonInstallProgressResponse,
+  resolveAddonInstallProgressStage,
+} from "@/lib/addon-runtime/install-progress";
+import {
   isWebshopInstallProgressResponse,
   resolveWebshopInstallProgressStage,
 } from "@/lib/webshop-addon/install-progress";
@@ -50,6 +54,21 @@ test("managed Webshop install progress maps durable worker phases", () => {
     }),
     "failed",
   );
+});
+
+test("License Server and Webshop share one fail-closed progress contract", () => {
+  const input = {
+    activeServingFenceCount: 0,
+    installation: installation("install_pending"),
+  };
+  assert.equal(resolveAddonInstallProgressStage(input), "installing");
+  assert.equal(
+    resolveWebshopInstallProgressStage(input),
+    resolveAddonInstallProgressStage(input),
+  );
+  const response = { pollAfterMs: 2_500, stage: "installing" };
+  assert.equal(isAddonInstallProgressResponse(response), true);
+  assert.equal(isWebshopInstallProgressResponse(response), true);
 });
 
 test("ready is withheld while an active serving fence exists", () => {

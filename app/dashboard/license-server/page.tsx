@@ -101,6 +101,7 @@ export default async function LicenseServerDashboardPage() {
       {needsLicenseActivation ? (
         <WebshopLicenseActivation
           action={activateLicenseServerAddonAction}
+          addonKey="license-server"
           buyLabel={t("addons.licenseServer.buyLicenseKey")}
           description={t("addons.licenseServer.activationDescription")}
           inputId="license-server-license-key"

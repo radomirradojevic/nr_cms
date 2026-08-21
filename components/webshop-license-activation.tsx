@@ -24,6 +24,7 @@ const INITIAL_WEBSHOP_ACTIVATION_STATE: WebshopActivationFormState = {
 
 export function WebshopLicenseActivation({
   action,
+  addonKey = "webshop",
   buyLabel,
   buyUrl,
   purchaseIntentHandoff,
@@ -33,6 +34,7 @@ export function WebshopLicenseActivation({
   title,
 }: {
   action: ActivationAction;
+  addonKey?: "license-server" | "webshop";
   buyLabel?: string;
   /** Legacy non-Webshop activation may still use a normal informational link. */
   buyUrl?: string | null;
@@ -78,7 +80,11 @@ export function WebshopLicenseActivation({
   }
 
   return (
-    <div className="rounded-lg border bg-background p-5">
+    <div
+      className="rounded-lg border bg-background p-5"
+      data-nr-addon-key={addonKey}
+      data-nr-addon-state="activation_required"
+    >
       <div className="space-y-5">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted/40">
@@ -98,6 +104,7 @@ export function WebshopLicenseActivation({
             className="flex flex-wrap gap-2"
           >
             <Button
+              data-nr-addon-action="purchase"
               disabled={purchaseHandoffPending}
               onClick={submitPurchaseIntentHandoff}
               type="button"
@@ -116,7 +123,11 @@ export function WebshopLicenseActivation({
           </Button>
         ) : null}
 
-        <form action={formAction} className="space-y-5">
+        <form
+          action={formAction}
+          className="space-y-5"
+          data-nr-addon-action="activate"
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor={inputId}>{t("addons.common.licenseKey")}</Label>

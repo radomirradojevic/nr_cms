@@ -118,7 +118,7 @@ export async function activateWebshopAddonAction(
   // worker is temporarily unavailable, the progress endpoint keeps draining
   // the same idempotent outbox row while the administrator watches the install.
   try {
-    await dispatchOneAddonDeploymentOutbox();
+    await dispatchOneAddonDeploymentOutbox({ addonKey: "webshop" });
   } catch {
     // The committed outbox row remains authoritative and retryable. Never turn
     // a transient dispatch problem into a second activation or lose the job.

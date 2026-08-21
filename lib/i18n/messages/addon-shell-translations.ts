@@ -81,6 +81,8 @@ export const ADDON_SHELL_SOURCE_STRINGS = [
   "Back to License Server",
   "Buy License Server license key",
   "License Server cannot be installed",
+  "Installing the License Server package",
+  "License Server is ready. Opening the dashboard...",
   "The license was accepted. Install the private License Server package, set LICENSE_SERVER_ADDON_MODULE, and rebuild or restart the CMS to finish setup.",
   "License Server install flow is locked",
   "Buy or enter a valid License Server license key to activate this paid add-on for this CMS deployment.",
@@ -410,6 +412,13 @@ function buildAddonShellTranslations(
     ),
     "License Server cannot be installed": product(
       "cannotInstall",
+      terms,
+      licenseServer,
+      "LICENSE_SERVER_ADDON_MODULE",
+    ),
+    "Installing the License Server package": terms.labels.waitingForInstall,
+    "License Server is ready. Opening the dashboard...": product(
+      "ready",
       terms,
       licenseServer,
       "LICENSE_SERVER_ADDON_MODULE",

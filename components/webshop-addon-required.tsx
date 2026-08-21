@@ -29,7 +29,11 @@ export async function WebshopAddonRequired({
   const Icon = content.tone === "success" ? CheckCircle2 : content.icon;
 
   return (
-    <div className="rounded-lg border bg-background p-5">
+    <div
+      className="rounded-lg border bg-background p-5"
+      data-nr-addon-key="webshop"
+      data-nr-addon-state={state.status}
+    >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border bg-muted/40">
           <Icon className="h-5 w-5 text-muted-foreground" />

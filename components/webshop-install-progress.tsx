@@ -5,16 +5,16 @@ import { useRouter } from "next/navigation";
 
 import { Progress } from "@/components/ui/progress";
 import {
-  isWebshopInstallProgressResponse,
-  type WebshopInstallProgressStage,
-} from "@/lib/webshop-addon/install-progress";
+  isAddonInstallProgressResponse,
+  type AddonInstallProgressStage,
+} from "@/lib/addon-runtime/install-progress";
 
-type ProgressLabels = Record<WebshopInstallProgressStage, string> & {
+type ProgressLabels = Record<AddonInstallProgressStage, string> & {
   reconnecting: string;
   takingLonger: string;
 };
 
-const PROGRESS_VALUE: Record<WebshopInstallProgressStage, number> = {
+const PROGRESS_VALUE: Record<AddonInstallProgressStage, number> = {
   queued: 12,
   installing: 45,
   finalizing: 78,
@@ -24,9 +24,15 @@ const PROGRESS_VALUE: Record<WebshopInstallProgressStage, number> = {
 
 const SLOW_INSTALL_THRESHOLD_MS = 10 * 60 * 1_000;
 
-export function WebshopInstallProgress({ labels }: { labels: ProgressLabels }) {
+export function WebshopInstallProgress({
+  addonKey = "webshop",
+  labels,
+}: {
+  addonKey?: "license-server" | "webshop";
+  labels: ProgressLabels;
+}) {
   const router = useRouter();
-  const [stage, setStage] = useState<WebshopInstallProgressStage>("queued");
+  const [stage, setStage] = useState<AddonInstallProgressStage>("queued");
   const [reconnecting, setReconnecting] = useState(false);
   const [takingLonger, setTakingLonger] = useState(false);
 
@@ -56,7 +62,7 @@ export function WebshopInstallProgress({ labels }: { labels: ProgressLabels }) {
       controller?.abort();
       controller = new AbortController();
       try {
-        const response = await fetch("/api/webshop/installation-status", {
+        const response = await fetch(`/api/${addonKey}/installation-status`, {
           method: "POST",
           cache: "no-store",
           credentials: "same-origin",
@@ -65,7 +71,7 @@ export function WebshopInstallProgress({ labels }: { labels: ProgressLabels }) {
         });
         if (!response.ok) throw new Error(`status_${response.status}`);
         const payload: unknown = await response.json();
-        if (!isWebshopInstallProgressResponse(payload)) {
+        if (!isAddonInstallProgressResponse(payload)) {
           throw new Error("invalid_install_progress_response");
         }
 
@@ -111,12 +117,17 @@ export function WebshopInstallProgress({ labels }: { labels: ProgressLabels }) {
       controller?.abort();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [router]);
+  }, [addonKey, router]);
 
   const statusText = reconnecting ? labels.reconnecting : labels[stage];
 
   return (
-    <div className="max-w-3xl space-y-2" aria-live="polite">
+    <div
+      aria-live="polite"
+      className="max-w-3xl space-y-2"
+      data-nr-addon-key={addonKey}
+      data-nr-addon-stage={stage}
+    >
       <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
         <span>{statusText}</span>
         {takingLonger && stage !== "ready" ? (

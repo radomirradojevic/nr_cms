@@ -10,6 +10,7 @@ import { safeFetch } from "@/lib/security/outbound-url";
 import { signDeployRequest, verifyDeployResponse } from "@/lib/addon-runtime/deploy-hmac-v2";
 import { deploymentRequestV2Schema } from "@/lib/addon-runtime/deployment-contract-v2";
 import { requireManagedAddonDeploymentDescriptor } from "@/lib/addon-runtime/addon-descriptors";
+import type { ManagedAddonKey } from "@/lib/addon-runtime/addon-descriptors";
 
 const LEASE_MS = 30_000;
 const epoch = z.string().regex(/^[1-9][0-9]{0,18}$/).refine((value) => BigInt(value) <= BigInt("9223372036854775807"), "installation_epoch_out_of_range");
@@ -19,13 +20,19 @@ const responseSchema = z.object({
   generation: z.number().int().positive(), operationKey: z.string().min(1).max(500),
 }).strict();
 
-export async function dispatchOneAddonDeploymentOutbox(now = new Date()) {
+export async function dispatchOneAddonDeploymentOutbox(
+  input: { addonKey?: ManagedAddonKey; now?: Date } = {},
+) {
+  const now = input.now ?? new Date();
+  const ready = or(
+    and(eq(cmsAddonDeploymentOutbox.status, "pending"), lte(cmsAddonDeploymentOutbox.nextAttemptAt, now)),
+    and(eq(cmsAddonDeploymentOutbox.status, "retry"), lte(cmsAddonDeploymentOutbox.nextAttemptAt, now)),
+    and(eq(cmsAddonDeploymentOutbox.status, "sending"), lte(cmsAddonDeploymentOutbox.leaseExpiresAt, now)),
+  );
   const candidate = (await db.select().from(cmsAddonDeploymentOutbox).where(
-    or(
-      and(eq(cmsAddonDeploymentOutbox.status, "pending"), lte(cmsAddonDeploymentOutbox.nextAttemptAt, now)),
-      and(eq(cmsAddonDeploymentOutbox.status, "retry"), lte(cmsAddonDeploymentOutbox.nextAttemptAt, now)),
-      and(eq(cmsAddonDeploymentOutbox.status, "sending"), lte(cmsAddonDeploymentOutbox.leaseExpiresAt, now)),
-    ),
+    input.addonKey
+      ? and(ready, eq(cmsAddonDeploymentOutbox.addonKey, input.addonKey))
+      : ready,
   ).limit(1))[0];
   if (!candidate) return { outcome: "idle" as const };
   const leaseToken = randomUUID();

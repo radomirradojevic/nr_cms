@@ -7,8 +7,10 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { WebshopInstallProgress } from "@/components/webshop-install-progress";
 import { getTranslations } from "@/lib/i18n/server";
 import type { TranslateFn } from "@/lib/i18n/translate";
+import { getLicenseServerRuntimeConfig } from "@/lib/license-server-addon/config";
 import type { LicenseServerAddonState } from "@/lib/license-server-addon/contract";
 
 export async function LicenseServerAddonRequired({
@@ -20,11 +22,18 @@ export async function LicenseServerAddonRequired({
   >;
 }) {
   const t = await getTranslations("backend");
+  const managedInstall =
+    state.status === "install_pending" &&
+    getLicenseServerRuntimeConfig().installMode === "managed_redeploy";
   const content = getStateContent(state, t);
   const Icon = content.tone === "success" ? CheckCircle2 : content.icon;
 
   return (
-    <div className="rounded-lg border bg-background p-5">
+    <div
+      className="rounded-lg border bg-background p-5"
+      data-nr-addon-key="license-server"
+      data-nr-addon-state={state.status}
+    >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border bg-muted/40">
           <Icon className="h-5 w-5 text-muted-foreground" />
@@ -49,6 +58,28 @@ export async function LicenseServerAddonRequired({
                 providers: state.supportedProviders.join(", "),
               })}
             </p>
+          ) : null}
+          {managedInstall ? (
+            <WebshopInstallProgress
+              addonKey="license-server"
+              labels={{
+                failed: t("addons.licenseServer.installProgress.failed"),
+                finalizing: t(
+                  "addons.licenseServer.installProgress.finalizing",
+                ),
+                installing: t(
+                  "addons.licenseServer.installProgress.installing",
+                ),
+                queued: t("addons.licenseServer.installProgress.queued"),
+                ready: t("addons.licenseServer.installProgress.ready"),
+                reconnecting: t(
+                  "addons.licenseServer.installProgress.reconnecting",
+                ),
+                takingLonger: t(
+                  "addons.licenseServer.installProgress.takingLonger",
+                ),
+              }}
+            />
           ) : null}
         </div>
       </div>
