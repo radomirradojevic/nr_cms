@@ -9,7 +9,7 @@ objavljen ili instaliran u produkciji.
 | Vlasnik | Poseduje | Ne poseduje |
 | --- | --- | --- |
 | Root CMS | Javni SDK/bridge, `license_server_addon_entitlements` i generičke `cms_addon_*` installation/operation/outbox/result/migration-ledger tabele. | Customer licence, profile, claim schema i issuer ključeve. |
-| `@nr-cms/license-server` paket | Svih 17 `license_server_*`/`customer_issuer_*` domenskih tabela i njihove aditivne migracije. | Master entitlement/release katalog i Webshop tabele. |
+| `@radomirradojevic/license-server-addon` paket | Svih 17 `license_server_*`/`customer_issuer_*` domenskih tabela i njihove aditivne migracije. | Master entitlement/release katalog i Webshop tabele. |
 | Add-on deployment worker | Provera potpisanog release-a, exact allowlist, backup evidence, primena SQL-a i upis istorije u hostov `cms_addon_migrations`. | Business podatke i proizvoljne package/runtime putanje. |
 | Centralni Master License Server | Night Raven paid entitlement i tačno uparivanje `addonKey`/package release-a. | Izdavanje licenci za proizvode customer-a i customer issuer schema-u. |
 | Webshop add-on | Sopstvenu prodaju/fulfillment i svoj zaseban managed install descriptor. | License Server schema-u; nije instalaciona zavisnost License Server add-on-a. |
@@ -155,7 +155,7 @@ da se ponovi.
 Worker prihvata samo dva exact descriptora:
 
 - `webshop` → `@radomirradojevic/webshop`;
-- `license-server` → `@nr-cms/license-server`.
+- `license-server` → `@radomirradojevic/license-server-addon`.
 
 Target/profile konfiguracija je zatvoreni skup vendor/client/paypal × ta dva
 add-on-a. Credential record, privilege manifest, release manifest, artifact

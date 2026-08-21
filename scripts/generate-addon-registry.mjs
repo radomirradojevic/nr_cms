@@ -16,7 +16,7 @@ const releasePublicKeysPath = resolveBuildPath(
 const outputPath = resolve(root, ".generated", "addon-registry.ts");
 const allowlist = new Map([
   ["webshop", "@radomirradojevic/webshop/server"],
-  ["license-server", "@nr-cms/license-server/server"],
+  ["license-server", "@radomirradojevic/license-server-addon/server"],
 ]);
 const expectedHostBindings = {
   "license-server": [

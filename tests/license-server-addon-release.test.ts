@@ -6,8 +6,8 @@ import test from "node:test";
 import { validateAddonReleaseManifest } from "@/lib/addon-runtime/release-manifest";
 
 test("release manifest rejects the historical License Server package identity mismatch", () => {
-  const manifest = { addonKey: "license-server", artifact: { sha256: "a".repeat(64), size: 1 }, capabilities: [], cmsVersionRange: "^0.1.0", entrypoints: { server: "./server.js" }, manifestVersion: 1, migrations: [], packageName: "@nr-cms/license-server-addon", packageVersion: "1.0.0", releasedAt: "2026-07-12T00:00:00.000Z", runtimeContractVersion: "1", schemaVersion: 1, signature: "test", signingKid: "test" };
-  assert.equal(validateAddonReleaseManifest(manifest, { addonKey: "license-server", packageName: "@nr-cms/license-server" }).ok, false);
+  const manifest = { addonKey: "license-server", artifact: { sha256: "a".repeat(64), size: 1 }, capabilities: [], cmsVersionRange: "^0.1.0", entrypoints: { server: "./server.js" }, manifestVersion: 1, migrations: [], packageName: "@radomirradojevic/license-server-addon-addon", packageVersion: "1.0.0", releasedAt: "2026-07-12T00:00:00.000Z", runtimeContractVersion: "1", schemaVersion: 1, signature: "test", signingKid: "test" };
+  assert.equal(validateAddonReleaseManifest(manifest, { addonKey: "license-server", packageName: "@radomirradojevic/license-server-addon" }).ok, false);
 });
 
 test("license server release migrations include required production tables", () => {

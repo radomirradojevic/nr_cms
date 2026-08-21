@@ -42,8 +42,8 @@ keyset-a.
 | Committed snapshot signing, JWK set, rotation, backup/restore | `.private/license-server-addon/src/data/customer-issuer.ts` |
 | Issue receipt i activation binding | `src/data/operations.ts` i `src/data/activations.ts` u add-on paketu |
 | Javni metadata API | `src/api/routes.ts`; root ostaje samo generički route bridge |
-| Reference verifier | package export `@nr-cms/license-server/verifier`, izgrađen iz `src/lib/customer-license-verifier.ts` |
-| Language-neutral vectors | package export `@nr-cms/license-server/test-vectors/customer-license-assertion-v2` i source `test-vectors/customer-license-assertion-v2.json` |
+| Reference verifier | package export `@radomirradojevic/license-server-addon/verifier`, izgrađen iz `src/lib/customer-license-verifier.ts` |
+| Language-neutral vectors | package export `@radomirradojevic/license-server-addon/test-vectors/customer-license-assertion-v2` i source `test-vectors/customer-license-assertion-v2.json` |
 | Master keyset | van ovog toka; nije importovan, pozvan niti menjan |
 | Webshop | consumer javnog issuer ugovora; ne poseduje signing ključ ili License Server tabele |
 

@@ -639,7 +639,7 @@ Worker računa evidence iz committed ledger redova pod fence lock-om; isti recon
 - drugi terminalni result ID/body/status za isti `(operationId,workerJobId)` je incident conflict; prvi prihvaćeni callback trajno čuva `initial_ack=applied|stale_installation_ignored|stale_epoch_ignored|stale_generation_ignored`, dok exact replay istog result body-ja vraća HTTP `ack=duplicate` bez drugog state write-a;
 - late callback se validira prema historical operation snapshotu pa tek onda dobija stale ACK bez current mutacije; `rejected_before_switch` bez validnog `NoMutationTerminalEvidenceV1` ne dobija `applied`;
 - host capability mismatch pada pre migracije/switch-a i vraća sanitizovan dokazani error code;
-- `@nr-cms/license-server` je odbijen;
+- `@radomirradojevic/license-server-addon` je odbijen;
 - aktivni source nije patchovan in-place.
 
 ## 9. Faza 5 — vendor proizvod sa četiri licencna SKU-a

@@ -26,6 +26,6 @@ export type AddonMigrationManifestV2 = {
   readonly migrations: readonly AddonMigrationDescriptorV2[];
   readonly packageName:
     | "@radomirradojevic/webshop"
-    | "@nr-cms/license-server";
+    | "@radomirradojevic/license-server-addon";
   readonly packageVersion: string;
 };

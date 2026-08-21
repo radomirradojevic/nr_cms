@@ -55,7 +55,7 @@ await removeLegacyLocalAddonPackage("@nr-cms/webshop");
 await installLocalAddonPackage(webshopRoot, "@radomirradojevic/webshop");
 await installLocalAddonPackage(
   licenseServerAddonRoot,
-  "@nr-cms/license-server",
+  "@radomirradojevic/license-server-addon",
 );
 await run("node", ["scripts/generate-addon-registry.mjs"], {
   cwd: root,
@@ -216,7 +216,7 @@ function canonicalize(value) {
 async function writeLocalAddonRegistry(manifests) {
   const expectedPackages = new Map([
     ["webshop", "@radomirradojevic/webshop"],
-    ["license-server", "@nr-cms/license-server"],
+    ["license-server", "@radomirradojevic/license-server-addon"],
   ]);
   const entries = manifests.map((manifest) => {
     if (
@@ -527,7 +527,7 @@ async function installLocalAddonPackage(addonRoot, packageName) {
   ]);
   for (const entry of [
     "dist",
-    ...(packageName === "@nr-cms/license-server" ? ["examples"] : []),
+    ...(packageName === "@radomirradojevic/license-server-addon" ? ["examples"] : []),
     "migrations",
     "migrations.json",
     "package.json",

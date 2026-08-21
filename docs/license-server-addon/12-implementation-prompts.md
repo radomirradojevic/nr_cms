@@ -114,7 +114,7 @@ destruktivnog down migration-a.
 ## Prompt 03 — Release entrypoint i puni admin parity
 
 ```text
-Cilj: spakovani @nr-cms/license-server mora izložiti isti podržani proizvod koji
+Cilj: spakovani @radomirradojevic/license-server-addon mora izložiti isti podržani proizvod koji
 se vidi u development source entrypoint-u.
 
 1. Uporedi src/addon.tsx, src/release-addon.tsx, build-release skriptu, manifest i

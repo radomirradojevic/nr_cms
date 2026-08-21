@@ -405,18 +405,18 @@ privremeni V1 wrapper nad istim scheduler-om.
 OpenAPI 3.1 dokument se generiše iz istih strogih Zod request i response schema-a
 za health, issuer, keyset, catalog, operation i runtime tokove. Dostupan je kao
 `GET /api/license-server/v2/openapi.json`, ulazi u release artifact inventory i
-paket ga izvozi kao `@nr-cms/license-server/openapi-v2`. Javni error-i svuda
+paket ga izvozi kao `@radomirradojevic/license-server-addon/openapi-v2`. Javni error-i svuda
 referenciraju isti `ErrorEnvelope`.
 
 Language-neutral export-i su:
 
-- `@nr-cms/license-server/test-vectors/nrls2-hmac-v2` — integrator HMAC;
-- `@nr-cms/license-server/test-vectors/customer-license-assertion-v2` — strogi
+- `@radomirradojevic/license-server-addon/test-vectors/nrls2-hmac-v2` — integrator HMAC;
+- `@radomirradojevic/license-server-addon/test-vectors/customer-license-assertion-v2` — strogi
   potpis/time/rotation vektori;
-- `@nr-cms/license-server/test-vectors/customer-license-consumer-v2` — issuer,
+- `@radomirradojevic/license-server-addon/test-vectors/customer-license-consumer-v2` — issuer,
   keyset, activation, validate, file, feature, quota i organization primeri;
-- `@nr-cms/license-server/verifier` — dependency-free sync i pinned/cache klijent;
-- `@nr-cms/license-server/examples/typescript-consumer` — kopirljiv consumer
+- `@radomirradojevic/license-server-addon/verifier` — dependency-free sync i pinned/cache klijent;
+- `@radomirradojevic/license-server-addon/examples/typescript-consumer` — kopirljiv consumer
   modul koji koristi samo javne endpoint-e.
 
 ## 11. V1 → V2 upgrade i deprecation vodič

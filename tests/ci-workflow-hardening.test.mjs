@@ -210,7 +210,7 @@ test("Night Raven private, staging, and production gates use protected GitHub-ho
   );
   assert.match(
     privateRelease,
-    /test -f "\$destination\/nr-cms-license-server-0\.2\.0\.tgz"/,
+    /test -f "\$destination\/radomirradojevic-license-server-addon-0\.2\.0\.tgz"/,
   );
   assert.doesNotMatch(
     privateRelease,

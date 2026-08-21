@@ -14,7 +14,7 @@ Omogućiti da javni Night Raven CMS bude potpuno buildabilan i testabilan bez pr
 - Addon source koristi veliki broj host `@/` internih importa.
 - Managed activation proverava stari deployment, pokreće redeploy i ostavlja stanje u `install_pending`.
 - Posle novog deploymenta nema reconciliation-a koji proverava stvarno instaliran paket.
-- Centralni servis vraća `@nr-cms/license-server-addon`, dok je stvarni package `@nr-cms/license-server`.
+- Centralni servis vraća `@radomirradojevic/license-server-addon-addon`, dok je stvarni package `@radomirradojevic/license-server-addon`.
 - Webshop package/manifest/runtime verzije nisu usklađene.
 - Nema install callback-a, package checksum provere ili package-token redemption toka.
 - Privatni projekti nemaju lockfile/reproducibilan release pipeline.
@@ -121,7 +121,7 @@ Manifest je jedini source of truth za package identitet:
 interface SignedAddonReleaseManifestV1 {
   manifestVersion: 1;
   addonKey: "webshop" | "license-server";
-  packageName: "@radomirradojevic/webshop" | "@nr-cms/license-server";
+  packageName: "@radomirradojevic/webshop" | "@radomirradojevic/license-server-addon";
   packageVersion: string;
   runtimeContractVersion: "1";
   cmsVersionRange: string;
@@ -146,7 +146,7 @@ interface SignedAddonReleaseManifestV1 {
 
 Package `package.json`, runtime export i centralni catalog/release API moraju se generisati/proveravati prema ovom manifestu. Ne održavati tri ručno upisane verzije.
 
-Odmah ispraviti LSA identitet na stvarni dogovoreni package. Ako se zadržava `@nr-cms/license-server`, centralni servis, manifest, installer i registry moraju koristiti to ime. Rename package-a je zasebna migracija i ne sme se rešiti aliasima koji kriju mismatch.
+Odmah ispraviti LSA identitet na stvarni dogovoreni package. Ako se zadržava `@radomirradojevic/license-server-addon`, centralni servis, manifest, installer i registry moraju koristiti to ime. Rename package-a je zasebna migracija i ne sme se rešiti aliasima koji kriju mismatch.
 
 ## Package install grant
 
@@ -156,7 +156,7 @@ License activation ne treba direktno da vraća dugovečni registry credential. C
 {
   "grantId": "uuid",
   "addonKey": "license-server",
-  "packageName": "@nr-cms/license-server",
+  "packageName": "@radomirradojevic/license-server-addon",
   "packageVersion": "1.0.0",
   "artifactSha256": "...",
   "installationId": "uuid",
@@ -363,7 +363,7 @@ na registrovanom addonu i vraća controlled unavailable rezultat ako paketa nema
 Dodati su shared release-manifest parser i lokalna `cms_addon_installations` state tabela
 (`0083_cms_addon_installations`). Pure reconciliation proverava entitlement, runtime load,
 manifest identity/version/checksum, runtime contract, migracije i capabilities pre `ready`.
-Centralni LSA package identitet je `@nr-cms/license-server`, ali finalna verifikacija je našla
+Centralni LSA package identitet je `@radomirradojevic/license-server-addon`, ali finalna verifikacija je našla
 da package i source manifest verzije nisu usklađene ni za LSA ni za Webshop. To ostaje
 single-source identity blocker.
 

@@ -1,7 +1,7 @@
 export const MANAGED_ADDON_DEPLOYMENT_DESCRIPTORS = {
   "license-server": {
     addonKey: "license-server",
-    packageName: "@nr-cms/license-server",
+    packageName: "@radomirradojevic/license-server-addon",
     routeSegment: "license-server",
   },
   webshop: {

@@ -14,7 +14,7 @@ export const deploymentRequestV2Schema = z.object({
   version: z.literal(2), operationId: uuid, installationDeploymentEpoch: epoch,
   deploymentIntentKey: z.string().min(1).max(500), generation: z.number().int().min(1).max(2_147_483_647), supersedesOperationId: uuid.nullable(), operationKey: z.string().min(1).max(500),
   addonKey: z.enum(["webshop", "license-server"]), environment: z.enum(["development", "staging", "production"]), installationId: uuid,
-  releaseId: uuid, packageName: z.enum(["@radomirradojevic/webshop", "@nr-cms/license-server"]), packageVersion: semver,
+  releaseId: uuid, packageName: z.enum(["@radomirradojevic/webshop", "@radomirradojevic/license-server-addon"]), packageVersion: semver,
   artifactSha256: hash, dependencyLockSha256: hash, npmTarballSha256: hash, npmTarballIntegrity: z.string().regex(/^sha512-[A-Za-z0-9+/]+={0,2}$/),
   embeddedManifestSha256: hash, provenanceSha256: hash, sbomSha256: hash, publicationAttestationHash: hash, registryPackageVersionId: z.string().regex(/^[1-9][0-9]*$/),
   sourceReleasedAt: timestamp, publishedAt: timestamp, releaseSigningKid: z.string().min(1), runtimeContractVersion: z.literal("1"),
@@ -42,7 +42,7 @@ const deploymentResultBaseV2Schema = z.object({
   version: z.literal(2), resultId: uuid, operationId: uuid, installationId: uuid, installationDeploymentEpoch: epoch,
   deploymentIntentKey: z.string().min(1), generation: z.number().int().positive(), operationKey: z.string().min(1), workerJobId: uuid,
   targetProfile: z.enum(["vendor", "client", "paypal"]), environment: z.enum(["development", "staging", "production"]), status: z.literal("failed"), finalPhase: z.literal("rejected_before_switch"), runtimeStatus: z.literal("not_installed"),
-  releaseId: uuid, packageName: z.enum(["@radomirradojevic/webshop", "@nr-cms/license-server"]), packageVersion: semver, npmTarballSha256: hash, npmTarballIntegrity: z.string().regex(/^sha512-[A-Za-z0-9+/]+={0,2}$/),
+  releaseId: uuid, packageName: z.enum(["@radomirradojevic/webshop", "@radomirradojevic/license-server-addon"]), packageVersion: semver, npmTarballSha256: hash, npmTarballIntegrity: z.string().regex(/^sha512-[A-Za-z0-9+/]+={0,2}$/),
   artifactSha256: hash, dependencyLockSha256: hash, embeddedManifestSha256: hash, provenanceSha256: hash, sbomSha256: hash, publicationAttestationHash: hash,
   registryPackageVersionId: z.string().regex(/^[1-9][0-9]*$/), sourceReleasedAt: timestamp, publishedAt: timestamp, releaseSigningKid: z.string().min(1), runtimeContractVersion: z.literal("1"),
   cmsVersionRange: z.string().min(1), nodeVersionRange: z.string().min(1), nextVersionRange: z.string().min(1), minimumCoreSchemaVersion: z.number().int().min(1), schemaVersion: z.number().int().min(1),
@@ -73,7 +73,7 @@ export const deploymentResultV2Schema = z.discriminatedUnion("terminalEvidenceKi
     errorClass: z.enum(["retryable", "permanent", "incident"]), errorCode: z.string().regex(/^[a-z0-9_]+$/), activeReleaseId: uuid.nullable(), activeArtifactSha256: hash.nullable(), observedServicePointerReleaseId: uuid.nullable(),
   }),
 ]).superRefine((value, context) => {
-  try { requireManagedAddonDeploymentDescriptor(value.packageName === "@nr-cms/license-server" ? "license-server" : "webshop", value.packageName); }
+  try { requireManagedAddonDeploymentDescriptor(value.packageName === "@radomirradojevic/license-server-addon" ? "license-server" : "webshop", value.packageName); }
   catch { context.addIssue({ code: "custom", message: "managed_addon_descriptor_mismatch", path: ["packageName"] }); }
   if (value.terminalEvidenceKind === "no_mutation_receipt") {
     const servingPrevious = value.runtimeStatus === "ready";

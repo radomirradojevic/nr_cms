@@ -24,7 +24,7 @@ export const signedAddonReleaseManifestV1Schema = z.object({
   addonKey: addonKeySchema,
   packageName: z.enum([
     "@radomirradojevic/webshop",
-    "@nr-cms/license-server",
+    "@radomirradojevic/license-server-addon",
   ]),
   packageVersion: z.string().min(1),
   runtimeContractVersion: z.literal("1"),

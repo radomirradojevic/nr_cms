@@ -7,11 +7,11 @@ zaseban trust domen i koristi sopstveni `issuer`, `issuerRef` i Ed25519 keyset.
 Release paket sadrži CMS-nezavisne export-e:
 
 ```text
-@nr-cms/license-server/verifier
-@nr-cms/license-server/examples/typescript-consumer
-@nr-cms/license-server/test-vectors/customer-license-assertion-v2
-@nr-cms/license-server/test-vectors/customer-license-consumer-v2
-@nr-cms/license-server/openapi-v2
+@radomirradojevic/license-server-addon/verifier
+@radomirradojevic/license-server-addon/examples/typescript-consumer
+@radomirradojevic/license-server-addon/test-vectors/customer-license-assertion-v2
+@radomirradojevic/license-server-addon/test-vectors/customer-license-consumer-v2
+@radomirradojevic/license-server-addon/openapi-v2
 ```
 
 `./verifier` nema CMS, Webshop, React, Next, Drizzle ili server-only runtime
@@ -105,7 +105,7 @@ potpis ili vreme daju deny odluku.
 ## 3. Pinned online verifier
 
 ```ts
-import { createCustomerLicenseVerifier } from "@nr-cms/license-server/verifier";
+import { createCustomerLicenseVerifier } from "@radomirradojevic/license-server-addon/verifier";
 
 const verifier = createCustomerLicenseVerifier(trust);
 const decision = await verifier.verifyAssertion(assertion);
@@ -160,7 +160,7 @@ exception, nepoznat kod ili nevalidan response oblik aplikacija tretira kao deny
 import {
   parseCustomerLicenseFile,
   verifyCustomerLicenseAssertionV2,
-} from "@nr-cms/license-server/verifier";
+} from "@radomirradojevic/license-server-addon/verifier";
 
 const file = parseCustomerLicenseFile(JSON.parse(downloadedText));
 if (file.issuer !== trust.expectedIssuer) deny("issuer_mismatch");
@@ -306,7 +306,7 @@ npm run test:consumer
 ```
 
 Komanda izgradi i pakuje release, u novom privremenom projektu instalira samo
-packed `@nr-cms/license-server`, TypeScript-kompajlira kopirani primer i izvršava
+packed `@radomirradojevic/license-server-addon`, TypeScript-kompajlira kopirani primer i izvršava
 sve navedene odluke samo kroz javne package export-e. Ne koristi privatni
 monorepo import niti produkcioni issuer.
 

@@ -4,7 +4,7 @@ Datum provere: 16. avgust 2026.
 
 ## Ishod i granice vlasništva
 
-`@nr-cms/license-server` sada poseduje zaseban HTTP V2 router i njegovu API
+`@radomirradojevic/license-server-addon` sada poseduje zaseban HTTP V2 router i njegovu API
 schema-u. Router ne izdaje licencu samostalno: HMAC adapter prevodi zahtev u
 postojeći durable issue/lifecycle application servis, pa domain i remote poziv
 dele operation, idempotency i receipt. Centralni Master nije importovan niti

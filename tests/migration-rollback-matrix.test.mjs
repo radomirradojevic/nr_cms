@@ -58,7 +58,7 @@ test(
     const journal = JSON.parse(fs.readFileSync(centralJournalPath, "utf8"));
     const tags = centralMigrationTagsFromJournal(journal);
     assert.equal(tags.length, journal.entries.length);
-    assert.equal(tags.at(-1), "0018_addon_release_source_identity");
+    assert.equal(tags.at(-1), "0019_license_server_github_package_namespace");
     assert.equal(buildCentralMigrationApplyPlan(tags)[0].expectedMigrations, tags.join(","));
   },
 );

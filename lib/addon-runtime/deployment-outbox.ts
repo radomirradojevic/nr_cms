@@ -109,7 +109,7 @@ async function markTerminal(id: string, leaseToken: string, status: "failed", co
 }
 function deploymentWorkerConfig(
   addonKey: "webshop" | "license-server",
-  packageName: "@radomirradojevic/webshop" | "@nr-cms/license-server",
+  packageName: "@radomirradojevic/webshop" | "@radomirradojevic/license-server-addon",
 ) {
   const url = process.env.NR_ADDON_DEPLOYMENT_WORKER_URL?.trim();
   const kid = process.env.NR_ADDON_DEPLOYMENT_WORKER_AUTH_KID?.trim();

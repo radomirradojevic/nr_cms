@@ -637,7 +637,7 @@ Za vremenski osetljive asercije koristiti UTC, kontrolisan clock u testovima i d
 
 ### Paket i worker
 
-- package range, `latest`, nepoznat package ili `@nr-cms/license-server` → odbijanje;
+- package range, `latest`, nepoznat package ili `@radomirradojevic/license-server-addon` → odbijanje;
 - pogrešan tarball SHA/SRI, artifact/file hash, embedded-manifest/provenance/SBOM/attestation hash, registry package-version ID, source/published vreme, signature/KID ili schema bound → odbijanje pre package koda/builda;
 - install/lifecycle izvršen pre quarantine tarball/manifest/attestation/dependency-graph provere → test mora pasti;
 - potpisan migration descriptor sa `destructive=true` ili `rollbackPolicy=forward_only` → publisher/master import/worker admission `unsupported_migration_policy` pre DB lease-a, CMS phase write-a ili schema mutacije;

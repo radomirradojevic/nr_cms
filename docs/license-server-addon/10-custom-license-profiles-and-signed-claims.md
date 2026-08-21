@@ -310,14 +310,14 @@ da se dešifruje/proveri, issuer prelazi u `recovery_required`; sistem ne generi
 tiho novi issuer ili ključ.
 
 Paket izvozi CMS-nezavisni TypeScript/JavaScript verifier preko
-`@nr-cms/license-server/verifier`. Pored sinhronog verifier-a sa eksplicitnim
+`@radomirradojevic/license-server-addon/verifier`. Pored sinhronog verifier-a sa eksplicitnim
 keyset-om, export sadrži pinned issuer klijent sa bounded ETag/cache ponašanjem,
 deduplikovanim refresh-om i tačno jednim refresh pokušajem za nepoznat `kid`.
 Jezički neutralni assertion vektori su u
-`@nr-cms/license-server/test-vectors/customer-license-assertion-v2`, a javni
+`@radomirradojevic/license-server-addon/test-vectors/customer-license-assertion-v2`, a javni
 issuer/runtime/file/feature/quota/organization primeri u
-`@nr-cms/license-server/test-vectors/customer-license-consumer-v2`. Kopirljiv
-modul je `@nr-cms/license-server/examples/typescript-consumer`.
+`@radomirradojevic/license-server-addon/test-vectors/customer-license-consumer-v2`. Kopirljiv
+modul je `@radomirradojevic/license-server-addon/examples/typescript-consumer`.
 
 Vektori pokrivaju valid, tampered, expired, not-yet-valid, pogrešan issuer/
 audience/version/typ/alg, nepoznat `kid`, normalnu rotaciju i malformed token.

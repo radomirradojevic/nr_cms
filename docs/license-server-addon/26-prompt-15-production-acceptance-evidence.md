@@ -466,7 +466,7 @@ odbija CMS test bazu. Fokusirani regression test je `20/20` **PASS**, a tačna
 ranije neuspešna komanda sada prijavljuje `database is already up to date` i
 završava Next 16.3 build. Obe CMS/Master migracione matrice i svih osam
 remediation invarianta su potom **PASS**. Potpisani License Server → Master
-roundtrip je vezao `@nr-cms/license-server@0.2.0`, release
+roundtrip je vezao `@radomirradojevic/license-server-addon@0.2.0`, release
 `16ae4d96-9eae-56bb-9116-41d718cb4a2b`, artifact
 `87c59900c73460bff52c496f6972be3bd1da75f8094e1d39646bf8baf0c7de1c` i
 publication-attestation SHA-256

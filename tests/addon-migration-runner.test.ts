@@ -286,7 +286,7 @@ function releaseFixture() {
     manifestVersion: 1 as const,
     migrationBundleHash: hash(Buffer.from(canonicalJson(descriptors), "utf8")),
     migrations: descriptors,
-    packageName: "@nr-cms/license-server" as const,
+    packageName: "@radomirradojevic/license-server-addon" as const,
     packageVersion: "0.1.0",
     releasedAt: "2026-08-15T00:00:00.000Z",
     runtimeContractVersion: "1" as const,
@@ -304,7 +304,7 @@ function releaseFixture() {
     input: {
       addonKey: "license-server" as const,
       files,
-      packageName: "@nr-cms/license-server" as const,
+      packageName: "@radomirradojevic/license-server-addon" as const,
       publicKeyPem: publicKey
         .export({ format: "pem", type: "spki" })
         .toString(),
@@ -360,7 +360,7 @@ function releaseFixtureV2() {
     minimumCoreSchemaVersion: 1,
     nextVersionRange: "16.3.0",
     nodeVersionRange: ">=20.9.0 <25.0.0",
-    packageName: "@nr-cms/license-server" as const,
+    packageName: "@radomirradojevic/license-server-addon" as const,
     packageVersion: "0.2.0",
     purpose: "addon_release_manifest" as const,
     releaseId: "77782a45-86a8-53c6-9cf9-8ef05bb23324",
@@ -394,7 +394,7 @@ function releaseFixtureV2() {
     input: {
       addonKey: "license-server" as const,
       files,
-      packageName: "@nr-cms/license-server" as const,
+      packageName: "@radomirradojevic/license-server-addon" as const,
       publicKeyPem: publicKey
         .export({ format: "pem", type: "spki" })
         .toString(),

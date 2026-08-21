@@ -25,9 +25,9 @@ jobs:
       NR_PRIVATE_WORKSPACE_ROOT: ${{ github.workspace }}
       NR_CMS_RELEASE_SHA: b3330b056b9651bb2b038ac8cb41b52cfa5bd50b
       NR_WEBSHOP_GIT_SHA: 3ff8e9f9475f69cb7e7dbff34d01a94d378fe610
-      NR_LICENSE_SERVER_ADDON_GIT_SHA: 9f07ebdcf08f322a55899e7d94b7ec34c7408546
-      NR_MASTER_GIT_SHA: 6cb7df171007706661f5a89c128a1d527fb4f145
-      NR_DEPLOYMENT_WORKER_GIT_SHA: 6e9bf7016654e5c3fcf3158a60edf501adfe2b8f
+      NR_LICENSE_SERVER_ADDON_GIT_SHA: c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0
+      NR_MASTER_GIT_SHA: 76612151f53e57256304501be37cf0e663d8ad26
+      NR_DEPLOYMENT_WORKER_GIT_SHA: 0d9483b2d96267ef1208cff41dc2cb4cf86314f8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -128,7 +128,7 @@ jobs:
             npm pack --ignore-scripts --pack-destination "$destination"
           )
           test -f "$destination/radomirradojevic-webshop-0.6.36.tgz"
-          test -f "$destination/nr-cms-license-server-0.2.0.tgz"
+          test -f "$destination/radomirradojevic-license-server-addon-0.2.0.tgz"
           test "$(find "$destination" -maxdepth 1 -type f -name '*.tgz' | wc -l)" -eq 2
 
       - name: Export verified private RC tarballs

@@ -10,7 +10,7 @@ const semver = z.string().regex(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
 const sha256 = z.string().regex(/^sha256:[a-f0-9]{64}$/);
 const iso = z.string().datetime({ offset: true });
 const managedAddonKey = z.enum(["webshop", "license-server"]);
-const managedPackageName = z.enum(["@radomirradojevic/webshop", "@nr-cms/license-server"]);
+const managedPackageName = z.enum(["@radomirradojevic/webshop", "@radomirradojevic/license-server-addon"]);
 
 export const hostCapabilitiesV1Schema = z.object({
   descriptorVersion: z.literal(1),
@@ -46,7 +46,7 @@ const releaseSchema = z.object({
   migrationBundleHash: z.string().regex(/^[a-f0-9]{64}$/),
   supportedLicenseEditions: z.array(z.literal("standard")).min(1), channel: z.literal("stable"),
 }).strict().superRefine((value, context) => {
-  const expected = value.addonKey === "webshop" ? "@radomirradojevic/webshop" : "@nr-cms/license-server";
+  const expected = value.addonKey === "webshop" ? "@radomirradojevic/webshop" : "@radomirradojevic/license-server-addon";
   if (value.packageName !== expected) context.addIssue({ code: "custom", message: "managed_addon_descriptor_mismatch", path: ["packageName"] });
 });
 

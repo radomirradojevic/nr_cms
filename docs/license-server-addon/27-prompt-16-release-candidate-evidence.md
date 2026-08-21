@@ -31,7 +31,7 @@ DB+key restore i operator/canary dokazi ostaju obavezni.
 Legacy V1 paket i Webshop-only Master/worker putanja su zamenjeni sledećim
 fail-closed ugovorima:
 
-1. `@nr-cms/license-server` proizvodi canonical flattened EdDSA JWS release
+1. `@radomirradojevic/license-server-addon` proizvodi canonical flattened EdDSA JWS release
    manifest V2 i zaseban, create-only publication attestation.
 2. Artifact inventory, Windows x64 production dependency graph, CycloneDX 1.6
    SBOM, provenance, osam SQL checksum-a i osam schema postcondition hash-eva su
@@ -63,7 +63,7 @@ gate, ne SemVer sufiksom.
 
 | Polje                   | Vrednost                                        |
 | ----------------------- | ----------------------------------------------- |
-| package                 | `@nr-cms/license-server@0.2.0`                  |
+| package                 | `@radomirradojevic/license-server-addon@0.2.0`                  |
 | License Server source   | `9f07ebdcf08f322a55899e7d94b7ec34c7408546`      |
 | Webshop baseline        | `b81ae1d744b5c0634e358b60c4994455587d3f23`      |
 | CMS baseline            | `cd262ca34aff8823b04753454f9ef50ca774cf06`      |

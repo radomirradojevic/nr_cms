@@ -95,7 +95,7 @@ const releaseManifestV2PayloadSchema = z
     nodeVersionRange: z.string().min(1).max(100),
     packageName: z.enum([
       "@radomirradojevic/webshop",
-      "@nr-cms/license-server",
+      "@radomirradojevic/license-server-addon",
     ]),
     packageVersion: z
       .string()
@@ -126,7 +126,7 @@ const releaseManifestV2PayloadSchema = z
         value.webshopTagGitSha &&
         !value.sourceGitSha) ||
       (value.addonKey === "license-server" &&
-        value.packageName === "@nr-cms/license-server" &&
+        value.packageName === "@radomirradojevic/license-server-addon" &&
         value.sourceGitSha &&
         !value.webshopTagGitSha);
     if (!identityMatches) {
@@ -175,7 +175,7 @@ export type VerifiedAddonMigrationBundle = {
 export function verifyAddonMigrationBundle(input: {
   addonKey: AddonMigrationLedgerEntry["addonKey"];
   files: ReadonlyMap<string, Buffer | string>;
-  packageName: "@radomirradojevic/webshop" | "@nr-cms/license-server";
+  packageName: "@radomirradojevic/webshop" | "@radomirradojevic/license-server-addon";
   publicKeyPem: string;
   releaseManifest: unknown;
 }): VerifiedAddonMigrationBundle {

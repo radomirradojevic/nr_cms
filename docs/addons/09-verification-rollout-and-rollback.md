@@ -108,7 +108,7 @@ Definisati dokaz koji mora postojati pre zatvaranja svake P0/P1 faze i kontrolis
 Kao scenario 1, uz dodatno:
 
 - catalog/SKU addon key odgovara `license-server`;
-- install grant koristi tačan package `@nr-cms/license-server` ili konačno dogovoreni jedini identitet;
+- install grant koristi tačan package `@radomirradojevic/license-server-addon` ili konačno dogovoreni jedini identitet;
 - redeploy reconciliation završava `ready`;
 - addon vendor revalidation prolazi.
 

@@ -723,7 +723,7 @@ Odbija:
 - package range, dist-tag i nevalidan semver;
 - nepoznat addon/package mapping;
 - URL, git dependency, local path i tarball putanju iz requesta;
-- `@nr-cms/license-server` dok njegov release pipeline nije posebno završen;
+- `@radomirradojevic/license-server-addon` dok njegov release pipeline nije posebno završen;
 - production release potpisan development/fixture KID-em;
 - request-provided filesystem path, command, service name ili target.
 

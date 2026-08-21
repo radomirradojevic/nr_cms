@@ -10,7 +10,7 @@ usklađeni posle Prompt-a 06, **2026-08-16**.
 
 ### 1.1 Pakovanje i CMS lifecycle — POSTOJI ZA PROMPT 02 CONTRACT TOK
 
-- privatni paket `@nr-cms/license-server`, trenutno verzije `0.1.0`;
+- privatni paket `@radomirradojevic/license-server-addon`, trenutno verzije `0.1.0`;
 - potpisan release manifest, provenance, SBOM i generisani server bundle;
 - build-time add-on registry; nema proizvoljnog runtime importa putanje iz env-a;
 - install/activate/revalidate stanje preko centralnog Master entitlement-a;

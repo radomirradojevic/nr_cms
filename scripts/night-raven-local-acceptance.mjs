@@ -560,7 +560,7 @@ export async function runLocalAcceptance({
         assertPurchaseCompleted(result, "license-server");
         const checksum = sha256("local-license-server-package");
         const install = await request("cms", "/install", {
-          packageName: "@nr-cms/license-server",
+          packageName: "@radomirradojevic/license-server-addon",
           expectedAddonKey: "license-server",
           packageAddonKey: "license-server",
           checksum,

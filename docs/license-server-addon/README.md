@@ -1,7 +1,7 @@
 # License Server add-on — tehnička dokumentacija
 
 Ovaj direktorijum je autoritativna specifikacija za razvoj i produkciono
-puštanje plaćenog `@nr-cms/license-server` add-on-a. Dokumentacija je revidirana 20. avgusta 2026. poređenjem sa stvarnim stanjem u:
+puštanje plaćenog `@radomirradojevic/license-server-addon` add-on-a. Dokumentacija je revidirana 20. avgusta 2026. poređenjem sa stvarnim stanjem u:
 
 - `.private/license-server-addon`;
 - javnom CMS ugovoru u `lib/license-server-addon` i `packages/addon-sdk`;

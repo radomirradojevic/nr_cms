@@ -86,7 +86,7 @@ const licenseServerClaim = {
   release: {
     ...claim.release,
     addonKey: "license-server" as const,
-    packageName: "@nr-cms/license-server" as const,
+    packageName: "@radomirradojevic/license-server-addon" as const,
     packageVersion: "0.1.0",
     schemaVersion: 2,
     supportedAddonSchemaVersionMax: 2,
@@ -310,7 +310,7 @@ test(
       {
         addon_key: "license-server",
         status: "install_pending",
-        desired_package_name: "@nr-cms/license-server",
+        desired_package_name: "@radomirradojevic/license-server-addon",
         desired_package_version: "0.1.0",
       },
     ]);
@@ -318,13 +318,13 @@ test(
       {
         addon_key: "license-server",
         status: "pending",
-        package_name: "@nr-cms/license-server",
+        package_name: "@radomirradojevic/license-server-addon",
       },
     ]);
     assert.deepEqual(entitlement.rows, [
       {
         status: "install_pending",
-        package_name: "@nr-cms/license-server",
+        package_name: "@radomirradojevic/license-server-addon",
         package_version: "0.1.0",
         release_id: licenseServerClaim.release.releaseId,
       },

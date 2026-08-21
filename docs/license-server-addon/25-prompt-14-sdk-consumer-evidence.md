@@ -5,7 +5,7 @@ Datum završnog pregleda: **2026-08-20**
 ## 1. Ishod
 
 DX-01, DX-02, DX-04, DX-05 i CRYPTO consumer vektori su zeleni. Kupac može da
-preuzme packed `@nr-cms/license-server`, koristi samo javni verifier i public
+preuzme packed `@radomirradojevic/license-server-addon`, koristi samo javni verifier i public
 issuer/runtime endpoint-e i sprovede offline file, activation, online validate,
 feature, quota i organization odluke bez čitanja CMS/Webshop internog koda.
 
@@ -15,7 +15,7 @@ i lokalni deterministic fetch adapter.
 
 ## 2. Javni verifier ugovor
 
-`@nr-cms/license-server/verifier` izvozi:
+`@radomirradojevic/license-server-addon/verifier` izvozi:
 
 - `verifyCustomerLicenseAssertionV2` za eksplicitno pin-ovan offline keyset;
 - `createCustomerLicenseVerifier` za HTTPS issuer discovery i JWK fetch;
@@ -50,7 +50,7 @@ Paket izlaže:
 ```
 
 Consumer primer ima TypeScript i JavaScript modul, executable demo i README.
-Primer poziva samo `@nr-cms/license-server/verifier` i javne
+Primer poziva samo `@radomirradojevic/license-server-addon/verifier` i javne
 `/issuer`, `/keys`, `/licenses/activate` i `/licenses/validate` endpoint-e. Ne
 sadrži HMAC, customer signing/wrapping ključ, Master secret, CMS alias ili
 `.private` import.
@@ -75,7 +75,7 @@ validate request/response i deny-by-default feature/quota/organization odluke.
    consumer primer;
 3. u novom OS privremenom direktorijumu instalira samo taj tarball uz
    `--legacy-peer-deps --offline`;
-4. proverava da lockfile ima samo `@nr-cms/license-server`;
+4. proverava da lockfile ima samo `@radomirradojevic/license-server-addon`;
 5. kopira primer iz instaliranog paketa i kompajlira ga sa strict TypeScript;
 6. izvršava initial cache, unknown-kid rotation refresh, offline file,
    activation, validation, feature, quota i organization scenario;
