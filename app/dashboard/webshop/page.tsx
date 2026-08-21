@@ -49,7 +49,11 @@ export default async function WebshopDashboardPage() {
     ]);
     if (!rows[0]) {
       return (
-        <div className="mx-auto w-full max-w-[var(--backend-content-max-width)] space-y-6 p-6">
+        <div
+          className="mx-auto w-full max-w-[var(--backend-content-max-width)] space-y-6 p-6"
+          data-nr-addon-key="webshop"
+          data-nr-addon-state="ready"
+        >
           <div>
             <h1 className="text-2xl font-semibold">
               {t("addons.webshop.title")}
@@ -106,9 +110,7 @@ export default async function WebshopDashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[var(--backend-content-max-width)] space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold">
-          {t("addons.webshop.title")}
-        </h1>
+        <h1 className="text-2xl font-semibold">{t("addons.webshop.title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t("addons.webshop.description")}
         </p>

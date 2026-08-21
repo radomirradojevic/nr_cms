@@ -31,6 +31,10 @@ const webshopStateSource = readFileSync(
   "components/webshop-addon-required.tsx",
   "utf8",
 );
+const webshopPageSource = readFileSync(
+  "app/dashboard/webshop/page.tsx",
+  "utf8",
+);
 
 test("License Server install status is admin-authorized before durable state access", () => {
   const authIndex = routeSource.indexOf("await auth()");
@@ -57,8 +61,10 @@ test("packed browser polling exposes stable add-on lifecycle identifiers", () =>
   );
   assert.match(progressSource, /data-nr-addon-stage=\{stage\}/);
   assert.match(activationSource, /data-nr-addon-field="license-key"/);
+  assert.match(activationSource, /data-nr-addon-result=\{state\.status\}/);
   assert.match(licenseStateSource, /data-nr-addon-state=\{state\.status\}/);
   assert.match(webshopStateSource, /data-nr-addon-state=\{state\.status\}/);
+  assert.match(webshopPageSource, /data-nr-addon-state="ready"/);
 });
 
 test("manual activation and polling claim only their own add-on outbox", () => {

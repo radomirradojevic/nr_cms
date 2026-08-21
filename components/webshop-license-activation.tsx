@@ -143,6 +143,7 @@ export function WebshopLicenseActivation({
 
           {state.status !== "idle" && state.message ? (
             <p
+              data-nr-addon-result={state.status}
               className={
                 state.status === "success"
                   ? "text-sm text-emerald-600"
