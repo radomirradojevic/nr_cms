@@ -67,7 +67,7 @@ gate, ne SemVer sufiksom.
 | License Server source   | `6bdb1c8c06a062bd98313af941d774fa535b1f99`      |
 | CMS baseline            | `9c1ed9042642e9c82cd57d26db4f481ac2c537c6`      |
 | centralni Master        | `8fa03719a6040613ab6c796a31b2b87ff5640dcf`      |
-| deployment worker       | `9c7ffef59812aa5153f61f2f62b02ece0fdc1e9c`      |
+| deployment worker       | `ecdc5a8c9b78f8f2da42d5199686b951dc1857d3`      |
 | manifest contract       | `NRV-ADDON-RELEASE-MANIFEST-V2+JWS`             |
 | publication contract    | `NRV-ADDON-RELEASE-PUBLICATION-ATTESTATION+JWS` |
 | release ID              | `4b7e7030-4b72-5399-a008-b84765213d4a`          |
