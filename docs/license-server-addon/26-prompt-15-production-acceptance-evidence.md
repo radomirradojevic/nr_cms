@@ -541,3 +541,28 @@ zaštićenog storage-state/test identiteta, a in-app browser sesija nije bila
 dostupna; auth nije zaobiđen niti je baza ručno menjana. Zato formalna odluka
 ostaje `34 PASS / 34 NO_GO` dok se isti finalni RC ne izvrši na odobrenom
 stagingu.
+
+### Zaseban staging purchase handler
+
+Deployment worker `fce255308d463fd5d30a2071ba46f523f5290a52` dodaje četvrti
+independently-reviewed browser handler, `license_server_addon_purchase`. Handler
+iz customer **Dashboard → License Server** prati potpisani vendor handoff,
+potvrđuje domain binding, kupuje zasebnu License Server ponudu kroz Stripe
+sandbox, čeka tačno jednu secure delivery karticu i reveal vrednost zadržava
+samo u memoriji. Posle kupovine ponovo proverava da su customer License Server i
+customer Webshop i dalje `not_installed`; time kupovina nije predstavljena kao
+instalacija ili aktivacija.
+
+Refaktorisani zajednički purchase deo koristi i postojeći
+`license_server_install_without_customer_webshop` handler, pa purchase i
+install scenario više ne mogu driftovati u checkout/fulfillment selektorima.
+Worker lokalno prolazi typecheck, lint, `118/118` DB testova uz jedan izdvojeni
+browser test i zatim pravi Chromium smoke `1/1`. Worker CI run
+[`32513646822`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32513646822)
+je **PASS** na PostgreSQL/Chromium i Windows jobovima.
+
+Acceptance registry sada ima `4/61` handlera i readiness namerno ostaje `503`
+dok svih 50 browser scenarija i 11 operator drillova nemaju stvarne handlere.
+Ovo zatvara lokalni implementation gap za `license_server_addon_purchase`, ali
+`PKG-05` ostaje `NO_GO` dok se isti handler ne izvrši nad pinovanim staging RC
+artifact setom.
