@@ -141,25 +141,28 @@ schema-compatible paket; inače se radi forward-fix ili formalno odobren restore
 
 ## 6. Izvršene lokalne kapije
 
-| Komponenta / komanda                                   | Rezultat                                                                                                                                        |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| License Server `npm run test:db:local`                 | **113/113 PASS**, 0 skip                                                                                                                        |
-| License Server `npm run typecheck`                     | **PASS** release + host                                                                                                                         |
-| License Server `npm run pack:verify`                   | **PASS**, dva byte-identical pack-a za isti build/key                                                                                           |
-| `npm run test:release:master-roundtrip`                | **PASS**, producer/Master/worker/packed CMS                                                                                                     |
-| centralni Master `npm run test:db`                     | **81/81 PASS**, 0 skip                                                                                                                          |
-| centralni Master `npm run typecheck`                   | **PASS**                                                                                                                                        |
-| deployment worker `npm run test:db`                    | **85/85 PASS**, 0 skip                                                                                                                          |
-| deployment worker `npm run lint` / `typecheck`         | **PASS / PASS**                                                                                                                                 |
-| root CMS `npm run test`                                | **381 PASS**, 0 fail, 10 environment-gated skip                                                                                                 |
-| root CMS `npm run lint` / `typecheck`                  | **PASS sa 12 postojećih warning-a / PASS**                                                                                                      |
-| GitHub Public CI, commit `9c1ed90`, run `32413917814`  | **PASS** — clean checkout/install, fail-closed registry, DB migracije, testovi, packed public-copy build/NFT boundary i public dependency audit |
-| GitHub Private Release Verification, run `32413928892` | **PASS** — protected GitHub-hosted clean checkout, staging potpis, oba add-on build/test/pack ciklusa i isolated packed-host smoke              |
-| GitHub Public CI, commit `8046d94`, run `32416627151`  | **PASS** — sva četiri workflow-a kroz checksum-pinovan actionlint/hosted ShellCheck, zatim kompletan frozen public verification                 |
-| GitHub Public CI, commit `824ff0b`, run `32418106892`  | **PASS** — evidence-directory binding, fail-closed input provisioner, 391 test, packed build/NFT i supply-chain audit                           |
-| GitHub Public CI, commit `2111122`, run `32420508525`  | **PASS** — prenosivi runner, odvojen operator identitet, exact Playwright/control-plane evidence, 398 testova i packed/NFT/supply-chain gate    |
-| Worker CI, commit `752f47f`, run `32454258083`         | **PASS** — Windows contract/build i Ubuntu PostgreSQL, stvarni Playwright Chromium boundary i runtime dependency audit                        |
-| GitHub Actions runtime pinovi                          | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti            |
+| Komponenta / komanda                                      | Rezultat                                                                                                                                        |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| License Server `npm run test:db:local`                    | **113/113 PASS**, 0 skip                                                                                                                        |
+| License Server `npm run typecheck`                        | **PASS** release + host                                                                                                                         |
+| License Server `npm run pack:verify`                      | **PASS**, dva byte-identical pack-a za isti build/key                                                                                           |
+| `npm run test:release:master-roundtrip`                   | **PASS**, producer/Master/worker/packed CMS                                                                                                     |
+| centralni Master `npm run test:db`                        | **81/81 PASS**, 0 skip                                                                                                                          |
+| centralni Master `npm run typecheck`                      | **PASS**                                                                                                                                        |
+| deployment worker `npm run test:db`                       | **85/85 PASS**, 0 skip                                                                                                                          |
+| deployment worker `npm run lint` / `typecheck`            | **PASS / PASS**                                                                                                                                 |
+| root CMS `npm run test`                                   | **381 PASS**, 0 fail, 10 environment-gated skip                                                                                                 |
+| root CMS `npm run lint` / `typecheck`                     | **PASS sa 12 postojećih warning-a / PASS**                                                                                                      |
+| GitHub Public CI, commit `9c1ed90`, run `32413917814`     | **PASS** — clean checkout/install, fail-closed registry, DB migracije, testovi, packed public-copy build/NFT boundary i public dependency audit |
+| GitHub Private Release Verification, run `32413928892`    | **PASS** — protected GitHub-hosted clean checkout, staging potpis, oba add-on build/test/pack ciklusa i isolated packed-host smoke              |
+| GitHub Public CI, commit `8046d94`, run `32416627151`     | **PASS** — sva četiri workflow-a kroz checksum-pinovan actionlint/hosted ShellCheck, zatim kompletan frozen public verification                 |
+| GitHub Public CI, commit `824ff0b`, run `32418106892`     | **PASS** — evidence-directory binding, fail-closed input provisioner, 391 test, packed build/NFT i supply-chain audit                           |
+| GitHub Public CI, commit `2111122`, run `32420508525`     | **PASS** — prenosivi runner, odvojen operator identitet, exact Playwright/control-plane evidence, 398 testova i packed/NFT/supply-chain gate    |
+| Worker CI, commit `752f47f`, run `32454258083`            | **PASS** — Windows contract/build i Ubuntu PostgreSQL, stvarni Playwright Chromium boundary i runtime dependency audit                          |
+| Webshop verification, commit `1cc0737`, run `32458131335` | **PASS** — Windows dependency graph i clean Linux build/package/packed-host candidate evidence; verification-only, bez publish-a                |
+| Worker CI, commit `ecdc5a8`, run `32458375988`            | **PASS** — non-retryable mutating acceptance greška terminalizira se posle prvog pokušaja; Windows i Ubuntu/PostgreSQL/Chromium su zeleni       |
+| GitHub Public CI, commit `72b6329`, run `32458450130`     | **PASS** — workflow validation, frozen install, DB migracija, 393-test matrica, public-copy build/NFT i supply-chain audit                      |
+| GitHub Actions runtime pinovi                             | **PASS** — official `checkout@v7.0.1`, `setup-node@v7.0.0` i `upload-artifact@v7.0.1` razrešeni su na immutable commit SHA vrednosti            |
 
 Master DB suite uključuje generički immutable draft/import/publish/select
 catalog contract i poseban paid License Server staging-entitlement izbor.
@@ -231,6 +234,33 @@ završen u `21:41:59Z` statusom **success** za 2m19s. Staging-only control-plane
 osnova je zatim dodata u worker i potvrđena run-om `32454258083`. NO-GO ostaje:
 proces nije deploymentovan, nedostaje svih 61 konkretan handler, a tri stvarna
 credential-a i staging scenario rezultati još nisu provisionovani.
+
+Poslednja verification-only Webshop provera izvršena je kroz GitHub Actions run
+[`32458131335`](https://github.com/radomirradojevic/webshop/actions/runs/32458131335)
+nad Webshop commit-om `1cc07377e35650f6b981b2a2e70181df43692d79` i CMS
+commit-om `620b9c2a79f7a79933482d05223210f0cac2dbd6`. Candidate evidence za
+`@radomirradojevic/webshop@0.6.35` beleži artifact-inventory SHA-256
+`f0fdab3766957b427579c0e22ee2b1f3041ff9abfc878f2fa92b708342bb763e`,
+migration-bundle SHA-256
+`1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef`
+i dependency-lock SHA-256
+`04f306a83957e921fbfcf3538bb33faa5b0443d73b9e48c1d3220be8a5bf88df`.
+GitHubov digest uploadovanog evidence ZIP artefakta je zaseban transportni hash
+`529abd0dd71ad3705e2113e2e48d2ba4a099d43be4084ff8985431ae8c977542`
+i ne poredi se sa runtime inventory digestom. Run nije koristio production
+signing authority i nije publish-ovao paket.
+
+Ovaj Webshop candidate tuple je istorijski verifikacioni dokaz, ne trenutni
+finalni RC: posle njega je CMS pomeren na
+`72b6329bb6cdf6351a42b3eda7d0a91ce43f030c`, a worker na
+`ecdc5a8c9b78f8f2da42d5199686b951dc1857d3`. Oba nova head-a su potvrđena
+zelenim run-ovima
+[`32458450130`](https://github.com/radomirradojevic/nr_cms/actions/runs/32458450130)
+i
+[`32458375988`](https://github.com/radomirradojevic/addon-deployment-worker/actions/runs/32458375988).
+Zato se finalni multi-repo RC mora ponovo izgraditi iz zamrznutog tuple-a tek
+posle zatvaranja staging gate-ova; nijedan raniji digest se ne promoviše kao
+release digest.
 
 ## 7. Canary i rollback/forward-fix plan
 
