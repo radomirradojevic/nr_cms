@@ -2,7 +2,7 @@
 
 Datum pripreme: **20. avgust 2026.**  
 Poslednja tehnička dopuna: **21. avgust 2026.**
-Odluka: **NO-GO / GITHUB-HOSTED RC VERIFICATION READY / NOT PUBLISHED**
+Odluka: **NO-GO / GITHUB-HOSTED RC VERIFIED / PACKAGE PUBLISH NIJE ODOBREN**
 
 Ovaj zapis primenjuje `09-release-runbook.md` na finalni Prompt 15 audit. U ovom
 koraku nisu izvršeni package publish, stvarni Master draft import/publish,
@@ -632,3 +632,84 @@ preostala 53 ostaju fail-closed `scenario_unavailable`; readiness je i dalje
 `503`. Stari protected private verification run koji pin-uje prethodni worker
 postaje zastareo i mora biti zamenjen novim verification-only run-om. Nijedna
 od ovih izmena ne odobrava package publish ili deployment.
+
+## 13. Autoritativni hosted RC operator gate — run 32516781139
+
+Za finalni worker pin i kompletan source tuple izvršen je protected GitHub
+Private Release Verification run
+[`32516781139`](https://github.com/radomirradojevic/nr_cms/actions/runs/32516781139).
+Reviewer komentar bio je tačno `verification-only-no-publish-or-deployment`.
+Run je 21. avgusta 2026. završio **SUCCESS** za 4 min 45 s: sva četiri private
+checkout-a, ephemeral staging release authority, oba build/test/pack ciklusa i
+oba isolated Next `16.3.0` packed-host smoke-a su prošli. Nije izvršen registry
+publish, Master write, availability promena niti target deployment.
+
+Tačan pinovani tuple:
+
+| Komponenta | Commit |
+| --- | --- |
+| workflow/evidence CMS | `a143d1dd2c285f8d11088680e20eb1261fbbcb46` |
+| packed runtime CMS | `bee6ca64f247723cf2472def6408787b4d4f3dd5` |
+| License Server add-on | `c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0` |
+| Webshop | `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610` |
+| centralni Master | `76612151f53e57256304501be37cf0e663d8ad26` |
+| deployment worker | `035c7b0dbaf0af95e526ae741c3c764163d5b8d0` |
+
+Autoritativni hosted RC podaci dobijeni su nezavisnim čitanjem sačuvanih
+workflow artefakata:
+
+| Polje | License Server | Webshop |
+| --- | --- | --- |
+| package | `@radomirradojevic/license-server-addon@0.2.0` | `@radomirradojevic/webshop@0.6.36` |
+| release ID | `e84e77ca-b621-5e6b-90e7-5dd4548e6938` | `a26088d5-1601-525f-9a6d-eccdd3db6c26` |
+| source commit u potpisanom manifestu | `c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0` | `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610` |
+| canonical runtime artifact SHA-256 | `3429107051b5442f7396fb1347aac23867e261d3b33d9cb04b81d10188dda0e9` | `188489a38388c35ba86727a3ac2c7801cee25d3b57b29373c6469c572ffaafe7` |
+| hosted `.tgz` SHA-256 | `a0587951fc8d46268b5659af3bcfda5fbd9cd0513dd176da84de31dbcc3272cc` | `a6f4b4e2236c5a5750ae5330a5f334e7d394f9c9c667d1a550cb5c89550ea5b1` |
+| signed manifest file SHA-256 | `a17956fb4f73c72f851a88dd40b5b0b35e520d934a5462e5228d262b0a1aa804` | `517009090d5f5c3e35e09361889d0efc5ae0c7ff15711499262f3eee8e25866b` |
+| provenance SHA-256 | `6d0ce4537f2b903a6dfa73830fbb7c09008b81c7387f32db4092f1ef8bf96d85` | `26ca6dd84f6591603552c43c2e90d25f8914750494ea90856ac2c8c0c9c1d5b1` |
+| CycloneDX 1.6 SBOM SHA-256 | `3dcf64c544fb1e30ee17ca15b2bb0974fab33e62d69641639cf8c9d08f62d730` | `59debb2ea23ce4b8842406bf7930f6cf4d7925ee20cc0725d05bc9251c877dc3` |
+| migration bundle SHA-256 | `e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44` | `1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef` |
+| schema / supported range | `8 / 1..8` | `10 / 1..10` |
+| migration policy | `8/8 non-destructive, backup required, expand-compatible` | `10/10 non-destructive, backup required, expand-compatible` |
+
+Oba potpisana manifesta vezuju runtime CMS
+`bee6ca64f247723cf2472def6408787b4d4f3dd5`, CMS range `^0.1.0`, Next
+`16.3.0` i runtime contract `1`. License Server dozvoljava Node
+`>=20.9.0 <25.0.0`; Webshop je strože pinovan na `>=24.15.0 <25.0.0`.
+License Server SBOM ima 128 komponenti i 108 inventory ulaza, a Webshop 400
+inventory ulaza. Public release-keyset file SHA-256 je
+`c584335f50f96b366488f4776a278eb88e4a475dc6784d937ec2ec796d4db4b3`.
+
+GitHub transport artefakti su privremeni, ističu 28. avgusta 2026:
+
+- `private-addon-rc-tarballs-32516781139`, artifact ID `9460708241`, ZIP digest
+  `sha256:15d25f929c36a8f2b0f6e14f57d6141449a175718d3115620a959f36fddab5f8`;
+- `addon-release-public-keyset-32516781139`, artifact ID `9460709007`, ZIP
+  digest
+  `sha256:bb961ad7dcfeab05847ef02aa762e9b06076795b5a024d507f4587b4bf45e70d`.
+
+Hosted `.tgz` vrednosti se namerno razlikuju od lokalnih tarball digest-a iz
+odeljka 11 zato što potpis, release ID, `releasedAt` i provenance pripadaju
+drugom authority/build pozivu. Canonical runtime artifact i migration digest
+služe za poređenje sadržaja; transportni ZIP, `.tgz` i lokalni reproducibility
+digest ne smeju se predstavljati kao ista veličina.
+
+### Operator plan pre package publish odluke
+
+- Migracije su isključivo expand-compatible, ali svaka zahteva šifrovan DB+key
+  backup. Service switch sledi tek posle checksum i schema-postcondition provere.
+- Canary ostaje jedan allowlisted customer/product/SKU/install. Gate-ovi i
+  72-časovni period iz odeljka 7 ostaju nepromenjeni.
+- App rollback je dozvoljen samo na prethodni dokazano schema-compatible digest;
+  bez njega se koristi forward-fix ili posebno odobren restore.
+- Stvarni production publish mora ponovo potpisati tačne finalne bajtove
+  production release authority/KMS ključem i napraviti create-only publication
+  attestation za immutable registry version ID. Trenutni KID
+  `staging-release:1c78bf2cb70b0717` nije production authority.
+- Staging restore i svih 34 Prompt 15 production/staging dokaza ostaju otvoreni;
+  hosted package verifikacija ih ne pretvara u PASS.
+
+Ovo zatvara Prompt 16 korake 1–4 do obaveznog ljudskog gate-a. Sledeća dozvola
+mora eksplicitno glasiti **package/release publish GO**; verification odobrenje
+za run `32516781139` nije ta dozvola. Posle publish-a sledi zaseban Master draft
+import/staging entitlement korak, pa novo i odvojeno Master publish odobrenje.

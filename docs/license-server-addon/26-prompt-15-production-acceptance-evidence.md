@@ -590,3 +590,22 @@ Ovo zatvara lokalni implementation gap za navedene scenarije, ali njihovi
 production acceptance redovi ostaju `NO_GO` dok se handleri ne izvrše nad
 pinovanim staging RC artifact setom sa zaštićenim test identitetom i operatorom
 provisionovanim isolation helperom/digestom.
+
+## Hosted RC verifikacija finalnog tuple-a — 21. avgust 2026.
+
+Protected Private Release Verification run
+[`32516781139`](https://github.com/radomirradojevic/nr_cms/actions/runs/32516781139)
+je uz eksplicitni komentar `verification-only-no-publish-or-deployment` završio
+**SUCCESS** za 4 min 45 s. Prošao je finalne private source pinove,
+staging-potpisana oba add-on paketa i oba isolated Next `16.3.0` packed-host
+smoke-a. Autoritativni hosted tarball SHA-256 su
+`a0587951fc8d46268b5659af3bcfda5fbd9cd0513dd176da84de31dbcc3272cc`
+za License Server `0.2.0` i
+`a6f4b4e2236c5a5750ae5330a5f334e7d394f9c9c667d1a550cb5c89550ea5b1`
+za Webshop `0.6.36`.
+
+Ovaj rezultat zatvara finalni hosted package/packed-host tehnički dokaz, ali ne
+menja Prompt 15 odluku: nije izvršen authenticated production-like staging
+scenario, fault/load/soak, stvarni upgrade/rollback ili encrypted DB+key restore.
+Zato `34 PASS / 34 NO_GO`, `productionRuntime:false` i `gateEligible:false`
+ostaju važeći bez waiver-a.
