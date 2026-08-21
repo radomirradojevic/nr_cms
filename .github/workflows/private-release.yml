@@ -23,7 +23,7 @@ jobs:
       # the resulting verification artifact has no production publish authority.
       NR_ADDON_RELEASE_PRODUCTION_KIDS: ${{ vars.NR_ADDON_RELEASE_SIGNING_KID }}
       NR_PRIVATE_WORKSPACE_ROOT: ${{ github.workspace }}
-      NR_CMS_RELEASE_SHA: b3330b056b9651bb2b038ac8cb41b52cfa5bd50b
+      NR_CMS_RELEASE_SHA: bee6ca64f247723cf2472def6408787b4d4f3dd5
       NR_WEBSHOP_GIT_SHA: 3ff8e9f9475f69cb7e7dbff34d01a94d378fe610
       NR_LICENSE_SERVER_ADDON_GIT_SHA: c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0
       NR_MASTER_GIT_SHA: 76612151f53e57256304501be37cf0e663d8ad26
