@@ -132,6 +132,7 @@ export function WebshopLicenseActivation({
             <div className="space-y-2">
               <Label htmlFor={inputId}>{t("addons.common.licenseKey")}</Label>
               <Input
+                data-nr-addon-field="license-key"
                 id={inputId}
                 name="licenseKey"
                 placeholder="NRLS-..."

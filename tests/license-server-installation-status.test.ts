@@ -6,10 +6,7 @@ const routeSource = readFileSync(
   "app/api/license-server/installation-status/route.ts",
   "utf8",
 );
-const servingStateSource = readFileSync(
-  "data/addon-serving-state.ts",
-  "utf8",
-);
+const servingStateSource = readFileSync("data/addon-serving-state.ts", "utf8");
 const licenseActionSource = readFileSync(
   "app/dashboard/license-server/actions.ts",
   "utf8",
@@ -20,6 +17,10 @@ const webshopActionSource = readFileSync(
 );
 const progressSource = readFileSync(
   "components/webshop-install-progress.tsx",
+  "utf8",
+);
+const activationSource = readFileSync(
+  "components/webshop-license-activation.tsx",
   "utf8",
 );
 const licenseStateSource = readFileSync(
@@ -33,7 +34,9 @@ const webshopStateSource = readFileSync(
 
 test("License Server install status is admin-authorized before durable state access", () => {
   const authIndex = routeSource.indexOf("await auth()");
-  const roleIndex = routeSource.indexOf('hasRole(getRoles(user?.publicMetadata), "admin")');
+  const roleIndex = routeSource.indexOf(
+    'hasRole(getRoles(user?.publicMetadata), "admin")',
+  );
   const stateIndex = routeSource.indexOf(
     'readAddonServingStateV1("license-server")',
   );
@@ -53,14 +56,9 @@ test("packed browser polling exposes stable add-on lifecycle identifiers", () =>
     /fetch\(`\/api\/\$\{addonKey\}\/installation-status`/,
   );
   assert.match(progressSource, /data-nr-addon-stage=\{stage\}/);
-  assert.match(
-    licenseStateSource,
-    /data-nr-addon-state=\{state\.status\}/,
-  );
-  assert.match(
-    webshopStateSource,
-    /data-nr-addon-state=\{state\.status\}/,
-  );
+  assert.match(activationSource, /data-nr-addon-field="license-key"/);
+  assert.match(licenseStateSource, /data-nr-addon-state=\{state\.status\}/);
+  assert.match(webshopStateSource, /data-nr-addon-state=\{state\.status\}/);
 });
 
 test("manual activation and polling claim only their own add-on outbox", () => {

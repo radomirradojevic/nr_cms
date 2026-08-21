@@ -341,3 +341,18 @@ To potvrđuje launcher i njegov GitHub-hosted ugovor. Staging-only control-plane
 osnova i credential-binding v2 su naknadno implementirani i provereni worker
 run-ovima `32454258083` i `32459813095`, ali nisu deploymentovani, nema 61
 konkretan handler i nijedan staging scenario još nije izvršen.
+
+Poslednji tačno pinovani verification-only build pre narednih source dopuna je
+Webshop run
+[`32460668265`](https://github.com/radomirradojevic/webshop/actions/runs/32460668265)
+nad Webshop commit-om `03e3861b296a0ea4b4f993830a1deee6c7b82909` i CMS
+commit-om `237a0231bd7ec42521235e1bda53f2bbdac5633c`; oba job-a su **PASS**.
+Artifact-inventory SHA-256 je
+`48eb054f418caa342e210ab7c339c6222c1994f506fe58c599444feec90c1c08`,
+dok je GitHub ZIP transportni SHA-256 zasebno
+`e2a885b5b5b79ff92bc9428a5bda02902bd53f6bb048f8b90077813144dd9213`.
+Povezani CMS Public CI run
+[`32460575248`](https://github.com/radomirradojevic/nr_cms/actions/runs/32460575248)
+je takođe **PASS**. Ovi run-ovi nisu imali publish/deployment dozvole i ne
+menjaju 34/34 NO-GO odluku bez stvarnih staging scenario i operator drill
+dokaza.
