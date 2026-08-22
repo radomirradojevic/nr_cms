@@ -646,31 +646,31 @@ publish, Master write, availability promena niti target deployment.
 
 Tačan pinovani tuple:
 
-| Komponenta | Commit |
-| --- | --- |
+| Komponenta            | Commit                                     |
+| --------------------- | ------------------------------------------ |
 | workflow/evidence CMS | `a143d1dd2c285f8d11088680e20eb1261fbbcb46` |
-| packed runtime CMS | `bee6ca64f247723cf2472def6408787b4d4f3dd5` |
+| packed runtime CMS    | `bee6ca64f247723cf2472def6408787b4d4f3dd5` |
 | License Server add-on | `c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0` |
-| Webshop | `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610` |
-| centralni Master | `76612151f53e57256304501be37cf0e663d8ad26` |
-| deployment worker | `035c7b0dbaf0af95e526ae741c3c764163d5b8d0` |
+| Webshop               | `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610` |
+| centralni Master      | `76612151f53e57256304501be37cf0e663d8ad26` |
+| deployment worker     | `035c7b0dbaf0af95e526ae741c3c764163d5b8d0` |
 
 Autoritativni hosted RC podaci dobijeni su nezavisnim čitanjem sačuvanih
 workflow artefakata:
 
-| Polje | License Server | Webshop |
-| --- | --- | --- |
-| package | `@radomirradojevic/license-server-addon@0.2.0` | `@radomirradojevic/webshop@0.6.36` |
-| release ID | `e84e77ca-b621-5e6b-90e7-5dd4548e6938` | `a26088d5-1601-525f-9a6d-eccdd3db6c26` |
-| source commit u potpisanom manifestu | `c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0` | `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610` |
-| canonical runtime artifact SHA-256 | `3429107051b5442f7396fb1347aac23867e261d3b33d9cb04b81d10188dda0e9` | `188489a38388c35ba86727a3ac2c7801cee25d3b57b29373c6469c572ffaafe7` |
-| hosted `.tgz` SHA-256 | `a0587951fc8d46268b5659af3bcfda5fbd9cd0513dd176da84de31dbcc3272cc` | `a6f4b4e2236c5a5750ae5330a5f334e7d394f9c9c667d1a550cb5c89550ea5b1` |
-| signed manifest file SHA-256 | `a17956fb4f73c72f851a88dd40b5b0b35e520d934a5462e5228d262b0a1aa804` | `517009090d5f5c3e35e09361889d0efc5ae0c7ff15711499262f3eee8e25866b` |
-| provenance SHA-256 | `6d0ce4537f2b903a6dfa73830fbb7c09008b81c7387f32db4092f1ef8bf96d85` | `26ca6dd84f6591603552c43c2e90d25f8914750494ea90856ac2c8c0c9c1d5b1` |
-| CycloneDX 1.6 SBOM SHA-256 | `3dcf64c544fb1e30ee17ca15b2bb0974fab33e62d69641639cf8c9d08f62d730` | `59debb2ea23ce4b8842406bf7930f6cf4d7925ee20cc0725d05bc9251c877dc3` |
-| migration bundle SHA-256 | `e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44` | `1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef` |
-| schema / supported range | `8 / 1..8` | `10 / 1..10` |
-| migration policy | `8/8 non-destructive, backup required, expand-compatible` | `10/10 non-destructive, backup required, expand-compatible` |
+| Polje                                | License Server                                                     | Webshop                                                            |
+| ------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| package                              | `@radomirradojevic/license-server-addon@0.2.0`                     | `@radomirradojevic/webshop@0.6.36`                                 |
+| release ID                           | `e84e77ca-b621-5e6b-90e7-5dd4548e6938`                             | `a26088d5-1601-525f-9a6d-eccdd3db6c26`                             |
+| source commit u potpisanom manifestu | `c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0`                         | `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610`                         |
+| canonical runtime artifact SHA-256   | `3429107051b5442f7396fb1347aac23867e261d3b33d9cb04b81d10188dda0e9` | `188489a38388c35ba86727a3ac2c7801cee25d3b57b29373c6469c572ffaafe7` |
+| hosted `.tgz` SHA-256                | `a0587951fc8d46268b5659af3bcfda5fbd9cd0513dd176da84de31dbcc3272cc` | `a6f4b4e2236c5a5750ae5330a5f334e7d394f9c9c667d1a550cb5c89550ea5b1` |
+| signed manifest file SHA-256         | `a17956fb4f73c72f851a88dd40b5b0b35e520d934a5462e5228d262b0a1aa804` | `517009090d5f5c3e35e09361889d0efc5ae0c7ff15711499262f3eee8e25866b` |
+| provenance SHA-256                   | `6d0ce4537f2b903a6dfa73830fbb7c09008b81c7387f32db4092f1ef8bf96d85` | `26ca6dd84f6591603552c43c2e90d25f8914750494ea90856ac2c8c0c9c1d5b1` |
+| CycloneDX 1.6 SBOM SHA-256           | `3dcf64c544fb1e30ee17ca15b2bb0974fab33e62d69641639cf8c9d08f62d730` | `59debb2ea23ce4b8842406bf7930f6cf4d7925ee20cc0725d05bc9251c877dc3` |
+| migration bundle SHA-256             | `e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44` | `1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef` |
+| schema / supported range             | `8 / 1..8`                                                         | `10 / 1..10`                                                       |
+| migration policy                     | `8/8 non-destructive, backup required, expand-compatible`          | `10/10 non-destructive, backup required, expand-compatible`        |
 
 Oba potpisana manifesta vezuju runtime CMS
 `bee6ca64f247723cf2472def6408787b4d4f3dd5`, CMS range `^0.1.0`, Next
@@ -713,3 +713,72 @@ Ovo zatvara Prompt 16 korake 1–4 do obaveznog ljudskog gate-a. Sledeća dozvol
 mora eksplicitno glasiti **package/release publish GO**; verification odobrenje
 za run `32516781139` nije ta dozvola. Posle publish-a sledi zaseban Master draft
 import/staging entitlement korak, pa novo i odvojeno Master publish odobrenje.
+
+## 14. Production package publication — 22. avgust 2026.
+
+Ovaj odeljak je noviji autoritativni zapis i zamenjuje raniji package-publish
+status iz approval ledger-a u odeljku 9. Operator je eksplicitno odobrio
+`PACKAGE/RELEASE PUBLISH` za License Server `0.2.0` i Webshop `0.6.36`, a zatim
+zasebno odobrio kreiranje GitHub Actions production release authority-ja i
+proširenje postojećeg GitHub credential-a sa `write:packages` scope-om. Token
+vrednost nije upisana u source, workflow log ili ovaj evidence dokument; čuva
+se kao `NR_PACKAGE_RELEASE_TOKEN` u reviewer-zaštićenom
+`nr_cms/release-production` environment-u.
+
+Production Ed25519 authority ima KID
+`production-release:bfe65cdba790277d`; javni ključ ima SHA-256
+`bfe65cdba790277d5fabd5329bb0b873662df1ec0c514d022ce82237c4c44232`.
+Centralni publisher je uveden commitom
+`b4d9912479a40565f448c0f1aa24ab734480fc35`, a ispravka eksplicitnog add-on
+working directory-ja za `npm pack` commitom
+`70669f2ff8cf87cf3e3a7c513adb5bc1a849172b`. Public CI run
+[`32552146937`](https://github.com/radomirradojevic/nr_cms/actions/runs/32552146937)
+je **PASS**, uključujući actionlint, migration, test, packed public-copy build i
+supply-chain gate.
+
+Prva dva production run-a, `32551972666` i `32551973772`, završila su fail-closed
+pre registry state/publish koraka: `npm --prefix ... pack` je proizveo root CMS
+tarball umesto add-on tarball-a. Nije postojao package version, tag ili release
+iz tih pokušaja. Regresioni contract test sada zabranjuje taj oblik komande.
+
+Uspešni create-only production publish rezultati:
+
+| Polje                           | License Server                                                                                                               | Webshop                                                                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| package                         | `@radomirradojevic/license-server-addon@0.2.0`                                                                               | `@radomirradojevic/webshop@0.6.36`                                                                        |
+| workflow run                    | [`32552304355`](https://github.com/radomirradojevic/nr_cms/actions/runs/32552304355)                                         | [`32552303883`](https://github.com/radomirradojevic/nr_cms/actions/runs/32552303883)                      |
+| source SHA                      | `c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0`                                                                                   | `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610`                                                                |
+| registry version ID             | `1159606464`                                                                                                                 | `1159606982`                                                                                              |
+| registry `created_at`           | `2026-08-22T04:41:45Z`                                                                                                       | `2026-08-22T04:42:10Z`                                                                                    |
+| release ID                      | `e84e77ca-b621-5e6b-90e7-5dd4548e6938`                                                                                       | `a26088d5-1601-525f-9a6d-eccdd3db6c26`                                                                    |
+| canonical artifact SHA-256      | `3429107051b5442f7396fb1347aac23867e261d3b33d9cb04b81d10188dda0e9`                                                           | `188489a38388c35ba86727a3ac2c7801cee25d3b57b29373c6469c572ffaafe7`                                        |
+| migration bundle SHA-256        | `e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44`                                                           | `1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef`                                        |
+| production `.tgz` SHA-256       | `0fc82a1cbbb728b3127280dd3cf49b6b875671f313fa9fc2817dc40b0ff92359`                                                           | `04f1475f89ea9c14d8ba0d572065bea0c94536f48ab953bc981fd4d008963319`                                        |
+| publication attestation SHA-256 | `4e76965a6fa16aeb2eec228af0d0f17e1fb00faf954f89ff633866756faf1efe`                                                           | `b5de303ab52acb8694a56daa011d1fd7c3bb1526612775e57931935ad3701e11`                                        |
+| workflow evidence artifact      | ID `9470418341`, `sha256:1a2a3f5c7beb4aba5068c134ac86357098e979be303dc81801a6c2d3e76232fb`                                   | ID `9470423082`, `sha256:19bff3dfaaaba43aa26d3a521cea982e2a5c920e3774cdd216a3b0a4a4d2206f`                |
+| draft GitHub Release            | [License Server v0.2.0](https://github.com/radomirradojevic/license-server-addon/releases/tag/untagged-7d543060ba6c172046c6) | [Webshop v0.6.36](https://github.com/radomirradojevic/webshop/releases/tag/untagged-8b7d7dec016f39d10e81) |
+
+Posle workflow uspeha izvršena je nezavisna post-publish provera preuzetih
+registry tarball-ova i sva tri GitHub Release asset-a. Oba embedded release
+manifest potpisa i oba publication-attestation potpisa proverena su javnim
+production keyset-om; KID, package/version, source SHA, registry version ID,
+release ID, artifact/migration digest, tarball SHA-256 i receipt-attestation
+hash binding su tačno usklađeni. Draft release asset-i su
+`release-publication-attestation.json`, `addon-release-public-keys.json` i
+`release-publish-receipt.json`; zajednički public-keyset asset SHA-256 je
+`75bacbf646a390198364fa689e4a361a968e798689d5c92be3ff3d29bbe69f41`.
+
+Aktuelni gate status:
+
+| Gate                                      | Status                 | Sledeća dozvola                                                      |
+| ----------------------------------------- | ---------------------- | -------------------------------------------------------------------- |
+| package/release publish                   | **PASS**               | nije potrebna za iste immutable verzije                              |
+| Master draft import + staging entitlement | **NEXT / NOT STARTED** | operativni staging pristup; ovo nije Master publish                  |
+| Master publish                            | **NOT APPROVED**       | posebno eksplicitno odobrenje tek posle zelenog draft/staging dokaza |
+| canary availability                       | **NOT APPROVED**       | zaseban GO posle Master publish-a                                    |
+| target install/redeploy                   | **NOT APPROVED**       | odobrenje po ciljnoj instalaciji                                     |
+| wider rollout                             | **NOT APPROVED**       | eksplicitni GO posle zelenog 72 h canary perioda                     |
+
+Package publication je završena, ali Prompt 16 još nije kompletan: nije izvršen
+Master draft import/staging entitlement, Master publish, canary availability,
+target install/redeploy niti širi rollout.
