@@ -31,6 +31,9 @@ test("central package publisher is allowlisted and reviewer-environment protecte
   assert.match(workflow, /--repo "\$TARGET_REPOSITORY"/);
   assert.match(workflow, /production-release:\[0-9a-f\]\{16\}/);
   assert.match(workflow, /npm publish "\$TARBALL"/);
+  assert.match(workflow, /pushd "\.private\/\$PACKAGE_PATH"/);
+  assert.match(workflow, /npm pack --ignore-scripts --pack-destination/);
+  assert.doesNotMatch(workflow, /npm --prefix "\.private\/\$PACKAGE_PATH" pack/);
   assert.match(
     workflow,
     /inputs\.mode[\s\S]*reconcile|reconcile[\s\S]*inputs\.mode/,

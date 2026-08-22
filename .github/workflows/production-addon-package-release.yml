@@ -136,7 +136,9 @@ jobs:
           test "$actual_artifact" = "$EXPECTED_ARTIFACT_SHA256"
           test "$actual_migrations" = "$EXPECTED_MIGRATION_SHA256"
           mkdir -p "$RUNNER_TEMP/release-output"
-          npm --prefix ".private/$PACKAGE_PATH" pack --ignore-scripts --pack-destination "$RUNNER_TEMP/release-output"
+          pushd ".private/$PACKAGE_PATH" >/dev/null
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/release-output"
+          popd >/dev/null
           tarball="$RUNNER_TEMP/release-output/$TARBALL_FILE"
           test -f "$tarball"
           tarball_sha256="$(sha256sum "$tarball" | awk '{print $1}')"
