@@ -743,42 +743,106 @@ iz tih pokušaja. Regresioni contract test sada zabranjuje taj oblik komande.
 
 Uspešni create-only production publish rezultati:
 
-| Polje                           | License Server                                                                                                               | Webshop                                                                                                   |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| package                         | `@radomirradojevic/license-server-addon@0.2.0`                                                                               | `@radomirradojevic/webshop@0.6.36`                                                                        |
-| workflow run                    | [`32552304355`](https://github.com/radomirradojevic/nr_cms/actions/runs/32552304355)                                         | [`32552303883`](https://github.com/radomirradojevic/nr_cms/actions/runs/32552303883)                      |
-| source SHA                      | `c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0`                                                                                   | `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610`                                                                |
-| registry version ID             | `1159606464`                                                                                                                 | `1159606982`                                                                                              |
-| registry `created_at`           | `2026-08-22T04:41:45Z`                                                                                                       | `2026-08-22T04:42:10Z`                                                                                    |
-| release ID                      | `e84e77ca-b621-5e6b-90e7-5dd4548e6938`                                                                                       | `a26088d5-1601-525f-9a6d-eccdd3db6c26`                                                                    |
-| canonical artifact SHA-256      | `3429107051b5442f7396fb1347aac23867e261d3b33d9cb04b81d10188dda0e9`                                                           | `188489a38388c35ba86727a3ac2c7801cee25d3b57b29373c6469c572ffaafe7`                                        |
-| migration bundle SHA-256        | `e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44`                                                           | `1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef`                                        |
-| production `.tgz` SHA-256       | `0fc82a1cbbb728b3127280dd3cf49b6b875671f313fa9fc2817dc40b0ff92359`                                                           | `04f1475f89ea9c14d8ba0d572065bea0c94536f48ab953bc981fd4d008963319`                                        |
-| publication attestation SHA-256 | `4e76965a6fa16aeb2eec228af0d0f17e1fb00faf954f89ff633866756faf1efe`                                                           | `b5de303ab52acb8694a56daa011d1fd7c3bb1526612775e57931935ad3701e11`                                        |
-| workflow evidence artifact      | ID `9470418341`, `sha256:1a2a3f5c7beb4aba5068c134ac86357098e979be303dc81801a6c2d3e76232fb`                                   | ID `9470423082`, `sha256:19bff3dfaaaba43aa26d3a521cea982e2a5c920e3774cdd216a3b0a4a4d2206f`                |
-| draft GitHub Release            | [License Server v0.2.0](https://github.com/radomirradojevic/license-server-addon/releases/tag/untagged-7d543060ba6c172046c6) | [Webshop v0.6.36](https://github.com/radomirradojevic/webshop/releases/tag/untagged-8b7d7dec016f39d10e81) |
+| Polje                           | License Server                                                                                        | Webshop                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| package                         | `@radomirradojevic/license-server-addon@0.2.0`                                                        | `@radomirradojevic/webshop@0.6.36`                                                         |
+| workflow run                    | [`32552304355`](https://github.com/radomirradojevic/nr_cms/actions/runs/32552304355)                  | [`32552303883`](https://github.com/radomirradojevic/nr_cms/actions/runs/32552303883)       |
+| source SHA                      | `c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0`                                                            | `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610`                                                 |
+| registry version ID             | `1159606464`                                                                                          | `1159606982`                                                                               |
+| registry `created_at`           | `2026-08-22T04:41:45Z`                                                                                | `2026-08-22T04:42:10Z`                                                                     |
+| release ID                      | `e84e77ca-b621-5e6b-90e7-5dd4548e6938`                                                                | `a26088d5-1601-525f-9a6d-eccdd3db6c26`                                                     |
+| canonical artifact SHA-256      | `3429107051b5442f7396fb1347aac23867e261d3b33d9cb04b81d10188dda0e9`                                    | `188489a38388c35ba86727a3ac2c7801cee25d3b57b29373c6469c572ffaafe7`                         |
+| migration bundle SHA-256        | `e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44`                                    | `1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef`                         |
+| production `.tgz` SHA-256       | `0fc82a1cbbb728b3127280dd3cf49b6b875671f313fa9fc2817dc40b0ff92359`                                    | `04f1475f89ea9c14d8ba0d572065bea0c94536f48ab953bc981fd4d008963319`                         |
+| publication attestation SHA-256 | `4e76965a6fa16aeb2eec228af0d0f17e1fb00faf954f89ff633866756faf1efe`                                    | `b5de303ab52acb8694a56daa011d1fd7c3bb1526612775e57931935ad3701e11`                         |
+| workflow evidence artifact      | ID `9470418341`, `sha256:1a2a3f5c7beb4aba5068c134ac86357098e979be303dc81801a6c2d3e76232fb`            | ID `9470423082`, `sha256:19bff3dfaaaba43aa26d3a521cea982e2a5c920e3774cdd216a3b0a4a4d2206f` |
+| GitHub Release                  | [License Server v0.2.0](https://github.com/radomirradojevic/license-server-addon/releases/tag/v0.2.0) | [Webshop v0.6.36](https://github.com/radomirradojevic/webshop/releases/tag/v0.6.36)        |
 
 Posle workflow uspeha izvršena je nezavisna post-publish provera preuzetih
 registry tarball-ova i sva tri GitHub Release asset-a. Oba embedded release
 manifest potpisa i oba publication-attestation potpisa proverena su javnim
 production keyset-om; KID, package/version, source SHA, registry version ID,
 release ID, artifact/migration digest, tarball SHA-256 i receipt-attestation
-hash binding su tačno usklađeni. Draft release asset-i su
+hash binding su tačno usklađeni. Release asset-i su
 `release-publication-attestation.json`, `addon-release-public-keys.json` i
 `release-publish-receipt.json`; zajednički public-keyset asset SHA-256 je
 `75bacbf646a390198364fa689e4a361a968e798689d5c92be3ff3d29bbe69f41`.
 
-Aktuelni gate status:
+Aktuelni gate status dopunjen je autoritativnim nastavkom u odeljku 15.
 
-| Gate                                      | Status                 | Sledeća dozvola                                                      |
-| ----------------------------------------- | ---------------------- | -------------------------------------------------------------------- |
-| package/release publish                   | **PASS**               | nije potrebna za iste immutable verzije                              |
-| Master draft import + staging entitlement | **NEXT / NOT STARTED** | operativni staging pristup; ovo nije Master publish                  |
-| Master publish                            | **NOT APPROVED**       | posebno eksplicitno odobrenje tek posle zelenog draft/staging dokaza |
-| canary availability                       | **NOT APPROVED**       | zaseban GO posle Master publish-a                                    |
-| target install/redeploy                   | **NOT APPROVED**       | odobrenje po ciljnoj instalaciji                                     |
-| wider rollout                             | **NOT APPROVED**       | eksplicitni GO posle zelenog 72 h canary perioda                     |
+## 15. Master import, lokalni canary i release publication — 22. avgust 2026.
 
-Package publication je završena, ali Prompt 16 još nije kompletan: nije izvršen
-Master draft import/staging entitlement, Master publish, canary availability,
-target install/redeploy niti širi rollout.
+Operator je eksplicitno odobrio sve preostale Prompt 16 release operacije.
+Odobrenje ne menja fail-closed pravilo: udaljeni staging/production korak može
+dobiti PASS samo uz stvarno dostupnu infrastrukturu i merljiv dokaz.
+
+Pre Master write-a napravljen je custom-format backup lokalne production-like
+Master baze:
+
+- putanja: `D:\nr_backups\master\2026-08-22-before-0018-0019\master-before-0018-0019.dump`;
+- veličina: `5414040` bajtova;
+- SHA-256: `0980988f619a0c8c300337d6ac03e11c672cd0ebe61dfda0ed2bf072c12aa102`.
+
+Izolovani restore drill je uspešno vratio taj backup u eksplicitnu privremenu
+bazu `nr_cms_license_server_restore_drill_20260822`, proverio release katalog,
+`18` ledger migracija i `28` release redova, pa uklonio samo tu privremenu bazu.
+
+Master preflight je otkrio dve pending migracije. Prvi apply je fail-closed
+zaustavljen jer je `0018` backfill pravilno udario u immutable catalog trigger.
+Popravka `b4b01ee` uzima `ACCESS EXCLUSIVE` lock, transakcijski isključuje samo
+taj trigger tokom backfill-a i vraća ga pre `NOT NULL` kontrole. Druga popravka
+`e0ce836` poredi validne RFC 3339 timestamp-e kao vremenske trenutke, umesto kao
+tekst; GitHub Packages timestamp bez `.000` zato više ne daje lažni evidence
+drift. Oba commita su poslata na centralni `master-ls`. Posle popravki:
+
+- `db:migrate` je primenio tačno `0018` i `0019`;
+- read-only dry-run vraća `pending: []`;
+- DB release/activation/purchase regresija prolazi `6/6`;
+- centralni unit paket prolazi `68 PASS / 14 DB-only SKIP / 0 FAIL`;
+- dodatni exact RFC 3339 unit i DB catalog testovi prolaze `8/8` i `1/1`;
+- TypeScript provera prolazi bez greške.
+
+Production keyset je hash-pinovan u lokalni Master trust profil. Oba production
+paketa su zatim importovana kao immutable draftovi i objavljena u lokalnom
+production-like Masteru:
+
+| Add-on                 | Release ID                             | Import          | Publish     | Local stable selector                           |
+| ---------------------- | -------------------------------------- | --------------- | ----------- | ----------------------------------------------- |
+| License Server `0.2.0` | `e84e77ca-b621-5e6b-90e7-5dd4548e6938` | `created/draft` | `published` | izabrao isti release i artifact `34291070…a0e9` |
+| Webshop `0.6.36`       | `a26088d5-1601-525f-9a6d-eccdd3db6c26` | `created/draft` | `published` | izabrao isti release i artifact `188489a3…afe7` |
+
+Customer CMS DB acceptance prolazi `20/20`. Obavezni scenario potvrđuje da
+verifikovani License Server ključ stvara durable `install_pending` bez
+instaliranog customer Webshop paketa; ostali testovi potvrđuju add-on-scoped
+outbox, verifikovani worker callback, `ready` reconciliation, stale/duplicate
+kontrolu i revalidation bez nove deployment epohe. Ovo je DB/contract dokaz;
+in-app browser nije bio povezan, pa authenticated UI dokaz nije izmišljen.
+
+GitHub release draftovi su po odobrenju objavljeni 22. avgusta 2026:
+
+- License Server `v0.2.0`, release `374801932`, objavljen
+  `2026-08-22T06:01:06Z` na source commit-u
+  `c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0`;
+- Webshop `v0.6.36`, release `374801991`, objavljen
+  `2026-08-22T06:01:07Z` na source commit-u
+  `3ff8e9f9475f69cb7e7dbff34d01a94d378fe610`.
+
+Nisu pronađeni udaljeni Master URL/DB/operator credential, staging test
+identity, ciljna instalacija ni monitoring/restore resurs u GitHub environment
+konfiguraciji. Zato nije dozvoljeno lokalni dokaz nazvati udaljenim stagingom ili
+produkcijom, niti simulirati 72-časovni canary.
+
+| Gate                                      | Lokalni production-like dokaz      | Udaljeni rollout status                                         |
+| ----------------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
+| package/registry + GitHub release publish | **PASS**                           | **PASS**                                                        |
+| Master draft import                       | **PASS**                           | **NO-GO — cilj/credential nije provisionovan**                  |
+| staging entitlement                       | **PASS za DB/contract tok**        | **NO-GO — authenticated staging nije provisionovan**            |
+| Master publish + stable selector          | **PASS**                           | **NO-GO — udaljeni Master nije dostupan**                       |
+| target install/redeploy                   | **PASS za DB/contract tok, 20/20** | **NO-GO — ciljna instalacija/browser identity nije dostupan**   |
+| 72 h canary monitoring                    | **nije primenljivo lokalno**       | **NO-GO — canary i monitoring nisu provisionovani**             |
+| wider rollout                             | **nije izvršen**                   | **NO-GO dok prethodni udaljeni gate-ovi ne postoje i ne prođu** |
+
+Release artifacts su javno dostupni i lokalni Master/activation tok je zatvoren.
+Prompt 16 kao stvarni production rollout ostaje formalno **NO-GO**, isključivo
+zbog neprovisionovane udaljene infrastrukture i nemogućeg 72 h canary dokaza, a
+ne zbog neodobrene operacije ili prećutanog product/test kvara.
