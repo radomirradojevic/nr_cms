@@ -11,11 +11,12 @@ on:
           - license-server
           - webshop
       mode:
-        description: Publish a new package version or reconcile an interrupted publication
+        description: Verify exact Linux bytes, publish a new version, or reconcile an interrupted publication
         required: true
         default: publish
         type: choice
         options:
+          - verify
           - publish
           - reconcile
       approval:
@@ -43,7 +44,7 @@ jobs:
       PACKAGE_PATH: ${{ inputs.addon == 'license-server' && 'license-server-addon' || 'webshop' }}
       TARGET_REPOSITORY: ${{ inputs.addon == 'license-server' && 'radomirradojevic/license-server-addon' || 'radomirradojevic/webshop' }}
       PACKAGE_VERSION: ${{ inputs.addon == 'license-server' && '0.2.1' || '0.6.36' }}
-      SOURCE_SHA: ${{ inputs.addon == 'license-server' && 'c7befc89328578a1b03f977bf900073181667f35' || '3ff8e9f9475f69cb7e7dbff34d01a94d378fe610' }}
+      SOURCE_SHA: ${{ inputs.addon == 'license-server' && '19a5735208f0089b5485837932da532023d12963' || '3ff8e9f9475f69cb7e7dbff34d01a94d378fe610' }}
       CMS_SHA: ${{ inputs.addon == 'license-server' && '72a0f106256d1b7616780ef034d226270a0344f8' || 'bee6ca64f247723cf2472def6408787b4d4f3dd5' }}
       EXPECTED_ARTIFACT_SHA256: ${{ inputs.addon == 'license-server' && 'c7a1edcddcc8dc266e83deef8c5f1e06f73f27e1f19ba3a395682a0e3c027a40' || '188489a38388c35ba86727a3ac2c7801cee25d3b57b29373c6469c572ffaafe7' }}
       EXPECTED_MIGRATION_SHA256: ${{ inputs.addon == 'license-server' && '2487d170eb71c25b80d17a63d22eefed9df1d657dacf3a066e0ba8101832149b' || '1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef' }}
@@ -60,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           test '${{ inputs.approval }}' = "PUBLISH $PACKAGE_NAME@$PACKAGE_VERSION"
-          test '${{ inputs.mode }}' = 'publish' || test '${{ inputs.mode }}' = 'reconcile'
+          test '${{ inputs.mode }}' = 'verify' || test '${{ inputs.mode }}' = 'publish' || test '${{ inputs.mode }}' = 'reconcile'
           test "$GITHUB_REF_NAME" = 'master'
           test -n "${NR_ADDON_RELEASE_SIGNING_KID:-}"
           test -n "${PACKAGE_RELEASE_TOKEN:-}"
@@ -133,8 +134,12 @@ jobs:
           npm --prefix ".private/$PACKAGE_PATH" run pack:verify
           actual_artifact="$(node -e "process.stdout.write(require('./.private/'+process.env.PACKAGE_PATH+'/provenance.json').subject.artifactSha256)")"
           actual_migrations="$(sha256sum ".private/$PACKAGE_PATH/migrations.json" | awk '{print $1}')"
-          test "$actual_artifact" = "$EXPECTED_ARTIFACT_SHA256"
-          test "$actual_migrations" = "$EXPECTED_MIGRATION_SHA256"
+          echo "::notice title=Canonical artifact SHA-256::$actual_artifact"
+          echo "::notice title=Migration bundle SHA-256::$actual_migrations"
+          if test '${{ inputs.mode }}' != 'verify'; then
+            test "$actual_artifact" = "$EXPECTED_ARTIFACT_SHA256"
+            test "$actual_migrations" = "$EXPECTED_MIGRATION_SHA256"
+          fi
           mkdir -p "$RUNNER_TEMP/release-output"
           pushd ".private/$PACKAGE_PATH" >/dev/null
           npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/release-output"
@@ -150,6 +155,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Verify create-only registry and release state
+        if: inputs.mode != 'verify'
         shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
@@ -170,6 +176,7 @@ jobs:
           fi
 
       - name: Publish exact tarball or reconcile registry state
+        if: inputs.mode != 'verify'
         shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
@@ -197,6 +204,7 @@ jobs:
           echo "PUBLISHED_AT=$published_at" >> "$GITHUB_ENV"
 
       - name: Create signed publication evidence and draft GitHub release
+        if: inputs.mode != 'verify'
         shell: bash
         working-directory: release-root/.private/${{ env.PACKAGE_PATH }}
         env:
@@ -232,6 +240,7 @@ jobs:
           done
 
       - name: Export secret-free immutable publication evidence
+        if: inputs.mode != 'verify'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.addon }}-production-publication-${{ github.run_id }}-${{ github.run_attempt }}
