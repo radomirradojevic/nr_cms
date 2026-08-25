@@ -5,11 +5,20 @@ import test from "node:test";
 
 const root = process.cwd();
 const workflow = readFileSync(
-  path.join(root, ".github", "workflows", "production-addon-package-release.yml"),
+  path.join(
+    root,
+    ".github",
+    "workflows",
+    "production-addon-package-release.yml",
+  ),
   "utf8",
 );
 const provisioner = readFileSync(
-  path.join(root, "scripts", "provision-github-production-release-authority.mjs"),
+  path.join(
+    root,
+    "scripts",
+    "provision-github-production-release-authority.mjs",
+  ),
   "utf8",
 );
 
@@ -21,8 +30,9 @@ test("central package publisher is allowlisted and reviewer-environment protecte
   assert.doesNotMatch(workflow, /contents: write|packages: write/);
   assert.match(workflow, /radomirradojevic\/license-server-addon/);
   assert.match(workflow, /radomirradojevic\/webshop/);
-  assert.match(workflow, /c477d8cea06a3ae9cb638c6f341a3ab2ac8777e0/);
+  assert.match(workflow, /c7befc89328578a1b03f977bf900073181667f35/);
   assert.match(workflow, /3ff8e9f9475f69cb7e7dbff34d01a94d378fe610/);
+  assert.match(workflow, /72a0f106256d1b7616780ef034d226270a0344f8/);
   assert.match(workflow, /bee6ca64f247723cf2472def6408787b4d4f3dd5/);
   assert.match(workflow, /NR_ADDON_RELEASE_SIGNING_KEY_B64/);
   assert.match(workflow, /NR_ADDON_RELEASE_PUBLIC_KEYS_B64/);
@@ -33,16 +43,25 @@ test("central package publisher is allowlisted and reviewer-environment protecte
   assert.match(workflow, /npm publish "\$TARBALL"/);
   assert.match(workflow, /pushd "\.private\/\$PACKAGE_PATH"/);
   assert.match(workflow, /npm pack --ignore-scripts --pack-destination/);
-  assert.doesNotMatch(workflow, /npm --prefix "\.private\/\$PACKAGE_PATH" pack/);
+  assert.doesNotMatch(
+    workflow,
+    /npm --prefix "\.private\/\$PACKAGE_PATH" pack/,
+  );
   assert.match(
     workflow,
     /inputs\.mode[\s\S]*reconcile|reconcile[\s\S]*inputs\.mode/,
   );
-  assert.doesNotMatch(workflow, /staging-release:|PERSONAL_ACCESS_TOKEN|secrets\.GITHUB_TOKEN/);
+  assert.doesNotMatch(
+    workflow,
+    /staging-release:|PERSONAL_ACCESS_TOKEN|secrets\.GITHUB_TOKEN/,
+  );
 });
 
 test("authority provisioner refuses an unprotected or existing production root", () => {
-  assert.match(provisioner, /CREATE_GITHUB_ACTIONS_PRODUCTION_RELEASE_AUTHORITY/);
+  assert.match(
+    provisioner,
+    /CREATE_GITHUB_ACTIONS_PRODUCTION_RELEASE_AUTHORITY/,
+  );
   assert.match(provisioner, /required_reviewers/);
   assert.match(provisioner, /custom_branch_policies/);
   assert.match(provisioner, /already exists/);
