@@ -1,8 +1,8 @@
 # License Server incident response runbook
 
-Verzija: 1.0
+Verzija: 1.1
 
-Poslednji tabletop/restore drill: **2026-08-20**
+Poslednji tabletop/restore drill: **2026-08-26**
 
 ## Pravila koja važe za svaki incident
 
@@ -102,6 +102,51 @@ issuer keyset.
    samo višak i dokumentuj customer delivery posledicu.
 5. Exit: jedna aktivna licenca/receipt po stavci, receipt hash odgovara, delivery
    audit nema plaintext i reconciliation alarm je zatvoren.
+
+## Oporavak neuspele početne managed instalacije
+
+Ova procedura važi samo za početnu instalaciju koja je završila u
+`maintenance_required`, bez dokaza da je neuspešna operacija ikada postavila
+aktivan runtime. Ne koristi se za upgrade ili zaobilaženje rollback pravila.
+
+1. Freeze-uj pogođenu instalaciju i sačuvaj originalni operation/job ID, epoch,
+   generation, terminalni receipt hash i incident code. Ne menjaj status direktno
+   u bazi i ne šalji isti dispatch ponovo.
+2. Potvrdi da ne postoji installed evidence za neuspešnu operaciju, aktivan
+   serving fence, candidate release ili druga aktivna deployment operacija.
+   Postojeći receipt-proven runtime, ako postoji, mora ostati netaknut.
+3. Otkloni uzrok i pribavi recovery receipt koji je vezan za tačno originalnu
+   operaciju, job i evidence hash. Njegov outbox/callback mora biti potvrđen.
+4. Ponovo proveri Master entitlement svežim V2 Proof-of-Possession zahtevom za
+   tačan installation ID, environment i release. Stari token ili ručno unet
+   entitlement nije dovoljan.
+5. Kreiraj auditovanu clearance odluku sa clearance ID-em, vremenom, actor-om,
+   razlogom, originalnim operation/job ID-em i recovery evidence-om. Recovery
+   mora otvoriti novi deployment epoch sa `generation=1`; ne nastavlja stari
+   epoch povećavanjem generation-a.
+6. Exit: novi job ima sopstveni idempotency trag, terminalni receipt i potvrđen
+   callback; junction, serving fence i installation evidence međusobno se slažu.
+
+## Nepromenljivo CMS/release neslaganje
+
+`release_expected_cms_commit_sha_mismatch` je trajno, pre-mutation odbijanje, a
+ne prolazna build greška.
+
+1. Uporedi samo javna polja: očekivani CMS commit iz source/policy zapisa sa CMS
+   commit-om iz potpisanog package manifesta i publication attestation-a. Ne
+   ispisuj registry credential, install token, activation token ili license key.
+2. Worker završava operaciju kao `permanent` i `rejected_before_switch`; ne radi
+   interne ili durable retry pokušaje za isti nepromenljivi input.
+3. Potvrdi da nisu promenjeni DB schema, release pointer, junction, serving fence
+   ili prethodni receipt-proven runtime. Ako su menjani, otvori poseban integrity
+   incident umesto nastavka instalacije.
+4. Zabranjeno je popuštanje exact-SHA verifiera, pin override, direktna izmena
+   baze, nova aktivacija radi maskiranja greške ili ponovno slanje istog dispatcha.
+5. Nastavak je dozvoljen tek sa zasebno odobrenim, potpisanim i objavljenim
+   kompatibilnim release-om vezanim za izabrani CMS commit. Zatim se pokreće novi
+   uobičajeni managed deployment lifecycle.
+6. Exit: novi manifest, publication attestation i source/policy imaju isti CMS
+   commit, a prethodni neuspešni job ostaje neizmenljiv audit dokaz.
 
 ## Reproducibilni restore drill
 

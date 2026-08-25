@@ -1,7 +1,7 @@
 # License Server add-on — tehnička dokumentacija
 
 Ovaj direktorijum je autoritativna specifikacija za razvoj i produkciono
-puštanje plaćenog `@radomirradojevic/license-server-addon` add-on-a. Dokumentacija je revidirana 20. avgusta 2026. poređenjem sa stvarnim stanjem u:
+puštanje plaćenog `@radomirradojevic/license-server-addon` add-on-a. Dokumentacija je revidirana 26. avgusta 2026. poređenjem sa stvarnim stanjem u:
 
 - `.private/license-server-addon`;
 - javnom CMS ugovoru u `lib/license-server-addon` i `packages/addon-sdk`;
@@ -122,6 +122,9 @@ izdaje licence za proizvode tog kupca.
 29. [27-prompt-16-release-candidate-evidence.md](./27-prompt-16-release-candidate-evidence.md)
     — Prompt 16 verzionisanje, clean-checkout signed local RC, digest/migration
     operator packet i eksplicitno blokirane publish/Master/canary kapije.
+30. [28-local-purchase-activation-managed-install-evidence-2026-08-25.md](./28-local-purchase-activation-managed-install-evidence-2026-08-25.md)
+    — lokalni purchase → V2 activation → managed install dokaz, auditovani
+    initial-install recovery i fail-closed CMS/release compatibility granica.
 
 ## Oznake stanja
 
