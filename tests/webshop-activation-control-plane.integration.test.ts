@@ -293,19 +293,19 @@ test(
       updatedBy: "test-admin",
     });
     assert.equal(accepted.status, "install_pending");
-    const [installation, outbox, entitlement, webshop] = await Promise.all([
-      client!.query(
-        "SELECT addon_key,status,desired_package_name,desired_package_version FROM cms_addon_installations WHERE addon_key='license-server'",
-      ),
-      client!.query(
-        "SELECT addon_key,status,payload->>'packageName' AS package_name FROM cms_addon_deployment_outbox WHERE operation_id=$1",
-        [accepted.operationId],
-      ),
-      client!.query(
-        "SELECT status,package_name,package_version,release_id::text FROM license_server_addon_entitlements WHERE id=1",
-      ),
-      client!.query("SELECT count(*)::int AS count FROM webshop_addon_entitlements"),
-    ]);
+    const installation = await client!.query(
+      "SELECT addon_key,status,desired_package_name,desired_package_version FROM cms_addon_installations WHERE addon_key='license-server'",
+    );
+    const outbox = await client!.query(
+      "SELECT addon_key,status,payload->>'packageName' AS package_name FROM cms_addon_deployment_outbox WHERE operation_id=$1",
+      [accepted.operationId],
+    );
+    const entitlement = await client!.query(
+      "SELECT status,package_name,package_version,release_id::text FROM license_server_addon_entitlements WHERE id=1",
+    );
+    const webshop = await client!.query(
+      "SELECT count(*)::int AS count FROM webshop_addon_entitlements",
+    );
     assert.deepEqual(installation.rows, [
       {
         addon_key: "license-server",
@@ -330,6 +330,131 @@ test(
       },
     ]);
     assert.deepEqual(webshop.rows, [{ count: 0 }]);
+  },
+);
+
+test(
+  "License Server initial-install incident requires exact audited clearance before a fresh epoch",
+  { skip: !databaseUrl, concurrency: false },
+  async () => {
+    const {
+      persistVerifiedLicenseServerActivation,
+      persistVerifiedLicenseServerIncidentRecovery,
+    } = await import("@/data/webshop-addon-control-plane");
+    const accepted = await persistVerifiedLicenseServerActivation({
+      claim: licenseServerClaim,
+      signedEntitlement: "compact-license-server-incident-a",
+      updatedBy: "test-admin",
+    });
+    const workerJobId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const resultId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const terminalEvidenceHash = `sha256:${"c".repeat(64)}`;
+    const errorCode = "previous_runtime_schema_compatibility_unproven";
+    await client!.query(
+      "UPDATE cms_addon_operations SET status='failed', error_code=$1, completed_at=now() WHERE id=$2",
+      [errorCode, accepted.operationId],
+    );
+    await client!.query(
+      "UPDATE cms_addon_deployment_outbox SET status='failed', worker_job_id=$1, completed_at=now(), last_error_code=$2 WHERE operation_id=$3",
+      [workerJobId, errorCode, accepted.operationId],
+    );
+    await client!.query(
+      "UPDATE cms_addon_installations SET status='failed', runtime_status='maintenance', deployment_job_id=$1, last_error_code='maintenance_required' WHERE addon_key='license-server'",
+      [workerJobId],
+    );
+    await client!.query(
+      `INSERT INTO cms_addon_deployment_terminal_receipts
+        (operation_id, worker_job_id, kind, evidence_hash, final_tuple)
+       VALUES ($1,$2,'recovery_receipt',$3,$4::jsonb)`,
+      [
+        accepted.operationId,
+        workerJobId,
+        terminalEvidenceHash,
+        JSON.stringify({
+          errorCode,
+          finalPhase: "maintenance_required",
+          runtimeStatus: "maintenance",
+        }),
+      ],
+    );
+    await client!.query(
+      `INSERT INTO cms_addon_deployment_results
+        (result_id, operation_id, worker_job_id, result_body_hash,
+         result_status, final_phase, terminal_evidence_kind,
+         terminal_evidence_hash, received_payload, initial_ack)
+       VALUES ($1,$2,$3,$4,'failed','maintenance_required',
+         'recovery_receipt',$5,$6::jsonb,'applied')`,
+      [
+        resultId,
+        accepted.operationId,
+        workerJobId,
+        `sha256:${"d".repeat(64)}`,
+        terminalEvidenceHash,
+        JSON.stringify({ errorClass: "incident", errorCode }),
+      ],
+    );
+
+    await assert.rejects(
+      persistVerifiedLicenseServerActivation({
+        claim: licenseServerClaim,
+        signedEntitlement: "compact-license-server-incident-no-clearance",
+        updatedBy: "test-admin",
+      }),
+      /not eligible for an automatic retry/,
+    );
+
+    const recovered = await persistVerifiedLicenseServerIncidentRecovery({
+      claim: licenseServerClaim,
+      expectedOperationId: accepted.operationId,
+      reason: "Schema fingerprint compatibility bug fixed and verified.",
+      signedEntitlement: "compact-license-server-incident-cleared",
+      updatedBy: "test-admin",
+    });
+    assert.equal(recovered.status, "install_pending");
+    assert.equal(recovered.reused, false);
+    const operations = await client!.query(
+      "SELECT id::text, installation_deployment_epoch::text AS epoch, generation, supersedes_operation_id::text, status FROM cms_addon_operations ORDER BY created_at",
+    );
+    const installation = await client!.query(
+      "SELECT installation_deployment_epoch::text AS epoch, status, runtime_status FROM cms_addon_installations WHERE addon_key='license-server'",
+    );
+    const entitlement = await client!.query(
+      "SELECT metadata FROM license_server_addon_entitlements WHERE id=1",
+    );
+    assert.deepEqual(
+      operations.rows.map((row) => ({
+        epoch: row.epoch,
+        generation: row.generation,
+        id: row.id,
+        status: row.status,
+        supersedesOperationId: row.supersedes_operation_id,
+      })),
+      [
+        {
+          epoch: "1",
+          generation: 1,
+          id: accepted.operationId,
+          status: "failed",
+          supersedesOperationId: null,
+        },
+        {
+          epoch: "2",
+          generation: 1,
+          id: recovered.operationId,
+          status: "pending",
+          supersedesOperationId: null,
+        },
+      ],
+    );
+    assert.deepEqual(installation.rows, [
+      { epoch: "2", runtime_status: "maintenance", status: "install_pending" },
+    ]);
+    const clearances =
+      entitlement.rows[0]?.metadata?.deploymentIncidentClearances;
+    assert.equal(clearances.length, 1);
+    assert.equal(clearances[0]?.failedOperationId, accepted.operationId);
+    assert.equal(clearances[0]?.terminalEvidenceHash, terminalEvidenceHash);
+    assert.equal(clearances[0]?.purpose, "addon_deployment_incident_clearance");
   },
 );
 

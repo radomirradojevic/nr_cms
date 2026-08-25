@@ -6,9 +6,11 @@ import { db } from "@/db";
 import {
   cmsAddonDeploymentOutbox,
   cmsAddonDeploymentResults,
+  cmsAddonDeploymentTerminalReceipts,
   cmsAddonInstallations,
   cmsAddonMigrations,
   cmsAddonOperations,
+  cmsAddonServingFences,
   licenseServerAddonEntitlements,
   webshopAddonEntitlements,
 } from "@/db/schema";
@@ -26,7 +28,10 @@ export async function persistVerifiedWebshopActivation(input: {
   signedEntitlement: string;
   updatedBy: string;
 }) {
-  return persistVerifiedManagedAddonActivation({ ...input, addonKey: "webshop" });
+  return persistVerifiedManagedAddonActivation({
+    ...input,
+    addonKey: "webshop",
+  });
 }
 
 export async function persistVerifiedLicenseServerActivation(input: {
@@ -40,9 +45,32 @@ export async function persistVerifiedLicenseServerActivation(input: {
   });
 }
 
+export async function persistVerifiedLicenseServerIncidentRecovery(input: {
+  claim: AddonEntitlementClaimsV2 & { signingKid: string };
+  expectedOperationId: string;
+  reason: string;
+  signedEntitlement: string;
+  updatedBy: string;
+}) {
+  return persistVerifiedManagedAddonActivation({
+    addonKey: "license-server",
+    claim: input.claim,
+    incidentClearance: {
+      expectedOperationId: input.expectedOperationId,
+      reason: input.reason,
+    },
+    signedEntitlement: input.signedEntitlement,
+    updatedBy: input.updatedBy,
+  });
+}
+
 async function persistVerifiedManagedAddonActivation(input: {
   addonKey: "webshop" | "license-server";
   claim: AddonEntitlementClaimsV2 & { signingKid: string };
+  incidentClearance?: {
+    expectedOperationId: string;
+    reason: string;
+  };
   signedEntitlement: string;
   updatedBy: string;
 }) {
@@ -99,6 +127,14 @@ async function persistVerifiedManagedAddonActivation(input: {
         "A different installation identity already owns this add-on control plane; audited transfer is required.",
       );
     }
+    const incidentClearance = input.incidentClearance
+      ? await verifyLicenseServerIncidentClearance(tx, {
+          claim: input.claim,
+          clearance: input.incidentClearance,
+          existing,
+          updatedBy: input.updatedBy,
+        })
+      : null;
     // An exact legacy-public schema result is a permanent terminal result for
     // its epoch.  A new JWS snapshot alone must not turn it into a retry (or a
     // generation+1): only a newly attested host-capability descriptor opens a
@@ -181,11 +217,7 @@ async function persistVerifiedManagedAddonActivation(input: {
         );
       }
       const refreshedEntitlement = entitlementValues("ready");
-      await upsertManagedEntitlement(
-        tx,
-        input.addonKey,
-        refreshedEntitlement,
-      );
+      await upsertManagedEntitlement(tx, input.addonKey, refreshedEntitlement);
       const refreshed = await tx
         .update(cmsAddonInstallations)
         .set({
@@ -211,7 +243,9 @@ async function persistVerifiedManagedAddonActivation(input: {
         )
         .returning({ addonKey: cmsAddonInstallations.addonKey });
       if (refreshed.length !== 1) {
-        throw new Error("Ready managed add-on entitlement refresh lost its CAS.");
+        throw new Error(
+          "Ready managed add-on entitlement refresh lost its CAS.",
+        );
       }
       return {
         operationId: completedOperation.id,
@@ -222,11 +256,12 @@ async function persistVerifiedManagedAddonActivation(input: {
       };
     }
     // Compact JWS bytes are intentionally short-lived and may change on every
-    // revalidation.  They are evidence for an already-open deployment, not a
-    // new deployment intent.  Only a release, lifecycle, or host-capability
-    // change may supersede the current epoch.
+    // revalidation. They are evidence for an already-open deployment, not a
+    // new deployment intent. Only a release, lifecycle, host-capability change,
+    // or an exact audited incident clearance may supersede the current epoch.
     const sameDeploymentIntent = Boolean(
       existing &&
+      !incidentClearance &&
       existing.desiredReleaseId === input.claim.release.releaseId &&
       existing.entitlementLifecycleVersion === input.claim.lifecycleVersion &&
       existing.desiredHostCapabilityDescriptorHash ===
@@ -276,7 +311,9 @@ async function persistVerifiedManagedAddonActivation(input: {
         predecessor.generation === null ||
         predecessor.generation < 1)
     ) {
-      throw new Error("Managed add-on deployment predecessor generation is invalid.");
+      throw new Error(
+        "Managed add-on deployment predecessor generation is invalid.",
+      );
     }
     const generation = retry ? predecessor!.generation! + 1 : 1;
     if (generation > 2_147_483_647) {
@@ -349,6 +386,16 @@ async function persistVerifiedManagedAddonActivation(input: {
     const requestHash = sha256(canonicalJson(operationPayload));
     const pendingEntitlement = entitlementValues("install_pending");
     await upsertManagedEntitlement(tx, input.addonKey, pendingEntitlement);
+    if (incidentClearance) {
+      await tx
+        .update(licenseServerAddonEntitlements)
+        .set({
+          metadata: incidentClearance.entitlementMetadata,
+          updatedAt: new Date(),
+          updatedBy: input.updatedBy,
+        })
+        .where(eq(licenseServerAddonEntitlements.id, 1));
+    }
     const installationValues = {
       installationId: input.claim.installationId,
       desiredReleaseId: release.releaseId,
@@ -442,6 +489,198 @@ async function persistVerifiedManagedAddonActivation(input: {
       reused: false as const,
     };
   });
+}
+
+async function verifyLicenseServerIncidentClearance(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  input: {
+    claim: AddonEntitlementClaimsV2 & { signingKid: string };
+    clearance: { expectedOperationId: string; reason: string };
+    existing: typeof cmsAddonInstallations.$inferSelect | undefined;
+    updatedBy: string;
+  },
+) {
+  if (
+    input.claim.addonKey !== "license-server" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      input.clearance.expectedOperationId,
+    ) ||
+    input.clearance.reason.trim().length < 12 ||
+    input.clearance.reason.trim().length > 500 ||
+    /[\u0000-\u001f\u007f]/.test(input.clearance.reason) ||
+    input.updatedBy.trim().length < 1 ||
+    input.updatedBy.length > 200
+  ) {
+    throw new Error("License Server incident clearance input is invalid.");
+  }
+  const existing = input.existing;
+  if (
+    !existing ||
+    existing.status !== "failed" ||
+    existing.runtimeStatus !== "maintenance" ||
+    existing.installedReleaseId !== null ||
+    existing.installedBuildId !== null ||
+    existing.installedArtifactSha256 !== null ||
+    existing.desiredReleaseId !== input.claim.release.releaseId ||
+    existing.desiredArtifactSha256 !== input.claim.release.artifactSha256 ||
+    existing.entitlementLifecycleVersion !== input.claim.lifecycleVersion ||
+    existing.desiredHostCapabilityDescriptorHash !==
+      input.claim.hostCapabilityDescriptorHash
+  ) {
+    throw new Error(
+      "License Server installation is not eligible for initial-install incident clearance.",
+    );
+  }
+  // A Drizzle transaction owns one PostgreSQL client, so these evidence reads
+  // must remain sequential rather than issuing concurrent queries on it.
+  const operation = (
+    await tx
+      .select()
+      .from(cmsAddonOperations)
+      .where(
+        and(
+          eq(cmsAddonOperations.id, input.clearance.expectedOperationId),
+          eq(cmsAddonOperations.addonKey, "license-server"),
+          eq(cmsAddonOperations.installationId, input.claim.installationId),
+          eq(
+            cmsAddonOperations.installationDeploymentEpoch,
+            existing.installationDeploymentEpoch,
+          ),
+        ),
+      )
+      .limit(1)
+  )[0];
+  const result = (
+    await tx
+      .select()
+      .from(cmsAddonDeploymentResults)
+      .where(
+        eq(
+          cmsAddonDeploymentResults.operationId,
+          input.clearance.expectedOperationId,
+        ),
+      )
+      .limit(1)
+  )[0];
+  const receipt = (
+    await tx
+      .select()
+      .from(cmsAddonDeploymentTerminalReceipts)
+      .where(
+        eq(
+          cmsAddonDeploymentTerminalReceipts.operationId,
+          input.clearance.expectedOperationId,
+        ),
+      )
+      .limit(1)
+  )[0];
+  const outbox = (
+    await tx
+      .select()
+      .from(cmsAddonDeploymentOutbox)
+      .where(
+        eq(
+          cmsAddonDeploymentOutbox.operationId,
+          input.clearance.expectedOperationId,
+        ),
+      )
+      .limit(1)
+  )[0];
+  const entitlement = (
+    await tx
+      .select()
+      .from(licenseServerAddonEntitlements)
+      .where(eq(licenseServerAddonEntitlements.id, 1))
+      .limit(1)
+  )[0];
+  const activeFence = (
+    await tx
+      .select({ id: cmsAddonServingFences.id })
+      .from(cmsAddonServingFences)
+      .where(
+        and(
+          eq(cmsAddonServingFences.addonKey, "license-server"),
+          eq(cmsAddonServingFences.installationId, input.claim.installationId),
+          eq(cmsAddonServingFences.state, "active"),
+        ),
+      )
+      .limit(1)
+  )[0];
+  const active = (
+    await tx
+      .select({ id: cmsAddonOperations.id })
+      .from(cmsAddonOperations)
+      .where(
+        and(
+          eq(cmsAddonOperations.addonKey, "license-server"),
+          eq(cmsAddonOperations.installationId, input.claim.installationId),
+          inArray(cmsAddonOperations.status, ["pending", "running"]),
+        ),
+      )
+      .limit(1)
+  )[0];
+  const resultPayload = metadataRecord(result?.receivedPayload);
+  const finalTuple = metadataRecord(receipt?.finalTuple);
+  if (
+    !operation ||
+    operation.status !== "failed" ||
+    !operation.errorCode ||
+    operation.generation !== 1 ||
+    !result ||
+    result.initialAck !== "applied" ||
+    result.resultStatus !== "failed" ||
+    result.finalPhase !== "maintenance_required" ||
+    result.terminalEvidenceKind !== "recovery_receipt" ||
+    resultPayload.errorClass !== "incident" ||
+    resultPayload.errorCode !== operation.errorCode ||
+    !receipt ||
+    receipt.workerJobId !== result.workerJobId ||
+    receipt.kind !== "recovery_receipt" ||
+    receipt.evidenceHash !== result.terminalEvidenceHash ||
+    finalTuple.finalPhase !== "maintenance_required" ||
+    finalTuple.runtimeStatus !== "maintenance" ||
+    finalTuple.errorCode !== operation.errorCode ||
+    !outbox ||
+    outbox.status !== "failed" ||
+    outbox.workerJobId !== result.workerJobId ||
+    existing.deploymentJobId !== result.workerJobId ||
+    !entitlement ||
+    entitlement.status !== "install_pending" ||
+    activeFence ||
+    active
+  ) {
+    throw new Error(
+      "License Server incident clearance evidence is incomplete or no longer current.",
+    );
+  }
+  const clearedAt = new Date().toISOString();
+  const audit = {
+    actor: input.updatedBy,
+    clearanceId: randomUUID(),
+    clearedAt,
+    contractVersion: 1,
+    failedGeneration: operation.generation,
+    failedOperationId: operation.id,
+    failedWorkerJobId: result.workerJobId,
+    fromInstallationDeploymentEpoch: String(
+      existing.installationDeploymentEpoch,
+    ),
+    incidentErrorCode: operation.errorCode,
+    purpose: "addon_deployment_incident_clearance",
+    reason: input.clearance.reason.trim(),
+    terminalEvidenceHash: result.terminalEvidenceHash,
+  };
+  const metadata = metadataRecord(entitlement.metadata);
+  const history = Array.isArray(metadata.deploymentIncidentClearances)
+    ? metadata.deploymentIncidentClearances.slice(-19)
+    : [];
+  return {
+    audit,
+    entitlementMetadata: {
+      ...metadata,
+      deploymentIncidentClearances: [...history, audit],
+    },
+  };
 }
 
 async function upsertManagedEntitlement(
@@ -639,7 +878,10 @@ function preOperationEvidence(
         installedEvidence,
       }),
     ),
-    preOperationMigrationLedgerHash: migrationLedgerHash(migrationLedger, addonKey),
+    preOperationMigrationLedgerHash: migrationLedgerHash(
+      migrationLedger,
+      addonKey,
+    ),
   };
 }
 function redactedClaims(claim: AddonEntitlementClaimsV2) {

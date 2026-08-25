@@ -1,10 +1,3 @@
-import { z } from "zod";
-import { getMasterLicenseServerUrl } from "@/lib/master-license-server";
-import {
-  isExplicitlyAllowedLoopbackHttpUrl,
-  safeFetch,
-} from "@/lib/security/outbound-url";
-
 import type {
   LicenseServerAddonState,
   LicenseServerDeploymentPlatform,
@@ -25,34 +18,21 @@ import {
 import { getVendorAddonEntitlementPublicKeys } from "@/lib/vendor-addon-entitlements/public-keys";
 import {
   activateManagedAddonV2,
+  ManagedAddonV2ExchangeError,
+  revalidateManagedAddonV2,
   type ManagedAddonActivationResponseV2,
 } from "@/lib/vendor-addon-entitlements/activation-client-v2";
+export type LicenseServerActivationResponse =
+  ManagedAddonActivationResponseV2 & {
+    verifiedClaims: VerifiedManagedAddonEntitlement;
+  };
 
-const RevalidationResponseSchema = z.object({
-  activationId: z.string().uuid(),
-  checkedAt: z.string().datetime().optional(),
-  entitlementToken: z.string().min(1),
-  installationId: z.string().uuid(),
-  installationKeyFingerprint: z.string(),
-  signingKid: z.string().min(1),
-  existingLicenseValidationPolicy: z
-    .enum(["allow_existing", "disabled"])
-    .default("allow_existing"),
-  expiresAt: z.string().datetime(),
-  features: z.array(z.string()).default([]),
-  licenseKeyRef: z.string().min(1),
-  message: z.string().optional(),
-  packageName: z.string().optional(),
-  packageVersion: z.string().optional(),
-  status: z.enum(["active", "suspended", "expired", "revoked", "canceled"]),
-});
-export type LicenseServerActivationResponse = ManagedAddonActivationResponseV2 & {
-  verifiedClaims: VerifiedManagedAddonEntitlement;
-};
-
-export type LicenseServerRevalidationResponse = z.infer<
-  typeof RevalidationResponseSchema
->;
+export type LicenseServerRevalidationStatus =
+  | "active"
+  | "suspended"
+  | "expired"
+  | "revoked"
+  | "canceled";
 
 export const LICENSE_SERVER_ENTITLEMENT_REVALIDATION_INTERVAL_MS =
   24 * 60 * 60 * 1000;
@@ -60,18 +40,27 @@ export const LICENSE_SERVER_ENTITLEMENT_REVALIDATION_INTERVAL_MS =
 export type LicenseServerEntitlementState = {
   deploymentEnvironment?: string | null;
   entitlementToken?: string | null;
+  signedEntitlement?: string | null;
   installationId?: string | null;
   installationKeyFingerprint?: string | null;
   expiresAt?: Date | null;
+  entitlementEnvelopeExpiresAt?: Date | null;
   features?: unknown;
+  graceEndsAt?: Date | null;
+  lastErrorCode?: string | null;
+  lastRevalidationSuccessAt?: Date | null;
   licenseKeyRef?: string | null;
+  licenseEnvironment?: string | null;
+  licenseValidUntil?: Date | null;
   metadata?: unknown;
+  nextRevalidationAt?: Date | null;
   packageName?: string | null;
   packageVersion?: string | null;
   provider?: string | null;
   providerMode?: string | null;
   providerOwnerId?: string | null;
   providerProjectId?: string | null;
+  verifiedClaims?: unknown;
   status: string;
 };
 
@@ -82,29 +71,42 @@ export function verifyLicenseServerSignedEntitlement(
   publicKeysByKid: Record<string, string> = {},
 ) {
   if (
-    !entitlement.entitlementToken ||
+    !(entitlement.signedEntitlement ?? entitlement.entitlementToken) ||
     !entitlement.installationId ||
     !entitlement.installationKeyFingerprint
   )
     throw new Error("License Server signed entitlement cache is incomplete.");
-  return verifyVendorAddonEntitlement(entitlement.entitlementToken, {
-    addonKey: "license-server",
-    canonicalDomain,
-    installationId: entitlement.installationId,
-    installationKeyFingerprint: entitlement.installationKeyFingerprint,
-    now,
-    publicKeysByKid,
-  });
+  const verifiedClaims = asRecord(entitlement.verifiedClaims);
+  const hostCapabilityDescriptorHash =
+    verifiedClaims.hostCapabilityDescriptorHash;
+  const environment = entitlement.licenseEnvironment;
+  if (
+    typeof hostCapabilityDescriptorHash !== "string" ||
+    (environment !== "development" &&
+      environment !== "staging" &&
+      environment !== "production")
+  ) {
+    throw new Error("License Server V2 entitlement cache is incomplete.");
+  }
+  return verifyVendorAddonEntitlement(
+    entitlement.signedEntitlement ?? entitlement.entitlementToken!,
+    {
+      addonKey: "license-server",
+      canonicalDomain,
+      environment,
+      expectedHostCapabilityDescriptorHash: hostCapabilityDescriptorHash,
+      installationId: entitlement.installationId,
+      installationKeyFingerprint: entitlement.installationKeyFingerprint,
+      now,
+      publicKeysByKid,
+    },
+  );
 }
 
 export type InstalledLicenseServerLicenseModeResult =
   | { status: "ready"; mode: "ready" }
   | { status: "license_expired"; mode: "edit_existing_only" }
   | { status: "forbidden"; reason: string };
-
-function joinUrl(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
-}
 
 export function resolveLicenseServerAddonStateFromInputs({
   entitlement,
@@ -369,97 +371,57 @@ export async function requestLicenseServerLicenseActivation({
 export async function requestLicenseServerLicenseRevalidation({
   activationId,
   canonicalDomain,
-  installationId,
-  installationKeyFingerprint,
+  deploymentMode,
+  installedAddonSchemaVersion,
 }: {
   activationId: string;
   canonicalDomain: string;
-  installationId: string;
-  installationKeyFingerprint: string;
+  deploymentMode: "vercel" | "self_hosted";
+  installedAddonSchemaVersion: number;
 }): Promise<
-  | { ok: true; entitlement: LicenseServerRevalidationResponse }
+  | {
+      ok: true;
+      entitlement: Awaited<ReturnType<typeof revalidateManagedAddonV2>>;
+    }
   | { ok: false; error: string; statusCode?: number }
 > {
-  const licenseServerUrl = getMasterLicenseServerUrl();
-
-  const localHttp = isExplicitlyAllowedLoopbackHttpUrl(licenseServerUrl);
-  let response: Response;
   try {
-    response = await safeFetch(
-      joinUrl(licenseServerUrl, "/api/addons/licenses/revalidate"),
-      {
-        body: JSON.stringify({ activationId }),
-        headers: { "content-type": "application/json" },
-        allowFirstParty: true,
-        allowLocalHttp: localHttp,
-        allowSelfHosted: true,
-        method: "POST",
-        purpose: "License Server entitlement revalidation",
-        timeoutMs: 5000,
-      },
-    );
-  } catch {
     return {
-      ok: false,
-      error: "Master license server could not be reached for revalidation.",
+      entitlement: await revalidateManagedAddonV2({
+        activationId,
+        addonKey: "license-server",
+        canonicalDomain,
+        deploymentMode,
+        installedAddonSchemaVersion,
+      }),
+      ok: true,
     };
-  }
-
-  if (!response.ok) {
+  } catch (error) {
     return {
-      ok: false,
       error:
-        (await readErrorMessage(response)) ??
-        "License Server entitlement revalidation was rejected by the master license server.",
-      statusCode: response.status,
-    };
-  }
-
-  const parsed = RevalidationResponseSchema.safeParse(await response.json());
-  if (!parsed.success) {
-    return {
+        error instanceof Error
+          ? error.message
+          : "Master license server could not be reached for revalidation.",
       ok: false,
-      error:
-        "Master license server returned an invalid License Server revalidation response.",
+      ...(error instanceof ManagedAddonV2ExchangeError && error.statusCode
+        ? { statusCode: error.statusCode }
+        : {}),
     };
   }
-
-  try {
-    const publicKeysByKid = await getVendorAddonEntitlementPublicKeys({
-      forceRefresh: true,
-    });
-    const claims = verifyVendorAddonEntitlement(parsed.data.entitlementToken, {
-      addonKey: "license-server",
-      canonicalDomain,
-      installationId,
-      installationKeyFingerprint,
-      publicKeysByKid,
-    });
-    if (
-      claims.activationId !== activationId ||
-      claims.status !== parsed.data.status
-    ) {
-      throw new Error("Revalidation entitlement does not match the response.");
-    }
-  } catch {
-    return {
-      ok: false,
-      error:
-        "Master license server returned an untrusted License Server revalidation entitlement.",
-      statusCode: 403,
-    };
-  }
-
-  return { ok: true, entitlement: parsed.data };
 }
 
 export function shouldRevalidateLicenseServerEntitlement(
   entitlement: LicenseServerEntitlementState | null,
   now = new Date(),
 ): boolean {
-  if (!entitlement?.entitlementToken) return false;
+  if (!(entitlement?.signedEntitlement ?? entitlement?.entitlementToken))
+    return false;
   if (entitlement.status === "install_pending") return false;
   if (entitlement.status === "invalid") return false;
+
+  if (entitlement.nextRevalidationAt) {
+    return entitlement.nextRevalidationAt.getTime() <= now.getTime();
+  }
 
   const lastRevalidatedAt = dateValue(
     asRecord(entitlement.metadata).lastRevalidatedAt,
@@ -473,7 +435,7 @@ export function shouldRevalidateLicenseServerEntitlement(
 }
 
 export function mapLicenseServerRevalidationStatusToEntitlementStatus(
-  status: LicenseServerRevalidationResponse["status"],
+  status: LicenseServerRevalidationStatus,
 ): "expired" | "invalid" | "ready" {
   if (status === "active") return "ready";
   if (status === "expired") return "expired";
@@ -492,7 +454,7 @@ export async function revalidateLicenseServerAddonEntitlement({
   | {
       entitlement: LicenseServerEntitlementState | null;
       ok: true;
-      response?: LicenseServerRevalidationResponse;
+      response?: Awaited<ReturnType<typeof revalidateManagedAddonV2>>;
       skipped?: boolean;
     }
   | {
@@ -502,10 +464,8 @@ export async function revalidateLicenseServerAddonEntitlement({
       statusCode?: number;
     }
 > {
-  const {
-    getLicenseServerAddonEntitlement,
-    saveLicenseServerAddonEntitlement,
-  } = await import("@/data/license-server-addon-entitlement");
+  const { getLicenseServerAddonEntitlement } =
+    await import("@/data/license-server-addon-entitlement");
   const entitlement = await getLicenseServerAddonEntitlement();
 
   if (!entitlement) {
@@ -520,18 +480,14 @@ export async function revalidateLicenseServerAddonEntitlement({
     return { entitlement, ok: true, skipped: true };
   }
 
-  const storedEntitlementToken = entitlement.entitlementToken;
-  const storedExpiresAt = entitlement.expiresAt;
-  const storedLicenseKeyRef = entitlement.licenseKeyRef;
-  const storedInstallationId = entitlement.installationId;
-  const storedInstallationKeyFingerprint =
-    entitlement.installationKeyFingerprint;
+  const storedEntitlementToken =
+    entitlement.signedEntitlement ?? entitlement.entitlementToken;
   if (
     !storedEntitlementToken ||
-    !storedExpiresAt ||
-    !storedLicenseKeyRef ||
-    !storedInstallationId ||
-    !storedInstallationKeyFingerprint
+    !entitlement.entitlementEnvelopeExpiresAt ||
+    !entitlement.licenseKeyRef ||
+    !entitlement.installationId ||
+    !entitlement.installationKeyFingerprint
   ) {
     return {
       entitlement,
@@ -540,52 +496,42 @@ export async function revalidateLicenseServerAddonEntitlement({
     };
   }
 
-  const activationId = stringValue(asRecord(entitlement.metadata).activationId);
-  if (!activationId)
+  const verifiedClaims = asRecord(entitlement.verifiedClaims);
+  const activationId =
+    stringValue(verifiedClaims.activationId) ||
+    stringValue(asRecord(entitlement.metadata).activationId);
+  const deploymentMode = stringValue(verifiedClaims.deploymentMode);
+  if (
+    !activationId ||
+    (deploymentMode !== "self_hosted" && deploymentMode !== "vercel")
+  )
     return {
       entitlement,
-      error: "Stored License Server activation reference is missing.",
+      error:
+        "Stored License Server activation or deployment-mode binding is missing.",
       ok: false,
     };
   const revalidation = await requestLicenseServerLicenseRevalidation({
     activationId,
     canonicalDomain: expectedDomain(),
-    installationId: storedInstallationId,
-    installationKeyFingerprint: storedInstallationKeyFingerprint,
+    deploymentMode,
+    // The activation identity is bound to the pre-install host descriptor.
+    // A package revalidation must not manufacture a new deployment intent.
+    installedAddonSchemaVersion: 0,
   });
 
-  const checkedAt = new Date().toISOString();
   if (!revalidation.ok) {
     const failClosed = shouldFailClosedForRevalidationError(
       revalidation.statusCode,
     );
-    const nextEntitlement = {
-      ...entitlement,
-      metadata: mergeMetadata(entitlement.metadata, {
-        lastRevalidatedAt: checkedAt,
-        lastRevalidationError: revalidation.error,
-        lastRevalidationReason: reason,
-        lastRevalidationStatus: failClosed ? "invalid" : "unreachable",
-      }),
-      status: failClosed ? "invalid" : entitlement.status,
-    };
-
-    await saveLicenseServerAddonEntitlement({
-      deploymentEnvironment: nextEntitlement.deploymentEnvironment,
-      entitlementToken: storedEntitlementToken,
-      expiresAt: storedExpiresAt,
-      features: nextEntitlement.features,
-      licenseKeyRef: storedLicenseKeyRef,
-      metadata: nextEntitlement.metadata,
-      packageName: nextEntitlement.packageName,
-      packageVersion: nextEntitlement.packageVersion,
-      provider: nextEntitlement.provider,
-      providerMode: nextEntitlement.providerMode,
-      providerOwnerId: nextEntitlement.providerOwnerId,
-      providerProjectId: nextEntitlement.providerProjectId,
-      status: normalizeStoredEntitlementStatus(nextEntitlement.status),
+    await persistLicenseServerRevalidationFailure({
+      entitlement,
+      error: revalidation.error,
+      failClosed,
+      reason,
       updatedBy,
     });
+    const nextEntitlement = await getLicenseServerAddonEntitlement();
 
     return {
       entitlement: nextEntitlement,
@@ -595,51 +541,14 @@ export async function revalidateLicenseServerAddonEntitlement({
     };
   }
 
-  const nextStatus = mapLicenseServerRevalidationStatusToEntitlementStatus(
-    revalidation.entitlement.status,
-  );
-  const nextEntitlement = {
-    ...entitlement,
-    expiresAt: new Date(revalidation.entitlement.expiresAt),
-    features: revalidation.entitlement.features,
-    licenseKeyRef: revalidation.entitlement.licenseKeyRef,
-    entitlementToken: revalidation.entitlement.entitlementToken,
-    installationId: revalidation.entitlement.installationId,
-    installationKeyFingerprint:
-      revalidation.entitlement.installationKeyFingerprint,
-    metadata: mergeMetadata(entitlement.metadata, {
-      activationId: revalidation.entitlement.activationId,
-      existingLicenseValidationPolicy:
-        revalidation.entitlement.existingLicenseValidationPolicy,
-      lastRevalidatedAt: revalidation.entitlement.checkedAt ?? checkedAt,
-      lastRevalidationError: null,
-      lastRevalidationMessage: revalidation.entitlement.message ?? null,
-      lastRevalidationReason: reason,
-      lastRevalidationStatus: revalidation.entitlement.status,
-    }),
-    packageName:
-      revalidation.entitlement.packageName ?? entitlement.packageName,
-    packageVersion:
-      revalidation.entitlement.packageVersion ?? entitlement.packageVersion,
-    status: nextStatus,
-  };
-
-  await saveLicenseServerAddonEntitlement({
-    deploymentEnvironment: nextEntitlement.deploymentEnvironment,
-    entitlementToken: revalidation.entitlement.entitlementToken,
-    expiresAt: nextEntitlement.expiresAt,
-    features: nextEntitlement.features,
-    licenseKeyRef: nextEntitlement.licenseKeyRef,
-    metadata: nextEntitlement.metadata,
-    packageName: nextEntitlement.packageName,
-    packageVersion: nextEntitlement.packageVersion,
-    provider: nextEntitlement.provider,
-    providerMode: nextEntitlement.providerMode,
-    providerOwnerId: nextEntitlement.providerOwnerId,
-    providerProjectId: nextEntitlement.providerProjectId,
-    status: normalizeStoredEntitlementStatus(nextEntitlement.status),
+  const { persistVerifiedLicenseServerActivation } =
+    await import("@/data/webshop-addon-control-plane");
+  await persistVerifiedLicenseServerActivation({
+    claim: revalidation.entitlement.verifiedClaims,
+    signedEntitlement: revalidation.entitlement.signedEntitlement,
     updatedBy,
   });
+  const nextEntitlement = await getLicenseServerAddonEntitlement();
 
   return {
     entitlement: nextEntitlement,
@@ -665,21 +574,40 @@ async function maybeRevalidateLicenseServerAddonEntitlement(
 }
 
 function shouldFailClosedForRevalidationError(statusCode: number | undefined) {
-  return statusCode === 401 || statusCode === 403 || statusCode === 404;
+  return statusCode !== undefined && statusCode < 500;
 }
 
-function normalizeStoredEntitlementStatus(
-  status: string,
-): "expired" | "install_pending" | "invalid" | "ready" {
-  if (
-    status === "expired" ||
-    status === "install_pending" ||
-    status === "invalid" ||
-    status === "ready"
-  ) {
-    return status;
-  }
-  return "invalid";
+async function persistLicenseServerRevalidationFailure(input: {
+  entitlement: LicenseServerEntitlementState;
+  error: string;
+  failClosed: boolean;
+  reason: string;
+  updatedBy: string;
+}) {
+  const [{ eq }, { db }, { licenseServerAddonEntitlements }] =
+    await Promise.all([
+      import("drizzle-orm"),
+      import("@/db"),
+      import("@/db/schema"),
+    ]);
+  const checkedAt = new Date();
+  await db
+    .update(licenseServerAddonEntitlements)
+    .set({
+      lastErrorCode: input.failClosed
+        ? "revalidation_invalid_response"
+        : "revalidation_network_outage",
+      lastRevalidationAttemptAt: checkedAt,
+      metadata: mergeMetadata(input.entitlement.metadata, {
+        lastRevalidatedAt: checkedAt.toISOString(),
+        lastRevalidationError: input.error,
+        lastRevalidationReason: input.reason,
+        lastRevalidationStatus: input.failClosed ? "invalid" : "unreachable",
+      }),
+      ...(input.failClosed ? { status: "invalid" as const } : {}),
+      updatedBy: input.updatedBy,
+    })
+    .where(eq(licenseServerAddonEntitlements.id, 1));
 }
 
 function mergeMetadata(
@@ -687,16 +615,6 @@ function mergeMetadata(
   patch: Record<string, unknown>,
 ): Record<string, unknown> {
   return { ...asRecord(metadata), ...patch };
-}
-
-async function readErrorMessage(response: Response) {
-  try {
-    const payload = asRecord(await response.json());
-    const error = stringValue(payload.error);
-    return error || null;
-  } catch {
-    return null;
-  }
 }
 
 function getLastRevalidationMessage(
