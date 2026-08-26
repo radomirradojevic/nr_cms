@@ -123,8 +123,9 @@ izdaje licence za proizvode tog kupca.
     — Prompt 16 verzionisanje, clean-checkout signed local RC, digest/migration
     operator packet i eksplicitno blokirane publish/Master/canary kapije.
 30. [28-local-purchase-activation-managed-install-evidence-2026-08-25.md](./28-local-purchase-activation-managed-install-evidence-2026-08-25.md)
-    — lokalni purchase → V2 activation → managed install dokaz, auditovani
-    initial-install recovery i fail-closed CMS/release compatibility granica.
+    — završeni lokalni purchase → V2 activation → produkciono potpisani `0.2.1`
+    → Master publish → managed `ready` dokaz, uz auditovani recovery i
+    fail-closed compatibility negativni test.
 
 ## Oznake stanja
 

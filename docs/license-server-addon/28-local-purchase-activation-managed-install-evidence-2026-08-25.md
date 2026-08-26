@@ -2,29 +2,31 @@
 
 Datum izvršenja: **2026-08-25 — 2026-08-26**
 
-Status: **DELIMIČNI PASS (lokalni scope)**
+Status: **PASS (lokalni scope završen)**
 
-Javni staging i production nisu bili deo ovog izvršenja. Lokalna kupovina,
-Master aktivacija, kontrolisana instalacija objavljenog paketa i recovery jesu
-dokazani. Završni `ready` tok za noviji CMS commit `72a0f106…` nije zatvoren jer
-je dostupni produkciono potpisani paket vezan za drugi, stariji CMS commit. Exact
-SHA provera je ispravno ostala fail-closed.
+Javni CMS staging i production deployment nisu bili deo ovog izvršenja. Lokalna
+kupovina, Master aktivacija, produkciono potpisana publikacija paketa `0.2.1`,
+Master import/publish i kontrolisana instalacija na customer CMS commit
+`72a0f106…` jesu dokazani do finalnog `ready` stanja. Prethodno fail-closed
+odbijanje nekompatibilnog `0.2.0` release-a ostaje zabeleženo kao negativni dokaz
+da exact CMS SHA provera nije zaobiđena.
 
 Ovaj dokument namerno ne sadrži license key, JWS, install token, registry
 credential, HMAC secret niti bilo koji drugi bearer materijal.
 
 ## Rezultat po acceptance granici
 
-| Granica                                       | Rezultat       | Dokaz / ograničenje                                                                                                                |
-| --------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Lokalna vendorska kupovina                    | PASS           | Plaćeni Stripe lokalni order `WEB-1004`, SKU `license-server-30`; purchase intent je potrošen jednom.                              |
-| Master izdavanje i V2 aktivacija              | PASS           | Master licenca je izdata; entitlement je vezan za installation i potvrđen svežim V2 Proof-of-Possession tokom managed lifecycle-a. |
-| Managed instalacija potpisanog `0.2.0` paketa | PASS           | Epoch 2 je završio `ready` za CMS commit koji potpisani release stvarno deklariše.                                                 |
-| License Server bez customer Webshop add-on-a  | PASS           | Aktivni release sadrži samo License Server; customer Webshop ostaje `not_installed`.                                               |
-| Add-on migracije                              | PASS           | Svih osam migracija je evidentirano; finalni schema fingerprint je stabilan.                                                       |
-| Lokalni servisi i hostovi                     | PASS           | Četiri deployment servisa rade; svih pet lokalnih HTTPS hostova vraća HTTP 200.                                                    |
-| `72a0f106…` CMS → `ready` UI                  | NIJE ZATVORENO | Objavljeni paket je vezan za `bee6ca64…`; epoch 3 je pravilno odbijen pre switch-a.                                                |
-| Javni staging/production                      | VAN OPSEGA     | Nije pokretan niti se ovde tvrdi javni release dokaz.                                                                              |
+| Granica                                      | Rezultat   | Dokaz / ograničenje                                                                                                                |
+| -------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Lokalna vendorska kupovina                   | PASS       | Plaćeni Stripe lokalni order `WEB-1004`, SKU `license-server-30`; purchase intent je potrošen jednom.                              |
+| Master izdavanje i V2 aktivacija             | PASS       | Master licenca je izdata; entitlement je vezan za installation i potvrđen svežim V2 Proof-of-Possession tokom managed lifecycle-a. |
+| Produkciono potpisana publikacija `0.2.1`    | PASS       | Registry paket, publication attestation, receipt i javni keyset su objavljeni i nezavisno verifikovani.                            |
+| Lokalni Master import/publish                | PASS       | Release `805adfee…` je importovan kao draft i zatim publikovan bez izmene immutable release identiteta.                            |
+| `72a0f106…` CMS → managed `ready`            | PASS       | Epoch 4 je iz prvog pokušaja završio `callback_acked`; final phase je `ready`.                                                     |
+| License Server bez customer Webshop add-on-a | PASS       | Aktivni release sadrži samo License Server; customer Webshop ostaje `not_installed`.                                               |
+| Add-on migracije                             | PASS       | Svih osam migracija je evidentirano; schema version i finalni fingerprint odgovaraju release manifestu.                            |
+| Lokalni servisi i hostovi                    | PASS       | Četiri deployment servisa rade; svih pet lokalnih HTTPS hostova vraća HTTP 200.                                                    |
+| Javni CMS staging/production                 | VAN OPSEGA | Nije pokretan niti se ovde tvrdi javni CMS deployment dokaz.                                                                       |
 
 ## Kupovina i aktivacija
 
@@ -39,6 +41,39 @@ Customer aktivacija `95407a16-6e8d-4737-8d44-34ae9a7a9abb` vezana je za
 installation `ccf85491-eb0f-4f0c-931c-55afd414fec8`. Recovery revalidation
 koristio je svež V2 Proof-of-Possession, tačan environment i tačan release.
 Aktivacioni i licencni secret-i nisu zapisani u evidence-u.
+
+## Produkciono potpisani package release `0.2.1`
+
+Za zatvaranje exact-CMS compatibility kapije objavljen je immutable paket:
+
+- package: `@radomirradojevic/license-server-addon@0.2.1`;
+- source commit: `19a5735208f0089b5485837932da532023d12963`;
+- CMS commit: `72a0f106256d1b7616780ef034d226270a0344f8`;
+- release ID: `805adfee-4ee7-5937-ba3e-11c77bf53658`;
+- release signing KID: `production-release:bfe65cdba790277d`;
+- artifact SHA-256:
+  `b8285f03876baf4a4e4cd4345111aeac9ab6b95ebedd00aa908cd40ddeacb072`;
+- migration-set SHA-256:
+  `e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44`;
+- registry tarball SHA-256:
+  `62135043d6123d09d2c877f7568e81aa34103a1dfac4f0cef57e631c81894114`.
+
+Protected workflow run `32911852150` završio je uspešno. Registry version ID je
+`1172104402`, a GitHub Release `v0.2.1` je objavljen sa tri javna evidence
+asset-a: publication attestation, release public keyset i publication receipt.
+Nezavisni offline Master verifier je iz preuzetih asset-a i registry tarball-a
+potvrdio release ID, package/version, artifact hash i schema version `8`.
+
+Pre produkcione publikacije verification-only run `32911412598` je na Linux
+runner-u utvrdio kanonske artifact/migration digest-e bez registry ili release
+upisa. Završni public CMS CI run `32911583439` prošao je kompletno. Prvi publish
+pokušaj `32910982797` zaustavljen je pre registry upisa zato što je test skripta
+ponovo gradila release i narušavala clean-source precondition; build/test skripte
+su ispravljene pre uspešne publikacije.
+
+Lokalni Master preflight je release prihvatio kao `nrls_release_operator`.
+Import je kreirao draft sa istim release ID-em, a publish ga je prebacio u
+`published`; potpisani identitet i digest-i nisu menjani.
 
 ## Prvi install incident i auditovani recovery
 
@@ -74,7 +109,7 @@ Epoch 2:
   `sha256:62a298d48629fdd49f0ef1283e817b29031fb717312ecfc7eb45958a9e4b26e4`;
 - serving fence: `resolved_success`.
 
-## Instalirani runtime i schema dokaz
+## Prethodni epoch 2 runtime i schema dokaz
 
 Epoch 2 je aktivirao junction:
 
@@ -100,10 +135,10 @@ ace5eb1b1748a2361effec15a53a57ef61ce7731fe71b0290a554dcf67d1d567
 ```
 
 Polje `installed_schema_version` u zajedničkoj installation projekciji ostalo je
-`NULL`: epoch 2 je izvršio worker pre naknadne finalization popravke. To ne menja
-receipt, migration ledger ili direktno potvrđenu schema verziju. Popravka iz
-worker commita `5b4d687d73c0e6616b3eaad0721ca627d7cfc6d9` ima test dokaz, ali još
-nema uspešan live install dokaz i zato se ovde ne predstavlja kao takav.
+`NULL`: epoch 2 je izvršio worker pre naknadne finalization popravke. Epoch 4 u
+nastavku daje live dokaz da worker commit
+`5b4d687d73c0e6616b3eaad0721ca627d7cfc6d9` sada pravilno finalizuje schema
+version i ostala installed evidence polja.
 
 ## Epoch 3: očekivano fail-closed odbijanje
 
@@ -138,13 +173,56 @@ nepotrebno ponavljao, ispravljen je commitom
   `sha256:ae0ee18131a84364195910815dbcb1c1a9a01212a1924614868145fa80ee33c6`.
 
 DB schema, release pointer, junction i prethodni receipt-proven runtime nisu
-promenjeni. Customer projekcija zato pokazuje neuspeo željeni install/update uz
-`runtime_status=ready`: stari runtime je očuvan, dok License Server UI korektno
-prikazuje `install_pending` / „Installation needs attention”. Webshop ostaje
-`not_installed` i prikazuje sopstveni activation input.
+promenjeni. Customer projekcija je zato u tom istorijskom trenutku pokazivala
+neuspeo željeni update uz `runtime_status=ready`: stari runtime je bio očuvan,
+dok je License Server UI prikazivao `install_pending` / „Installation needs
+attention”. Webshop je ostao `not_installed`.
 
 Exact CMS SHA provera nije ublažena i ne sme biti zaobiđena pin override-om,
 direktnim SQL-om ili ponovnim slanjem istog dispatcha.
+
+## Epoch 4: `0.2.1` managed install do `ready`
+
+Sveža V2 revalidacija postojeće plaćene aktivacije izabrala je publikovani
+release `805adfee-4ee7-5937-ba3e-11c77bf53658` i otvorila tačno jednu novu
+deployment nameru:
+
+- deployment epoch: `4`, generation: `1`;
+- operation: `4f6b157e-25d7-4bae-b22f-0034cbece252`;
+- worker job: `b76d8437-cf4d-478a-a556-d93dee828ea8`;
+- dispatch outbox: jedan pokušaj, worker acceptance HTTP `202`;
+- worker terminal: `callback_acked`, attempt `1`, final phase `ready`;
+- result callback outbox: `acknowledged`, jedan pokušaj, HTTP `200`;
+- terminal/reconciliation evidence:
+  `sha256:28f9d6e45aee7d2b955d254436242a6f6377c4b7701f5f0e64f2aeb3fdee5ef7`;
+- migration ledger:
+  `sha256:62a298d48629fdd49f0ef1283e817b29031fb717312ecfc7eb45958a9e4b26e4`;
+- serving fence: `resolved_success`.
+
+Aktivni junction je atomically prebačen na:
+
+```text
+D:\nr_deploy\client\releases\core-bootstrap-6b16e1a24e566d68a90388da1efe780f45d53cd0076346c34c2bea801d53732c
+```
+
+Managed receipt potvrđuje CMS commit `72a0f106256d1b7616780ef034d226270a0344f8`,
+paket `@radomirradojevic/license-server-addon@0.2.1`, release ID `805adfee…`,
+artifact digest `b8285f…`, build ID `6b16e1a2…` i schema version `8`.
+Customer installation i runtime projekcije su obe `ready`; operation i customer
+outbox su `completed`, bez error code-a.
+
+Nezavisna read-only schema provera našla je svih 19 package-owned tabela. Ledger
+sadrži `0001` kao `legacy_applied` i `0002`–`0008` kao `applied`, bez greške.
+Observed fingerprint
+`ace5eb1b1748a2361effec15a53a57ef61ce7731fe71b0290a554dcf67d1d567`
+tačno odgovara descriptor-u `0008_production_admin_support.sql`.
+
+Autentifikovani Playwright smoke test je potvrdio:
+
+- `https://client.nr.test/dashboard/license-server`: HTTP 200, state `ready`,
+  naslov `License Server`, bez activation input-a;
+- `https://client.nr.test/dashboard/webshop`: HTTP 200, state
+  `not_installed`, uz sopstveni activation input.
 
 ## Lokalna operativna provera
 
@@ -160,18 +238,21 @@ Lokalni hostovi `license.nr.test`, `client.nr.test`, `vendor.nr.test`,
 
 Verifikacija koda:
 
-| Repo / provera                                | Rezultat                                                     |
-| --------------------------------------------- | ------------------------------------------------------------ |
-| CMS testovi                                   | 409 ukupno: 398 prošlo, 11 environment-skipped, 0 neuspešnih |
-| CMS lint                                      | 0 grešaka; 12 prethodno postojećih upozorenja                |
-| CMS typecheck / build                         | PASS / PASS                                                  |
-| Worker testovi                                | 141 ukupno: 125 prošlo, 16 environment-skipped, 0 neuspešnih |
-| Worker ciljano deployment-executor testiranje | 23/23 prošlo                                                 |
-| Worker lint / typecheck / build               | PASS / PASS / PASS                                           |
+| Repo / provera                             | Rezultat                                                     |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| CMS funkcionalni baseline                  | 409 ukupno: 398 prošlo, 11 environment-skipped, 0 neuspešnih |
+| CMS release-workflow test                  | 2/2 prošlo                                                   |
+| CMS public CI run `32911583439`            | PASS                                                         |
+| CMS lint                                   | 0 grešaka; 12 prethodno postojećih upozorenja                |
+| CMS typecheck / build                      | PASS / PASS                                                  |
+| License Server package testovi             | 113 ukupno: 106 prošlo, 7 DB-env skipped, 0 neuspešnih       |
+| License Server package typecheck/preflight | PASS / PASS                                                  |
+| Worker testovi                             | 130 ukupno: 115 prošlo, 15 environment-skipped, 0 neuspešnih |
+| Worker lint / typecheck / build            | PASS / PASS / PASS                                           |
 
-## Lokalni commit-i i sledeća legitimna kapija
+## Objavljeni commit-i i preostala granica scope-a
 
-Lokalno proverene promene su:
+Proverene i pushovane promene su:
 
 - CMS `72a0f106256d1b7616780ef034d226270a0344f8` — V2 entitlement
   revalidation, Zod 4 parser i auditovani initial-install recovery;
@@ -180,12 +261,12 @@ Lokalno proverene promene su:
 - worker `5b4d687d73c0e6616b3eaad0721ca627d7cfc6d9` — installed evidence
   finalization;
 - worker `35a3f64b768f78c0bafa8ad8be993d31d8b71576` — trajna klasifikacija
-  nepromenljivog CMS/release neslaganja.
+  nepromenljivog CMS/release neslaganja;
+- add-on `19a5735208f0089b5485837932da532023d12963` — stabilan `0.2.1`
+  build/test tok bez drugog release build-a;
+- CMS workflow `b61619f…` — pinovani Linux artifact i migration digest-i za
+  zaštićeni publisher.
 
-Commit-i su lokalni; ovaj dokaz ne tvrdi da su pushovani.
-
-Za zatvaranje `72a0f106…` → `ready` kapije potreban je zasebno odobren,
-potpisan i objavljen License Server package release čiji manifest i publication
-attestation deklarišu izabrani CMS commit. Tek tada treba pokrenuti novi
-uobičajeni Master import/publish, aktivaciju/revalidation i managed deployment.
-To je spoljašnja release odluka i nije prećutno autorizovana ovim lokalnim testom.
+Lokalna `72a0f106…` → `0.2.1` → `ready` kapija je zatvorena. Preostali javni CMS
+staging/production rollout zahteva zasebnu odluku, javnu infrastrukturu i
+operator evidence; nije izvršen niti se tvrdi u ovom dokumentu.
