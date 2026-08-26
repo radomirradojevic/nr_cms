@@ -43,13 +43,13 @@ jobs:
       PACKAGE_SLUG: ${{ inputs.addon == 'license-server' && 'license-server-addon' || 'webshop' }}
       PACKAGE_PATH: ${{ inputs.addon == 'license-server' && 'license-server-addon' || 'webshop' }}
       TARGET_REPOSITORY: ${{ inputs.addon == 'license-server' && 'radomirradojevic/license-server-addon' || 'radomirradojevic/webshop' }}
-      PACKAGE_VERSION: ${{ inputs.addon == 'license-server' && '0.2.1' || '0.6.41' }}
-      SOURCE_SHA: ${{ inputs.addon == 'license-server' && '19a5735208f0089b5485837932da532023d12963' || '0c77768f50859c8f732ba2aac8957747c97b06e8' }}
+      PACKAGE_VERSION: ${{ inputs.addon == 'license-server' && '0.2.1' || '0.6.42' }}
+      SOURCE_SHA: ${{ inputs.addon == 'license-server' && '19a5735208f0089b5485837932da532023d12963' || 'b9607b4dfdfa6f48c31b17d42a00a816bdaddbbf' }}
       CMS_SHA: ${{ inputs.addon == 'license-server' && '72a0f106256d1b7616780ef034d226270a0344f8' || '72a0f106256d1b7616780ef034d226270a0344f8' }}
       EXPECTED_ARTIFACT_SHA256: ${{ inputs.addon == 'license-server' && 'b8285f03876baf4a4e4cd4345111aeac9ab6b95ebedd00aa908cd40ddeacb072' || 'eb421b3276c28f264f71c78f1ceb081232c1696fba41c95b21f07562d4496c71' }}
       EXPECTED_MIGRATION_SHA256: ${{ inputs.addon == 'license-server' && 'e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44' || '594a64f2001453cd36e387acbfaf0a3e4f983f42125e6010c0cac881f1cd986b' }}
-      TARBALL_FILE: ${{ inputs.addon == 'license-server' && 'radomirradojevic-license-server-addon-0.2.1.tgz' || 'radomirradojevic-webshop-0.6.41.tgz' }}
-      RELEASE_TITLE: ${{ inputs.addon == 'license-server' && 'License Server v0.2.1' || 'Webshop v0.6.41' }}
+      TARBALL_FILE: ${{ inputs.addon == 'license-server' && 'radomirradojevic-license-server-addon-0.2.1.tgz' || 'radomirradojevic-webshop-0.6.42.tgz' }}
+      RELEASE_TITLE: ${{ inputs.addon == 'license-server' && 'License Server v0.2.1' || 'Webshop v0.6.42' }}
       NR_ADDON_RELEASE_SIGNING_KID: ${{ vars.NR_ADDON_RELEASE_SIGNING_KID }}
       NR_ADDON_RELEASE_PRODUCTION_KIDS: ${{ vars.NR_ADDON_RELEASE_SIGNING_KID }}
 

@@ -31,7 +31,7 @@ test("central package publisher is allowlisted and reviewer-environment protecte
   assert.match(workflow, /radomirradojevic\/license-server-addon/);
   assert.match(workflow, /radomirradojevic\/webshop/);
   assert.match(workflow, /19a5735208f0089b5485837932da532023d12963/);
-  assert.match(workflow, /0c77768f50859c8f732ba2aac8957747c97b06e8/);
+  assert.match(workflow, /b9607b4dfdfa6f48c31b17d42a00a816bdaddbbf/);
   assert.match(workflow, /72a0f106256d1b7616780ef034d226270a0344f8/);
   assert.doesNotMatch(workflow, /bee6ca64f247723cf2472def6408787b4d4f3dd5/);
   assert.match(
