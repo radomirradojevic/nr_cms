@@ -40,7 +40,15 @@ test("central package publisher is allowlisted and reviewer-environment protecte
   );
   assert.match(
     workflow,
+    /8bb2d12fb33098d731f5a548a7af14e903ca81be8b522e881258b13c58ca439b/,
+  );
+  assert.match(
+    workflow,
     /e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44/,
+  );
+  assert.match(
+    workflow,
+    /1f0122fc02752f9deba6e96bba53ac5a7884e249b2921a9c4e1c8ad7d32db7ef/,
   );
   assert.match(workflow, /NR_ADDON_RELEASE_SIGNING_KEY_B64/);
   assert.match(workflow, /NR_ADDON_RELEASE_PUBLIC_KEYS_B64/);
