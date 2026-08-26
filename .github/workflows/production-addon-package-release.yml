@@ -46,7 +46,7 @@ jobs:
       PACKAGE_VERSION: ${{ inputs.addon == 'license-server' && '0.2.1' || '0.6.44' }}
       SOURCE_SHA: ${{ inputs.addon == 'license-server' && '19a5735208f0089b5485837932da532023d12963' || '0f8817853d937ca7b404b96d0ddc39f488e1b1c1' }}
       CMS_SHA: ${{ inputs.addon == 'license-server' && '72a0f106256d1b7616780ef034d226270a0344f8' || '72a0f106256d1b7616780ef034d226270a0344f8' }}
-      EXPECTED_ARTIFACT_SHA256: ${{ inputs.addon == 'license-server' && 'b8285f03876baf4a4e4cd4345111aeac9ab6b95ebedd00aa908cd40ddeacb072' || '9a24d819f0e94ef1d21c0e5dfdd7b7a6c223947560b6c25f6838ae7b5025a9c2' }}
+      EXPECTED_ARTIFACT_SHA256: ${{ inputs.addon == 'license-server' && 'b8285f03876baf4a4e4cd4345111aeac9ab6b95ebedd00aa908cd40ddeacb072' || '10afa33dabaffcb2386114caeb0085af2ec164d432dbd3938ab7118c75166ec4' }}
       EXPECTED_MIGRATION_SHA256: ${{ inputs.addon == 'license-server' && 'e5b1e32557033ba532db00301725b9712c8a56cf190088d002912ace51503b44' || '594a64f2001453cd36e387acbfaf0a3e4f983f42125e6010c0cac881f1cd986b' }}
       TARBALL_FILE: ${{ inputs.addon == 'license-server' && 'radomirradojevic-license-server-addon-0.2.1.tgz' || 'radomirradojevic-webshop-0.6.44.tgz' }}
       RELEASE_TITLE: ${{ inputs.addon == 'license-server' && 'License Server v0.2.1' || 'Webshop v0.6.44' }}

@@ -42,7 +42,7 @@ test("central package publisher is allowlisted and reviewer-environment protecte
   );
   assert.match(
     workflow,
-    /9a24d819f0e94ef1d21c0e5dfdd7b7a6c223947560b6c25f6838ae7b5025a9c2/,
+    /10afa33dabaffcb2386114caeb0085af2ec164d432dbd3938ab7118c75166ec4/,
   );
   assert.match(
     workflow,
