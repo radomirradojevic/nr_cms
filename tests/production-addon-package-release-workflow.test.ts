@@ -54,6 +54,10 @@ test("central package publisher is allowlisted and reviewer-environment protecte
   assert.match(workflow, /NR_ADDON_RELEASE_PUBLIC_KEYS_B64/);
   assert.match(workflow, /NR_PACKAGE_RELEASE_TOKEN/);
   assert.match(workflow, /test -n "\$\{PACKAGE_RELEASE_TOKEN:-\}"/);
+  assert.match(workflow, /PACKAGE_INSTALL_TOKEN: \$\{\{ secrets\.NR_PACKAGE_RELEASE_TOKEN \}\}/);
+  assert.match(workflow, /NODE_AUTH_TOKEN="\$PACKAGE_INSTALL_TOKEN" npm ci --ignore-scripts/);
+  assert.match(workflow, /unset PACKAGE_INSTALL_TOKEN/);
+  assert.doesNotMatch(workflow, /NODE_AUTH_TOKEN:\s*\$\{\{ secrets\.NR_PACKAGE_RELEASE_TOKEN \}\}[\s\S]*Build and verify/);
   assert.match(workflow, /--repo "\$TARGET_REPOSITORY"/);
   assert.match(workflow, /production-release:\[0-9a-f\]\{16\}/);
   assert.match(workflow, /npm publish "\$TARBALL"/);

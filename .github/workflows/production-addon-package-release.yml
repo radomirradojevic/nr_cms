@@ -115,6 +115,7 @@ jobs:
         shell: bash
         working-directory: release-root
         env:
+          PACKAGE_INSTALL_TOKEN: ${{ secrets.NR_PACKAGE_RELEASE_TOKEN }}
           NR_ADDON_EXPECT_SOURCE_TREE_STATE: clean
           NR_ADDON_RELEASE_AUTHORITY_MODE: production
           NR_CMS_RELEASE_SHA: ${{ env.CMS_SHA }}
@@ -127,8 +128,10 @@ jobs:
           release_timestamp="$(git -C ".private/$PACKAGE_PATH" show -s --format=%cI "$SOURCE_SHA")"
           NR_ADDON_RELEASED_AT="$(node -e 'process.stdout.write(new Date(process.argv[1]).toISOString())' "$release_timestamp")"
           export NR_ADDON_RELEASED_AT
-          npm ci --ignore-scripts --audit=false --fund=false
-          npm --prefix ".private/$PACKAGE_PATH" ci --ignore-scripts --audit=false --fund=false
+          test -n "${PACKAGE_INSTALL_TOKEN:-}"
+          NODE_AUTH_TOKEN="$PACKAGE_INSTALL_TOKEN" npm ci --ignore-scripts --audit=false --fund=false
+          NODE_AUTH_TOKEN="$PACKAGE_INSTALL_TOKEN" npm --prefix ".private/$PACKAGE_PATH" ci --ignore-scripts --audit=false --fund=false
+          unset PACKAGE_INSTALL_TOKEN
           NR_ADDON_SOURCE_MODE=empty npm run addons:registry
           npm --prefix ".private/$PACKAGE_PATH" run build
           npm --prefix ".private/$PACKAGE_PATH" run pack:verify
