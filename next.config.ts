@@ -6,9 +6,19 @@ import { parseWebshopBuyUrl } from "./lib/webshop-addon/buy-url-contract";
 // compiler exception only; application policy must not branch on NODE_ENV.
 const isDevelopmentCompiler = process.env.NODE_ENV !== "production";
 const secureTransport = usesSecurePublicOrigin();
-const allowedDevOrigins = ["vendor.nr.test", "client.nr.test", "paypal.nr.test"];
+const allowedDevOrigins = [
+  "vendor.nr.test",
+  "client.nr.test",
+  "paypal.nr.test",
+];
 const webshopPurchaseFormActionSources =
   resolveWebshopPurchaseFormActionSources();
+const noReferrerHeaders = [
+  {
+    key: "Referrer-Policy",
+    value: "no-referrer",
+  },
+];
 
 const securityHeaders = [
   {
@@ -64,6 +74,14 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      {
+        source: "/api/webshop/licenses/:path*",
+        headers: noReferrerHeaders,
+      },
+      {
+        source: "/licenses/delivery/:path*",
+        headers: noReferrerHeaders,
       },
     ];
   },

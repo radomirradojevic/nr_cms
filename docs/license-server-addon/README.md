@@ -126,6 +126,9 @@ izdaje licence za proizvode tog kupca.
     — završeni lokalni purchase → V2 activation → produkciono potpisani `0.2.1`
     → Master publish → managed `ready` dokaz, uz auditovani recovery i
     fail-closed compatibility negativni test.
+31. [29-local-issuer-commissioning-and-commerce-e2e-2026-08-26.md](./29-local-issuer-commissioning-and-commerce-e2e-2026-08-26.md)
+    — production Webshop `0.6.44`, Master import/publish, managed upgrade i
+    lokalni License Server → Webshop paid-order receipt/assertion E2E dokaz.
 
 ## Oznake stanja
 
