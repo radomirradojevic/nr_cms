@@ -138,7 +138,11 @@ test("registry generator verifies signed package identity and artifact bytes", (
     const command = [process.execPath, [resolve(process.cwd(), "scripts/generate-addon-registry.mjs")]] as const;
     execFileSync(command[0], command[1], {
       cwd: cleanRoot,
-      env: { ...process.env, NR_ADDON_SOURCE_MODE: "registry" },
+      env: {
+        ...process.env,
+        NR_ADDON_SOURCE_MODE: "registry",
+        NR_CMS_RELEASE_SHA: "a".repeat(40),
+      },
       stdio: "pipe",
     });
 
@@ -147,7 +151,11 @@ test("registry generator verifies signed package identity and artifact bytes", (
       () =>
         execFileSync(command[0], command[1], {
           cwd: cleanRoot,
-          env: { ...process.env, NR_ADDON_SOURCE_MODE: "registry" },
+          env: {
+            ...process.env,
+            NR_ADDON_SOURCE_MODE: "registry",
+            NR_CMS_RELEASE_SHA: "a".repeat(40),
+          },
           stdio: "pipe",
         }),
       /Command failed/,

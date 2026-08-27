@@ -1,0 +1,226 @@
+name: nr-cms-production
+
+x-cms-build: &cms-build
+  context: ../..
+  dockerfile: deploy/docker/Dockerfile.cms
+  secrets:
+    - github_packages_token
+
+x-cms-runtime: &cms-runtime
+  restart: unless-stopped
+  expose:
+    - "3000"
+  healthcheck:
+    test:
+      [
+        "CMD",
+        "node",
+        "-e",
+        "fetch('http://127.0.0.1:3000/api/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+      ]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 30s
+
+services:
+  edge:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    depends_on:
+      client:
+        condition: service_healthy
+      license-server:
+        condition: service_healthy
+      vendor:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.production.example:/etc/caddy/Caddyfile:ro
+      - caddy_config:/config
+      - caddy_data:/data
+
+  vendor:
+    <<: *cms-runtime
+    build:
+      <<: *cms-build
+      target: runtime
+      args:
+        NR_CMS_DEPLOYMENT_PROFILE: vendor
+        NR_CMS_EXPECTED_HOSTNAME: vendor.nrcms.com
+        NR_CMS_RELEASE_SHA: ${NR_CMS_RELEASE_SHA:?set NR_CMS_RELEASE_SHA}
+        NEXT_PUBLIC_APP_URL: https://vendor.nrcms.com
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${VENDOR_CLERK_PUBLISHABLE_KEY:?set VENDOR_CLERK_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${VENDOR_TURNSTILE_SITE_KEY:?set VENDOR_TURNSTILE_SITE_KEY}
+        NR_CMS_PREINSTALL_WEBSHOP_VERSION: ${NR_CMS_PREINSTALL_WEBSHOP_VERSION:-0.6.44}
+        NR_CMS_PREINSTALL_LICENSE_SERVER_VERSION: ""
+        NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256: ${NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256:?set NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256}
+    env_file:
+      - ../env/vendor.nrcms.com.env
+    environment:
+      STORAGE_PROVIDER: local
+      UPLOADS_DIR: /app/data/uploads
+      WEBSHOP_DEPLOYMENT_MODE: self_hosted
+      LICENSE_SERVER_DEPLOYMENT_MODE: self_hosted
+    volumes:
+      - vendor_uploads:/app/data/uploads
+
+  client:
+    <<: *cms-runtime
+    build:
+      <<: *cms-build
+      target: runtime
+      args:
+        NR_CMS_DEPLOYMENT_PROFILE: client
+        NR_CMS_EXPECTED_HOSTNAME: client.nrcms.com
+        NR_CMS_RELEASE_SHA: ${NR_CMS_RELEASE_SHA:?set NR_CMS_RELEASE_SHA}
+        NEXT_PUBLIC_APP_URL: https://client.nrcms.com
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${CLIENT_CLERK_PUBLISHABLE_KEY:?set CLIENT_CLERK_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${CLIENT_TURNSTILE_SITE_KEY:?set CLIENT_TURNSTILE_SITE_KEY}
+        NR_CMS_PREINSTALL_WEBSHOP_VERSION: ${NR_CMS_PREINSTALL_WEBSHOP_VERSION:-0.6.44}
+        NR_CMS_PREINSTALL_LICENSE_SERVER_VERSION: ${NR_CMS_PREINSTALL_LICENSE_SERVER_VERSION:-0.2.1}
+        NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256: ${NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256:?set NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256}
+    env_file:
+      - ../env/client.nrcms.com.env
+    environment:
+      STORAGE_PROVIDER: local
+      UPLOADS_DIR: /app/data/uploads
+      WEBSHOP_DEPLOYMENT_MODE: self_hosted
+      LICENSE_SERVER_DEPLOYMENT_MODE: self_hosted
+    volumes:
+      - client_uploads:/app/data/uploads
+
+  license-server:
+    restart: unless-stopped
+    build:
+      context: ../../.private/license-server
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        NRLS_PUBLIC_URL: https://ls.nrcms.com
+    env_file:
+      - ../env/ls.nrcms.com.env
+    expose:
+      - "3000"
+    volumes:
+      - nrls_operator_output:/var/lib/nrls/operator-output
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  license-server-cron:
+    image: curlimages/curl:8.14.1
+    restart: unless-stopped
+    depends_on:
+      license-server:
+        condition: service_healthy
+    env_file:
+      - ../env/ls.nrcms.com.env
+    command: ["sh", "/runner/run-license-server-cron.sh"]
+    volumes:
+      - ./run-license-server-cron.sh:/runner/run-license-server-cron.sh:ro
+
+  license-server-operator:
+    profiles: ["operator"]
+    build:
+      context: ../../.private/license-server
+      dockerfile: Dockerfile
+      target: source
+    env_file:
+      - ../env/ls.nrcms.com.env
+    command: ["node", "-e", "console.log('operator container ready')"]
+    volumes:
+      - nrls_operator_output:/var/lib/nrls/operator-output
+      - ./operator-input:/var/lib/nrls/operator-input:ro
+    restart: "no"
+
+  vendor-cron:
+    image: curlimages/curl:8.14.1
+    restart: unless-stopped
+    depends_on:
+      vendor:
+        condition: service_healthy
+    env_file:
+      - ../env/vendor.nrcms.com.env
+    environment:
+      CRON_BASE_URL: http://vendor:3000
+      CRON_PROFILE: vendor
+    command: ["sh", "/runner/run-production-crons.sh"]
+    volumes:
+      - ./run-production-crons.sh:/runner/run-production-crons.sh:ro
+
+  client-cron:
+    image: curlimages/curl:8.14.1
+    restart: unless-stopped
+    depends_on:
+      client:
+        condition: service_healthy
+    env_file:
+      - ../env/client.nrcms.com.env
+    environment:
+      CRON_BASE_URL: http://client:3000
+      CRON_PROFILE: client
+    command: ["sh", "/runner/run-production-crons.sh"]
+    volumes:
+      - ./run-production-crons.sh:/runner/run-production-crons.sh:ro
+
+  vendor-migrate:
+    profiles: ["migrate"]
+    build:
+      <<: *cms-build
+      target: migrator
+      args:
+        NR_CMS_DEPLOYMENT_PROFILE: vendor
+        NR_CMS_PREINSTALL_WEBSHOP_VERSION: ${NR_CMS_PREINSTALL_WEBSHOP_VERSION:-0.6.44}
+        NR_CMS_PREINSTALL_LICENSE_SERVER_VERSION: ""
+        NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256: ${NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256:?set NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256}
+    env_file:
+      - ../env/vendor.nrcms.com.env
+    restart: "no"
+
+  client-migrate:
+    profiles: ["migrate"]
+    build:
+      <<: *cms-build
+      target: migrator
+      args:
+        NR_CMS_DEPLOYMENT_PROFILE: client
+        NR_CMS_PREINSTALL_WEBSHOP_VERSION: ${NR_CMS_PREINSTALL_WEBSHOP_VERSION:-0.6.44}
+        NR_CMS_PREINSTALL_LICENSE_SERVER_VERSION: ${NR_CMS_PREINSTALL_LICENSE_SERVER_VERSION:-0.2.1}
+        NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256: ${NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256:?set NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256}
+    env_file:
+      - ../env/client.nrcms.com.env
+    restart: "no"
+
+  license-server-migrate:
+    profiles: ["migrate"]
+    build:
+      context: ../../.private/license-server
+      dockerfile: Dockerfile
+      target: migrator
+    env_file:
+      - ../env/ls.nrcms.com.env
+    restart: "no"
+
+secrets:
+  github_packages_token:
+    environment: NR_GITHUB_PACKAGES_READ_TOKEN
+
+volumes:
+  caddy_config:
+  caddy_data:
+  client_uploads:
+  nrls_operator_output:
+  vendor_uploads:

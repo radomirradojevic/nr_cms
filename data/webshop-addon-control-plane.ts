@@ -20,6 +20,10 @@ import {
 } from "@/lib/vendor-addon-entitlements/activation-v2-contract";
 import { deploymentRequestV2Schema } from "@/lib/addon-runtime/deployment-contract-v2";
 import { parseAddonDeploymentProfile } from "@/lib/addon-runtime/deployment-profile";
+import {
+  addonReleaseMetadata,
+  managedRuntimeBuildId,
+} from "@/.generated/addon-registry";
 
 const OPERATION_TYPE = "deployment_v3";
 
@@ -255,6 +259,19 @@ async function persistVerifiedManagedAddonActivation(input: {
         terminal: true as const,
       };
     }
+    if (
+      !input.incidentClearance &&
+      configuredInstallMode(input.addonKey) === "preinstalled"
+    ) {
+      return persistPreinstalledActivation(tx, {
+        addonKey: input.addonKey,
+        claim: input.claim,
+        readyEntitlement: entitlementValues("ready"),
+        existing,
+        snapshotHash,
+        targetProfile,
+      });
+    }
     // Compact JWS bytes are intentionally short-lived and may change on every
     // revalidation. They are evidence for an already-open deployment, not a
     // new deployment intent. Only a release, lifecycle, host-capability change,
@@ -489,6 +506,301 @@ async function persistVerifiedManagedAddonActivation(input: {
       reused: false as const,
     };
   });
+}
+
+async function persistPreinstalledActivation(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  input: {
+    addonKey: "webshop" | "license-server";
+    claim: AddonEntitlementClaimsV2 & { signingKid: string };
+    existing: typeof cmsAddonInstallations.$inferSelect | undefined;
+    readyEntitlement: Omit<
+      typeof webshopAddonEntitlements.$inferInsert,
+      "id"
+    >;
+    snapshotHash: string;
+    targetProfile: string;
+  },
+) {
+  const release = input.claim.release;
+  const metadata = (
+    addonReleaseMetadata as Partial<
+      Record<
+        "webshop" | "license-server",
+        {
+          artifactSha256: string;
+          migrationBundleHash: string;
+          packageName: string;
+          packageVersion: string;
+          releaseId: string | null;
+          releaseSigningKid: string;
+          runtimeContractVersion: "1";
+          schemaVersion: number;
+        }
+      >
+    >
+  )[input.addonKey];
+  if (
+    !metadata ||
+    !/^[a-f0-9]{64}$/.test(managedRuntimeBuildId) ||
+    metadata.releaseId !== release.releaseId ||
+    metadata.artifactSha256 !== release.artifactSha256 ||
+    metadata.migrationBundleHash !== release.migrationBundleHash ||
+    metadata.packageName !== release.packageName ||
+    metadata.packageVersion !== release.packageVersion ||
+    metadata.releaseSigningKid !== release.releaseSigningKid ||
+    metadata.runtimeContractVersion !== release.runtimeContractVersion ||
+    metadata.schemaVersion !== release.schemaVersion
+  ) {
+    throw new Error(
+      "The licensed release is not the exact signed add-on embedded in this deployment.",
+    );
+  }
+  const activeFence = (
+    await tx
+      .select({ id: cmsAddonServingFences.id })
+      .from(cmsAddonServingFences)
+      .where(
+        and(
+          eq(cmsAddonServingFences.addonKey, input.addonKey),
+          eq(cmsAddonServingFences.state, "active"),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (activeFence) {
+    throw new Error(
+      "An active managed deployment fence must be recovered before preinstalled activation.",
+    );
+  }
+  const ledger = await tx
+    .select({
+      checksum: cmsAddonMigrations.checksum,
+      migrationId: cmsAddonMigrations.migrationId,
+      releaseId: cmsAddonMigrations.releaseId,
+      schemaVersion: cmsAddonMigrations.schemaVersion,
+      status: cmsAddonMigrations.status,
+    })
+    .from(cmsAddonMigrations)
+    .where(eq(cmsAddonMigrations.addonKey, input.addonKey));
+  const releaseLedger = ledger.filter(
+    (entry) => entry.releaseId === release.releaseId,
+  );
+  if (
+    releaseLedger.length < 1 ||
+    releaseLedger.some(
+      (entry) =>
+        entry.status !== "applied" && entry.status !== "legacy_applied",
+    ) ||
+    Math.max(...releaseLedger.map((entry) => entry.schemaVersion)) !==
+      release.schemaVersion
+  ) {
+    throw new Error(
+      "The embedded add-on release does not have a complete verified migration ledger.",
+    );
+  }
+  const epoch =
+    (input.existing?.installationDeploymentEpoch ?? BigInt(0)) + BigInt(1);
+  if (epoch > BigInt("9223372036854775807")) {
+    throw new Error("Installation deployment epoch is exhausted.");
+  }
+  await tx
+    .update(cmsAddonOperations)
+    .set({
+      completedAt: new Date(),
+      errorCode: "superseded_by_preinstalled_release",
+      status: "superseded",
+    })
+    .where(
+      and(
+        eq(cmsAddonOperations.addonKey, input.addonKey),
+        inArray(cmsAddonOperations.status, ["pending", "running"]),
+      ),
+    );
+  await tx
+    .update(cmsAddonDeploymentOutbox)
+    .set({
+      completedAt: new Date(),
+      lastErrorCode: "superseded_by_preinstalled_release",
+      status: "superseded",
+    })
+    .where(
+      and(
+        eq(cmsAddonDeploymentOutbox.addonKey, input.addonKey),
+        inArray(cmsAddonDeploymentOutbox.status, [
+          "pending",
+          "sending",
+          "retry",
+          "accepted",
+        ]),
+      ),
+    );
+  const now = new Date();
+  const operationId = randomUUID();
+  const operationKey = `addon-preinstalled:v1:${input.claim.installationId}:${epoch}:${release.releaseId}`;
+  const deploymentIntentKey = `addon-preinstalled-intent:v1:${input.claim.installationId}:${epoch}:${release.releaseId}`;
+  const installedMigrationLedgerHash = migrationLedgerHash(
+    ledger,
+    input.addonKey,
+  );
+  const request = {
+    addonKey: input.addonKey,
+    artifactSha256: release.artifactSha256,
+    buildId: managedRuntimeBuildId,
+    contractVersion: 1,
+    installationDeploymentEpoch: String(epoch),
+    installationId: input.claim.installationId,
+    migrationLedgerHash: installedMigrationLedgerHash,
+    purpose: "preinstalled_addon_activation",
+    releaseId: release.releaseId,
+    targetProfile: input.targetProfile,
+  };
+  const finalTuple = {
+    activeReleaseId: release.releaseId,
+    artifactSha256: release.artifactSha256,
+    buildId: managedRuntimeBuildId,
+    finalPhase: "ready",
+    migrationLedgerHash: installedMigrationLedgerHash,
+    runtimeStatus: "ready",
+  };
+  const receiptEvidenceHash = sha256(canonicalJson(finalTuple));
+  await upsertManagedEntitlement(
+    tx,
+    input.addonKey,
+    input.readyEntitlement,
+  );
+  const installationValues = {
+    installationId: input.claim.installationId,
+    desiredReleaseId: release.releaseId,
+    desiredPackageName: release.packageName,
+    desiredPackageVersion: release.packageVersion,
+    desiredArtifactSha256: release.artifactSha256,
+    desiredDependencyLockSha256: release.dependencyLockSha256,
+    desiredNpmTarballSha256: release.npmTarballSha256,
+    desiredNpmTarballIntegrity: release.npmTarballIntegrity,
+    desiredEmbeddedManifestSha256: release.embeddedManifestSha256,
+    desiredProvenanceSha256: release.provenanceSha256,
+    desiredSbomSha256: release.sbomSha256,
+    desiredPublicationAttestationHash: release.publicationAttestationHash,
+    desiredRegistryPackageVersionId: release.registryPackageVersionId,
+    desiredSourceReleasedAt: new Date(release.sourceReleasedAt),
+    desiredPublishedAt: new Date(release.publishedAt),
+    desiredReleaseSigningKid: release.releaseSigningKid,
+    desiredRuntimeContractVersion: release.runtimeContractVersion,
+    desiredCmsVersionRange: release.cmsVersionRange,
+    desiredNodeVersionRange: release.nodeVersionRange,
+    desiredNextVersionRange: release.nextVersionRange,
+    desiredMinimumCoreSchemaVersion: release.minimumCoreSchemaVersion,
+    desiredSchemaVersion: release.schemaVersion,
+    desiredSupportedAddonSchemaVersionMin:
+      release.supportedAddonSchemaVersionMin,
+    desiredSupportedAddonSchemaVersionMax:
+      release.supportedAddonSchemaVersionMax,
+    desiredMigrationBundleHash: release.migrationBundleHash,
+    desiredSupportedLicenseEditions: release.supportedLicenseEditions,
+    desiredReleaseChannel: release.channel,
+    desiredHostCapabilityDescriptorHash:
+      input.claim.hostCapabilityDescriptorHash,
+    installationDeploymentEpoch: epoch,
+    entitlementSnapshotHash: input.snapshotHash,
+    entitlementLifecycleVersion: input.claim.lifecycleVersion,
+    entitlementEnvelopeExpiresAt: new Date(input.claim.exp * 1000),
+    licenseEnvironment: input.claim.environment,
+    installedPackageName: release.packageName,
+    installedPackageVersion: release.packageVersion,
+    installedArtifactSha256: release.artifactSha256,
+    installedReleaseId: release.releaseId,
+    installedDependencyLockSha256: release.dependencyLockSha256,
+    installedNpmTarballSha256: release.npmTarballSha256,
+    installedNpmTarballIntegrity: release.npmTarballIntegrity,
+    installedEmbeddedManifestSha256: release.embeddedManifestSha256,
+    installedProvenanceSha256: release.provenanceSha256,
+    installedSbomSha256: release.sbomSha256,
+    installedPublicationAttestationHash: release.publicationAttestationHash,
+    installedRegistryPackageVersionId: release.registryPackageVersionId,
+    installedSourceReleasedAt: new Date(release.sourceReleasedAt),
+    installedPublishedAt: new Date(release.publishedAt),
+    installedReleaseSigningKid: release.releaseSigningKid,
+    installedRuntimeContractVersion: release.runtimeContractVersion,
+    installedCmsVersionRange: release.cmsVersionRange,
+    installedNodeVersionRange: release.nodeVersionRange,
+    installedNextVersionRange: release.nextVersionRange,
+    installedMinimumCoreSchemaVersion: release.minimumCoreSchemaVersion,
+    installedSchemaVersion: release.schemaVersion,
+    installedSupportedAddonSchemaVersionMin:
+      release.supportedAddonSchemaVersionMin,
+    installedSupportedAddonSchemaVersionMax:
+      release.supportedAddonSchemaVersionMax,
+    installedMigrationBundleHash: release.migrationBundleHash,
+    installedMigrationLedgerHash,
+    installedSupportedLicenseEditions: release.supportedLicenseEditions,
+    installedReleaseChannel: release.channel,
+    installedHostCapabilityDescriptorHash:
+      input.claim.hostCapabilityDescriptorHash,
+    installedBuildId: managedRuntimeBuildId,
+    runtimeContractVersion: release.runtimeContractVersion,
+    schemaVersion: release.schemaVersion,
+    runtimeStatus: "ready" as const,
+    status: "ready" as const,
+    deploymentJobId: `preinstalled:${managedRuntimeBuildId}`,
+    installAttemptCount: (input.existing?.installAttemptCount ?? 0) + 1,
+    lastErrorCode: null,
+    lastErrorMessage: null,
+    requestedAt: now,
+    deployedAt: now,
+    reconciledAt: now,
+    readyAt: now,
+    version: (input.existing?.version ?? 0) + 1,
+  };
+  await tx
+    .insert(cmsAddonInstallations)
+    .values({ addonKey: input.addonKey, ...installationValues })
+    .onConflictDoUpdate({
+      target: cmsAddonInstallations.addonKey,
+      set: installationValues,
+    });
+  await tx.insert(cmsAddonOperations).values({
+    addonKey: input.addonKey,
+    completedAt: now,
+    deploymentIntentKey,
+    generation: 1,
+    id: operationId,
+    installationDeploymentEpoch: epoch,
+    installationId: input.claim.installationId,
+    operationKey,
+    operationType: OPERATION_TYPE,
+    requestHash: sha256(canonicalJson(request)),
+    result: {
+      deploymentMode: "preinstalled",
+      evidenceHash: receiptEvidenceHash,
+      finalTuple,
+    },
+    status: "completed",
+  });
+  await tx.insert(cmsAddonDeploymentTerminalReceipts).values({
+    evidenceHash: receiptEvidenceHash,
+    finalTuple,
+    kind: "reconciliation_receipt",
+    operationId,
+    workerJobId: `preinstalled:${managedRuntimeBuildId}`,
+  });
+  return {
+    operationId,
+    operationKey,
+    reused: false as const,
+    status: "ready" as const,
+    terminal: true as const,
+  };
+}
+
+function configuredInstallMode(addonKey: "webshop" | "license-server") {
+  const value =
+    process.env[
+      addonKey === "webshop"
+        ? "WEBSHOP_INSTALL_MODE"
+        : "LICENSE_SERVER_INSTALL_MODE"
+    ]?.trim();
+  return value === "preinstalled" ? "preinstalled" : "managed_redeploy";
 }
 
 async function verifyLicenseServerIncidentClearance(

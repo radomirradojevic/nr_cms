@@ -21,7 +21,9 @@ async function assertPublicBuildEnvironment(profile) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!appUrl) throw new Error("deploy_verify_build_public_origin_missing");
   const url = new URL(appUrl);
-  if (url.protocol !== "https:" || url.hostname !== `${profile}.nr.test` || url.port || url.pathname !== "/" || url.username || url.password || url.search || url.hash) throw new Error("deploy_verify_build_public_origin_invalid");
+  const expectedHostname = process.env.NR_CMS_EXPECTED_HOSTNAME?.trim().toLowerCase();
+  if (url.protocol !== "https:" || url.port || url.pathname !== "/" || url.username || url.password || url.search || url.hash) throw new Error("deploy_verify_build_public_origin_invalid");
+  if (expectedHostname && (url.hostname.toLowerCase() !== expectedHostname || !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(expectedHostname))) throw new Error("deploy_verify_build_public_origin_invalid");
   for (const name of ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "NEXT_PUBLIC_TURNSTILE_SITE_KEY"]) if (!process.env[name]) throw new Error(`deploy_verify_build_public_input_missing:${name}`);
   const registry = resolve(root, ".tmp", "addon-registry.json");
   if (sourceMode === "registry" && !existsSync(registry)) throw new Error("deploy_verify_build_registry_missing");

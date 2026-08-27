@@ -1,0 +1,14 @@
+.git
+.github
+.private
+.env
+.env.*
+!.env.example
+!.env.example.vendor
+.next
+.tmp
+node_modules
+output
+tmp
+storage
+*.log

@@ -388,51 +388,35 @@ test("platform verification treats non-vercel managed providers as self-hosted i
   });
 });
 
-test("platform verification rejects failed Vercel attestation without self-hosted fallback", async () => {
+test("platform verification rejects Vercel without a stable project identity", async () => {
   const result = await verifyWebshopDeploymentPlatform({
     env: {
       VERCEL: "1",
       VERCEL_ENV: "production",
-      VERCEL_OIDC_TOKEN: "bad-token",
-      NR_MASTER_LICENSE_URL: "https://licenses.example.test",
     },
-    fetcher: async () => new Response(null, { status: 401 }),
   });
 
   assert.deepEqual(result, {
     status: "unsupported",
-    reason: "invalid_attestation",
+    reason: "missing_project_identity",
     message:
-      "Vercel deployment attestation could not be verified; self-hosted fallback is forbidden.",
+      "Vercel activation requires NR_VERCEL_PROJECT_ID or VERCEL_PROJECT_ID.",
   });
 });
 
-test("platform verification accepts license-server verified vercel production OIDC", async () => {
+test("platform verification accepts Vercel production with project and HTTPS domain proof binding", async () => {
   const result = await verifyWebshopDeploymentPlatform({
     env: {
+      NR_VERCEL_PROJECT_ID: "prj_123",
       VERCEL: "1",
       VERCEL_ENV: "production",
-      VERCEL_OIDC_TOKEN: "signed-token",
-      NR_MASTER_LICENSE_URL: "https://licenses.example.test",
     },
-    fetcher: async () =>
-      new Response(
-        JSON.stringify({
-          deploymentEnvironment: "production",
-          mode: "production_oidc",
-          ownerId: "team_123",
-          projectId: "prj_123",
-          provider: "vercel",
-          status: "supported",
-        }),
-        { status: 200 },
-      ),
   });
 
   assert.deepEqual(result, {
     deploymentEnvironment: "production",
-    mode: "production_oidc",
-    ownerId: "team_123",
+    mode: "project_domain_proof",
+    ownerId: "vercel-project:prj_123",
     projectId: "prj_123",
     provider: "vercel",
     status: "supported",

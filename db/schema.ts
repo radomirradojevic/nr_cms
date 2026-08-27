@@ -618,6 +618,9 @@ export const webshopPurchaseIntentDomainProofs = pgTable(
     installationFingerprintScheme: text("installation_fingerprint_scheme").notNull(),
     proofPayload: text("proof_payload").notNull(),
     proofSignature: text("proof_signature").notNull(),
+    purpose: text("purpose")
+      .notNull()
+      .default("nr_license_domain_control"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -631,6 +634,10 @@ export const webshopPurchaseIntentDomainProofs = pgTable(
     check(
       "webshop_purchase_intent_domain_proofs_fingerprint_scheme_check",
       sql`${table.installationFingerprintScheme} = 'ed25519_spki_der_sha256_v1'`,
+    ),
+    check(
+      "webshop_purchase_intent_domain_proofs_purpose_check",
+      sql`${table.purpose} IN ('nr_license_domain_control','nr_addon_lifecycle_transfer_target')`,
     ),
   ],
 );

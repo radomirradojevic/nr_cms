@@ -15,6 +15,10 @@ import {
   cmsAddonTransferPreparations,
   webshopAddonEntitlements,
 } from "@/db/schema";
+import {
+  completeAddonDomainProof,
+  persistAddonDomainProof,
+} from "@/data/addon-domain-proofs";
 import { getMasterLicenseServerUrl } from "@/lib/master-license-server";
 import { isExplicitlyAllowedLoopbackHttpUrl, safeFetch } from "@/lib/security/outbound-url";
 import { getOrCreateVendorAddonInstallationIdentity, signVendorAddonActivationPayload } from "@/lib/vendor-addon-installation";
@@ -102,6 +106,32 @@ export async function prepareWebshopDomainTransfer(input: {
   if (!prepared.ok) return prepared;
   const response = transferPrepareResponseSchema.safeParse(prepared.value);
   if (!response.success) return localFailure("Master returned an invalid transfer preparation.");
+  const targetProofSignature = signVendorAddonActivationPayload(
+    identity,
+    Buffer.from(response.data.targetChallenge.proofPayload, "base64url").toString(
+      "utf8",
+    ),
+  );
+  const targetChallengeExpiresAt = new Date(
+    response.data.targetChallenge.expiresAt,
+  );
+  if (
+    !Number.isFinite(targetChallengeExpiresAt.getTime()) ||
+    targetChallengeExpiresAt <= new Date()
+  ) {
+    return localFailure("Master returned an expired transfer target challenge.");
+  }
+  await persistAddonDomainProof({
+    canonicalDomain: input.targetCanonicalDomain,
+    challengeId: response.data.targetChallenge.challengeId,
+    expiresAt: targetChallengeExpiresAt,
+    installationFingerprintScheme: identity.installationFingerprintScheme,
+    installationId: identity.installationId,
+    installationKeyFingerprint: identity.installationKeyFingerprint,
+    proofPayload: response.data.targetChallenge.proofPayload,
+    proofSignature: targetProofSignature,
+    purpose: "nr_addon_lifecycle_transfer_target",
+  });
   await db.insert(cmsAddonTransferPreparations).values({
     transferId: response.data.transferId, sourceActivationId: input.sourceActivationId,
     sourceCanonicalDomain: null, targetCanonicalDomain: input.targetCanonicalDomain,
@@ -112,7 +142,7 @@ export async function prepareWebshopDomainTransfer(input: {
   const complete = await lifecycleFetch("/api/addons/licenses/transfer", {
     contractVersion: 1, action: "target_complete", requestId: randomUUID(), transferId: response.data.transferId,
     challengeId: response.data.targetChallenge.challengeId,
-    proofSignature: signVendorAddonActivationPayload(identity, Buffer.from(response.data.targetChallenge.proofPayload, "base64url").toString("utf8")),
+    proofSignature: targetProofSignature,
     sourceApprovalDerivationKid: derivation.kid,
     approvalBindingSignature: signVendorAddonActivationPayload(identity, `NRV-ADDON-TRANSFER-APPROVAL-BINDING-V1\n${response.data.transferId}\n${response.data.targetChallenge.challengeId}\n${derivation.kid}\n${derivation.hash}`),
     sourceApprovalCodeHash: derivation.hash,
@@ -120,6 +150,7 @@ export async function prepareWebshopDomainTransfer(input: {
   if (!complete.ok) return complete;
   const targetResult = transferTargetResultSchema.safeParse(complete.value);
   if (!targetResult.success || targetResult.data.transferId !== response.data.transferId || targetResult.data.sourceApprovalDerivationKid !== derivation.kid) return localFailure("Master returned an invalid transfer target proof result.");
+  await completeAddonDomainProof(response.data.targetChallenge.challengeId);
   await db.update(cmsAddonTransferPreparations).set({ status: "target_proved", sourceApprovalDerivationKid: derivation.kid, sourceApprovalCodeHash: derivation.hash, expiresAt: new Date(targetResult.data.transferExpiresAt) }).where(eq(cmsAddonTransferPreparations.transferId, response.data.transferId));
   return { ok: true as const, sourceApprovalCode: derivation.code, transferId: response.data.transferId, expiresAt: targetResult.data.sourceApprovalCodeExpiresAt };
 }

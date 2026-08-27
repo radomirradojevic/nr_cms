@@ -1161,7 +1161,11 @@ export const __migrationRunnerTesting = {
 function createClient(connectionStringOverride) {
   const connectionString =
     connectionStringOverride ??
-    (testMode ? resolveTestDatabaseUrl() : process.env.DATABASE_URL);
+    (testMode
+      ? resolveTestDatabaseUrl()
+      : productionMode
+        ? process.env.NR_CORE_MIGRATOR_DATABASE_URL ?? process.env.DATABASE_URL
+        : process.env.DATABASE_URL);
   if (!connectionString) {
     fail("DATABASE_URL is required to apply migrations");
   }
@@ -1380,7 +1384,15 @@ export async function runDrizzleMigrations(options = {}) {
   if (effectiveProductionMode) {
     if (!args.has("--production"))
       fail("production target requires the explicit --production flag.");
-    assertProductionMigrationTarget(process.env, "cms");
+    assertProductionMigrationTarget(
+      {
+        ...process.env,
+        DATABASE_URL:
+          process.env.NR_CORE_MIGRATOR_DATABASE_URL ??
+          process.env.DATABASE_URL,
+      },
+      "cms",
+    );
   }
 
   if (

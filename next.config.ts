@@ -60,6 +60,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [...new Set(allowedDevOrigins)],
+  output:
+    process.env.NR_CMS_OUTPUT_MODE === "standalone"
+      ? "standalone"
+      : undefined,
   productionBrowserSourceMaps: false,
   serverExternalPackages: ["pdfkit"],
   experimental: {

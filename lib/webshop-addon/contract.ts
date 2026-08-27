@@ -4,7 +4,7 @@ import type { db } from "@/db";
 import type { AddonI18nContext } from "@/lib/i18n/addon-contract";
 
 export const WEBSHOP_SUPPORTED_PROVIDERS = [
-  "vercel_production_oidc",
+  "vercel_project_domain_proof",
   "self_hosted",
 ] as const;
 
@@ -15,7 +15,7 @@ export type WebshopDeploymentPlatform =
   | {
       status: "supported";
       provider: "vercel";
-      mode: "production_oidc";
+      mode: "project_domain_proof";
       ownerId: string;
       projectId: string;
       deploymentEnvironment: "production";
@@ -34,6 +34,8 @@ export type WebshopDeploymentPlatform =
         | "local"
         | "self_hosted"
         | "unknown"
+        | "missing_project_identity"
+        | "non_production_vercel"
         | "missing_attestation"
         | "invalid_attestation"
         | "unsupported_provider"

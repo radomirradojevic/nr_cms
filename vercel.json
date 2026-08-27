@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm run install:deployment",
+  "buildCommand": "npm run build:deployment",
   "crons": [
     {
       "path": "/api/cron/content-publishing",

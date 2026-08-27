@@ -22,6 +22,11 @@ import {
   revalidateManagedAddonV2,
   type ManagedAddonActivationResponseV2,
 } from "@/lib/vendor-addon-entitlements/activation-client-v2";
+import { evaluateWebshopPublicServingGateV1 } from "@/lib/addon-runtime/serving-gate";
+import {
+  addonReleaseMetadata,
+  managedRuntimeBuildId,
+} from "@/.generated/addon-registry";
 export type LicenseServerActivationResponse =
   ManagedAddonActivationResponseV2 & {
     verifiedClaims: VerifiedManagedAddonEntitlement;
@@ -256,12 +261,34 @@ export async function resolveLicenseServerAddonState(): Promise<LicenseServerAdd
   const publicKeysByKid = entitlement?.entitlementToken
     ? await getVendorAddonEntitlementPublicKeys().catch(() => ({}))
     : {};
-  return resolveLicenseServerAddonStateFromInputs({
+  const resolved = resolveLicenseServerAddonStateFromInputs({
     entitlement,
     loadResult,
     publicKeysByKid,
     runtimeConfig,
   });
+  if (
+    resolved.status !== "ready" ||
+    !["managed_redeploy", "preinstalled"].includes(runtimeConfig.installMode)
+  ) {
+    return resolved;
+  }
+  const { readAddonServingStateV1 } = await import("@/data/addon-serving-state");
+  const serving = await readAddonServingStateV1("license-server");
+  const gate = evaluateWebshopPublicServingGateV1({
+    activeServingFenceCount: serving.activeServingFenceCount,
+    entitlementValid: true,
+    installation: serving.installation && {
+      installedArtifactSha256: serving.installation.installedArtifactSha256,
+      installedBuildId: serving.installation.installedBuildId,
+      installedReleaseId: serving.installation.installedReleaseId,
+      runtimeStatus: serving.installation.runtimeStatus,
+      status: serving.installation.status,
+    },
+    runtime: licenseServerRuntimeTuple(runtimeConfig),
+    terminalReceipt: serving.terminalReceipt,
+  });
+  return gate.ok ? resolved : { status: "install_pending" };
 }
 
 export function resolveInstalledLicenseServerLicenseModeFromEntitlement(
@@ -324,7 +351,49 @@ export async function resolveInstalledLicenseServerLicenseMode(): Promise<Instal
       };
     }
   }
-  return resolveInstalledLicenseServerLicenseModeFromEntitlement(entitlement);
+  const resolved =
+    resolveInstalledLicenseServerLicenseModeFromEntitlement(entitlement);
+  const runtimeConfig = getLicenseServerRuntimeConfig();
+  if (
+    resolved.status !== "ready" ||
+    !["managed_redeploy", "preinstalled"].includes(runtimeConfig.installMode)
+  ) {
+    return resolved;
+  }
+  const { readAddonServingStateV1 } = await import("@/data/addon-serving-state");
+  const serving = await readAddonServingStateV1("license-server");
+  const gate = evaluateWebshopPublicServingGateV1({
+    activeServingFenceCount: serving.activeServingFenceCount,
+    entitlementValid: true,
+    installation: serving.installation && {
+      installedArtifactSha256: serving.installation.installedArtifactSha256,
+      installedBuildId: serving.installation.installedBuildId,
+      installedReleaseId: serving.installation.installedReleaseId,
+      runtimeStatus: serving.installation.runtimeStatus,
+      status: serving.installation.status,
+    },
+    runtime: licenseServerRuntimeTuple(runtimeConfig),
+    terminalReceipt: serving.terminalReceipt,
+  });
+  return gate.ok
+    ? resolved
+    : {
+        status: "forbidden",
+        reason: "License Server immutable runtime tuple is not reconciled.",
+      };
+}
+
+function licenseServerRuntimeTuple(runtimeConfig: LicenseServerRuntimeConfig) {
+  const embedded = addonReleaseMetadata["license-server"];
+  return {
+    artifactSha256:
+      runtimeConfig.runtimeArtifactSha256 ??
+      embedded?.artifactSha256 ??
+      null,
+    buildId: (runtimeConfig.runtimeBuildId ?? managedRuntimeBuildId) || null,
+    releaseId:
+      runtimeConfig.runtimeReleaseId ?? embedded?.releaseId ?? null,
+  };
 }
 
 export async function requestLicenseServerLicenseActivation({

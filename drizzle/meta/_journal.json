@@ -680,6 +680,13 @@
       "when": 1786802400000,
       "tag": "0096_license_server_managed_install_control_plane",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1787875200000,
+      "tag": "0097_addon_domain_proof_purpose",
+      "breakpoints": true
     }
   ]
 }

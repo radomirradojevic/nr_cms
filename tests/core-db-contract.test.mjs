@@ -145,7 +145,7 @@ test("migration introspection retains the explicit nr_control schema identity", 
 
 test("core control-plane, schema-detach, and managed add-on migrations are versioned", () => {
   const migrations = loadMigrations();
-  assert.deepEqual(migrations.slice(-7).map((migration) => migration.tag), [
+  assert.deepEqual(migrations.slice(-8).map((migration) => migration.tag), [
     "0090_webshop_core_detach",
     "0091_webshop_activation_v2_control_plane",
     "0092_addon_deployment_worker_callback_ledger",
@@ -153,6 +153,7 @@ test("core control-plane, schema-detach, and managed add-on migrations are versi
     "0094_webshop_purchase_intent_domain_proofs",
     "0095_addon_lifecycle_recovery",
     "0096_license_server_managed_install_control_plane",
+    "0097_addon_domain_proof_purpose",
   ]);
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0089_snapshot.json")));
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0090_snapshot.json")));
@@ -162,6 +163,7 @@ test("core control-plane, schema-detach, and managed add-on migrations are versi
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0094_snapshot.json")));
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0095_snapshot.json")));
   assert.ok(fs.existsSync(path.resolve("drizzle/meta/0096_snapshot.json")));
+  assert.ok(fs.existsSync(path.resolve("drizzle/meta/0097_snapshot.json")));
   const sql = fs.readFileSync(
     path.resolve("drizzle/0089_cms_core_control_plane.sql"),
     "utf8",

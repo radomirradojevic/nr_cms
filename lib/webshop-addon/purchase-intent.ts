@@ -1,9 +1,10 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
-
-import { db } from "@/db";
-import { webshopPurchaseIntentDomainProofs } from "@/db/schema";
+import {
+  completeAddonDomainProof,
+  persistAddonDomainProof,
+  readAddonDomainProof,
+} from "@/data/addon-domain-proofs";
 import { getGlobalSettings } from "@/data/global-settings";
 import { canonicalizeLicenseDomain } from "@/lib/license-domain";
 import { getMasterLicenseServerUrl } from "@/lib/master-license-server";
@@ -132,30 +133,17 @@ async function createManagedAddonPurchaseIntentHandoff(
 
   // The master fetches this durable row only for production HTTPS proof. It
   // stores the PoP, never the eventual purchase JWS.
-  await db
-    .insert(webshopPurchaseIntentDomainProofs)
-    .values({
-      canonicalDomain,
-      challengeId: challenge.challengeId,
-      expiresAt,
-      installationFingerprintScheme: identity.installationFingerprintScheme,
-      installationId: identity.installationId,
-      installationKeyFingerprint: identity.installationKeyFingerprint,
-      proofPayload: challenge.proofPayload,
-      proofSignature,
-    })
-    .onConflictDoUpdate({
-      set: {
-        canonicalDomain,
-        expiresAt,
-        installationFingerprintScheme: identity.installationFingerprintScheme,
-        installationId: identity.installationId,
-        installationKeyFingerprint: identity.installationKeyFingerprint,
-        proofPayload: challenge.proofPayload,
-        proofSignature,
-      },
-      target: webshopPurchaseIntentDomainProofs.challengeId,
-    });
+  await persistAddonDomainProof({
+    canonicalDomain,
+    challengeId: challenge.challengeId,
+    expiresAt,
+    installationFingerprintScheme: identity.installationFingerprintScheme,
+    installationId: identity.installationId,
+    installationKeyFingerprint: identity.installationKeyFingerprint,
+    proofPayload: challenge.proofPayload,
+    proofSignature,
+    purpose: "nr_license_domain_control",
+  });
 
   const complete = await postMaster<PurchaseComplete>(masterUrl, {
     action: "complete",
@@ -173,22 +161,12 @@ async function createManagedAddonPurchaseIntentHandoff(
   ) {
     throw new Error("The master purchase intent response is invalid.");
   }
-  await db
-    .update(webshopPurchaseIntentDomainProofs)
-    .set({ completedAt: new Date() })
-    .where(eq(webshopPurchaseIntentDomainProofs.challengeId, challenge.challengeId));
+  await completeAddonDomainProof(challenge.challengeId);
   return { action: configured.url.toString(), purchaseIntent: complete.purchaseIntent };
 }
 
 export async function readWebshopPurchaseIntentDomainProof(challengeId: string) {
-  const rows = await db
-    .select()
-    .from(webshopPurchaseIntentDomainProofs)
-    .where(eq(webshopPurchaseIntentDomainProofs.challengeId, challengeId))
-    .limit(1);
-  const proof = rows[0];
-  if (!proof || proof.expiresAt <= new Date()) return null;
-  return proof;
+  return readAddonDomainProof(challengeId);
 }
 
 async function postMaster<T>(

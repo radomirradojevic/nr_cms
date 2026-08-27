@@ -1,0 +1,18 @@
+{
+  email admin@nrcms.com
+}
+
+vendor.nrcms.com {
+  encode zstd gzip
+  reverse_proxy vendor:3000
+}
+
+client.nrcms.com {
+  encode zstd gzip
+  reverse_proxy client:3000
+}
+
+ls.nrcms.com {
+  encode zstd gzip
+  reverse_proxy license-server:3000
+}

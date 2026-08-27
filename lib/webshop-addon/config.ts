@@ -1,4 +1,8 @@
-export const WEBSHOP_INSTALL_MODES = ["disabled", "managed_redeploy"] as const;
+export const WEBSHOP_INSTALL_MODES = [
+  "disabled",
+  "preinstalled",
+  "managed_redeploy",
+] as const;
 
 export type WebshopInstallMode = (typeof WEBSHOP_INSTALL_MODES)[number];
 
@@ -44,7 +48,11 @@ export function parseWebshopInstallMode(
   defaultValue: WebshopInstallMode = "disabled",
 ): WebshopInstallMode {
   const normalized = value?.trim().toLowerCase();
-  if (normalized === "disabled" || normalized === "managed_redeploy")
+  if (
+    normalized === "disabled" ||
+    normalized === "preinstalled" ||
+    normalized === "managed_redeploy"
+  )
     return normalized;
   return defaultValue;
 }

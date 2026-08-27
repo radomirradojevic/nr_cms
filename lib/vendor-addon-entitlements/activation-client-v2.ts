@@ -17,6 +17,7 @@ import {
   getOrCreateVendorAddonInstallationIdentity,
   signVendorAddonActivationPayload,
 } from "@/lib/vendor-addon-installation";
+import { cmsReleaseSha } from "@/.generated/addon-registry";
 
 export const managedAddonActivationResponseV2Schema = z
   .object({
@@ -257,6 +258,37 @@ async function completeManagedAddonV2Exchange(input: {
     );
   }
   let completion: Response;
+  const challengeSignature = signVendorAddonActivationPayload(
+    input.identity,
+    challenge.signaturePayload,
+  );
+  const expiresAt = new Date(challenge.expiresAt);
+  if (!Number.isFinite(expiresAt.getTime()) || expiresAt <= new Date()) {
+    throw new ManagedAddonV2ExchangeError(
+      `${input.purpose} returned an expired challenge.`,
+      403,
+    );
+  }
+  const domainProofStore =
+    challenge.domainVerification.method === "https_well_known"
+      ? await import("@/data/addon-domain-proofs")
+      : null;
+  if (domainProofStore) {
+    await domainProofStore.persistAddonDomainProof({
+      canonicalDomain: input.body.canonicalDomain as string,
+      challengeId: challenge.challengeId,
+      expiresAt,
+      installationFingerprintScheme:
+        input.identity.installationFingerprintScheme,
+      installationId: input.identity.installationId,
+      installationKeyFingerprint: input.identity.installationKeyFingerprint,
+      proofPayload: Buffer.from(challenge.signaturePayload, "utf8").toString(
+        "base64url",
+      ),
+      proofSignature: challengeSignature,
+      purpose: "nr_license_domain_control",
+    });
+  }
   try {
     completion = await safeFetch(joinUrl(baseUrl, input.endpoint), {
       allowFirstParty: true,
@@ -266,10 +298,7 @@ async function completeManagedAddonV2Exchange(input: {
         contractVersion: 2,
         action: "complete",
         challengeId: challenge.challengeId,
-        challengeSignature: signVendorAddonActivationPayload(
-          input.identity,
-          challenge.signaturePayload,
-        ),
+        challengeSignature,
       }),
       headers: { "content-type": "application/json" },
       method: "POST",
@@ -286,6 +315,9 @@ async function completeManagedAddonV2Exchange(input: {
       `${input.purpose} was rejected by the Master.`,
       completion.status,
     );
+  }
+  if (domainProofStore) {
+    await domainProofStore.completeAddonDomainProof(challenge.challengeId);
   }
   try {
     return managedAddonActivationResponseV2Schema.parse(
@@ -312,7 +344,7 @@ function currentLicenseEnvironment(): "development" | "staging" | "production" {
 }
 
 function currentHostCapabilitiesV1(installedAddonSchemaVersion: number) {
-  const cmsCommitSha = process.env.NR_CMS_RELEASE_SHA?.trim();
+  const cmsCommitSha = process.env.NR_CMS_RELEASE_SHA?.trim() || cmsReleaseSha;
   if (!cmsCommitSha) {
     throw new Error(
       "NR_CMS_RELEASE_SHA is required for signed activation host capabilities.",

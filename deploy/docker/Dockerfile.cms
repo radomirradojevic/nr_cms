@@ -1,0 +1,63 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:22-bookworm-slim AS base
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+
+FROM base AS dependencies
+COPY package.json package-lock.json .npmrc ./
+COPY scripts/install-deployment-addons.mjs ./scripts/install-deployment-addons.mjs
+ARG NR_CMS_DEPLOYMENT_PROFILE
+ARG NR_CMS_PREINSTALL_WEBSHOP_VERSION
+ARG NR_CMS_PREINSTALL_LICENSE_SERVER_VERSION
+ARG NR_ADDON_RELEASE_PUBLIC_KEYS_URL=https://ls.nrcms.com/.well-known/nr-addon-release-keys.json
+ARG NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256
+ENV NR_ADDON_SOURCE_MODE=registry \
+    NR_CMS_PREINSTALL_POLICY=strict \
+    NR_CMS_DEPLOYMENT_PROFILE=${NR_CMS_DEPLOYMENT_PROFILE} \
+    NR_CMS_PREINSTALL_WEBSHOP_VERSION=${NR_CMS_PREINSTALL_WEBSHOP_VERSION} \
+    NR_CMS_PREINSTALL_LICENSE_SERVER_VERSION=${NR_CMS_PREINSTALL_LICENSE_SERVER_VERSION} \
+    NR_ADDON_RELEASE_PUBLIC_KEYS_URL=${NR_ADDON_RELEASE_PUBLIC_KEYS_URL} \
+    NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256=${NR_ADDON_RELEASE_PUBLIC_KEYS_SHA256}
+RUN --mount=type=secret,id=github_packages_token,env=NR_GITHUB_PACKAGES_READ_TOKEN \
+    npm run install:deployment
+
+FROM base AS source
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY --from=dependencies /app/.tmp ./.tmp
+COPY . .
+
+FROM source AS migrator
+CMD ["npm", "run", "db:migrate:deployment"]
+
+FROM source AS builder
+ARG NR_CMS_DEPLOYMENT_PROFILE
+ARG NR_CMS_EXPECTED_HOSTNAME
+ARG NR_CMS_RELEASE_SHA
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NODE_ENV=production \
+    NR_ADDON_SOURCE_MODE=registry \
+    NR_CMS_DEPLOYMENT_PROFILE=${NR_CMS_DEPLOYMENT_PROFILE} \
+    NR_CMS_ENV_PHASE=build \
+    NR_CMS_EXPECTED_HOSTNAME=${NR_CMS_EXPECTED_HOSTNAME} \
+    NR_CMS_OUTPUT_MODE=standalone \
+    NR_CMS_RELEASE_SHA=${NR_CMS_RELEASE_SHA} \
+    NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL} \
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY} \
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+RUN npm run build
+
+FROM base AS runtime
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 --gid nodejs nextjs
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+USER nextjs
+EXPOSE 3000
+CMD ["node", "server.js"]

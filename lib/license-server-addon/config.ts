@@ -1,5 +1,6 @@
 export const LICENSE_SERVER_INSTALL_MODES = [
   "disabled",
+  "preinstalled",
   "managed_redeploy",
 ] as const;
 
@@ -12,6 +13,9 @@ export type LicenseServerRuntimeConfig = {
   redeployAuthKid: string | null;
   redeployAuthSecret: string | null;
   redeployWebhookUrl: string | null;
+  runtimeArtifactSha256: string | null;
+  runtimeBuildId: string | null;
+  runtimeReleaseId: string | null;
 };
 
 type EnvLike = Record<string, string | undefined>;
@@ -40,7 +44,11 @@ export function parseLicenseServerInstallMode(
   defaultValue: LicenseServerInstallMode = "disabled",
 ): LicenseServerInstallMode {
   const normalized = value?.trim().toLowerCase();
-  if (normalized === "disabled" || normalized === "managed_redeploy")
+  if (
+    normalized === "disabled" ||
+    normalized === "preinstalled" ||
+    normalized === "managed_redeploy"
+  )
     return normalized;
   return defaultValue;
 }
@@ -62,6 +70,15 @@ export function getLicenseServerRuntimeConfig(
     redeployWebhookUrl: readOptionalEnv(
       env,
       "LICENSE_SERVER_REDEPLOY_WEBHOOK_URL",
+    ),
+    runtimeArtifactSha256: readOptionalEnv(
+      env,
+      "LICENSE_SERVER_RUNTIME_ARTIFACT_SHA256",
+    ),
+    runtimeBuildId: readOptionalEnv(env, "LICENSE_SERVER_RUNTIME_BUILD_ID"),
+    runtimeReleaseId: readOptionalEnv(
+      env,
+      "LICENSE_SERVER_RUNTIME_RELEASE_ID",
     ),
   };
 }

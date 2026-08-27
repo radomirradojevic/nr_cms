@@ -34,6 +34,11 @@ import {
 } from "@/lib/vendor-addon-entitlements/activation-v2-contract";
 import { parseActivationChallengeV2Response } from "@/lib/vendor-addon-entitlements/activation-challenge-v2";
 import { evaluateWebshopPublicServingGateV1 } from "@/lib/addon-runtime/serving-gate";
+import {
+  addonReleaseMetadata,
+  cmsReleaseSha,
+  managedRuntimeBuildId,
+} from "@/.generated/addon-registry";
 import { resolvePersistentV2EntitlementRuntimeMode } from "@/lib/vendor-addon-entitlements/revalidation-policy";
 
 export const WebshopActivationResponseSchema = z.object({
@@ -353,15 +358,27 @@ export async function resolveWebshopAddonState(): Promise<WebshopAddonState> {
       return { status: "license_invalid", reason: "Webshop entitlement snapshot cannot be used." };
     }
   }
-  if (resolved.status !== "ready" || runtimeConfig.installMode !== "managed_redeploy") return resolved;
+  if (
+    resolved.status !== "ready" ||
+    !["managed_redeploy", "preinstalled"].includes(runtimeConfig.installMode)
+  )
+    return resolved;
   const { readWebshopServingStateV1 } = await import("@/data/webshop-addon-serving-state");
   const serving = await readWebshopServingStateV1();
+  const embedded = addonReleaseMetadata.webshop;
   const gate = evaluateWebshopPublicServingGateV1({
     entitlementValid: true,
     activeServingFenceCount: serving.activeServingFenceCount,
     installation: serving.installation && { status: serving.installation.status, runtimeStatus: serving.installation.runtimeStatus, installedReleaseId: serving.installation.installedReleaseId, installedBuildId: serving.installation.installedBuildId, installedArtifactSha256: serving.installation.installedArtifactSha256 },
     terminalReceipt: serving.terminalReceipt,
-    runtime: { releaseId: runtimeConfig.runtimeReleaseId, buildId: runtimeConfig.runtimeBuildId, artifactSha256: runtimeConfig.runtimeArtifactSha256 },
+    runtime: {
+      releaseId: runtimeConfig.runtimeReleaseId ?? embedded?.releaseId ?? null,
+      buildId: (runtimeConfig.runtimeBuildId ?? managedRuntimeBuildId) || null,
+      artifactSha256:
+        runtimeConfig.runtimeArtifactSha256 ??
+        embedded?.artifactSha256 ??
+        null,
+    },
   });
   return gate.ok ? resolved : { status: "install_pending" };
 }
@@ -712,7 +729,7 @@ function currentLicenseEnvironment(): "development" | "staging" | "production" {
   throw new Error("NR_LICENSE_ENVIRONMENT is required for activation.");
 }
 function currentHostCapabilitiesV1(installedAddonSchemaVersion: number) {
-  const cmsCommitSha = process.env.NR_CMS_RELEASE_SHA?.trim();
+  const cmsCommitSha = process.env.NR_CMS_RELEASE_SHA?.trim() || cmsReleaseSha;
   if (!cmsCommitSha) throw new Error("NR_CMS_RELEASE_SHA is required for signed activation host capabilities.");
   return buildHostCapabilitiesV1({
     cmsCommitSha,

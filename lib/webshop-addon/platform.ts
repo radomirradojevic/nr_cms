@@ -1,8 +1,4 @@
-import {
-  WEBSHOP_SUPPORTED_PROVIDERS,
-  type WebshopDeploymentPlatform,
-} from "@/lib/webshop-addon/contract";
-import { getMasterLicenseServerUrl } from "@/lib/master-license-server";
+import type { WebshopDeploymentPlatform } from "@/lib/webshop-addon/contract";
 
 type EnvLike = Record<string, string | undefined>;
 
@@ -11,13 +7,6 @@ export type WebshopDeploymentHint = {
   providerHint: "vercel" | "netlify" | "cloudflare" | "render" | "unknown";
   vercelEnv: string | null;
 };
-
-export type PlatformVerifyResponse = WebshopDeploymentPlatform;
-
-type SupportedWebshopDeploymentPlatform = Extract<
-  WebshopDeploymentPlatform,
-  { status: "supported" }
->;
 
 type SelfHostedWebshopDeploymentPlatform = Extract<
   WebshopDeploymentPlatform,
@@ -35,6 +24,13 @@ function readOptionalEnv(env: EnvLike, key: string): string | null {
 function normalizeSiteId(value: string | null | undefined): string | null {
   const normalized = value?.trim();
   return normalized ? normalized : null;
+}
+
+function readVercelProjectId(env: EnvLike): string | null {
+  const value =
+    readOptionalEnv(env, "NR_VERCEL_PROJECT_ID") ??
+    readOptionalEnv(env, "VERCEL_PROJECT_ID");
+  return value && /^[A-Za-z0-9_-]{3,160}$/.test(value) ? value : null;
 }
 
 export function getWebshopDeploymentHint(
@@ -100,10 +96,6 @@ export function getSelfHostedDeploymentPlatform({
   };
 }
 
-function joinUrl(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
-}
-
 export async function verifyWebshopDeploymentPlatform({
   env = process.env,
   fetcher = fetch,
@@ -114,47 +106,35 @@ export async function verifyWebshopDeploymentPlatform({
   selfHostedSiteId?: string | null;
 } = {}): Promise<WebshopDeploymentPlatform> {
   const hint = getWebshopDeploymentHint(env);
-  const licenseServerUrl = getMasterLicenseServerUrl(env);
+  void fetcher;
 
-  if (
-    hint.providerHint === "vercel" &&
-    hint.attestationToken &&
-    licenseServerUrl
-  ) {
-    try {
-      const response = await fetcher(
-        joinUrl(licenseServerUrl, "/api/webshop/platform/verify"),
-        {
-          body: JSON.stringify({
-            providerHint: hint.providerHint,
-            supportedProviders: WEBSHOP_SUPPORTED_PROVIDERS,
-            token: hint.attestationToken,
-          }),
-          headers: { "content-type": "application/json" },
-          method: "POST",
-        },
-      );
-
-      if (response.ok) {
-        const payload = (await response.json()) as PlatformVerifyResponse;
-        if (payload.status === "supported") return payload;
-      }
-    } catch {
-      /* fail closed below */
+  if (hint.providerHint === "vercel") {
+    if (hint.vercelEnv !== "production") {
+      return {
+        status: "unsupported",
+        reason: "non_production_vercel",
+        message:
+          "Paid add-on activation is restricted to the Vercel production environment.",
+      };
+    }
+    const projectId = readVercelProjectId(env);
+    if (!projectId) {
+      return {
+        status: "unsupported",
+        reason: "missing_project_identity",
+        message:
+          "Vercel activation requires NR_VERCEL_PROJECT_ID or VERCEL_PROJECT_ID.",
+      };
     }
     return {
-      status: "unsupported",
-      reason: "invalid_attestation",
-      message:
-        "Vercel deployment attestation could not be verified; self-hosted fallback is forbidden.",
+      deploymentEnvironment: "production",
+      mode: "project_domain_proof",
+      ownerId: `vercel-project:${projectId}`,
+      projectId,
+      provider: "vercel",
+      status: "supported",
     };
   }
-  if (hint.providerHint === "vercel")
-    return {
-      status: "unsupported",
-      reason: "missing_attestation",
-      message: "Vercel deployment requires a verified platform attestation.",
-    };
   if (env.WEBSHOP_DEPLOYMENT_MODE !== "self_hosted")
     return {
       status: "unsupported",
