@@ -1,6 +1,9 @@
 import "dotenv/config";
 
+import { assertConfiguredCmsVersion } from "./cms-release-contract.mjs";
+
 const env = process.env;
+assertConfiguredCmsVersion(env.NR_CMS_VERSION);
 const profile = required("NR_CMS_DEPLOYMENT_PROFILE");
 if (profile !== "vendor" && profile !== "client") fail("deployment_profile_invalid");
 if (required("NR_ADDON_SOURCE_MODE") !== "registry") fail("addon_source_mode_invalid");

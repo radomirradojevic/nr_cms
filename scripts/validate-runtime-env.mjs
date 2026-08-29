@@ -9,6 +9,7 @@ import {
   loadCmsCorePrivilegeManifest,
   resolveCmsCoreTarget,
 } from "./core-db-contract.mjs";
+import { assertConfiguredCmsVersion } from "./cms-release-contract.mjs";
 
 const DEFAULT_MASTER_LICENSE_SERVER_URL = "https://ls.nrcms.com";
 
@@ -92,6 +93,7 @@ const WEBSHOP_SECRET_KEYS = [
 const LICENSE_SERVER_SECRET_KEYS = ["LICENSE_SERVER_RUNTIME_HASH_SECRET"];
 
 export function validateRuntimeEnv(env = process.env) {
+  assertConfiguredCmsVersion(env.NR_CMS_VERSION);
   const deploymentProfile = readRequiredEnum(
     env,
     "NR_CMS_DEPLOYMENT_PROFILE",

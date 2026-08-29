@@ -74,6 +74,8 @@
     "acceptance:local:drills": "node scripts/night-raven-acceptance-harness.mjs local-drills",
     "acceptance:staging:provision": "node scripts/provision-github-staging-acceptance-inputs.mjs",
     "acceptance:staging:runner:build": "node scripts/build-night-raven-staging-runner.mjs",
+    "release:prepare": "node scripts/prepare-cms-release.mjs",
+    "release:verify": "node scripts/verify-cms-release.mjs",
     "release:production:authority:provision": "node scripts/provision-github-production-release-authority.mjs",
     "supply-chain:audit": "tsx scripts/audit-npm-supply-chain.ts",
     "supply-chain:audit:public": "tsx scripts/audit-npm-supply-chain.ts --public-only"

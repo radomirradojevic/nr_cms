@@ -60,6 +60,7 @@ next-env.d.ts
 !.github/workflows/
 .github/workflows/*
 !.github/workflows/ci.yml
+!.github/workflows/cms-release.yml
 !.github/workflows/private-release.yml
 !.github/workflows/production-addon-package-release.yml
 !.github/workflows/staging-acceptance.yml

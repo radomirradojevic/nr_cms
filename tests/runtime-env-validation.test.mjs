@@ -98,6 +98,23 @@ test("managed target runtime requires an exact CMS release commit outside build 
   );
 });
 
+test("a configured CMS version may only assert the package version", () => {
+  assert.doesNotThrow(() =>
+    validateRuntimeEnv({
+      ...baseEnvironment,
+      NR_CMS_VERSION: "0.1.0",
+    }),
+  );
+  assert.throws(
+    () =>
+      validateRuntimeEnv({
+        ...baseEnvironment,
+        NR_CMS_VERSION: "9.9.9",
+      }),
+    /NR_CMS_VERSION must exactly match package\.json version 0\.1\.0/,
+  );
+});
+
 test("enabled add-ons require their own settings and the shared encryption key", () => {
   assert.throws(
     () =>

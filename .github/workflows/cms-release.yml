@@ -1,0 +1,87 @@
+name: CMS Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cms-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'radomirradojevic/nr_cms'
+    name: Verify and publish immutable CMS release
+    runs-on: ubuntu-24.04
+    environment: cms-release-production
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.15.0
+          cache: npm
+
+      - name: Install frozen dependencies
+        run: npm ci --ignore-scripts --audit=false --fund=false
+
+      - name: Verify immutable CMS release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git cat-file -t "$GITHUB_REF_NAME")" = "tag"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+          npm run release:verify -- \
+            --tag "$GITHUB_REF_NAME" \
+            --sha "$GITHUB_SHA" \
+            --output "$RUNNER_TEMP/cms-release-manifest.json"
+
+      - name: Generate release-bound runtime identity
+        shell: bash
+        env:
+          NR_ADDON_SOURCE_MODE: empty
+          NR_CMS_RELEASE_SHA: ${{ github.sha }}
+        run: npm run addons:registry
+
+      - name: Verify release source
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+
+      - name: Verify clean public build boundary
+        run: npm run acceptance:public-copy
+
+      - name: Create immutable GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/cms-release-manifest.json"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            existing="$RUNNER_TEMP/existing-cms-release"
+            mkdir -p "$existing"
+            gh release download "$GITHUB_REF_NAME" \
+              --pattern cms-release-manifest.json \
+              --dir "$existing"
+            cmp --silent \
+              "$RUNNER_TEMP/cms-release-manifest.json" \
+              "$existing/cms-release-manifest.json"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "Night Raven CMS $GITHUB_REF_NAME" \
+              --generate-notes \
+              "$RUNNER_TEMP/cms-release-manifest.json#cms-release-manifest.json"
+          fi

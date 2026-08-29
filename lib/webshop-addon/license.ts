@@ -36,7 +36,9 @@ import { parseActivationChallengeV2Response } from "@/lib/vendor-addon-entitleme
 import { evaluateWebshopPublicServingGateV1 } from "@/lib/addon-runtime/serving-gate";
 import {
   addonReleaseMetadata,
+  cmsCoreSchemaVersion,
   cmsReleaseSha,
+  cmsVersion,
   managedRuntimeBuildId,
 } from "@/.generated/addon-registry";
 import { resolvePersistentV2EntitlementRuntimeMode } from "@/lib/vendor-addon-entitlements/revalidation-policy";
@@ -733,8 +735,8 @@ function currentHostCapabilitiesV1(installedAddonSchemaVersion: number) {
   if (!cmsCommitSha) throw new Error("NR_CMS_RELEASE_SHA is required for signed activation host capabilities.");
   return buildHostCapabilitiesV1({
     cmsCommitSha,
-    cmsVersion: process.env.NR_CMS_VERSION?.trim() || "0.1.0",
-    coreSchemaVersion: 1,
+    cmsVersion,
+    coreSchemaVersion: cmsCoreSchemaVersion,
     installedAddonSchemaVersion,
   });
 }

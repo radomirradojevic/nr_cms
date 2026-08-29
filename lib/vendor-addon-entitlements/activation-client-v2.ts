@@ -17,7 +17,11 @@ import {
   getOrCreateVendorAddonInstallationIdentity,
   signVendorAddonActivationPayload,
 } from "@/lib/vendor-addon-installation";
-import { cmsReleaseSha } from "@/.generated/addon-registry";
+import {
+  cmsCoreSchemaVersion,
+  cmsReleaseSha,
+  cmsVersion,
+} from "@/.generated/addon-registry";
 
 export const managedAddonActivationResponseV2Schema = z
   .object({
@@ -352,8 +356,8 @@ function currentHostCapabilitiesV1(installedAddonSchemaVersion: number) {
   }
   return buildHostCapabilitiesV1({
     cmsCommitSha,
-    cmsVersion: process.env.NR_CMS_VERSION?.trim() || "0.1.0",
-    coreSchemaVersion: 1,
+    cmsVersion,
+    coreSchemaVersion: cmsCoreSchemaVersion,
     installedAddonSchemaVersion,
   });
 }
