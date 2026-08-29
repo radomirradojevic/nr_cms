@@ -19,6 +19,24 @@ jobs:
     runs-on: ubuntu-24.04
     environment: cms-release-production
     timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16.11-alpine
+        env:
+          POSTGRES_DB: nr_cms_release_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nr_cms_release_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nr_cms_release_test
+      DRIZZLE_AUTO_MIGRATE: "false"
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nr_cms_release_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,6 +70,9 @@ jobs:
           NR_ADDON_SOURCE_MODE: empty
           NR_CMS_RELEASE_SHA: ${{ github.sha }}
         run: npm run addons:registry
+
+      - name: Test database migration
+        run: npm run db:migrate:test
 
       - name: Verify release source
         run: |

@@ -34,6 +34,18 @@ test("CMS release workflow verifies immutable tag, source, and package identity"
   assert.match(workflow, /npm run typecheck/);
   assert.match(workflow, /npm run lint/);
   assert.match(workflow, /npm test/);
+  assert.match(workflow, /services:\s*\n\s*postgres:/);
+  assert.match(workflow, /POSTGRES_DB: nr_cms_release_test/);
+  assert.match(
+    workflow,
+    /TEST_DATABASE_URL: postgresql:\/\/postgres:postgres@127\.0\.0\.1:5432\/nr_cms_release_test/,
+  );
+  const migrationIndex = workflow.indexOf("npm run db:migrate:test");
+  assert.ok(
+    migrationIndex < workflow.indexOf("npm test") &&
+      migrationIndex < workflow.indexOf("npm run acceptance:public-copy"),
+    "release workflow must migrate its isolated test database before test and public-copy gates",
+  );
   assert.match(workflow, /npm run acceptance:public-copy/);
   assert.match(workflow, /gh release create "\$GITHUB_REF_NAME"/);
   assert.match(workflow, /--verify-tag/);

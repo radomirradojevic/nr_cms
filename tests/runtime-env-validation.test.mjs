@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import test from "node:test";
 
+import { CMS_PACKAGE_VERSION } from "../scripts/cms-release-contract.mjs";
 import { validateRuntimeEnv } from "../scripts/validate-runtime-env.mjs";
 
 const baseEnvironment = {
@@ -102,7 +103,7 @@ test("a configured CMS version may only assert the package version", () => {
   assert.doesNotThrow(() =>
     validateRuntimeEnv({
       ...baseEnvironment,
-      NR_CMS_VERSION: "0.1.0",
+      NR_CMS_VERSION: CMS_PACKAGE_VERSION,
     }),
   );
   assert.throws(
@@ -111,7 +112,9 @@ test("a configured CMS version may only assert the package version", () => {
         ...baseEnvironment,
         NR_CMS_VERSION: "9.9.9",
       }),
-    /NR_CMS_VERSION must exactly match package\.json version 0\.1\.0/,
+    new RegExp(
+      `NR_CMS_VERSION must exactly match package\\.json version ${CMS_PACKAGE_VERSION.replaceAll(".", "\\.")}`,
+    ),
   );
 });
 

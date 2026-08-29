@@ -12,6 +12,7 @@ import {
   assertCmsVersionUpgrade,
   createCmsReleaseManifest,
 } from "../scripts/cms-release-contract.mjs";
+import { createNpmVersionCommand } from "../scripts/prepare-cms-release.mjs";
 import { verifyCmsRelease } from "../scripts/verify-cms-release.mjs";
 
 const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
@@ -44,6 +45,31 @@ test("CMS release preparation only moves version history forward", () => {
     () => assertCmsVersionUpgrade("0.1.9", "0.2.0"),
     /must be greater than current CMS version/,
   );
+});
+
+test("CMS release preparation invokes npm safely on Windows and POSIX", () => {
+  assert.deepEqual(
+    createNpmVersionCommand("0.1.1", {
+      platform: "win32",
+      comSpec: "C:\\Windows\\System32\\cmd.exe",
+    }),
+    {
+      command: "C:\\Windows\\System32\\cmd.exe",
+      args: [
+        "/d",
+        "/s",
+        "/c",
+        "npm",
+        "version",
+        "0.1.1",
+        "--no-git-tag-version",
+      ],
+    },
+  );
+  assert.deepEqual(createNpmVersionCommand("0.1.1", { platform: "linux" }), {
+    command: "npm",
+    args: ["version", "0.1.1", "--no-git-tag-version"],
+  });
 });
 
 test("stable CMS tags produce an immutable release manifest", () => {

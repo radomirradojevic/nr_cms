@@ -18,9 +18,21 @@ export function parseCmsReleasePreparationArguments(argv) {
 
 export async function prepareCmsRelease(argv = process.argv.slice(2)) {
   const nextVersion = parseCmsReleasePreparationArguments(argv);
-  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-  await run(npmCommand, ["version", nextVersion, "--no-git-tag-version"]);
+  const { command, args } = createNpmVersionCommand(nextVersion);
+  await run(command, args);
   return nextVersion;
+}
+
+export function createNpmVersionCommand(
+  nextVersion,
+  { platform = process.platform, comSpec = process.env.ComSpec } = {},
+) {
+  const npmArgs = ["version", nextVersion, "--no-git-tag-version"];
+  if (platform !== "win32") return { command: "npm", args: npmArgs };
+  return {
+    command: comSpec?.trim() || "cmd.exe",
+    args: ["/d", "/s", "/c", "npm", ...npmArgs],
+  };
 }
 
 function run(command, args) {
