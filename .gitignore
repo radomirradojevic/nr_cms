@@ -47,8 +47,8 @@ yarn-error.log*
 .private/
 
 # Internal architecture, operations, and package documentation.
-# Keep out of the public nr_cms repository.
-#/docs/
+# The canonical private checkout is .private/docs; do not recreate a public docs tree.
+/docs/
 
 # typescript
 *.tsbuildinfo
