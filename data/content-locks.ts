@@ -1,5 +1,4 @@
 // Race-safe primitives for content edit locks.
-// See .github/instructions/cms-content-edit-locking.instructions.md
 
 import { db } from "@/db";
 import { content, contentEditLockAudit, contentEditLocks } from "@/db/schema";

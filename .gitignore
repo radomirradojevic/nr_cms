@@ -55,13 +55,13 @@ yarn-error.log*
 next-env.d.ts
 
 .agents/
-# Keep local Copilot prompts/hooks/instructions private, but publish the reviewed
-# CI/release gates so GitHub can actually execute what the acceptance tests read.
+# Ignore local GitHub tooling except the reviewed CI/release workflows.
 .github/*
 !.github/workflows/
 .github/workflows/*
 !.github/workflows/ci.yml
 !.github/workflows/private-release.yml
+!.github/workflows/production-addon-package-release.yml
 !.github/workflows/staging-acceptance.yml
 !.github/workflows/production-rollout.yml
 AGENTS.md

@@ -1,6 +1,5 @@
 // Race-safe primitives for admin section edit locks.
-// Mirrors data/content-locks.ts. See:
-//   .github/instructions/cms-content-edit-locking.instructions.md
+// Mirrors data/content-locks.ts.
 
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
 

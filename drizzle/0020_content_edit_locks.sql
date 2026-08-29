@@ -1,5 +1,5 @@
 -- Content edit locking: short-lived heartbeat-refreshed leases + optimistic
--- concurrency. See .github/instructions/cms-content-edit-locking.instructions.md
+-- concurrency.
 
 -- Optimistic concurrency column on content.
 ALTER TABLE "content"

@@ -1,5 +1,4 @@
 // Content edit lock — shared constants, types, and authorization helpers.
-// See .github/instructions/cms-content-edit-locking.instructions.md
 
 import type { ContentRow } from "@/data/content";
 import {

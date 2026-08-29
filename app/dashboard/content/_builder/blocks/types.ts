@@ -10,9 +10,8 @@ import type {
 import type { BlockStyle } from "./style/types";
 
 /**
- * Every block carries an optional unified `style` envelope. See
- * `./style/types.ts` and
- * `.github/instructions/cms-page-builder-block-properties.instructions.md`.
+ * Every block carries an optional unified `style` envelope defined in
+ * `./style/types.ts`.
  */
 export type StyledProps = { style?: BlockStyle };
 

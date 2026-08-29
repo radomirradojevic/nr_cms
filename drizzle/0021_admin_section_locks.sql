@@ -1,7 +1,6 @@
 -- Admin section locks: same collaborative edit-locking pattern as
 -- content_edit_locks but keyed by a string section_key (no FK), so it can
 -- guard admin singleton pages (global-settings, top-menu).
--- See .github/instructions/cms-content-edit-locking.instructions.md
 
 CREATE TABLE "admin_section_locks" (
   "section_key" text PRIMARY KEY NOT NULL,

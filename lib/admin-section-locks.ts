@@ -5,8 +5,6 @@
 // to a single `content` row. The pattern (short-lived leases + heartbeats +
 // optimistic save check) is identical; only the resource identifier changes
 // from a `content.id` UUID to a string `section_key`.
-//
-// See .github/instructions/cms-content-edit-locking.instructions.md
 
 import { hasRole, type Role } from "@/lib/roles";
 

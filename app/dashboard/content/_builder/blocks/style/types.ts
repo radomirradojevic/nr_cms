@@ -6,8 +6,6 @@
  *   time via `./tokens.ts`), or escape-hatch CSS color strings.
  * - Length fields use CSS strings with units (`"16px"`, `"1.5rem"`,
  *   `"50%"`, `"auto"`).
- *
- * See `.github/instructions/cms-page-builder-block-properties.instructions.md`.
  */
 
 export type Viewport = "desktop" | "tablet" | "mobile";

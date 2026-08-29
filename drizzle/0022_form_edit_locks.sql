@@ -1,6 +1,5 @@
 -- Form Builder edit locking: short-lived heartbeat-refreshed leases.
 -- Admin-only and form-scoped; no takeover between administrators.
--- See .github/instructions/cms-content-edit-locking.instructions.md
 
 CREATE TABLE "form_edit_locks" (
   "form_id" uuid PRIMARY KEY NOT NULL,

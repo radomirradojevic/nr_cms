@@ -2155,7 +2155,6 @@ export const globalSettings = pgTable(
 );
 
 // ─── Content edit locks ─────────────────────────────────────────────────────
-// See .github/instructions/cms-content-edit-locking.instructions.md
 export const contentEditLocks = pgTable(
   "content_edit_locks",
   {
@@ -2212,7 +2211,6 @@ export const contentEditLockAudit = pgTable(
 // ─── Form edit locks ────────────────────────────────────────────────────────
 // Form Builder forms are admin-only, so this mirrors admin section locking:
 // one active short-lived lease per form, without takeover between admins.
-// See .github/instructions/cms-content-edit-locking.instructions.md
 export const formEditLocks = pgTable(
   "form_edit_locks",
   {
@@ -2269,7 +2267,6 @@ export const formEditLockAudit = pgTable(
 // Same collaborative edit-locking pattern as `content_edit_locks`, but keyed
 // by a string `section_key` so it can be applied to admin singleton pages
 // (e.g. `global-settings`, `top-menu`) that are not row-scoped.
-// See .github/instructions/cms-content-edit-locking.instructions.md
 export const adminSectionLocks = pgTable(
   "admin_section_locks",
   {

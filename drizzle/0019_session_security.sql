@@ -1,7 +1,6 @@
 -- Add configurable session security timers to global_settings:
 --   * max_session_duration_minutes — absolute session lifetime
 --   * idle_logout_minutes — sliding idle window
--- See .github/instructions/session-security.instructions.md
 
 ALTER TABLE "global_settings"
   ADD COLUMN "max_session_duration_minutes" integer NOT NULL DEFAULT 480;--> statement-breakpoint
